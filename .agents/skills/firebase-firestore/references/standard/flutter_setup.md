@@ -14,7 +14,7 @@ flutter pub add cloud_firestore
 
 Also, ensure FlutterFire is configured properly for your target platforms.
 
-______________________________________________________________________
+---
 
 ## 2. Best Practices: Type-Safe Models
 
@@ -44,8 +44,8 @@ class Item {
       id: doc.id,
       name: data['name'] as String? ?? '',
       ownerId: data['ownerId'] as String? ?? '',
-      createdAt: data['createdAt'] is Timestamp 
-          ? (data['createdAt'] as Timestamp).toDate() 
+      createdAt: data['createdAt'] is Timestamp
+          ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
     );
   }
@@ -60,7 +60,7 @@ class Item {
 }
 ```
 
-______________________________________________________________________
+---
 
 ## 3. The Service Layer
 
@@ -133,7 +133,7 @@ class ItemService {
 }
 ```
 
-______________________________________________________________________
+---
 
 ## 4. Listening to Streams in the UI (`StreamBuilder`)
 

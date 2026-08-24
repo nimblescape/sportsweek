@@ -30,12 +30,12 @@ firebase init dataconnect:sdk
 ### Initialization
 
 ```typescript
-import { connectDataConnectEmulator, getDataConnect } from 'firebase/data-connect';
-import { connectorConfig } from '@dataconnect/generated';
+import { connectDataConnectEmulator, getDataConnect } from "firebase/data-connect";
+import { connectorConfig } from "@dataconnect/generated";
 
 const dataConnect = getDataConnect(connectorConfig);
 // Configure the SDK to use local emulator
-connectDataConnectEmulator(dataConnect, 'localhost', 9399);
+connectDataConnectEmulator(dataConnect, "localhost", 9399);
 ```
 
 ### Calling Operations
@@ -43,8 +43,8 @@ connectDataConnectEmulator(dataConnect, 'localhost', 9399);
 #### Using `executeQuery` (Preferred for clarity)
 
 ```typescript
-import { executeQuery } from 'firebase/data-connect';
-import { listMoviesRef } from '@dataconnect/generated';
+import { executeQuery } from "firebase/data-connect";
+import { listMoviesRef } from "@dataconnect/generated";
 
 const ref = listMoviesRef();
 const { data } = await executeQuery(ref);
@@ -54,9 +54,9 @@ console.log(data.movies);
 #### Using Action Shortcuts
 
 ```typescript
-import { listMovies } from '@dataconnect/generated';
+import { listMovies } from "@dataconnect/generated";
 
-listMovies().then(data => showInUI(data));
+listMovies().then((data) => showInUI(data));
 ```
 
 ### Resilient Enum Handling
@@ -64,21 +64,21 @@ listMovies().then(data => showInUI(data));
 Use a `default` case or check against `Object.values`.
 
 ```typescript
-import { getOldestMovie } from '@dataconnect/generated';
+import { getOldestMovie } from "@dataconnect/generated";
 
 const queryResult = await getOldestMovie();
 
 if (queryResult.data) {
   const oldestMovieAspectRatio = queryResult.data.originalAspectRatio;
   switch (oldestMovieAspectRatio) {
-      case AspectRatio.ACADEMY:
-      case AspectRatio.WIDESCREEN:
-        console.log('Filmed in Academy or Widescreen!');
-        break;
-      default:
-        // The default case will catch FULLSCREEN, etc.
-        console.log('Not filmed in Academy or Widescreen.');
-        break;
+    case AspectRatio.ACADEMY:
+    case AspectRatio.WIDESCREEN:
+      console.log("Filmed in Academy or Widescreen!");
+      break;
+    default:
+      // The default case will catch FULLSCREEN, etc.
+      console.log("Not filmed in Academy or Widescreen.");
+      break;
   }
 }
 ```
@@ -111,8 +111,8 @@ Use `subscribe()` to receive live updates.
 #### Web (Vanilla JS)
 
 ```typescript
-import { subscribe } from 'firebase/data-connect';
-import { getMovieByIdRef } from '@dataconnect/generated';
+import { subscribe } from "firebase/data-connect";
+import { getMovieByIdRef } from "@dataconnect/generated";
 
 const queryRef = getMovieByIdRef({ id: "<MOVIE_ID>" });
 

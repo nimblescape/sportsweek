@@ -36,7 +36,7 @@ let connector = DataConnect.moviesConnector
 
 // For local development with emulator
 // Defaults to 127.0.0.1:9399
-connector.useEmulator() 
+connector.useEmulator()
 // Or specify a non-default port:
 // connector.useEmulator(port: 9999)
 ```

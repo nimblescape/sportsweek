@@ -2,13 +2,14 @@
 compatibility: This skill is best used with the Firebase CLI, but does not require it. Firebase CLI can be accessed through `npx -y firebase-tools@latest`.
 description: Guide for setting up and using Firebase Authentication. Use this skill when the user's app requires user sign-in, user management, or secure data access using auth rules.
 metadata:
-    category: Identity
-    github-path: skills/firebase-auth-basics
-    github-ref: refs/heads/main
-    github-repo: https://github.com/firebase/skills
-    github-tree-sha: 3f9f6d14124d720e60f8ebf77602341f94d26932
+  category: Identity
+  github-path: skills/firebase-auth-basics
+  github-ref: refs/heads/main
+  github-repo: https://github.com/firebase/skills
+  github-tree-sha: 3f9f6d14124d720e60f8ebf77602341f94d26932
 name: firebase-auth-basics
 ---
+
 ## Prerequisites
 
 - **Firebase Project**: Created via

@@ -5,6 +5,7 @@ description: "Use when deciding where to put new backend logic, API endpoints, o
 # Architecture & Stack Conventions
 
 ## Stack
+
 - Framework: Next.js (App Router), used as Backend-for-Frontend (BFF)
 - Styling: Tailwind CSS
 - UI components: shadcn/ui
@@ -16,19 +17,19 @@ description: "Use when deciding where to put new backend logic, API endpoints, o
 
 ## Where does logic belong?
 
-| Use case | Recommendation |
-|---|---|
-| API used only by the Next.js web app | Next.js Route Handler |
-| CRUD with privileged server access | Next.js Route Handler |
-| Server Action triggered from a React form | Next.js Server Action |
-| Public API for multiple clients | Cloud Function or Cloud Run |
-| Firestore document created/changed | Cloud Function (Firestore trigger) |
-| File uploaded | Cloud Function (Storage trigger) |
-| Scheduled daily job | Cloud Function (Scheduler) |
-| Queue, Pub/Sub, or Eventarc | Cloud Function |
-| Long-running background processing | Cloud Function |
-| External webhook | Usually a Cloud Function |
-| Real-time data for signed-in users | Direct Firestore Client SDK access, governed by Security Rules |
+| Use case                                       | Recommendation                                                                     |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------- |
+| API used only by the Next.js web app           | Next.js Route Handler                                                              |
+| CRUD with privileged server access             | Next.js Route Handler                                                              |
+| Server Action triggered from a React form      | Next.js Server Action                                                              |
+| Public API for multiple clients                | Cloud Function or Cloud Run                                                        |
+| Firestore document created/changed             | Cloud Function (Firestore trigger)                                                 |
+| File uploaded                                  | Cloud Function (Storage trigger)                                                   |
+| Scheduled daily job                            | Cloud Function (Scheduler)                                                         |
+| Queue, Pub/Sub, or Eventarc                    | Cloud Function                                                                     |
+| Long-running background processing             | Cloud Function                                                                     |
+| External webhook                               | Usually a Cloud Function                                                           |
+| Real-time data for signed-in users             | Direct Firestore Client SDK access, governed by Security Rules                     |
 | Microsoft Graph calls with confidential tokens | Next.js Route Handler or Cloud Function — never expose Graph tokens to the browser |
 
 ## Layers
@@ -54,6 +55,7 @@ Cloud Functions
 ```
 
 ## Rules
+
 - Never call the Firebase Admin SDK or use service credentials from the browser — only from Route Handlers, Server Actions, or Cloud Functions.
 - Use Cloud Functions (not Route Handlers) for anything triggered by Firestore/Storage events, schedules, queues, or external webhooks — Route Handlers only run in response to HTTP requests to the Next.js app.
 - Prefer direct Firestore Client SDK reads for real-time UI data instead of round-tripping through Next.js, as long as Security Rules can express the authorization.

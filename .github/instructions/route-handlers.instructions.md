@@ -6,6 +6,7 @@ applyTo: "app/api/**/*.ts, src/app/api/**/*.ts"
 # Route Handler Conventions
 
 ## Zod Schemas
+
 - Define request body/query/param schemas with Zod — colocate handler-specific schemas in the route file, put schemas shared across routes in `lib/schemas/`.
 - Parse input with `schema.safeParse(...)`, never `.parse()`, so validation failures are handled explicitly instead of throwing.
 - Infer TypeScript types from schemas with `z.infer<typeof schema>` instead of writing parallel types.
@@ -44,14 +45,15 @@ export const ErrorCodeSchema = z.enum(ErrorCode);
 ```
 
 ## Status Codes
-| Status | Code | When |
-|---|---|---|
-| 400 | `ErrorCode.ValidationError` | Zod `safeParse` failed |
-| 401 | `ErrorCode.AuthenticationRequired` | No/invalid session |
-| 403 | `ErrorCode.PermissionDenied` | Authenticated but missing required role/permission |
-| 404 | `ErrorCode.NotFound` | Referenced Firestore document / resource doesn't exist |
-| 409 | `ErrorCode.Conflict` | Duplicate, concurrent update |
-| 500 | `ErrorCode.InternalError` | Unexpected error / Admin SDK failure — log server-side, return a sanitized message |
+
+| Status | Code                               | When                                                                               |
+| ------ | ---------------------------------- | ---------------------------------------------------------------------------------- |
+| 400    | `ErrorCode.ValidationError`        | Zod `safeParse` failed                                                             |
+| 401    | `ErrorCode.AuthenticationRequired` | No/invalid session                                                                 |
+| 403    | `ErrorCode.PermissionDenied`       | Authenticated but missing required role/permission                                 |
+| 404    | `ErrorCode.NotFound`               | Referenced Firestore document / resource doesn't exist                             |
+| 409    | `ErrorCode.Conflict`               | Duplicate, concurrent update                                                       |
+| 500    | `ErrorCode.InternalError`          | Unexpected error / Admin SDK failure — log server-side, return a sanitized message |
 
 Only add a new member to `ErrorCode` when none of the above fit.
 
@@ -66,7 +68,13 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json(
-      { error: { code: ErrorCode.ValidationError, message: "Invalid request body", details: parsed.error.flatten() } },
+      {
+        error: {
+          code: ErrorCode.ValidationError,
+          message: "Invalid request body",
+          details: parsed.error.flatten(),
+        },
+      },
       { status: 400 },
     );
   }
@@ -76,5 +84,6 @@ export async function POST(req: Request) {
 ```
 
 ## Rules
+
 - Never return raw Zod errors, exceptions, or stack traces directly to the client — always map to the standard envelope above.
 - Log the full error server-side before returning a sanitized 500 response.

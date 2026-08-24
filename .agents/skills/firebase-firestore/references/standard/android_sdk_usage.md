@@ -12,7 +12,7 @@ service in your Firebase Project using the Firebase CLI:
 npx -y firebase-tools@latest init firestore
 ```
 
-______________________________________________________________________
+---
 
 ### 1. Add Dependencies
 
@@ -30,7 +30,7 @@ dependencies {
 }
 ```
 
-______________________________________________________________________
+---
 
 ### 2. Initialize Firestore
 
@@ -48,7 +48,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val db = Firebase.firestore
-        
+
         setContent {
             MaterialTheme {
                 Text("Firestore initialized!")
@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val db = Firebase.firestore
-        
+
         setContent {
             MaterialTheme {
                 Text("Firestore initialized!")
@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-______________________________________________________________________
+---
 
 ### 3. Add Data
 
@@ -125,7 +125,7 @@ db.collection("cities").document("LA")
     .addOnFailureListener { e -> Log.w(TAG, "Error writing document", e) }
 ```
 
-______________________________________________________________________
+---
 
 ### 4. Read Data
 
@@ -162,7 +162,7 @@ db.collection("cities")
     }
 ```
 
-______________________________________________________________________
+---
 
 ### 5. Update Data
 
@@ -179,7 +179,7 @@ washingtonRef
     .addOnFailureListener { e -> Log.w(TAG, "Error updating document", e) }
 ```
 
-______________________________________________________________________
+---
 
 ### 6. Delete Data
 

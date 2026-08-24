@@ -4,7 +4,7 @@ Use this reference to populate local development databases for prototyping,
 execute CI/CD tests, and perform bulk data migrations in production
 environments.
 
-______________________________________________________________________
+---
 
 ## 1. Local Prototyping: Data Seeding
 
@@ -33,21 +33,24 @@ When executing standard bulk insertions (`_insertMany`) across multiple tables,
 # dataconnect/seed_data.gql
 mutation SeedIndependentTables @transaction {
   # Step 1: Seed parent tables
-  movie_insertMany(data: [
-    { id: "m-1", title: "Inception", genre: "sci-fi" },
-    { id: "m-2", title: "The Matrix", genre: "action" }
-  ])
+  movie_insertMany(
+    data: [
+      { id: "m-1", title: "Inception", genre: "sci-fi" }
+      { id: "m-2", title: "The Matrix", genre: "action" }
+    ]
+  )
 
-  actor_insertMany(data: [
-    { id: "a-1", name: "Leonardo DiCaprio" },
-    { id: "a-2", name: "Keanu Reeves" }
-  ])
+  actor_insertMany(
+    data: [{ id: "a-1", name: "Leonardo DiCaprio" }, { id: "a-2", name: "Keanu Reeves" }]
+  )
 
   # Step 2: Seed join table (depends on pre-existing parent IDs)
-  movieActor_insertMany(data: [
-    { movie: { id: "m-1" }, actor: { id: "a-1" }, role: "main" },
-    { movie: { id: "m-2" }, actor: { id: "a-2" }, role: "main" }
-  ])
+  movieActor_insertMany(
+    data: [
+      { movie: { id: "m-1" }, actor: { id: "a-1" }, role: "main" }
+      { movie: { id: "m-2" }, actor: { id: "a-2" }, role: "main" }
+    ]
+  )
 }
 ```
 
@@ -64,26 +67,28 @@ manually.
 ```graphql
 # dataconnect/seed_data.gql
 mutation SeedMoviesAndReviews @transaction {
-  movie_insert(data: {
-    id: "m-1",
-    title: "Inception",
-    genre: "sci-fi",
-    # Nested reviews are inserted atomically without manual movieId mapping
-    reviews_on_movie: [
-      {
-        id: "r-1",
-        rating: 5,
-        reviewText: "Mind-bending masterpiece!",
-        user: { id: "user-123" } # Links to pre-existing user
-      },
-      {
-        id: "r-2",
-        rating: 4,
-        reviewText: "Visually stunning but complex.",
-        user: { id: "user-456" }
-      }
-    ]
-  })
+  movie_insert(
+    data: {
+      id: "m-1"
+      title: "Inception"
+      genre: "sci-fi"
+      # Nested reviews are inserted atomically without manual movieId mapping
+      reviews_on_movie: [
+        {
+          id: "r-1"
+          rating: 5
+          reviewText: "Mind-bending masterpiece!"
+          user: { id: "user-123" } # Links to pre-existing user
+        }
+        {
+          id: "r-2"
+          rating: 4
+          reviewText: "Visually stunning but complex."
+          user: { id: "user-456" }
+        }
+      ]
+    }
+  )
 }
 ```
 
@@ -110,7 +115,7 @@ mutation ResetDatabaseToOriginalState @transaction {
 }
 ```
 
-______________________________________________________________________
+---
 
 ## 2. Production: Admin SDK Bulk Operations
 
@@ -131,8 +136,8 @@ The Admin SDK provides direct, type-safe methods: `dc.insert`, `dc.insertMany`,
 ### SDK Bulk Operations Example
 
 ```typescript
-import { initializeApp } from 'firebase-admin/app';
-import { getDataConnect } from 'firebase-admin/data-connect';
+import { initializeApp } from "firebase-admin/app";
+import { getDataConnect } from "firebase-admin/data-connect";
 
 const app = initializeApp();
 const dc = getDataConnect({ location: "us-west2", serviceId: "my-service" });
@@ -147,9 +152,9 @@ const bulkMoviesData = [
       {
         rating: 5,
         reviewText: "Incredible concept.",
-        user: { id: "user-123" }
-      }
-    ]
+        user: { id: "user-123" },
+      },
+    ],
   },
   {
     id: "m-2",
@@ -159,17 +164,17 @@ const bulkMoviesData = [
       {
         rating: 5,
         reviewText: "A classic.",
-        user: { id: "user-456" }
-      }
-    ]
-  }
+        user: { id: "user-456" },
+      },
+    ],
+  },
 ];
 
 // Atomically load thousands of records (parent and child tables combined)
 const response = await dc.insertMany("movie", bulkMoviesData);
 ```
 
-______________________________________________________________________
+---
 
 ## 3. Production: Bulk Operations via raw SQL
 

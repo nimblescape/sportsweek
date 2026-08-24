@@ -9,7 +9,7 @@
 - [Emulator](#emulator)
 - [Deployment](#deployment)
 
-______________________________________________________________________
+---
 
 ## Project Structure
 
@@ -26,7 +26,7 @@ project-root/
         └── mutations.gql   # Mutation operations (optional separate file)
 ```
 
-______________________________________________________________________
+---
 
 ## dataconnect.yaml
 
@@ -63,12 +63,12 @@ connectorDirs: ["./connector"]
 schema:
   datasource:
     postgresql:
-      database: "my-database"      # Database name
+      database: "my-database" # Database name
       cloudSql:
-        instanceId: "my-instance"  # Cloud SQL instance ID
+        instanceId: "my-instance" # Cloud SQL instance ID
 ```
 
-______________________________________________________________________
+---
 
 ## connector.yaml
 
@@ -96,7 +96,7 @@ generate:
 | `swiftSdk`      | `outputDir`                            |
 | `nodeAdminSdk`  | `outputDir`, `package` (for Admin SDK) |
 
-______________________________________________________________________
+---
 
 ## Firebase CLI Commands
 
@@ -150,7 +150,7 @@ npx -y firebase-tools@latest deploy --only dataconnect:connector-id
 npx -y firebase-tools@latest deploy --only dataconnect --force
 ```
 
-______________________________________________________________________
+---
 
 ## Emulator
 
@@ -205,7 +205,7 @@ npx -y firebase-tools@latest emulators:export ./seed-data
 npx -y firebase-tools@latest emulators:start --only dataconnect --import=./seed-data
 ```
 
-______________________________________________________________________
+---
 
 ## Deployment
 
@@ -250,7 +250,7 @@ Use `--force` flag to acknowledge breaking changes during deploy.
     npx -y firebase-tools@latest deploy --only dataconnect --token ${{ secrets.FIREBASE_TOKEN }} --force
 ```
 
-______________________________________________________________________
+---
 
 ## VS Code Extension
 

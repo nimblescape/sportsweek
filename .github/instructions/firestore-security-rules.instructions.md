@@ -6,11 +6,13 @@ applyTo: "firestore.rules, **/firestore.rules"
 # Firestore Security Rules — Role Model
 
 ## Role Storage
+
 - Roles live in `/users/{uid}` as an array field: `roles: string[]`, values `"admin" | "teacher" | "student"`.
 - A user can hold multiple roles (e.g. a teacher who is also an admin) — always check membership in the array, never equality against a single string.
 - Never let a client write its own `/users/{uid}.roles` field. Role changes must go through a privileged Route Handler / Cloud Function using the Admin SDK (which bypasses rules). In rules, deny any update that touches `roles` unless the requester is already an admin.
 
 ## Helper Functions
+
 ```
 function isSignedIn() {
   return request.auth != null;
@@ -33,6 +35,7 @@ function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
 `get()` calls count as a document read and add latency — call `getRoles()` once per rule (e.g. via `let`) instead of once per helper if a rule needs several role checks.
 
 ## Access Pattern for Student-Owned Records (Template)
+
 This is a template, not a fixed field list — before applying it to a real collection, derive `lockedFields` from that collection's actual Zod schema instead of guessing or reusing another collection's fields:
 
 1. Find the collection's schema, typically `lib/schemas/<collection>.ts` (e.g. `studentRecordSchema`).
@@ -65,6 +68,7 @@ match /studentRecords/{studentId} {
 - Apply the same `isAdmin() || isTeacher() || isSelf(...)` + schema-derived-denylist shape to any other collection where students own most fields but a few must stay locked — re-deriving `lockedFields` from that collection's own schema each time, never copy-pasting another collection's field list.
 
 ## Rules
+
 - Every `allow write`/`allow update` must be reachable by at least one role — don't rely on rules that are unreachable due to earlier broader `allow` statements.
 - Write `create` and `update` rules separately when the allowed fields or roles differ between the two (e.g. only admin/teacher can `create`, but the owning student can `update` a subset of fields).
 - Validate field types and required keys on `create` (`request.resource.data.keys().hasOnly([...])`, `is string`, `is timestamp`, etc.) — don't only check role/ownership.

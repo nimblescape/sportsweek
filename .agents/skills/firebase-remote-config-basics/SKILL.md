@@ -2,13 +2,14 @@
 compatibility: This skill is best used with the Firebase CLI, but does not require it. Firebase CLI can be accessed through `npx -y firebase-tools@latest`.
 description: Manages Firebase Remote Config templates, feature flags, loading strategies, and SDKs (Android, iOS). Use when downloading/deploying remoteconfig JSON templates, managing version history/feature flags, setting in-app defaults, fetchAndActivate(), real-time listeners, or SDK setup. Don't use for Firebase Hosting, Auth, Firestore, Data Connect, Crashlytics, or App Hosting.
 metadata:
-    category: ApplicationDevelopment
-    github-path: skills/firebase-remote-config-basics
-    github-ref: refs/heads/main
-    github-repo: https://github.com/firebase/skills
-    github-tree-sha: 87d09c57333597c632a320f4c4e583bd708501ae
+  category: ApplicationDevelopment
+  github-path: skills/firebase-remote-config-basics
+  github-ref: refs/heads/main
+  github-repo: https://github.com/firebase/skills
+  github-tree-sha: 87d09c57333597c632a320f4c4e583bd708501ae
 name: firebase-remote-config-basics
 ---
+
 # Remote Config
 
 This skill provides a complete guide for getting started with Remote Config on
@@ -103,11 +104,11 @@ history through the terminal:
     local JSON to the Remote Config service:
 
   ```json
-    { "remoteconfig": { "template": "remote_config.json" } }
+  { "remoteconfig": { "template": "remote_config.json" } }
   ```
 
   - Deploy: Execute the partial deployment command
-    
+
     ```bash
     npx -y firebase-tools@latest deploy --only remoteconfig
     ```

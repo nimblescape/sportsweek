@@ -5,7 +5,7 @@ using the compatibility shim, you can destructure the V2 event object using the
 exact parameter names from the legacy V1 trigger signature (`change`,
 `snapshot`, `message`, `object`) alongside `context`.
 
-______________________________________________________________________
+---
 
 ## Cloud Firestore
 
@@ -16,7 +16,7 @@ ______________________________________________________________________
 | `firestore.document().onUpdate()` | `onDocumentUpdated()` | `({ change, context })`   |
 | `firestore.document().onDelete()` | `onDocumentDeleted()` | `({ snapshot, context })` |
 
-______________________________________________________________________
+---
 
 ## Cloud Pub/Sub
 
@@ -28,7 +28,7 @@ ______________________________________________________________________
 > [!NOTE] Scheduled functions moved from the `pubsub` namespace to the
 > `scheduler` namespace in V2.
 
-______________________________________________________________________
+---
 
 ## Realtime Database
 
@@ -39,7 +39,7 @@ ______________________________________________________________________
 | `database.ref().onUpdate()` | `onValueUpdated()` | `({ change, context })`   |
 | `database.ref().onDelete()` | `onValueDeleted()` | `({ snapshot, context })` |
 
-______________________________________________________________________
+---
 
 ## Cloud Storage
 
@@ -50,7 +50,7 @@ ______________________________________________________________________
 | `storage.object().onFinalize()`       | `onObjectFinalized()`       | `({ object, context })` |
 | `storage.object().onMetadataUpdate()` | `onObjectMetadataUpdated()` | `({ object, context })` |
 
-______________________________________________________________________
+---
 
 ## HTTP / Callables
 
@@ -64,7 +64,7 @@ ______________________________________________________________________
 > should destructure properties like `data`, `auth`, and `app` directly from it.
 > The traditional `context` object is **unavailable**.
 
-______________________________________________________________________
+---
 
 ## Auth (Blocking)
 
@@ -75,7 +75,7 @@ ______________________________________________________________________
 
 > [!NOTE] Auth Blocking triggers moved to the `identity` namespace in V2.
 
-______________________________________________________________________
+---
 
 ## Cloud Tasks
 

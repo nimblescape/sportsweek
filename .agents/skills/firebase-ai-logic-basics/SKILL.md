@@ -1,14 +1,15 @@
 ---
 description: Official skill for integrating Firebase AI Logic (Gemini API) into web applications. Covers setup, multimodal inference, structured output, and security.
 metadata:
-    category: AiAndMachineLearning
-    github-path: skills/firebase-ai-logic-basics
-    github-ref: refs/heads/main
-    github-repo: https://github.com/firebase/skills
-    github-tree-sha: 9da69b714f99eb2022090fcb6d3b189703d358e3
+  category: AiAndMachineLearning
+  github-path: skills/firebase-ai-logic-basics
+  github-ref: refs/heads/main
+  github-repo: https://github.com/firebase/skills
+  github-tree-sha: 9da69b714f99eb2022090fcb6d3b189703d358e3
 name: firebase-ai-logic-basics
 version: 1.0.1
 ---
+
 # Firebase AI Logic Basics
 
 ## Overview
@@ -21,10 +22,10 @@ of Google's AI integration platform for mobile and web developers.
 
 It supports the two Gemini API providers:
 
--   **Gemini Developer API**: It has a free tier ideal for prototyping, and
-    pay-as-you-go for production
--   **Agent Platform Gemini API** (formerly branded Vertex AI): Ideal for scale
-    with enterprise-grade production readiness, requires Blaze plan
+- **Gemini Developer API**: It has a free tier ideal for prototyping, and
+  pay-as-you-go for production
+- **Agent Platform Gemini API** (formerly branded Vertex AI): Ideal for scale
+  with enterprise-grade production readiness, requires Blaze plan
 
 Use the Gemini Developer API as a default, and only Agent Platform Gemini API
 (formerly branded Vertex AI) if the application requires it.
@@ -33,13 +34,13 @@ Use the Gemini Developer API as a default, and only Agent Platform Gemini API
 
 ### Prerequisites
 
--   Before starting, ensure you have **Node.js 16+** and npm installed. Install
-    them if they aren’t already available.
--   Identify the platform the user is interested in building on prior to
-    starting: Android, iOS, Flutter or Web.
--   If their platform is unsupported, Direct the user to Firebase Docs to learn
-    how to set up AI Logic for their application (share this link with the user
-    https://firebase.google.com/docs/ai-logic/get-started)
+- Before starting, ensure you have **Node.js 16+** and npm installed. Install
+  them if they aren’t already available.
+- Identify the platform the user is interested in building on prior to
+  starting: Android, iOS, Flutter or Web.
+- If their platform is unsupported, Direct the user to Firebase Docs to learn
+  how to set up AI Logic for their application (share this link with the user
+  https://firebase.google.com/docs/ai-logic/get-started)
 
 ### Installation
 
@@ -100,7 +101,7 @@ faster display of results.
 > [Firebase AI Logic Models documentation](https://firebase.google.com/docs/ai-logic/models.md.txt)
 > for the currently supported image generation (Nano Banana) model names.
 
--   Requires an upgraded Blaze pay-as-you-go billing plan.
+- Requires an upgraded Blaze pay-as-you-go billing plan.
 
 ### Search Grounding with the built in googleSearch tool
 
@@ -144,14 +145,14 @@ Tokens** during development and testing to bypass standard attestation.
 ##### Local Development (Auto-Generated)
 
 1.  Configure your code's App Check provider to use the debug factory:
-    *   **Web**: Set `self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;` before
-        initializing App Check.
-    *   **Android**: Install `DebugAppCheckProviderFactory.getInstance()`.
-    *   **iOS**: Set provider factory to `AppCheckDebugProviderFactory()`.
+    - **Web**: Set `self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;` before
+      initializing App Check.
+    - **Android**: Install `DebugAppCheckProviderFactory.getInstance()`.
+    - **iOS**: Set provider factory to `AppCheckDebugProviderFactory()`.
 2.  Run your app in the emulator/localhost.
 3.  Look at your runtime debugger console / Logcat logs for the generated UUID:
-    *   *Example:* `AppCheck debug token:
-        "123a4567-b89c-12d3-e456-789012345678"`
+    - _Example:_ `AppCheck debug token:
+"123a4567-b89c-12d3-e456-789012345678"`
 4.  Register this token in the Firebase Console under **Security > App Check >
     Apps > Manage debug tokens**.
 
@@ -163,7 +164,7 @@ Tokens** during development and testing to bypass standard attestation.
     `APP_CHECK_DEBUG_TOKEN`).
 3.  Configure your build to pass this secret as an environment variable to the
     SDK during test execution (e.g. `self.FIREBASE_APPCHECK_DEBUG_TOKEN =
-    process.env.APP_CHECK_DEBUG_TOKEN`).
+process.env.APP_CHECK_DEBUG_TOKEN`).
 
 ### Remote Config
 
@@ -180,21 +181,21 @@ without deploying new client code. See
 
 ## Initialization Code References
 
-| Language,   | Gemini API | Context URL                                     |
-: Framework,  : provider   :                                                 :
-: Platform    :            :                                                 :
+| Language, | Gemini API | Context URL |
+: Framework, : provider : :
+: Platform : : :
 | :---------- | :--------- | :---------------------------------------------- |
-| Web Modular | Gemini     | firebase://docs/ai-logic/get-started            |
-: API         : Developer  :                                                 :
-:             : API        :                                                 :
-:             : (Developer :                                                 :
-:             : API)       :                                                 :
-| iOS (Swift) | Gemini     | [ios_setup.md](references/ios_setup.md)         |
-:             : Developer  :                                                 :
-:             : API        :                                                 :
-| Flutter     | Gemini     | [flutter_setup.md](references/flutter_setup.md) |
-: (Dart)      : Developer  :                                                 :
-:             : API        :                                                 :
+| Web Modular | Gemini | firebase://docs/ai-logic/get-started |
+: API : Developer : :
+: : API : :
+: : (Developer : :
+: : API) : :
+| iOS (Swift) | Gemini | [ios_setup.md](references/ios_setup.md) |
+: : Developer : :
+: : API : :
+| Flutter | Gemini | [flutter_setup.md](references/flutter_setup.md) |
+: (Dart) : Developer : :
+: : API : :
 
 > [!WARNING] **CRITICAL: Use current model names:** Always check the
 > [Firebase AI Logic Models documentation](https://firebase.google.com/docs/ai-logic/models.md.txt)

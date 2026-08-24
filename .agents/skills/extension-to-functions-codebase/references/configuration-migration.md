@@ -9,7 +9,7 @@ You can configure V2 functions in two ways: **Per-Function** (passing an options
 object directly to the trigger) or **Globally** (`setGlobalOptions` at the top
 of a file).
 
-______________________________________________________________________
+---
 
 ## 1. Per-Function Configuration
 
@@ -44,7 +44,7 @@ export const processOrder = onMessagePublished(
 > [!TIP] **Memory Unit Caveat**: V1 accepted `"1GB"`. V2 types strongly prefer
 > IEC units like `"1GiB"`, `"2GiB"`, etc.
 
-______________________________________________________________________
+---
 
 ## 2. Global Configuration (`setGlobalOptions`)
 
@@ -83,7 +83,7 @@ setGlobalOptions({
 export const myFn = onRequest((req, res) => { ... });
 ```
 
-______________________________________________________________________
+---
 
 ## Common Property Translations
 
@@ -98,7 +98,7 @@ ______________________________________________________________________
 | `secrets`                    | `secrets`                    | Same.                                                           |
 | `failurePolicy`              | `retry`                      | Renamed to boolean `retry: true/false` in V2 Eventarc triggers. |
 
-______________________________________________________________________
+---
 
 ## 3. Migrating Environment Configurations (`functions.config()`)
 
@@ -115,7 +115,7 @@ Follow these rules to ensure a deterministic and safe migration:
   `defineNumber`.
 - **Secrets**: If the key contains "KEY", "SECRET", "TOKEN", or "PASSWORD", use
   `defineSecret()` or `defineJsonSecret()`.
-  - *Note*: Secrets MUST be explicitly bound to the function that uses them in
+  - _Note_: Secrets MUST be explicitly bound to the function that uses them in
     the options object (e.g., `{ secrets: [myKey, myJsonSecret] }`). Both
     `SecretParam` and `JsonSecretParam` are supported in the `secrets` array.
 - **Lists**: Use `defineList` for comma-separated lists.

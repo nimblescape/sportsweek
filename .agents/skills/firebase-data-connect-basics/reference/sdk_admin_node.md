@@ -59,11 +59,7 @@ import { connectorConfig, getSongs } from "@dataconnect/admin-generated";
 const adminApp = initializeApp();
 const adminDc = getDataConnect(connectorConfig);
 
-const songs = await getSongs(
-  adminDc,
-  { limit: 4 },
-  { impersonate: { unauthenticated: true } }
-);
+const songs = await getSongs(adminDc, { limit: 4 }, { impersonate: { unauthenticated: true } });
 ```
 
 #### 2. Impersonating a Specific User (Cloud Functions)
@@ -76,18 +72,16 @@ import { HttpsError, onCall } from "firebase-functions/https";
 import { getMyFavoriteSongs } from "@dataconnect/admin-generated";
 
 export const callableExample = onCall(async (req) => {
-    const authClaims = req.auth?.token;
-    if (!authClaims) {
-        throw new HttpsError("unauthenticated", "Unauthorized");
-    }
+  const authClaims = req.auth?.token;
+  if (!authClaims) {
+    throw new HttpsError("unauthenticated", "Unauthorized");
+  }
 
-    const favoriteSongs = await getMyFavoriteSongs(
-        adminDc,
-        undefined,
-        { impersonate: { authClaims } }
-    );
+  const favoriteSongs = await getMyFavoriteSongs(adminDc, undefined, {
+    impersonate: { authClaims },
+  });
 
-    return favoriteSongs;
+  return favoriteSongs;
 });
 ```
 
@@ -103,26 +97,24 @@ import { getMyFavoriteSongs } from "@dataconnect/admin-generated";
 const auth = getAuth();
 
 export const httpExample = onRequest(async (req, res) => {
-    const token = req.header("authorization")?.replace(/^bearer\s+/i, "");
-    if (!token) {
-        res.sendStatus(401);
-        return;
-    }
-    let authClaims;
-    try {
-        authClaims = await auth.verifyIdToken(token);
-    } catch {
-        res.sendStatus(401);
-        return;
-    }
+  const token = req.header("authorization")?.replace(/^bearer\s+/i, "");
+  if (!token) {
+    res.sendStatus(401);
+    return;
+  }
+  let authClaims;
+  try {
+    authClaims = await auth.verifyIdToken(token);
+  } catch {
+    res.sendStatus(401);
+    return;
+  }
 
-    const favoriteSongs = await getMyFavoriteSongs(
-        adminDc,
-        undefined,
-        { impersonate: { authClaims } }
-    );
+  const favoriteSongs = await getMyFavoriteSongs(adminDc, undefined, {
+    impersonate: { authClaims },
+  });
 
-    res.send(favoriteSongs);
+  res.send(favoriteSongs);
 });
 ```
 
@@ -136,6 +128,6 @@ import { upsertSong } from "@dataconnect/admin-generated";
 
 await upsertSong(adminDc, {
   title: "New Song",
-  genre: "Rock"
+  genre: "Rock",
 });
 ```

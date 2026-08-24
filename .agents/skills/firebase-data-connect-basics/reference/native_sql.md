@@ -16,7 +16,7 @@ directly to PostgreSQL. You **MUST** adhere to these strict constraints:
 1. **Table & Column Mapping (Case Sensitivity):**
    - **Default `snake_case` Conversion:** By default, SQL Connect converts
      `PascalCase` types and `camelCase` fields to `snake_case` in the database.
-     - *Schema:* `type UserProfile { releaseYear: Int }` -> *Native SQL:*
+     - _Schema:_ `type UserProfile { releaseYear: Int }` -> _Native SQL:_
        `SELECT release_year FROM user_profile`
    - **Explicit Overrides (Requires Double Quotes):** If the schema uses
      `@table(name: "ExactName")` or `@col(name: "ExactCol")`, you **MUST wrap
@@ -69,19 +69,14 @@ Use these root fields in `query` or `mutation` operations:
 - `_select`: Executes a SQL query returning zero or more rows. Returns `[Any]`.
   ```graphql
   query GetMovies($genre: String!) @auth(level: PUBLIC) {
-    movies: _select(
-      sql: "SELECT id, title FROM movie WHERE genre = $1",
-      params: [$genre]
-    )
+    movies: _select(sql: "SELECT id, title FROM movie WHERE genre = $1", params: [$genre])
   }
   ```
 - `_selectFirst`: Executes a SQL query expected to return zero or one row.
   Returns `Any` or `null`.
   ```graphql
   query GetTotalReviews @auth(level: PUBLIC) {
-    stats: _selectFirst(
-      sql: "SELECT COUNT(*) as total_reviews FROM review"
-    ) # params can be omitted if empty
+    stats: _selectFirst(sql: "SELECT COUNT(*) as total_reviews FROM review") # params can be omitted if empty
   }
   ```
 
@@ -89,15 +84,12 @@ Use these root fields in `query` or `mutation` operations:
 
 - `_execute`: Executes DML (`INSERT`, `UPDATE`, `DELETE`). Returns `Int` (number
   of rows affected).
-  - *Note 1:* `RETURNING` clauses are ignored in the result.
-  - *Note 2:* Only `_execute` supports Data-Modifying Common Table Expressions
+  - _Note 1:_ `RETURNING` clauses are ignored in the result.
+  - _Note 2:_ Only `_execute` supports Data-Modifying Common Table Expressions
     (e.g., `WITH new_row AS (INSERT...)`).
   ```graphql
   mutation UpdateRating($id: UUID!, $rating: Float!) @auth(level: USER) {
-    _execute(
-      sql: "UPDATE movie SET rating = $2 WHERE id = $1",
-      params: [$id, $rating]
-    )
+    _execute(sql: "UPDATE movie SET rating = $2 WHERE id = $1", params: [$id, $rating])
   }
   ```
 - `_executeReturning`: Executes DML with a `RETURNING` clause. Returns `[Any]`.
@@ -105,8 +97,8 @@ Use these root fields in `query` or `mutation` operations:
   ```graphql
   mutation DeleteUserReviews($uid: String!) @auth(level: USER) {
     deletedReviews: _executeReturning(
-      sql: "DELETE FROM review WHERE user_id = $1 RETURNING id, rating",
-      params: [{_expr: "auth.uid"}]
+      sql: "DELETE FROM review WHERE user_id = $1 RETURNING id, rating"
+      params: [{ _expr: "auth.uid" }]
     )
   }
   ```
@@ -116,11 +108,11 @@ Use these root fields in `query` or `mutation` operations:
   mutation UpdateMyReview($movieId: UUID!, $text: String!) @auth(level: USER) {
     updatedReview: _executeReturningFirst(
       sql: """
-        UPDATE review SET text = $2 
-        WHERE movie_id = $1 AND user_id = $3 
-        RETURNING id, text
-      """,
-      params: [$movieId, $text, {_expr: "auth.uid"}]
+      UPDATE review SET text = $2
+      WHERE movie_id = $1 AND user_id = $3
+      RETURNING id, text
+      """
+      params: [$movieId, $text, { _expr: "auth.uid" }]
     )
   }
   ```
@@ -132,11 +124,11 @@ as `PostGIS`, without needing to map complex geometry types into your GraphQL
 schema or alter your underlying tables (e.g., using JSON operators to extract
 values and pass them into `ST_MakePoint`).
 
-*Note: You must enable the extension on your underlying Cloud SQL instance by
+_Note: You must enable the extension on your underlying Cloud SQL instance by
 connecting as the `postgres` user and running
-`CREATE EXTENSION IF NOT EXISTS ...;`*
+`CREATE EXTENSION IF NOT EXISTS ...;`_
 
-*(See `examples.md` for a full `GetNearbyActiveRestaurants` implementation).*
+_(See `examples.md` for a full `GetNearbyActiveRestaurants` implementation)._
 
 ## ⚠️ Security: Stored Procedures & Dynamic SQL
 

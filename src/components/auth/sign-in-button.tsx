@@ -11,62 +11,55 @@ import { Button } from "@/components/ui/button";
 // onAuthStateChanged reliably reports the signed-in user once Firebase resolves the
 // redirect (relies on the /__/auth/* proxy in next.config.ts — see redirect-best-practices).
 export function SignInButton() {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const [error, setError] = useState<string | null>(null);
-    // True until Firebase's first auth-state callback fires, which only happens once any
-    // pending redirect has been resolved — avoids flashing the button during that window.
-    const [checking, setChecking] = useState(true);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [error, setError] = useState<string | null>(null);
+  // True until Firebase's first auth-state callback fires, which only happens once any
+  // pending redirect has been resolved — avoids flashing the button during that window.
+  const [checking, setChecking] = useState(true);
 
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                setChecking(false);
-                return;
-            }
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setChecking(false);
+        return;
+      }
 
-            try {
-                const idToken = await user.getIdToken();
-                const response = await fetch("/api/session", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ idToken }),
-                });
-                if (!response.ok) {
-                    throw new Error(
-                        `Failed to create session (status ${response.status})`,
-                    );
-                }
-
-                router.push(searchParams.get("next") ?? "/");
-                router.refresh();
-            } catch {
-                setChecking(false);
-                setError("Sign-in failed. Please try again.");
-            }
+      try {
+        const idToken = await user.getIdToken();
+        const response = await fetch("/api/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
         });
+        if (!response.ok) {
+          throw new Error(`Failed to create session (status ${response.status})`);
+        }
 
-        return () => unsubscribe();
-    }, [router, searchParams]);
+        router.push(searchParams.get("next") ?? "/");
+        router.refresh();
+      } catch {
+        setChecking(false);
+        setError("Sign-in failed. Please try again.");
+      }
+    });
 
-    async function handleSignIn() {
-        setError(null);
-        await signInWithRedirect(auth, createMicrosoftAuthProvider());
-    }
+    return () => unsubscribe();
+  }, [router, searchParams]);
 
-    return (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-50 px-4 dark:bg-black">
-            <h1 className="text-2xl font-semibold">SportsWeek</h1>
-            <Image
-                src="/htl-logo.svg"
-                alt="HTL Dornbirn logo"
-                width={80}
-                height={94}
-            />
-            <Button onClick={handleSignIn} disabled={checking}>
-                {checking ? "Loading…" : "Sign in with Microsoft"}
-            </Button>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </div>
-    );
+  async function handleSignIn() {
+    setError(null);
+    await signInWithRedirect(auth, createMicrosoftAuthProvider());
+  }
+
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-50 px-4 dark:bg-black">
+      <h1 className="text-2xl font-semibold">SportsWeek</h1>
+      <Image src="/htl-logo.svg" alt="HTL Dornbirn logo" width={80} height={94} />
+      <Button onClick={handleSignIn} disabled={checking}>
+        {checking ? "Loading…" : "Sign in with Microsoft"}
+      </Button>
+      {error ? <p className="text-destructive text-sm">{error}</p> : null}
+    </div>
+  );
 }

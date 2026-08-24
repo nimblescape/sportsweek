@@ -28,7 +28,7 @@ property if there is ANY chance the object is instantiated before
   as a `@State` in the App root.
 - **SAFE PATTERN:** Initialize `Firestore.firestore()` lazily
   (`lazy var db = Firestore.firestore()`) OR explicitly initialize the manager
-  *after* `FirebaseApp.configure()` finishes.
+  _after_ `FirebaseApp.configure()` finishes.
 
 ## 1. Import and Initialize
 
@@ -81,12 +81,12 @@ do {
 ```swift
 do {
     let querySnapshot = try await db.collection("users").getDocuments()
-    
+
     // Map documents to the User struct automatically
     let users = querySnapshot.documents.compactMap { document in
         try? document.data(as: User.self)
     }
-    
+
     for user in users {
         print("Found user: \(user.firstName) \(user.lastName)")
     }
@@ -122,26 +122,26 @@ import SwiftUI
 import FirebaseFirestore
 
 @MainActor
-@Observable 
+@Observable
 final class DataManager {
     private var listenerHandle: ListenerRegistration?
     var data: [String] = []
-    
+
     func startListening(for userId: String) {
         // 1. Clean up any existing listener to prevent duplicates if the ID changes
         stopListening()
-        
+
         // 2. Start the regular listener and capture the handle
         listenerHandle = Firestore.firestore().collection("users").document(userId).addSnapshotListener { snapshot, error in
             // Handle updates
         }
     }
-    
+
     func stopListening() {
         listenerHandle?.remove()
         listenerHandle = nil
     }
-    
+
     // 3. Guarantee cleanup when the View is destroyed and this object is deallocated
     isolated deinit {
         stopListening()
@@ -155,7 +155,7 @@ Then, in your SwiftUI View, trigger the listener using `.task(id:)`.
 struct MyView: View {
     @State private var manager = DataManager()
     @Environment(AuthManager.self) var authManager
-    
+
     var body: some View {
         List(manager.data, id: \.self) { item in
             Text(item)

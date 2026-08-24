@@ -3,7 +3,7 @@
 This guide covers the Firestore Android SDK (Kotlin) setup and usage patterns
 optimized for Firestore Enterprise edition in Native mode.
 
-______________________________________________________________________
+---
 
 ## 1. Initialization
 
@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Initialize the Firestore instance
         val db = FirebaseFirestore.getInstance("<database-name>")
-        
+
         setContent {
             MaterialTheme {
                 Text("Firestore initialized!")
@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-______________________________________________________________________
+---
 
 ## 2. Decision Framework: Mandatory Pipeline Architecture
 
@@ -108,7 +108,7 @@ ______________________________________________________________________
      - **Reference** the extracted `expressions.docs.txt` on-demand for specific
        function overloads and parameters.
 
-______________________________________________________________________
+---
 
 ## 3. Pipeline Examples
 
@@ -161,7 +161,7 @@ val searchPipeline = db.pipeline()
     .limit(5)
 ```
 
-______________________________________________________________________
+---
 
 ## 4. Real-Time Listener & Document Operations
 

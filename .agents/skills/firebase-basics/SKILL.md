@@ -1,13 +1,14 @@
 ---
 description: Provides foundational Firebase CLI setup, CLI installation, version checks (`firebase-tools@latest --version`), CLI login (including --no-localhost), project creation, project selection (`firebase use`), and app config file downloads (`google-services.json`, `GoogleService-Info.plist`). Use ONLY for CLI login, project creation/switching, or downloading app config files. Don't use for Firebase Hosting deploy, Firestore, Auth, App Hosting, Data Connect, Crashlytics, or Remote Config.
 metadata:
-    category: CloudInfrastructureAndServices
-    github-path: skills/firebase-basics
-    github-ref: refs/heads/main
-    github-repo: https://github.com/firebase/skills
-    github-tree-sha: 333f0c2dad8f6b26d769e17ca88c2a4af6ee2202
+  category: CloudInfrastructureAndServices
+  github-path: skills/firebase-basics
+  github-ref: refs/heads/main
+  github-repo: https://github.com/firebase/skills
+  github-tree-sha: 333f0c2dad8f6b26d769e17ca88c2a4af6ee2202
 name: firebase-basics
 ---
+
 # Prerequisites
 
 Complete these setup steps before proceeding:
@@ -55,7 +56,6 @@ Complete these setup steps before proceeding:
    >
    > 1. **Provide an existing Firebase Project ID**, or
    > 1. **Create a new Firebase project**.
-
    - **If using an existing Project ID:**
 
      1. Check the current project by running `npx -y firebase-tools@latest use`.
@@ -63,7 +63,7 @@ Complete these setup steps before proceeding:
         user if this is the intended project.
      1. If not, or if no project is active, set the project provided by the
         user:
-        
+
         ```bash
         npx -y firebase-tools@latest use <PROJECT_ID>
         ```
@@ -74,8 +74,8 @@ Complete these setup steps before proceeding:
      npx -y firebase-tools@latest projects:create <project-id> --display-name "<display-name>"
      ```
 
-     *Note: The `<project-id>` must be 6-30 characters, lowercase, and can
-     contain digits and hyphens. It must be globally unique.*
+     _Note: The `<project-id>` must be 6-30 characters, lowercase, and can
+     contain digits and hyphens. It must be globally unique._
 
 # Firebase Usage Principles
 
@@ -92,7 +92,7 @@ Adhere to these principles:
    in your search query significantly improves relevance.
 1. **Follow Agent Skills for implementation guidance:** Skills provide
    opinionated workflows (CUJs), security rules, and best practices. Always
-   consult them to understand *how* to implement Firebase features correctly
+   consult them to understand _how_ to implement Firebase features correctly
    instead of relying on general knowledge.
 1. **Use Firebase MCP Server tools instead of direct API calls:** Whenever you
    need to interact with remote Firebase APIs (such as fetching Crashlytics logs
@@ -144,7 +144,7 @@ Adhere to these principles:
 - **Login Issues:** If the browser fails to open during the login step, use
   `npx -y firebase-tools@latest login --no-localhost` instead.
 - **Genkit:** If using Genkit, install the skills:
-  
+
   ```bash
   npx skills add genkit-ai/skills
   ```

@@ -5,7 +5,7 @@ pattern. It allows you to upgrade a function's infrastructure to V2 (and take
 advantage of GCF 2nd Gen runtimes) without rewriting any of your internal
 business logic.
 
-______________________________________________________________________
+---
 
 ## How it Works
 
@@ -48,7 +48,7 @@ the SDK transparently maps the V2 event properties back into V1-compatible
 objects on the fly! This feature is available in modern V2 environments
 supported by the SDK.
 
-______________________________________________________________________
+---
 
 ## Provider Mapping Examples
 
@@ -93,7 +93,7 @@ Here are the exact destructuring patterns for every supported V2 provider:
   export const processConfig = onConfigUpdated(({ version, context }) => { ... });
   ```
 
-______________________________________________________________________
+---
 
 ## Best Practices for AI Agents
 
@@ -113,7 +113,7 @@ ______________________________________________________________________
    - **V1 Priority**: `(data, context) => { ... }`
    - **V2 Equivalent**: `({ data, auth, app }) => { ... }`
 
-______________________________________________________________________
+---
 
 ## Related Migrations
 

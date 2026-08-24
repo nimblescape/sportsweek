@@ -1,13 +1,14 @@
 ---
 description: Skill for converting an installed Firebase Extension (or extension source) into a standalone Cloud Functions for Firebase codebase or publishable npm package, including V1 to V2 trigger upgrades, lifecycle hooks, and declarative security
 metadata:
-    category: Serverless
-    github-path: skills/extension-to-functions-codebase
-    github-ref: refs/heads/main
-    github-repo: https://github.com/firebase/skills
-    github-tree-sha: b99ea33ea59016fc75071002924e4862b95c9166
+  category: Serverless
+  github-path: skills/extension-to-functions-codebase
+  github-ref: refs/heads/main
+  github-repo: https://github.com/firebase/skills
+  github-tree-sha: b99ea33ea59016fc75071002924e4862b95c9166
 name: extension-to-functions-codebase
 ---
+
 # Extension to Functions Codebase & npm Package Migration
 
 ## Overview
@@ -22,7 +23,7 @@ Leverages native Cloud Functions features (declarative IAM, Parameterized
 Config, SDK Lifecycle Hooks) and modernizes 1st Gen triggers to 2nd Gen using
 the Destructuring Compatibility Shim.
 
-______________________________________________________________________
+---
 
 ## Target Migration Workflows
 
@@ -40,7 +41,7 @@ ______________________________________________________________________
   - Usage: Consumers install package and re-export functions in `index.ts`
     (`export * from "<package-name>"`).
 
-______________________________________________________________________
+---
 
 ## Core Rules & Constraints
 
@@ -73,7 +74,7 @@ instructions:
 V2 enables concurrency (up to 80 requests). To preserve V1 single-concurrency
 pricing, set `cpu: "gcf_gen1"`.
 
-______________________________________________________________________
+---
 
 ## Step-by-Step Migration Execution
 

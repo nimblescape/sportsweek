@@ -14,7 +14,9 @@ function getAdminApp(): App {
   // Falls back to Application Default Credentials — either the metadata server on App
   // Hosting/Cloud Functions, or `gcloud auth application-default login` for local dev.
   // Project ID isn't auto-discoverable from user ADC credentials, so pass it explicitly.
-  return initializeApp({ projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID });
+  return initializeApp({
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  });
 }
 
 export const adminApp = getAdminApp();

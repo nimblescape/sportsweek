@@ -12,15 +12,12 @@ const querySchema = z.object({
 export async function GET(request: Request) {
   const user = await getSessionUser();
   if (!user) {
-    return NextResponse.json(
-      apiError(ErrorCode.AuthenticationRequired, "Sign-in required"),
-      { status: 401 },
-    );
+    return NextResponse.json(apiError(ErrorCode.AuthenticationRequired, "Sign-in required"), {
+      status: 401,
+    });
   }
 
-  const parsed = querySchema.safeParse(
-    Object.fromEntries(new URL(request.url).searchParams),
-  );
+  const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) {
     return NextResponse.json(
       apiError(ErrorCode.ValidationError, "Invalid query parameters", parsed.error.flatten()),

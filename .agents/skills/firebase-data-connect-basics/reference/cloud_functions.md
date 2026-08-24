@@ -3,7 +3,7 @@
 Use this reference to handle database events in SQL Connect by triggering Cloud
 Functions in response to mutation executions.
 
-______________________________________________________________________
+---
 
 ## Core Trigger Configuration
 
@@ -36,18 +36,18 @@ import { logger } from "firebase-functions";
 
 export const logMutation = onMutationExecuted(
   {
-    region: "europe-west1" // Must match the SQL Connect service location
+    region: "europe-west1", // Must match the SQL Connect service location
   },
   (event) => {
     logger.info("A mutation was executed!", {
       eventId: event.id,
-      type: event.type
+      type: event.type,
     });
-  }
+  },
 );
 ```
 
-______________________________________________________________________
+---
 
 ## Event Filtering
 
@@ -76,7 +76,7 @@ export const onUserCreate = onMutationExecuted(
   },
   (event) => {
     logger.info("A new user was created!");
-  }
+  },
 );
 
 // Advanced: Trigger using wildcards or capture variables
@@ -88,11 +88,11 @@ export const onMutationCaptures = onMutationExecuted(
   (event) => {
     const triggeredOp = event.params.operation;
     logger.info(`Captured operation execution: ${triggeredOp}`);
-  }
+  },
 );
 ```
 
-______________________________________________________________________
+---
 
 ## Accessing User Authentication Context
 
@@ -120,11 +120,11 @@ export const processSensitiveMutation = onMutationExecuted(
     } else {
       console.log(`Mutation initiated by user: ${event.authId}`);
     }
-  }
+  },
 );
 ```
 
-______________________________________________________________________
+---
 
 ## Parsing Event Data Payloads
 
@@ -178,7 +178,9 @@ export const onNewReview = onMutationExecuted(
     // Extract returned fields from the database write
     const returnedFields = event.data.payload.data;
 
-    logger.info(`Processed review ${returnedFields.review_insert.id} for movie ${inputVariables.movieId}`);
-  }
+    logger.info(
+      `Processed review ${returnedFields.review_insert.id} for movie ${inputVariables.movieId}`,
+    );
+  },
 );
 ```

@@ -2,13 +2,14 @@
 compatibility: This skill is best used with the Firebase CLI, but does not require it. Firebase CLI can be accessed through `npx -y firebase-tools@latest`.
 description: Sets up, manages, queries, and configures Cloud Firestore databases (Standard/Enterprise edition), including data modeling, security rules, indexes, and SDK integrations (Web, Python, iOS, Android, Flutter). Use when creating/listing Firestore databases, defining data models/indexes, writing SDK queries, or integrating Firestore SDKs. Don't use for Firebase Hosting, Data Connect, Auth, Storage/GCS, Crashlytics, Functions, or BigQuery.
 metadata:
-    category: Databases
-    github-path: skills/firebase-firestore
-    github-ref: refs/heads/main
-    github-repo: https://github.com/firebase/skills
-    github-tree-sha: 612684a4fe2c1d8a6d53c34a6253bd61a5fa9d03
+  category: Databases
+  github-path: skills/firebase-firestore
+  github-ref: refs/heads/main
+  github-repo: https://github.com/firebase/skills
+  github-tree-sha: 612684a4fe2c1d8a6d53c34a6253bd61a5fa9d03
 name: firebase-firestore
 ---
+
 # Cloud Firestore Database and Operations
 
 Before setting up dependencies, writing data models, or configuring security
@@ -43,7 +44,7 @@ Once the location is determined, create the database:
 
 Proceed with using the guides under `references/enterprise/`.
 
-______________________________________________________________________
+---
 
 ## 2. Specialized Guides
 

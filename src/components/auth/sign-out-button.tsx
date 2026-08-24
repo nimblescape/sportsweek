@@ -6,18 +6,18 @@ import { auth } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/button";
 
 export function SignOutButton() {
-    const router = useRouter();
+  const router = useRouter();
 
-    async function handleSignOut() {
-        await fetch("/api/session", { method: "DELETE" });
-        await signOut(auth);
-        router.push("/");
-        router.refresh();
-    }
+  async function handleSignOut() {
+    await fetch("/api/session", { method: "DELETE" });
+    await signOut(auth);
+    router.push("/");
+    router.refresh();
+  }
 
-    return (
-        <Button variant="outline" onClick={handleSignOut}>
-            Sign out
-        </Button>
-    );
+  return (
+    <Button variant="outline" onClick={handleSignOut}>
+      Sign out
+    </Button>
+  );
 }

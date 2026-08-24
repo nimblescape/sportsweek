@@ -9,7 +9,7 @@
 - [Authorization Patterns](#authorization-patterns)
 - [Anti-Patterns](#anti-patterns)
 
-______________________________________________________________________
+---
 
 ## @auth Directive
 
@@ -28,7 +28,7 @@ query AdminOnly @auth(expr: "auth.token.admin == true") { ... }
 | `expr`           | CEL expression (alternative to level)              |
 | `insecureReason` | Suppress deploy warning for PUBLIC/unfiltered USER |
 
-______________________________________________________________________
+---
 
 ## Access Levels
 
@@ -43,7 +43,7 @@ ______________________________________________________________________
 > **Important:** Levels like `USER` are starting points. Always add filters or
 > expressions to verify the user can access specific data.
 
-______________________________________________________________________
+---
 
 ## CEL Expressions
 
@@ -91,23 +91,21 @@ Compare database fields with auth values:
 
 ```graphql
 query MyPosts @auth(level: USER) {
-  posts(where: { authorUid: { eq_expr: "auth.uid" }}) {
-    id title
+  posts(where: { authorUid: { eq_expr: "auth.uid" } }) {
+    id
+    title
   }
 }
 
 mutation UpdateMyPost($id: UUID!, $title: String!) @auth(level: USER) {
   post_update(
-    first: { where: {
-      id: { eq: $id },
-      authorUid: { eq_expr: "auth.uid" }
-    }},
+    first: { where: { id: { eq: $id }, authorUid: { eq_expr: "auth.uid" } } }
     data: { title: $title }
   )
 }
 ```
 
-______________________________________________________________________
+---
 
 ## @check and @redact
 
@@ -142,14 +140,11 @@ query @redact { ... }  # Query result hidden but @check still runs
 Check database permissions before allowing mutation:
 
 ```graphql
-mutation UpdateMovie($id: UUID!, $title: String!) 
-  @auth(level: USER) 
-  @transaction {
+mutation UpdateMovie($id: UUID!, $title: String!) @auth(level: USER) @transaction {
   # Step 1: Check user has permission
   query @redact {
-    moviePermission(
-      key: { movieId: $id, userId_expr: "auth.uid" }
-    ) @check(expr: "this != null", message: "No access to movie") {
+    moviePermission(key: { movieId: $id, userId_expr: "auth.uid" })
+      @check(expr: "this != null", message: "No access to movie") {
       role @check(expr: "this == 'editor'", message: "Must be editor")
     }
   }
@@ -162,12 +157,11 @@ mutation UpdateMovie($id: UUID!, $title: String!)
 
 ```graphql
 mutation MustDeleteMovie($id: UUID!) @auth(level: USER) @transaction {
-  movie_delete(id: $id) 
-    @check(expr: "this != null", message: "Movie not found")
+  movie_delete(id: $id) @check(expr: "this != null", message: "Movie not found")
 }
 ```
 
-______________________________________________________________________
+---
 
 ## Authorization Patterns
 
@@ -176,32 +170,28 @@ ______________________________________________________________________
 ```graphql
 # Create with owner
 mutation CreatePost($content: String!) @auth(level: USER) {
-  post_insert(data: {
-    authorUid_expr: "auth.uid",
-    content: $content
-  })
+  post_insert(data: { authorUid_expr: "auth.uid", content: $content })
 }
 
 # Read own data only
 query MyPosts @auth(level: USER) {
-  posts(where: { authorUid: { eq_expr: "auth.uid" }}) {
-    id content
+  posts(where: { authorUid: { eq_expr: "auth.uid" } }) {
+    id
+    content
   }
 }
 
 # Update own data only
 mutation UpdatePost($id: UUID!, $content: String!) @auth(level: USER) {
   post_update(
-    first: { where: { id: { eq: $id }, authorUid: { eq_expr: "auth.uid" }}},
+    first: { where: { id: { eq: $id }, authorUid: { eq_expr: "auth.uid" } } }
     data: { content: $content }
   )
 }
 
 # Delete own data only
 mutation DeletePost($id: UUID!) @auth(level: USER) {
-  post_delete(
-    first: { where: { id: { eq: $id }, authorUid: { eq_expr: "auth.uid" }}}
-  )
+  post_delete(first: { where: { id: { eq: $id }, authorUid: { eq_expr: "auth.uid" } } })
 }
 ```
 
@@ -210,7 +200,11 @@ mutation DeletePost($id: UUID!) @auth(level: USER) {
 ```graphql
 # Admin-only query
 query AllUsers @auth(expr: "auth.token.admin == true") {
-  users { id email name }
+  users {
+    id
+    email
+    name
+  }
 }
 
 # Role from database
@@ -228,11 +222,10 @@ mutation AdminAction($id: UUID!) @auth(level: USER) @transaction {
 
 ```graphql
 query PublicPosts @auth(level: PUBLIC) {
-  posts(where: {
-    visibility: { eq: "public" },
-    publishedAt: { lt_expr: "request.time" }
-  }) {
-    id title content
+  posts(where: { visibility: { eq: "public" }, publishedAt: { lt_expr: "request.time" } }) {
+    id
+    title
+    content
   }
 }
 ```
@@ -241,13 +234,15 @@ query PublicPosts @auth(level: PUBLIC) {
 
 ```graphql
 query ProContent @auth(expr: "auth.token.plan == 'pro'") {
-  posts(where: { visibility: { in: ["public", "pro"] }}) {
-    id title content
+  posts(where: { visibility: { in: ["public", "pro"] } }) {
+    id
+    title
+    content
   }
 }
 ```
 
-______________________________________________________________________
+---
 
 ## Anti-Patterns
 

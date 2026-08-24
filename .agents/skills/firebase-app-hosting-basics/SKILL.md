@@ -1,13 +1,14 @@
 ---
 description: Deploys and manages full-stack web applications (Next.js, Angular) with Server-Side Rendering (SSR) using Firebase App Hosting. Use when deploying Next.js/Angular apps, configuring apphosting.yaml or firebase.json apphosting blocks, managing secrets, setting up GitHub CI/CD, or configuring Blaze billing requirements. Don't use for classic static web hosting, Auth, Firestore, Crashlytics, or Xcode.
 metadata:
-    category: Serverless
-    github-path: skills/firebase-app-hosting-basics
-    github-ref: refs/heads/main
-    github-repo: https://github.com/firebase/skills
-    github-tree-sha: d7a75aba4bc9330bd8a1fc1140467eecdcd98636
+  category: Serverless
+  github-path: skills/firebase-app-hosting-basics
+  github-ref: refs/heads/main
+  github-repo: https://github.com/firebase/skills
+  github-tree-sha: d7a75aba4bc9330bd8a1fc1140467eecdcd98636
 name: firebase-app-hosting-basics
 ---
+
 # App Hosting Basics
 
 ## Description
@@ -41,22 +42,17 @@ to upgrade their plan.
 This is the recommended flow for most users.
 
 1. Configure `firebase.json` with an `apphosting` block.
-   
+
    ```json
    {
      "apphosting": {
        "backendId": "my-app-id",
        "rootDir": "/",
-       "ignore": [
-         "node_modules",
-         ".git",
-         "firebase-debug.log",
-         "firebase-debug.*.log",
-         "functions"
-       ]
+       "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log", "functions"]
      }
    }
    ```
+
 1. Create or edit `apphosting.yaml`- see
    [Configuration](references/configuration.md) for more information on how to
    do so.

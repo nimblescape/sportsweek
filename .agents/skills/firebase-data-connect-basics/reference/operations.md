@@ -8,7 +8,7 @@
 - [Key Scalars](#key-scalars)
 - [Multi-Step Operations](#multi-step-operations)
 
-______________________________________________________________________
+---
 
 ## Generated Fields
 
@@ -38,7 +38,7 @@ For many-to-many via `MovieActor`:
 - `movie.actors_via_MovieActor` - Get all actors
 - `actor.movies_via_MovieActor` - Get all movies
 
-______________________________________________________________________
+---
 
 ## Referencing Generated GraphQL Schema
 
@@ -52,7 +52,7 @@ files instead of trying to deduce them from the data model.
 1. **Validation**: Always run `firebase dataconnect:compile` to verify
    operations against the full schema.
 
-______________________________________________________________________
+---
 
 ## Queries
 
@@ -61,7 +61,10 @@ ______________________________________________________________________
 ```graphql
 query GetMovie($id: UUID!) @auth(level: PUBLIC) {
   movie(id: $id) {
-    id title genre releaseYear
+    id
+    title
+    genre
+    releaseYear
   }
 }
 ```
@@ -71,15 +74,15 @@ query GetMovie($id: UUID!) @auth(level: PUBLIC) {
 ```graphql
 query ListMovies($genre: String, $minRating: Int) @auth(level: PUBLIC) {
   movies(
-    where: {
-      genre: { eq: $genre },
-      rating: { ge: $minRating }
-    },
-    orderBy: [{ releaseYear: DESC }, { title: ASC }],
-    limit: 20,
+    where: { genre: { eq: $genre }, rating: { ge: $minRating } }
+    orderBy: [{ releaseYear: DESC }, { title: ASC }]
+    limit: 20
     offset: 0
   ) {
-    id title genre rating
+    id
+    title
+    genre
+    rating
   }
 }
 ```
@@ -106,14 +109,16 @@ Use `_expr` suffix to compare with server-side values:
 
 ```graphql
 query MyPosts @auth(level: USER) {
-  posts(where: { authorUid: { eq_expr: "auth.uid" }}) {
-    id title
+  posts(where: { authorUid: { eq_expr: "auth.uid" } }) {
+    id
+    title
   }
 }
 
 query RecentPosts @auth(level: PUBLIC) {
-  posts(where: { publishedAt: { lt_expr: "request.time" }}) {
-    id title
+  posts(where: { publishedAt: { lt_expr: "request.time" } }) {
+    id
+    title
   }
 }
 ```
@@ -122,17 +127,16 @@ query RecentPosts @auth(level: PUBLIC) {
 
 ```graphql
 query ComplexFilter($genre: String, $minRating: Int) @auth(level: PUBLIC) {
-  movies(where: {
-    _or: [
-      { genre: { eq: $genre }},
-      { rating: { ge: $minRating }}
-    ],
-    _and: [
-      { releaseYear: { ge: 2000 }},
-      { status: { ne: "hidden" }}
-    ],
-    _not: { genre: { eq: "Horror" }}
-  }) { id title }
+  movies(
+    where: {
+      _or: [{ genre: { eq: $genre } }, { rating: { ge: $minRating } }]
+      _and: [{ releaseYear: { ge: 2000 } }, { status: { ne: "hidden" } }]
+      _not: { genre: { eq: "Horror" } }
+    }
+  ) {
+    id
+    title
+  }
 }
 ```
 
@@ -144,19 +148,29 @@ query MovieWithDetails($id: UUID!) @auth(level: PUBLIC) {
   movie(id: $id) {
     title
     # One-to-one
-    metadata: movieMetadata_on_movie { director }
+    metadata: movieMetadata_on_movie {
+      director
+    }
     # One-to-many
-    reviews: reviews_on_movie { rating user { name }}
+    reviews: reviews_on_movie {
+      rating
+      user {
+        name
+      }
+    }
     # Many-to-many
-    actors: actors_via_MovieActor { name }
+    actors: actors_via_MovieActor {
+      name
+    }
   }
 }
 
 # Filter by related data
 query MoviesByDirector($director: String!) @auth(level: PUBLIC) {
-  movies(where: {
-    movieMetadata_on_movie: { director: { eq: $director }}
-  }) { id title }
+  movies(where: { movieMetadata_on_movie: { director: { eq: $director } } }) {
+    id
+    title
+  }
 }
 
 # Filter by null relationship (e.g., top-level categories with no parent)
@@ -173,16 +187,18 @@ query TopLevelCategories @auth(level: PUBLIC) {
 
 ```graphql
 query CompareRatings($genre: String!) @auth(level: PUBLIC) {
-  highRated: movies(where: { genre: { eq: $genre }, rating: { ge: 8 }}) {
-    title rating
+  highRated: movies(where: { genre: { eq: $genre }, rating: { ge: 8 } }) {
+    title
+    rating
   }
-  lowRated: movies(where: { genre: { eq: $genre }, rating: { lt: 5 }}) {
-    title rating
+  lowRated: movies(where: { genre: { eq: $genre }, rating: { lt: 5 } }) {
+    title
+    rating
   }
 }
 ```
 
-______________________________________________________________________
+---
 
 ## Mutations
 
@@ -190,10 +206,7 @@ ______________________________________________________________________
 
 ```graphql
 mutation CreateMovie($title: String!, $genre: String) @auth(level: USER) {
-  movie_insert(data: {
-    title: $title,
-    genre: $genre
-  })
+  movie_insert(data: { title: $title, genre: $genre })
 }
 ```
 
@@ -201,13 +214,15 @@ mutation CreateMovie($title: String!, $genre: String) @auth(level: USER) {
 
 ```graphql
 mutation CreatePost($title: String!, $content: String!) @auth(level: USER) {
-  post_insert(data: {
-    authorUid_expr: "auth.uid",         # Current user
-    id_expr: "uuidV4()",                 # Auto-generate UUID
-    createdAt_expr: "request.time",      # Server timestamp
-    title: $title,
-    content: $content
-  })
+  post_insert(
+    data: {
+      authorUid_expr: "auth.uid" # Current user
+      id_expr: "uuidV4()" # Auto-generate UUID
+      createdAt_expr: "request.time" # Server timestamp
+      title: $title
+      content: $content
+    }
+  )
 }
 ```
 
@@ -215,14 +230,7 @@ mutation CreatePost($title: String!, $content: String!) @auth(level: USER) {
 
 ```graphql
 mutation UpdateMovie($id: UUID!, $title: String, $genre: String) @auth(level: USER) {
-  movie_update(
-    id: $id,
-    data: {
-      title: $title,
-      genre: $genre,
-      updatedAt_expr: "request.time"
-    }
-  )
+  movie_update(id: $id, data: { title: $title, genre: $genre, updatedAt_expr: "request.time" })
 }
 ```
 
@@ -230,15 +238,16 @@ mutation UpdateMovie($id: UUID!, $title: String, $genre: String) @auth(level: US
 
 ```graphql
 mutation IncrementViews($id: UUID!) @auth(level: PUBLIC) {
-  movie_update(id: $id, data: {
-    viewCount_update: { inc: 1 }
-  })
+  movie_update(id: $id, data: { viewCount_update: { inc: 1 } })
 }
 
 mutation AddTag($id: UUID!, $tag: String!) @auth(level: USER) {
-  movie_update(id: $id, data: {
-    tags_update: { add: [$tag] }  # add, remove, append, prepend
-  })
+  movie_update(
+    id: $id
+    data: {
+      tags_update: { add: [$tag] } # add, remove, append, prepend
+    }
+  )
 }
 ```
 
@@ -255,11 +264,7 @@ mutation AddTag($id: UUID!, $tag: String!) @auth(level: USER) {
 
 ```graphql
 mutation UpsertUser($email: String!, $name: String!) @auth(level: USER) {
-  user_upsert(data: {
-    uid_expr: "auth.uid",
-    email: $email,
-    name: $name
-  })
+  user_upsert(data: { uid_expr: "auth.uid", email: $email, name: $name })
 }
 ```
 
@@ -271,10 +276,9 @@ mutation DeleteMovie($id: UUID!) @auth(level: USER) {
 }
 
 mutation DeleteOldDrafts @auth(level: USER) {
-  post_deleteMany(where: {
-    status: { eq: "draft" },
-    createdAt: { lt_time: { now: true, sub: { days: 30 }}}
-  })
+  post_deleteMany(
+    where: { status: { eq: "draft" }, createdAt: { lt_time: { now: true, sub: { days: 30 } } } }
+  )
 }
 ```
 
@@ -283,16 +287,18 @@ mutation DeleteOldDrafts @auth(level: USER) {
 ```graphql
 mutation UpdateMyPost($id: UUID!, $content: String!) @auth(level: USER) {
   post_update(
-    first: { where: {
-      id: { eq: $id },
-      authorUid: { eq_expr: "auth.uid" }  # Only own posts
-    }},
+    first: {
+      where: {
+        id: { eq: $id }
+        authorUid: { eq_expr: "auth.uid" } # Only own posts
+      }
+    }
     data: { content: $content }
   )
 }
 ```
 
-______________________________________________________________________
+---
 
 ## Key Scalars
 
@@ -302,7 +308,9 @@ primary keys:
 ```graphql
 # Using key scalar
 query GetMovie($key: Movie_Key!) @auth(level: PUBLIC) {
-  movie(key: $key) { title }
+  movie(key: $key) {
+    title
+  }
 }
 
 # Variable format
@@ -321,7 +329,7 @@ mutation CreateAndFetch($title: String!) @auth(level: USER) {
 }
 ```
 
-______________________________________________________________________
+---
 
 ## Multi-Step Operations
 
@@ -330,19 +338,11 @@ ______________________________________________________________________
 Ensures atomicity - all steps succeed or all rollback:
 
 ```graphql
-mutation CreateUserWithProfile($name: String!, $bio: String!) 
-  @auth(level: USER) 
-  @transaction {
+mutation CreateUserWithProfile($name: String!, $bio: String!) @auth(level: USER) @transaction {
   # Step 1: Create user
-  user_insert(data: {
-    uid_expr: "auth.uid",
-    name: $name
-  })
+  user_insert(data: { uid_expr: "auth.uid", name: $name })
   # Step 2: Create profile (uses response from step 1)
-  userProfile_insert(data: {
-    userId_expr: "response.user_insert.uid",
-    bio: $bio
-  })
+  userProfile_insert(data: { userId_expr: "response.user_insert.uid", bio: $bio })
 }
 ```
 
@@ -351,17 +351,16 @@ mutation CreateUserWithProfile($name: String!, $bio: String!)
 Access results from previous steps:
 
 ```graphql
-mutation CreateTodoWithItem($listName: String!, $itemText: String!) 
-  @auth(level: USER) 
-  @transaction {
-  todoList_insert(data: {
-    id_expr: "uuidV4()",
-    name: $listName
-  })
-  todoItem_insert(data: {
-    listId_expr: "response.todoList_insert.id",  # From previous step
-    text: $itemText
-  })
+mutation CreateTodoWithItem($listName: String!, $itemText: String!)
+@auth(level: USER)
+@transaction {
+  todoList_insert(data: { id_expr: "uuidV4()", name: $listName })
+  todoItem_insert(
+    data: {
+      listId_expr: "response.todoList_insert.id" # From previous step
+      text: $itemText
+    }
+  )
 }
 ```
 
@@ -370,9 +369,7 @@ mutation CreateTodoWithItem($listName: String!, $itemText: String!)
 Run queries within mutations for validation:
 
 ```graphql
-mutation AddToPublicList($listId: UUID!, $item: String!)
-  @auth(level: USER)
-  @transaction {
+mutation AddToPublicList($listId: UUID!, $item: String!) @auth(level: USER) @transaction {
   # Step 1: Verify list exists and is public
   query @redact {
     todoList(id: $listId) @check(expr: "this != null", message: "List not found") {

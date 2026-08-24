@@ -1,13 +1,14 @@
 ---
 description: Deploys and configures classic Firebase Hosting for static websites, single-page apps (SPAs), and microservices. Use when deploying static sites/SPAs, setting up custom domains, configuring firebase.json hosting settings (redirects, rewrites, headers, multi-site), or managing preview channels. Don't use for Firebase App Hosting (Next.js/SSR), Auth, Firestore queries/rules, Data Connect, or Crashlytics.
 metadata:
-    category: Serverless
-    github-path: skills/firebase-hosting-basics
-    github-ref: refs/heads/main
-    github-repo: https://github.com/firebase/skills
-    github-tree-sha: 782daac3a406a43702380a8f14a25c1fd69a139d
+  category: Serverless
+  github-path: skills/firebase-hosting-basics
+  github-ref: refs/heads/main
+  github-repo: https://github.com/firebase/skills
+  github-tree-sha: 782daac3a406a43702380a8f14a25c1fd69a139d
 name: firebase-hosting-basics
 ---
+
 # hosting-basics
 
 This skill provides instructions and references for working with Firebase

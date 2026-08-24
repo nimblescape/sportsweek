@@ -1,13 +1,14 @@
 ---
 description: Builds and deploys Firebase SQL Connect (aka Firebase Data Connect) backends with PostgreSQL securely. Use when designing schemas with tables and relations, writing authorized queries and mutations, configuring real-time data updates, or generating type-safe SDKs. Use when you need a relational database with Firebase, or when the user mentions SQL Connect or Data Connect.
 metadata:
-    category: Databases
-    github-path: skills/firebase-data-connect-basics
-    github-ref: refs/heads/main
-    github-repo: https://github.com/firebase/skills
-    github-tree-sha: d6fc2f5e4f6f85216dc7dddcd33a943091e64a67
+  category: Databases
+  github-path: skills/firebase-data-connect-basics
+  github-ref: refs/heads/main
+  github-repo: https://github.com/firebase/skills
+  github-tree-sha: d6fc2f5e4f6f85216dc7dddcd33a943091e64a67
 name: firebase-data-connect
 ---
+
 # Firebase SQL Connect
 
 Firebase SQL Connect is a relational database service using Cloud SQL for
@@ -137,7 +138,7 @@ For platform-specific instructions on how to use the generated SDKs, read:
   [reference/sdk_admin_node.md](reference/sdk_admin_node.md)
 - **Flutter (Dart)**: [reference/sdk_flutter.md](reference/sdk_flutter.md)
 
-______________________________________________________________________
+---
 
 ## Feature Capability Map
 
@@ -157,7 +158,7 @@ If you need to implement a specific feature, consult the mapped reference file:
 | **Data Seeding & Migrations**   | [reference/data_seeding.md](reference/data_seeding.md)       | `seed_data.gql`, `_insertMany`, Admin SDK bulk     |
 | **Starter Templates**           | [templates.md](templates.md)                                 | CRUD, user-owned resources, many-to-many, SDK init |
 
-______________________________________________________________________
+---
 
 ## Deployment & CLI
 

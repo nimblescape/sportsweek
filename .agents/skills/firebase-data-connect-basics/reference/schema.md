@@ -8,7 +8,7 @@
 - [Data Types](#data-types)
 - [Enumerations](#enumerations)
 
-______________________________________________________________________
+---
 
 ## Defining Types
 
@@ -46,7 +46,7 @@ type User @table(key: "uid") {
 }
 ```
 
-______________________________________________________________________
+---
 
 ## Core Directives
 
@@ -134,11 +134,15 @@ type Post @table {
 
 # Usage
 query SearchPosts($q: String!) @auth(level: PUBLIC) {
-  posts_search(query: $q) { id title body }
+  posts_search(query: $q) {
+    id
+    title
+    body
+  }
 }
 ```
 
-______________________________________________________________________
+---
 
 ## Relationships
 
@@ -147,7 +151,7 @@ ______________________________________________________________________
 ```graphql
 type Post @table {
   id: UUID! @default(expr: "uuidV4()")
-  author: User!  # Creates authorId foreign key
+  author: User! # Creates authorId foreign key
   title: String!
 }
 
@@ -165,7 +169,7 @@ Customizes foreign key reference.
 ```graphql
 type Post @table {
   author: User! @ref(fields: "authorId", references: "id")
-  authorId: UUID!  # Explicit FK field
+  authorId: UUID! # Explicit FK field
 }
 ```
 
@@ -185,10 +189,13 @@ type Post @table {
 Use `@unique` on the reference field:
 
 ```graphql
-type User @table { id: UUID! name: String! }
+type User @table {
+  id: UUID!
+  name: String!
+}
 
 type UserProfile @table {
-  user: User! @unique  # One profile per user
+  user: User! @unique # One profile per user
   bio: String
   avatarUrl: String
 }
@@ -201,13 +208,19 @@ type UserProfile @table {
 Use a join table with composite primary key:
 
 ```graphql
-type Movie @table { id: UUID! title: String! }
-type Actor @table { id: UUID! name: String! }
+type Movie @table {
+  id: UUID!
+  title: String!
+}
+type Actor @table {
+  id: UUID!
+  name: String!
+}
 
 type MovieActor @table(key: ["movie", "actor"]) {
   movie: Movie!
   actor: Actor!
-  role: String!  # Extra data on relationship
+  role: String! # Extra data on relationship
 }
 
 # Generated fields:
@@ -216,7 +229,7 @@ type MovieActor @table(key: ["movie", "actor"]) {
 # - movie.movieActors_on_movie: [MovieActor!]!
 ```
 
-______________________________________________________________________
+---
 
 ## Data Types
 
@@ -234,7 +247,7 @@ ______________________________________________________________________
 | `Vector`     | `vector`           | Requires `@col(size: N)`    |
 | `[Type]`     | Array              | e.g., `[String]` → `text[]` |
 
-______________________________________________________________________
+---
 
 ## Enumerations
 
@@ -258,21 +271,24 @@ type Post @table {
 - Values are ordered (for comparison operations)
 - Changing order or removing values is a breaking change
 
-______________________________________________________________________
+---
 
 ## Views (Advanced)
 
 Map custom SQL queries to GraphQL types:
 
 ```graphql
-type MovieStats @view(sql: """
-  SELECT
-    movie_id,
-    COUNT(*) as review_count,
-    AVG(rating) as avg_rating
-  FROM review
-  GROUP BY movie_id
-""") {
+type MovieStats
+  @view(
+    sql: """
+    SELECT
+      movie_id,
+      COUNT(*) as review_count,
+      AVG(rating) as avg_rating
+    FROM review
+    GROUP BY movie_id
+    """
+  ) {
   movie: Movie @unique
   reviewCount: Int
   avgRating: Float
@@ -283,7 +299,8 @@ query TopMovies @auth(level: PUBLIC) {
   movies(orderBy: [{ rating: DESC }]) {
     title
     stats: movieStats_on_movie {
-      reviewCount avgRating
+      reviewCount
+      avgRating
     }
   }
 }

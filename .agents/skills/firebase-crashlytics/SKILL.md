@@ -2,13 +2,14 @@
 compatibility: This skill is best used with the Firebase CLI, but does not require it. Firebase CLI can be accessed through `npx -y firebase-tools@latest`.
 description: Comprehensive guide for Firebase Crashlytics, including provisioning and SDK usage. Use this skill when the user needs help setting up Crashlytics, adding crash reporting, or using the Crashlytics SDK in their application.
 metadata:
-    category: CloudObservabilityAndMonitoring
-    github-path: skills/firebase-crashlytics
-    github-ref: refs/heads/main
-    github-repo: https://github.com/firebase/skills
-    github-tree-sha: c990b0886e234234d5dd99540409842b26e06027
+  category: CloudObservabilityAndMonitoring
+  github-path: skills/firebase-crashlytics
+  github-ref: refs/heads/main
+  github-repo: https://github.com/firebase/skills
+  github-tree-sha: c990b0886e234234d5dd99540409842b26e06027
 name: firebase-crashlytics
 ---
+
 # Crashlytics
 
 This skill provides a complete guide for getting started with Crashlytics on
