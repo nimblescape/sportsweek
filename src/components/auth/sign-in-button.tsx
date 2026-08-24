@@ -40,7 +40,7 @@ export function SignInButton() {
         router.refresh();
       } catch {
         setChecking(false);
-        setError("Sign-in failed. Please try again.");
+        setError("Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.");
       }
     });
 
@@ -57,7 +57,7 @@ export function SignInButton() {
       <h1 className="text-2xl font-semibold">SportsWeek</h1>
       <Image src="/htl-logo.svg" alt="HTL Dornbirn logo" width={80} height={94} />
       <Button onClick={handleSignIn} disabled={checking}>
-        {checking ? "Loading…" : "Sign in with Microsoft"}
+        {checking ? "Anmelden…" : "Anmelden"}
       </Button>
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
     </div>
