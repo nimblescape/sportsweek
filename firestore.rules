@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getRoles(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.roles;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && role in getRoles(request.auth.uid);
+    }
+
+    function isAdmin() { return hasRole('admin'); }
+    function isTeacher() { return hasRole('teacher'); }
+    function isStudent() { return hasRole('student'); }
+    function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
+
+    // See .github/instructions/firestore-security-rules.instructions.md before adding collections below.
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin() || isTeacher();
+      allow create: if isAdmin();
+      // `roles` may only ever be changed by an admin (or the Admin SDK, which bypasses rules).
+      allow update: if isAdmin()
+        || (isSelf(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['roles']));
+      allow delete: if isAdmin();
+    }
+  }
+}

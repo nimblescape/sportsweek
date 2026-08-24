@@ -57,4 +57,4 @@ Cloud Functions
 - Never call the Firebase Admin SDK or use service credentials from the browser — only from Route Handlers, Server Actions, or Cloud Functions.
 - Use Cloud Functions (not Route Handlers) for anything triggered by Firestore/Storage events, schedules, queues, or external webhooks — Route Handlers only run in response to HTTP requests to the Next.js app.
 - Prefer direct Firestore Client SDK reads for real-time UI data instead of round-tripping through Next.js, as long as Security Rules can express the authorization.
-- Do session/role checks (Entra ID claims) server-side in Next.js middleware, Route Handlers, or Server Actions — never trust role/permission data from client input.
+- Do session/role checks (Entra ID claims) server-side in Next.js Proxy (`src/proxy.ts`, formerly "Middleware" — renamed in Next.js 16), Route Handlers, or Server Actions — never trust role/permission data from client input. Treat Proxy checks as optimistic only; re-verify in the Route Handler/Server Action itself.

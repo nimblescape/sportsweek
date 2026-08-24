@@ -1,0 +1,44 @@
+# See .agents/skills/firebase-app-hosting-basics/references/configuration.md for the full schema.
+runConfig:
+  minInstances: 0
+  maxInstances: 3
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyBWfiPscbz7JDxxvqOMw9p80DP6TRAdzQM
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: sportsweek.htldornbirn.org
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: htld-sportsweek
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: htld-sportsweek.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "431781920808"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:431781920808:web:00425cd8f18cb2d87b351d"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_ENTRA_ID_TENANT_ID
+    value: 9987787c-b131-4ef8-bdad-35e3b7c323ec
+    availability:
+      - BUILD
+      - RUNTIME
+# No FIREBASE_SERVICE_ACCOUNT_KEY here: on App Hosting, firebase-admin uses Application
+# Default Credentials automatically via the backend's service account. The key in
+# .env.local is only needed for local dev outside of Google Cloud.

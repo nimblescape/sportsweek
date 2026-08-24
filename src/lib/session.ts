@@ -1,0 +1,30 @@
+import "server-only";
+import { cookies } from "next/headers";
+import { adminAuth } from "@/lib/firebase/admin";
+
+export const SESSION_COOKIE_NAME = "__session";
+
+export type SessionUser = {
+  uid: string;
+  email: string | null;
+  roles: string[];
+};
+
+/**
+ * Verifies the Firebase session cookie and reads roles from custom claims.
+ * Custom claims are a cached mirror of `/users/{uid}.roles` (see firestore-security-rules.instructions.md) —
+ * re-sync them whenever roles change, and re-check Firestore directly for anything security-critical.
+ */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (!sessionCookie) return null;
+
+  try {
+    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+    const roles = Array.isArray(decoded.roles) ? (decoded.roles as string[]) : [];
+    return { uid: decoded.uid, email: decoded.email ?? null, roles };
+  } catch {
+    return null;
+  }
+}
