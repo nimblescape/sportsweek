@@ -14,10 +14,16 @@ export function SignInButton() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [error, setError] = useState<string | null>(null);
+    // True until Firebase's first auth-state callback fires, which only happens once any
+    // pending redirect has been resolved — avoids flashing the button during that window.
+    const [checking, setChecking] = useState(true);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (!user) return;
+            if (!user) {
+                setChecking(false);
+                return;
+            }
 
             try {
                 const idToken = await user.getIdToken();
@@ -35,6 +41,7 @@ export function SignInButton() {
                 router.push(searchParams.get("next") ?? "/");
                 router.refresh();
             } catch {
+                setChecking(false);
                 setError("Sign-in failed. Please try again.");
             }
         });
@@ -56,7 +63,9 @@ export function SignInButton() {
                 width={80}
                 height={94}
             />
-            <Button onClick={handleSignIn}>Sign in with Microsoft</Button>
+            <Button onClick={handleSignIn} disabled={checking}>
+                {checking ? "Loading…" : "Sign in with Microsoft"}
+            </Button>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
     );
