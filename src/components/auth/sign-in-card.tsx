@@ -108,16 +108,17 @@ export function SignInCard() {
             Sportsweek
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">Sportwochen-Verwaltung</p>
-          <div className="mt-8 flex w-full flex-col items-center gap-4">
+          <Button className="mt-8 h-10 w-full" onClick={handleSignIn} disabled={checking}>
+            Anmelden über Office 365
+          </Button>
+          {/* Always occupies its height, so the card doesn't resize when the spinner appears. */}
+          <div data-slot="sign-in-status" className="mt-4 flex h-5 items-center justify-center">
             {checking ? (
               // Icon-only, so the accessible name has to come from the label.
               <div role="status" aria-label="Anmelden" className="text-muted-foreground">
                 <LoaderCircle aria-hidden className="size-5 animate-spin" />
               </div>
             ) : null}
-            <Button className="h-10 w-full" onClick={handleSignIn} disabled={checking}>
-              Anmelden über Office 365
-            </Button>
           </div>
           {error ? (
             <p role="alert" className="text-destructive mt-4 text-sm">

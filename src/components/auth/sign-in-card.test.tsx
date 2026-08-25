@@ -131,14 +131,31 @@ describe("SignInCard", () => {
     expect(screen.getByRole("button").querySelector("svg")).toBeNull();
   });
 
-  it("places the spinner above the button", () => {
+  it("places the spinner below the button", () => {
     respondWith(200, { status: "ok" });
 
     render(<SignInCard />);
 
     const status = screen.getByRole("status");
     const button = screen.getByRole("button");
-    expect(status.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(button.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each([
+    ["while signing in", true],
+    ["when idle", false],
+  ])("reserves the spinner's space %s so the card keeps its height", async (_case, busy) => {
+    respondWith(200, { status: "ok" });
+    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+      callback(busy ? signedInUser : null);
+      return () => {};
+    });
+
+    const { container } = render(<SignInCard />);
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-slot="sign-in-status"]')).not.toBeNull(),
+    );
   });
 
   it("keeps the spinner icon-only while still announcing it", () => {
