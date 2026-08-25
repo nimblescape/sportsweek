@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import { SignInButton } from "@/components/auth/sign-in-button";
+import { SignInCard } from "@/components/auth/sign-in-card";
 
 export default function SignInPage() {
   return (
     <Suspense>
-      <SignInButton />
+      <SignInCard />
     </Suspense>
   );
 }

@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+import { LoaderCircle } from "lucide-react";
 import { onAuthStateChanged, signInWithRedirect, signOut } from "firebase/auth";
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { ROUTES } from "@/lib/routes";
 
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
@@ -14,7 +16,7 @@ const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut."
 // Sign-in itself only starts when the user clicks the button — same window, no popup.
 // onAuthStateChanged reliably reports the signed-in user once Firebase resolves the
 // redirect (relies on the /__/auth/* proxy in next.config.ts — see redirect-best-practices).
-export function SignInButton() {
+export function SignInCard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -67,13 +69,37 @@ export function SignInButton() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-50 px-4 dark:bg-black">
-      <h1 className="text-2xl font-semibold">SportsWeek</h1>
-      <Image src="/htl-logo.svg" alt="HTL Dornbirn logo" width={80} height={94} />
-      <Button onClick={handleSignIn} disabled={checking}>
-        {checking ? "Anmelden…" : "Anmelden"}
-      </Button>
-      {error ? <p className="text-destructive text-sm">{error}</p> : null}
+    <div className="bg-muted/50 flex flex-1 items-center justify-center p-4">
+      <Card className="w-full max-w-md [--card-spacing:--spacing(8)]">
+        <CardContent className="flex flex-col items-center">
+          <Image
+            src="/htl-logo.svg"
+            alt="HTL Dornbirn Logo"
+            width={102}
+            height={120}
+            priority
+            className="mb-4"
+          />
+          <h1 className="font-heading text-center text-3xl font-bold tracking-tight text-balance">
+            Sportsweek
+          </h1>
+          <p className="text-muted-foreground mt-2 text-sm">Sportwochen-Verwaltung</p>
+          <Button className="mt-8 h-10 w-full" onClick={handleSignIn} disabled={checking}>
+            Anmelden über Office 365
+          </Button>
+          {checking ? (
+            <p role="status" className="text-muted-foreground mt-4 flex items-center gap-2 text-sm">
+              <LoaderCircle aria-hidden className="size-4 animate-spin" />
+              Anmelden…
+            </p>
+          ) : null}
+          {error ? (
+            <p role="alert" className="text-destructive mt-4 text-sm">
+              {error}
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   );
 }
