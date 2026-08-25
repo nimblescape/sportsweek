@@ -11,14 +11,17 @@ entity "User" as user {
   firstName : string
   lastName : string
   email : string
-  role : enum(admin, teacher, student)  ' US-2
+  role : enum(teacher, student)  ' auto-assigned from UPN domain at creation (US-3)
 }
 
 entity "Season" as season {
   PK id : string
   --
   name : string
-  isActive : boolean  ' exactly one true (US-7)
+  isActive : boolean  ' exactly one true (US-4)
+  isArchived : boolean  ' archived seasons are hidden from the teacher's list (US-4);
+                        ' this is the only persisted archive flag — StudentMasterData's
+                        ' archived state is computed via its seasonId, never stored redundantly
 }
 
 entity "Event" as event {
@@ -31,62 +34,72 @@ entity "Event" as event {
 entity "Program" as program {
   PK id : string
   --
-  name : string  ' e.g. Ski, Snowboard, Alternativ (US-8)
+  name : string  ' e.g. Ski, Snowboard, Alternativ (US-5); only editable/removable if unused by a non-archived season's master data
 }
 
 entity "RequiredEquipmentItem" as requiredEquipmentItem {
   PK id : string
   FK programId : string
   --
-  name : string  ' e.g. ski, ski boots, poles, helmet (US-8)
+  name : string  ' e.g. ski, ski boots, poles, helmet (US-5)
 }
 
 entity "ClassOption" as classOption {
   PK id : string
   --
-  name : string  ' Klasse (US-9)
+  name : string  ' Klasse (US-6); only editable/removable if unused by a non-archived season's master data
 }
 
 entity "SkillLevel" as skillLevel {
   PK id : string
   --
-  name : string  ' complete beginner, beginner, advanced, expert (US-10)
+  name : string  ' complete beginner, beginner, advanced, expert (US-7)
 }
 
 entity "BusPickupPoint" as busPickupPoint {
   PK id : string
   --
-  name : string  ' US-11
+  name : string  ' US-8
 }
 
 entity "FoodOption" as foodOption {
   PK id : string
   --
-  name : string  ' eats everything, vegetarian, vegan, no pork (US-12)
-  ' note: the fixed "other" option is not a row here, see StudentMasterData.foodOtherText
+  name : string  ' eats everything, vegetarian, vegan, no pork (US-9)
+  ' note: the fixed "other" option is not a row here — it is always available
+  ' and cannot be edited/removed; see StudentMasterData.foodOtherText
 }
 
 entity "SeasonPassOption" as seasonPassOption {
   PK id : string
   --
-  name : string  ' no, maybe, Golm-Bielerhöhe (Illwerke), Silvretta-Montafon (US-13)
+  name : string  ' no, maybe, Golm-Bielerhöhe (Illwerke), Silvretta-Montafon (US-10)
 }
 
 entity "StudentMasterData" as studentMasterData {
   PK id : string
   FK userId : string
-  FK seasonId : string
-  FK classId : string
-  FK programId : string
-  FK skillLevelId : string
-  FK seasonPassOptionId : string
-  FK busPickupPointId : string
-  FK foodOptionId : string <<nullable>>
-  FK eventId : string <<nullable>>
+  FK seasonId : string  ' genuine FK — the only real reference among the "selected value" fields (US-11)
+  --
+  isAttendingSportsWeek : boolean  ' "Are you attending the sports week?"; all fields below are
+                                   ' shown/required only if this is true (US-11)
+  --
+  ' The fields below are plain-text/enum snapshots of a teacher-maintained list value at
+  ' selection time (US-11) — NOT foreign keys. Later edits/removals in the source list do
+  ' not alter already-stored records.
+  class : string             ' copied from ClassOption.name
+  program : string           ' copied from Program.name
+  skillLevel : string        ' copied from SkillLevel.name
+  busPickupPoint : string    ' copied from BusPickupPoint.name
+  foodOption : string        ' copied from FoodOption.name, or "other"
+  foodOtherText : string <<nullable>>   ' set when foodOption = "other"
+  seasonPassOption : string  ' copied from SeasonPassOption.name
+  --
+  FK eventId : string <<nullable>>  ' assignment result (US-12); null = unassigned
   --
   dateOfBirth : date
   gender : enum(male, female)
-  foodOtherText : string <<nullable>>  ' set when "other" food option is chosen
+  phoneNumber : string  ' international format, e.g. +43...
   healthNotes : text
   hasMedication : boolean
   equipmentRentalNeeded : boolean
@@ -109,27 +122,46 @@ entity "EmergencyContact" as emergencyContact {
 entity "EquipmentRentalItem" as equipmentRentalItem {
   PK id : string
   FK studentMasterDataId : string
-  FK requiredEquipmentItemId : string
+  --
+  itemName : string  ' copied from RequiredEquipmentItem.name at selection time, not a foreign key
 }
 
-' Seasons & Events (US-7)
+entity "SavedReportFilter" as savedReportFilter {
+  PK id : string
+  FK createdByUserId : string  ' the teacher who saved it (US-13)
+  --
+  name : string
+  classFilter : string <<nullable>>
+  genderFilter : enum(male, female) <<nullable>>
+  programFilter : string <<nullable>>
+  skillLevelFilter : string <<nullable>>
+  nameTextFilter : string <<nullable>>
+}
+
+' Seasons & Events (US-4)
 season ||--o{ event : "contains"
-season ||--o{ studentMasterData : "registered in (US-14)"
-event  |o--o{ studentMasterData : "assigned to (US-15)"
+season ||--o{ studentMasterData : "registered in (US-11)"
+event  |o--o{ studentMasterData : "assigned to (US-12); removing an event unassigns its students"
 
-' Sports Week Master Data (US-8 .. US-13)
-program           ||--o{ requiredEquipmentItem : "requires"
-program           ||--o{ studentMasterData : "selected by"
-classOption       ||--o{ studentMasterData : "selected by"
-skillLevel        ||--o{ studentMasterData : "selected by"
-busPickupPoint    ||--o{ studentMasterData : "selected by"
-seasonPassOption  ||--o{ studentMasterData : "selected by"
-foodOption        |o--o{ studentMasterData : "selected by"
+' Sports Week Master Data teacher-maintained lists (US-5 .. US-10)
+program ||--o{ requiredEquipmentItem : "requires"
 
-' Student edits own master data (US-14)
+' The dotted lines below are NOT foreign keys — they indicate that a StudentMasterData
+' field is a plain-text copy of a list item's name at the time it was selected (US-11).
+program           .down.> studentMasterData : "value copied to .program"
+classOption       .down.> studentMasterData : "value copied to .class"
+skillLevel        .down.> studentMasterData : "value copied to .skillLevel"
+busPickupPoint    .down.> studentMasterData : "value copied to .busPickupPoint"
+seasonPassOption  .down.> studentMasterData : "value copied to .seasonPassOption"
+foodOption        .down.> studentMasterData : "value copied to .foodOption"
+requiredEquipmentItem .down.> equipmentRentalItem : "value copied to .itemName"
+
+' Student edits own master data (US-11)
 user              ||--o{ studentMasterData : "owns (student)"
 studentMasterData ||--|| emergencyContact : "has"
 studentMasterData ||--o{ equipmentRentalItem : "requests"
-requiredEquipmentItem ||--o{ equipmentRentalItem : "rented as"
+
+' Teacher views student report (US-13)
+user              ||--o{ savedReportFilter : "saves (teacher)"
 
 @enduml
