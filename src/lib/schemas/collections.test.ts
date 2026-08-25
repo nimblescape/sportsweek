@@ -27,6 +27,9 @@ describe("COLLECTIONS", () => {
         // Not an entity of its own: one document per claimed name, which is how uniqueness
         // is enforced (US-4 to US-10). See lib/firebase/unique-name.ts.
         "reservedNames",
+        // Likewise bookkeeping: which defaults have already been seeded, so one a teacher
+        // deleted is never brought back (US-5, US-7 to US-10).
+        "seedState",
       ].sort(),
     );
   });

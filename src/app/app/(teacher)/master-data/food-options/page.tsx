@@ -3,9 +3,19 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { SectionPlaceholder } from "@/components/layout/section-placeholder";
+import { MasterDataView } from "@/components/master-data/master-data-view";
+import { FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 
-// Replaced by the food/diet options list in #27.
+const OTHER_HINT =
+  "Diese Option steht immer zur Verfügung und kann nicht bearbeitet oder gelöscht werden. " +
+  "Wer sie wählt, muss die Unverträglichkeit angeben.";
+
 export default function FoodOptionsPage() {
-  return <SectionPlaceholder title="Verpflegung" />;
+  return (
+    <MasterDataView
+      category="food-options"
+      fixedItems={[FOOD_OPTION_OTHER_LABEL]}
+      fixedItemsHint={OTHER_HINT}
+    />
+  );
 }

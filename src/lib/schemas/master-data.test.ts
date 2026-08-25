@@ -8,6 +8,7 @@ import {
   busPickupPointSchema,
   classOptionSchema,
   FOOD_OPTION_OTHER,
+  FOOD_OPTION_OTHER_LABEL,
   foodOptionSchema,
   programSchema,
   requiredEquipmentItemSchema,
@@ -55,5 +56,10 @@ describe("requiredEquipmentItemSchema", () => {
 describe("FOOD_OPTION_OTHER", () => {
   it("is a stable sentinel rather than teacher-editable display text", () => {
     expect(FOOD_OPTION_OTHER).toBe("other");
+  });
+
+  it("is shown to the user under a German label, which is not the stored value", () => {
+    expect(FOOD_OPTION_OTHER_LABEL).toBe("Sonstiges");
+    expect(FOOD_OPTION_OTHER_LABEL).not.toBe(FOOD_OPTION_OTHER);
   });
 });
