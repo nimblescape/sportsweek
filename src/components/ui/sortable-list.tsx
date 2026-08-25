@@ -31,8 +31,11 @@ export type SortableItem = { id: string; name: string };
 
 type SortableListProps<T extends SortableItem> = {
   items: T[];
-  /** Receives the ids in their new order; only called when the order actually changed. */
-  onReorder: (orderedIds: string[]) => void;
+  /**
+   * Receives the ids in their new order; only called when the order actually changed. Rejecting
+   * puts the list back the way it was, so a failed save cannot leave a lie on screen.
+   */
+  onReorder: (orderedIds: string[]) => void | Promise<void>;
   renderItem: (item: T) => React.ReactNode;
   /** Hides the handles, for a list that is read-only in its current state. */
   disabled?: boolean;
@@ -54,20 +57,56 @@ export function SortableList<T extends SortableItem>({
   disabled = false,
   className,
 }: SortableListProps<T>) {
+  /**
+   * The order the teacher just dropped, held until the stored data reflects it.
+   *
+   * Without this the list would flick back: the write goes through a Route Handler rather than
+   * the client SDK, so there is no local echo to compensate with, and the subscription only
+   * catches up a round trip later. In between, dropping would visibly undo itself.
+   */
+  const [dropped, setDropped] = React.useState<string[] | null>(null);
+
+  // Once the stored order says the same thing, the local one has nothing left to add. Adjusted
+  // during render rather than in an effect, which would show the list twice to say it once.
+  const storedOrder = items.map((item) => item.id).join("\u0000");
+  if (dropped !== null && dropped.join("\u0000") === storedOrder) setDropped(null);
+
+  const ordered = React.useMemo(() => {
+    if (dropped === null) return items;
+
+    const remaining = new Map(items.map((item) => [item.id, item]));
+    const moved = dropped.flatMap((id) => {
+      const item = remaining.get(id);
+      if (!item) return [];
+      remaining.delete(id);
+      return [item];
+    });
+
+    // Anything added since the drop is kept, so a concurrent create cannot vanish from view.
+    return [...moved, ...remaining.values()];
+  }, [items, dropped]);
+
   const sensors = useSensors(
     // A short distance threshold, so a tap on a handle is not mistaken for the start of a drag.
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  function handleDragEnd({ active, over }: DragEndEvent) {
+  async function handleDragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
 
-    const from = items.findIndex((item) => item.id === active.id);
-    const to = items.findIndex((item) => item.id === over.id);
+    const from = ordered.findIndex((item) => item.id === active.id);
+    const to = ordered.findIndex((item) => item.id === over.id);
     if (from === -1 || to === -1) return;
 
-    onReorder(arrayMove(items, from, to).map((item) => item.id));
+    const next = arrayMove(ordered, from, to).map((item) => item.id);
+    setDropped(next);
+
+    try {
+      await onReorder(next);
+    } catch {
+      setDropped(null);
+    }
   }
 
   if (disabled) {
@@ -85,11 +124,11 @@ export function SortableList<T extends SortableItem>({
       sensors={sensors}
       collisionDetection={closestCenter}
       modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-      onDragEnd={handleDragEnd}
+      onDragEnd={(event) => void handleDragEnd(event)}
     >
-      <SortableContext items={items} strategy={verticalListSortingStrategy}>
+      <SortableContext items={ordered} strategy={verticalListSortingStrategy}>
         <ul className={className}>
-          {items.map((item) => (
+          {ordered.map((item) => (
             <SortableRow key={item.id} item={item}>
               {renderItem(item)}
             </SortableRow>

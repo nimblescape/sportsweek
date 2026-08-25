@@ -59,7 +59,7 @@ type CrudListProps = {
   onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
   onDelete: (item: CrudItem) => Promise<void>;
   /** Receives the ids in their new order after a drag (see Ordering). */
-  onReorder: (orderedIds: string[]) => void;
+  onReorder: (orderedIds: string[]) => void | Promise<void>;
   deleteNote: (item: CrudItem) => React.ReactNode;
 };
 
@@ -153,7 +153,7 @@ type ItemListProps = Required<
   renderRowAction?: (item: CrudItem) => React.ReactNode;
   onEdit: (item: CrudItem) => void;
   onDelete: (item: CrudItem) => void;
-  onReorder: (orderedIds: string[]) => void;
+  onReorder: (orderedIds: string[]) => void | Promise<void>;
 };
 
 function ItemList({

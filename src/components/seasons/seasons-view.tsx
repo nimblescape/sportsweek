@@ -113,7 +113,7 @@ export function SeasonsView() {
             seasons.map((season) => season.id),
             orderedIds,
           );
-          void apiRequest("/api/seasons", { method: "PATCH", body: { order } });
+          return apiRequest("/api/seasons", { method: "PATCH", body: { order } }).then(() => {});
         }}
       />
 

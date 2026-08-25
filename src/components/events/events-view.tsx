@@ -64,9 +64,9 @@ export function EventsView({ seasonId }: { seasonId: string }) {
         readOnly={season?.isArchived ?? false}
         onEdit={(event) => setDialog({ kind: "form", event })}
         onDelete={(event) => setDialog({ kind: "delete", event })}
-        onReorder={(order) => {
-          void apiRequest("/api/events", { method: "PATCH", body: { seasonId, order } });
-        }}
+        onReorder={(order) =>
+          apiRequest("/api/events", { method: "PATCH", body: { seasonId, order } }).then(() => {})
+        }
       />
 
       {dialog.kind === "form" ? (
@@ -91,7 +91,7 @@ type EventListProps = {
   readOnly: boolean;
   onEdit: (event: Event) => void;
   onDelete: (event: Event) => void;
-  onReorder: (orderedIds: string[]) => void;
+  onReorder: (orderedIds: string[]) => void | Promise<void>;
 };
 
 function EventList({

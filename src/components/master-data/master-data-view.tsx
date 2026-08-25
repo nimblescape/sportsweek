@@ -57,9 +57,9 @@ export function MasterDataView({
       onDelete={(item) =>
         apiRequest(`/api/master-data/${key}/${item.id}`, { method: "DELETE" }).then(() => {})
       }
-      onReorder={(order) => {
-        void apiRequest(`/api/master-data/${key}`, { method: "PATCH", body: { order } });
-      }}
+      onReorder={(order) =>
+        apiRequest(`/api/master-data/${key}`, { method: "PATCH", body: { order } }).then(() => {})
+      }
       deleteNote={(item) => (
         <>
           <strong>{item.name}</strong> wird aus der Liste entfernt. Bereits gespeicherte

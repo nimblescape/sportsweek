@@ -38,7 +38,7 @@ type SeasonListProps = {
   onActiveChange: (season: Season, isActive: boolean) => void;
   onArchivedChange: (season: Season, isArchived: boolean) => void;
   /** Receives the ids of the shown seasons in their new order (see Ordering). */
-  onReorder: (orderedIds: string[]) => void;
+  onReorder: (orderedIds: string[]) => void | Promise<void>;
   busySeasonId?: string | null;
 };
 

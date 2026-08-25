@@ -47,7 +47,7 @@ export function ProgramEquipmentView({ programId }: { programId: string }) {
         )
       }
       onDelete={(item) => save(equipment.filter((entry) => entry !== item.id))}
-      onReorder={(order) => void save(order)}
+      onReorder={(order) => save(order)}
       deleteNote={(item) => (
         <>
           <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.

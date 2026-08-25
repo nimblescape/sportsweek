@@ -121,3 +121,95 @@ describe("SortableList — when reordering is not offered", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
   });
 });
+
+describe("SortableList — showing the result of a move", () => {
+  /** The rendered order, with each row's handle label stripped off. */
+  function shownOrder() {
+    return screen
+      .getAllByRole("listitem")
+      .map((row) => row.textContent?.replace(/\w+ verschieben/, "").trim());
+  }
+
+  async function moveAntonDown() {
+    const handle = screen.getByRole("button", { name: "Anton verschieben" });
+    handle.focus();
+    await userEvent.keyboard("{ }");
+    await userEvent.keyboard("{ArrowDown}");
+    await userEvent.keyboard("{ }");
+  }
+
+  function renderWith(onReorder: (ids: string[]) => void | Promise<void>) {
+    const view = render(
+      <SortableList
+        items={items}
+        onReorder={onReorder}
+        renderItem={(item) => <span>{item.name}</span>}
+      />,
+    );
+    return view;
+  }
+
+  // The write goes through a Route Handler, so the subscription only catches up a round trip
+  // later. Waiting for it would show the old order again in between.
+  it("shows the new order at once, without waiting for the data to catch up", async () => {
+    renderWith(vi.fn());
+
+    await moveAntonDown();
+
+    await waitFor(() => expect(shownOrder()).toEqual(["Berta", "Anton", "Cesar"]));
+  });
+
+  it("stays put when the data catches up and agrees", async () => {
+    const { rerender } = renderWith(vi.fn());
+    await moveAntonDown();
+    await waitFor(() => expect(shownOrder()).toEqual(["Berta", "Anton", "Cesar"]));
+
+    rerender(
+      <SortableList
+        items={[items[1], items[0], items[2]]}
+        onReorder={vi.fn()}
+        renderItem={(item) => <span>{item.name}</span>}
+      />,
+    );
+
+    expect(shownOrder()).toEqual(["Berta", "Anton", "Cesar"]);
+  });
+
+  it("goes back to the stored order when the move could not be saved", async () => {
+    renderWith(() => Promise.reject(new Error("offline")));
+
+    await moveAntonDown();
+
+    await waitFor(() => expect(shownOrder()).toEqual(["Anton", "Berta", "Cesar"]));
+  });
+
+  it("keeps an item that arrived during the move visible", async () => {
+    const { rerender } = renderWith(vi.fn());
+    await moveAntonDown();
+
+    rerender(
+      <SortableList
+        items={[...items, { id: "d", name: "Dora" }]}
+        onReorder={vi.fn()}
+        renderItem={(item) => <span>{item.name}</span>}
+      />,
+    );
+
+    expect(shownOrder()).toEqual(["Berta", "Anton", "Cesar", "Dora"]);
+  });
+
+  it("drops an item that disappeared during the move", async () => {
+    const { rerender } = renderWith(vi.fn());
+    await moveAntonDown();
+
+    rerender(
+      <SortableList
+        items={[items[0], items[2]]}
+        onReorder={vi.fn()}
+        renderItem={(item) => <span>{item.name}</span>}
+      />,
+    );
+
+    expect(shownOrder()).toEqual(["Anton", "Cesar"]);
+  });
+});
