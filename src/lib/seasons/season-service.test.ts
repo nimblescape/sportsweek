@@ -287,3 +287,63 @@ describe("deleteSeason", () => {
     expect(firestore.count("events")).toBe(0);
   });
 });
+
+describe("season names are unique", () => {
+  it("refuses to create a season whose name is taken", async () => {
+    seedSeason("s1", { name: "Winter 2026" });
+
+    await expect(createSeason({ name: "Winter 2026" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(firestore.count("seasons")).toBe(1);
+  });
+
+  it("compares names ignoring case and surrounding whitespace", async () => {
+    seedSeason("s1", { name: "Winter 2026" });
+
+    await expect(createSeason({ name: "  winter 2026 " })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
+  it("still allows a genuinely different name", async () => {
+    seedSeason("s1", { name: "Winter 2026" });
+
+    await expect(createSeason({ name: "Winter 2027" })).resolves.toMatchObject({
+      name: "Winter 2027",
+    });
+  });
+
+  it("refuses to rename a season onto another season's name", async () => {
+    seedSeason("s1", { name: "Winter 2026" });
+    seedSeason("s2", { name: "Winter 2027" });
+
+    await expect(updateSeason("s2", { name: "Winter 2026" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(firestore.get("seasons", "s2")).toMatchObject({ name: "Winter 2027" });
+  });
+
+  it("lets a season keep its own name while another field changes", async () => {
+    seedSeason("s1", { name: "Winter 2026" });
+
+    await expect(
+      updateSeason("s1", { name: "Winter 2026", isArchived: true }),
+    ).resolves.toMatchObject({ isArchived: true });
+  });
+
+  it("does not check the name when only a flag changes", async () => {
+    seedSeason("s1", { name: "Winter 2026" });
+
+    await expect(updateSeason("s1", { isActive: true })).resolves.toMatchObject({
+      isActive: true,
+    });
+  });
+
+  it("allows reusing the name of a deleted season", async () => {
+    seedSeason("s1", { name: "Winter 2026", isArchived: true });
+    await deleteSeason("s1");
+
+    await expect(createSeason({ name: "Winter 2026" })).resolves.toBeTruthy();
+  });
+});

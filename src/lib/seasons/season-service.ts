@@ -1,6 +1,7 @@
 import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
+import { assertNameIsFree } from "@/lib/firebase/unique-name";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
@@ -24,9 +25,17 @@ function seasonDoc(id: string) {
 }
 
 export async function createSeason(input: { name: string }): Promise<Season> {
-  const data = { name: parseName(input.name), isActive: false, isArchived: false };
-  const reference = await adminDb.collection(COLLECTIONS.seasons).add(data);
-  return { id: reference.id, ...data };
+  const name = parseName(input.name);
+
+  // Inside a transaction so two concurrent creates cannot both find the name free (US-4).
+  return adminDb.runTransaction(async (transaction) => {
+    await assertNameIsFree(transaction, { collection: COLLECTIONS.seasons, name });
+
+    const reference = adminDb.collection(COLLECTIONS.seasons).doc();
+    const data = { name, isActive: false, isArchived: false };
+    transaction.set(reference, data);
+    return { id: reference.id, ...data };
+  });
 }
 
 export type SeasonUpdate = {
@@ -63,6 +72,15 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
 
     // Archiving always stands the season down, so the invariant holds without a second call.
     const isActive = isArchived ? false : (update.isActive ?? current.isActive);
+
+    // Every read has to happen before the first write in a transaction.
+    if (name !== undefined && name !== current.name) {
+      await assertNameIsFree(transaction, {
+        collection: COLLECTIONS.seasons,
+        name,
+        exceptId: id,
+      });
+    }
 
     const previouslyActive = wantsActivation
       ? (

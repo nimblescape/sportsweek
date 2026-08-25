@@ -79,10 +79,16 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 - A teacher can add, edit, and remove events within a season.
 - Removing (deleting) an event unassigns any students that were assigned to it (see US-12); the students themselves and their master data are not removed.
 - A teacher can define exactly one season as the active season.
+- Season names are unique: two seasons cannot share the same name.
+- Event names are unique within their season: two events of the same season cannot share the same name, while two different seasons may each have an event of the same name.
+- Name comparison ignores surrounding whitespace and letter case, so "Montafon" and " montafon " count as the same name.
+- A rejected name is reported on the name field itself, in German, and nothing is saved.
 
 ## Sports Week Master Data
 
 Unless a story below says otherwise, every list in this section follows the same edit/remove restriction: an item can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4); when blocked by this rule, a hint is shown: "This item is still in use in a non-archived season. Archive that season to edit or remove it."
+
+Every list in this section also enforces unique names: two items of the same category cannot share a name, compared ignoring surrounding whitespace and letter case. The same name may of course appear in two different categories (e.g. a class and a program). Required equipment items (US-5) are unique within their program, in the same way events are unique within their season. A rejected name is reported on the name field itself, in German, and nothing is saved.
 
 All categories in this section (US-5 through US-10) share one unified, intuitive CRUD interface pattern for adding, editing, and deleting list items — consistent across every category, differing only in the fields each item has.
 

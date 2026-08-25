@@ -212,3 +212,43 @@ describe("EventsView — tooltips", () => {
     expect(await screen.findByText(tooltip)).toBeInTheDocument();
   });
 });
+
+describe("EventsView — duplicate event names", () => {
+  const conflict = () =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "CONFLICT",
+            message: 'Den Namen „Montafon" gibt es in dieser Saison bereits.',
+          },
+        }),
+        { status: 409, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+  it("reports the clash on the name field", async () => {
+    stubFetch(conflict);
+    renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: "Neues Event" }));
+    await userEvent.type(screen.getByLabelText("Name"), "Montafon");
+    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Name")).toHaveAccessibleDescription(/gibt es in dieser Saison/),
+    );
+  });
+
+  it("keeps the dialog open so the name can be corrected", async () => {
+    stubFetch(conflict);
+    renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: "Neues Event" }));
+    await userEvent.type(screen.getByLabelText("Name"), "Montafon");
+    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+
+    await screen.findByText(/gibt es in dieser Saison/);
+    expect(screen.getByLabelText("Name")).toHaveValue("Montafon");
+  });
+});

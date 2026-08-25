@@ -26,12 +26,14 @@ export function SeasonFormDialog({ open, season, onClose, onSaved }: SeasonFormD
   const isEdit = season !== null;
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const nameId = React.useId();
+  const errorId = React.useId();
 
   // No reset effect: the dialog is mounted only while open (and keyed by season), so every
   // open starts from these defaults.
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -48,6 +50,12 @@ export function SeasonFormDialog({ open, season, onClose, onSaved }: SeasonFormD
       }
       onSaved();
     } catch (error) {
+      // A duplicate name is a problem with the field, so it is reported there rather than
+      // as a detached alert the teacher has to connect back to the input themselves (US-4).
+      if (error instanceof ApiRequestError && error.code === "CONFLICT") {
+        setError("name", { message: error.message });
+        return;
+      }
       setSubmitError(
         error instanceof ApiRequestError ? error.message : "Das hat leider nicht geklappt.",
       );
@@ -63,9 +71,14 @@ export function SeasonFormDialog({ open, season, onClose, onSaved }: SeasonFormD
             id={nameId}
             autoFocus
             aria-invalid={errors.name ? true : undefined}
+            aria-describedby={errors.name ? errorId : undefined}
             {...register("name")}
           />
-          {errors.name ? <p className="text-destructive text-sm">{errors.name.message}</p> : null}
+          {errors.name ? (
+            <p id={errorId} className="text-destructive text-sm">
+              {errors.name.message}
+            </p>
+          ) : null}
         </div>
 
         {submitError ? (

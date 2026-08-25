@@ -169,10 +169,12 @@ function EventFormDialog({
   const isEdit = event !== null;
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const nameId = React.useId();
+  const errorId = React.useId();
 
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -189,6 +191,11 @@ function EventFormDialog({
       }
       onClose();
     } catch (caught) {
+      // A duplicate name belongs on the field, not in a detached alert (US-4).
+      if (caught instanceof ApiRequestError && caught.code === "CONFLICT") {
+        setError("name", { message: caught.message });
+        return;
+      }
       setSubmitError(
         caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
       );
@@ -204,9 +211,14 @@ function EventFormDialog({
             id={nameId}
             autoFocus
             aria-invalid={errors.name ? true : undefined}
+            aria-describedby={errors.name ? errorId : undefined}
             {...register("name")}
           />
-          {errors.name ? <p className="text-destructive text-sm">{errors.name.message}</p> : null}
+          {errors.name ? (
+            <p id={errorId} className="text-destructive text-sm">
+              {errors.name.message}
+            </p>
+          ) : null}
         </div>
 
         {submitError ? (

@@ -170,3 +170,62 @@ describe("deleteEvent", () => {
     expect(stillAssigned).toHaveLength(0);
   });
 });
+
+describe("event names are unique within their season", () => {
+  it("refuses a duplicate name in the same season", async () => {
+    seedSeason("s1");
+    firestore.seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+
+    await expect(createEvent({ seasonId: "s1", name: "Montafon" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(firestore.count("events")).toBe(1);
+  });
+
+  it("compares names ignoring case and surrounding whitespace", async () => {
+    seedSeason("s1");
+    firestore.seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+
+    await expect(createEvent({ seasonId: "s1", name: " MONTAFON " })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
+  it("allows the same event name in a different season", async () => {
+    seedSeason("s1");
+    seedSeason("s2");
+    firestore.seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+
+    await expect(createEvent({ seasonId: "s2", name: "Montafon" })).resolves.toMatchObject({
+      name: "Montafon",
+    });
+  });
+
+  it("refuses to rename an event onto a sibling's name", async () => {
+    seedSeason("s1");
+    firestore.seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+    firestore.seed("events", "e2", { seasonId: "s1", name: "Lech" });
+
+    await expect(updateEvent("e2", { name: "Montafon" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(firestore.get("events", "e2")).toMatchObject({ name: "Lech" });
+  });
+
+  it("lets an event keep its own name", async () => {
+    seedSeason("s1");
+    firestore.seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+
+    await expect(updateEvent("e1", { name: "Montafon" })).resolves.toMatchObject({
+      name: "Montafon",
+    });
+  });
+
+  it("allows renaming onto a name used only in another season", async () => {
+    seedSeason("s1");
+    firestore.seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+    firestore.seed("events", "other", { seasonId: "s2", name: "Lech" });
+
+    await expect(updateEvent("e1", { name: "Lech" })).resolves.toMatchObject({ name: "Lech" });
+  });
+});

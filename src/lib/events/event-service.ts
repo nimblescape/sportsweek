@@ -1,6 +1,7 @@
 import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
+import { assertNameIsFree } from "@/lib/firebase/unique-name";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
@@ -42,9 +43,19 @@ export async function createEvent(input: { seasonId: string; name: string }): Pr
   const name = parseName(input.name);
   await requireOpenSeason(input.seasonId);
 
-  const data = { seasonId: input.seasonId, name };
-  const reference = await adminDb.collection(COLLECTIONS.events).add(data);
-  return { id: reference.id, ...data };
+  // A name only has to be unique within its season, so two seasons may both hold a "Montafon".
+  return adminDb.runTransaction(async (transaction) => {
+    await assertNameIsFree(transaction, {
+      collection: COLLECTIONS.events,
+      name,
+      scope: { field: "seasonId", value: input.seasonId },
+    });
+
+    const reference = adminDb.collection(COLLECTIONS.events).doc();
+    const data = { seasonId: input.seasonId, name };
+    transaction.set(reference, data);
+    return { id: reference.id, ...data };
+  });
 }
 
 /** Only the name is editable — an event never moves between seasons (US-4). */
@@ -52,14 +63,27 @@ export async function updateEvent(id: string, update: { name: string }): Promise
   const name = parseName(update.name);
 
   const reference = eventDoc(id);
-  const snapshot = await reference.get();
-  if (!snapshot.exists) {
-    throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es nicht.");
-  }
 
-  const current = eventSchema.parse({ id, ...snapshot.data() });
-  await reference.update({ name });
-  return { ...current, name };
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es nicht.");
+    }
+
+    const current = eventSchema.parse({ id, ...snapshot.data() });
+
+    if (name !== current.name) {
+      await assertNameIsFree(transaction, {
+        collection: COLLECTIONS.events,
+        name,
+        scope: { field: "seasonId", value: current.seasonId },
+        exceptId: id,
+      });
+    }
+
+    transaction.update(reference, { name });
+    return { ...current, name };
+  });
 }
 
 /**
