@@ -42,7 +42,7 @@ export async function createSeason(input: { name: string }): Promise<Season> {
       ownerId: reference.id,
     });
 
-    const data = { name, isActive: false, isArchived: false };
+    const data = { name, isActive: false, isArchived: false, hasStudentData: false };
     transaction.set(reference, data);
     return { id: reference.id, ...data };
   });
@@ -61,10 +61,13 @@ export type SeasonUpdate = {
  * assignment and the report (US-11 to US-13). The query is what makes this safe under
  * concurrency: Firestore locks the `isActive == true` index range it scans, so a second
  * activation racing the first has to wait and then sees the season the first one activated.
+ * Archiving is likewise gated: it signs off on a season's student data, so a season with none
+ * cannot be archived (US-4).
  */
 export async function updateSeason(id: string, update: SeasonUpdate): Promise<Season> {
   const name = update.name === undefined ? undefined : parseName(update.name);
   const wantsActivation = update.isActive === true;
+  const wantsArchival = update.isArchived === true;
 
   return adminDb.runTransaction(async (transaction) => {
     const reference = seasonDoc(id);
@@ -106,6 +109,23 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
         ).docs.filter((doc) => doc.id !== id)
       : [];
 
+    // Archiving finalises a season, so it needs student data to finalise (US-4). The query is
+    // also what keeps the denormalized flag honest for clients, who cannot read
+    // studentMasterData themselves (see firestore.rules).
+    let hasStudentData = current.hasStudentData;
+    if (wantsArchival) {
+      const masterData = await transaction.get(
+        adminDb.collection(COLLECTIONS.studentMasterData).where("seasonId", "==", id).limit(1),
+      );
+      if (masterData.empty) {
+        throw new ServiceError(
+          ErrorCode.Conflict,
+          "Eine Saison ohne Schülerdaten kann nicht archiviert werden.",
+        );
+      }
+      hasStudentData = true;
+    }
+
     if (renaming) {
       await reserveName(transaction, {
         scope: scopeOf(COLLECTIONS.seasons),
@@ -115,7 +135,7 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
       releaseName(transaction, { scope: scopeOf(COLLECTIONS.seasons), name: current.name });
     }
 
-    const next = { name: name ?? current.name, isActive, isArchived };
+    const next = { name: name ?? current.name, isActive, isArchived, hasStudentData };
     transaction.set(reference, next);
     for (const doc of previouslyActive) transaction.update(doc.ref, { isActive: false });
 
@@ -130,8 +150,10 @@ async function referencesOf(collection: string, field: string, value: string) {
 
 /**
  * Firestore has no cascading delete, so removal is explicit (US-4). Dependants go first and
- * the season itself last: if the run fails midway the season is still there and still archived,
- * so simply calling this again finishes the job.
+ * the season itself last: if the run fails midway the season is still there, so simply calling
+ * this again finishes the job. A season is only ever unremovable while it still holds student
+ * data and has not been archived — archiving is what signs off on data that must stay put; once
+ * there is no student data left to sign off on, the season can go regardless of archive state.
  */
 export async function deleteSeason(id: string): Promise<void> {
   const reference = seasonDoc(id);
@@ -141,17 +163,18 @@ export async function deleteSeason(id: string): Promise<void> {
   }
 
   const season = seasonSchema.parse({ id, ...snapshot.data() });
-  if (!season.isArchived) {
-    throw new ServiceError(
-      ErrorCode.Conflict,
-      "Nur archivierte Saisonen können gelöscht werden. Archiviere die Saison zuerst.",
-    );
-  }
 
   const masterDataSnapshot = await adminDb
     .collection(COLLECTIONS.studentMasterData)
     .where("seasonId", "==", id)
     .get();
+
+  if (!season.isArchived && !masterDataSnapshot.empty) {
+    throw new ServiceError(
+      ErrorCode.Conflict,
+      "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.",
+    );
+  }
 
   const eventsSnapshot = await adminDb
     .collection(COLLECTIONS.events)

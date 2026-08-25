@@ -12,6 +12,9 @@ export const seasonSchema = z.object({
   name: requiredText(120),
   isActive: z.boolean(),
   isArchived: z.boolean(),
+  // Denormalized from studentMasterData so clients — who cannot read that collection directly
+  // (see firestore.rules) — can tell whether archiving/deleting is allowed without a round trip.
+  hasStudentData: z.boolean(),
 });
 export type Season = z.infer<typeof seasonSchema>;
 

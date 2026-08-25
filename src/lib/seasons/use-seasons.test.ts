@@ -28,7 +28,12 @@ function docOf(id: string, data: unknown) {
   return { id, data: () => data };
 }
 
-const validSeason = { name: "Wintersportwoche 2026", isActive: true, isArchived: false };
+const validSeason = {
+  name: "Wintersportwoche 2026",
+  isActive: true,
+  isArchived: false,
+  hasStudentData: false,
+};
 
 /** The hook waits for Firebase Auth, so tests have to announce a signed-in user first. */
 function signIn() {

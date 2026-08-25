@@ -22,6 +22,7 @@ function seedSeason(id: string, overrides: Record<string, unknown> = {}) {
     name: `Saison ${id}`,
     isActive: false,
     isArchived: false,
+    hasStudentData: false,
     ...overrides,
   });
 }

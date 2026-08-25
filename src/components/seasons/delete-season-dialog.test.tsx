@@ -18,7 +18,13 @@ const noContent = () => Promise.resolve(new Response(null, { status: 204 }));
 
 afterEach(() => vi.unstubAllGlobals());
 
-const season = { id: "s1", name: "Wintersportwoche 2026", isActive: false, isArchived: true };
+const season = {
+  id: "s1",
+  name: "Wintersportwoche 2026",
+  isActive: false,
+  isArchived: true,
+  hasStudentData: true,
+};
 
 function renderDialog(overrides: Record<string, unknown> = {}) {
   const onClose = vi.fn();
@@ -154,14 +160,15 @@ describe("DeleteSeasonDialog", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("shows the server's refusal when the season turns out not to be archived", async () => {
+  it("shows the server's refusal when the season still has student data and is not archived", async () => {
     stubFetch(() =>
       Promise.resolve(
         new Response(
           JSON.stringify({
             error: {
               code: "CONFLICT",
-              message: "Nur archivierte Saisonen können gelöscht werden.",
+              message:
+                "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.",
             },
           }),
           { status: 409, headers: { "content-type": "application/json" } },
@@ -174,7 +181,7 @@ describe("DeleteSeasonDialog", () => {
     await userEvent.click(deleteButton());
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Nur archivierte Saisonen können gelöscht werden.",
+      "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.",
     );
     expect(onDeleted).not.toHaveBeenCalled();
   });

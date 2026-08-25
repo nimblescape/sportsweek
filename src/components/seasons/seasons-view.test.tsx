@@ -15,9 +15,34 @@ vi.mock("@/lib/seasons/use-seasons", () => ({
 
 const { SeasonsView } = await import("./seasons-view");
 
-const active = { id: "s1", name: "Winter 2026", isActive: true, isArchived: false };
-const archived = { id: "s2", name: "Winter 2025", isActive: false, isArchived: true };
-const inactive = { id: "s3", name: "Winter 2027", isActive: false, isArchived: false };
+const active = {
+  id: "s1",
+  name: "Winter 2026",
+  isActive: true,
+  isArchived: false,
+  hasStudentData: true,
+};
+const archived = {
+  id: "s2",
+  name: "Winter 2025",
+  isActive: false,
+  isArchived: true,
+  hasStudentData: true,
+};
+const inactive = {
+  id: "s3",
+  name: "Winter 2027",
+  isActive: false,
+  isArchived: false,
+  hasStudentData: true,
+};
+const noStudentData = {
+  id: "s4",
+  name: "Winter 2024",
+  isActive: false,
+  isArchived: false,
+  hasStudentData: false,
+};
 
 function stubFetch(implementation: (...args: unknown[]) => unknown) {
   const fetchMock = vi.fn(implementation);
@@ -203,5 +228,36 @@ describe("SeasonsView — deleting", () => {
     await userEvent.click(screen.getByRole("button", { name: "Löschen" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("deletes directly, without a confirmation dialog, a season that has no student data", async () => {
+    const fetchMock = stubFetch(noContent);
+    renderView([active, archived, inactive, noStudentData]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Saison Winter 2024 löschen" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/seasons/s4",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("surfaces a refused direct deletion instead of failing silently", async () => {
+    stubFetch(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ error: { code: "CONFLICT", message: "Hat noch Schülerdaten." } }),
+          { status: 409, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+    renderView([active, archived, inactive, noStudentData]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Saison Winter 2024 löschen" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Hat noch Schülerdaten.");
   });
 });

@@ -143,9 +143,12 @@ describe("DELETE /api/seasons/[seasonId]", () => {
     expect(deleteSeason).not.toHaveBeenCalled();
   });
 
-  it("rejects deleting a season that is not archived, even when the client is bypassed", async () => {
+  it("rejects deleting a season with student data that is not archived, even when the client is bypassed", async () => {
     deleteSeason.mockRejectedValue(
-      new ServiceError("CONFLICT", "Nur archivierte Saisonen können gelöscht werden."),
+      new ServiceError(
+        "CONFLICT",
+        "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.",
+      ),
     );
 
     const response = await DELETE(deleteRequest(), context);
@@ -154,7 +157,7 @@ describe("DELETE /api/seasons/[seasonId]", () => {
     expect(await response.json()).toEqual({
       error: {
         code: "CONFLICT",
-        message: "Nur archivierte Saisonen können gelöscht werden.",
+        message: "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.",
       },
     });
   });

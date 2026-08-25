@@ -98,7 +98,13 @@ describe("SeasonFormDialog — creating", () => {
 });
 
 describe("SeasonFormDialog — editing", () => {
-  const season = { id: "s1", name: "Winter 2026", isActive: false, isArchived: false };
+  const season = {
+    id: "s1",
+    name: "Winter 2026",
+    isActive: false,
+    isArchived: false,
+    hasStudentData: false,
+  };
 
   it("prefills the current name", () => {
     stubFetch(() => okResponse());
@@ -193,7 +199,13 @@ describe("SeasonFormDialog — duplicate names", () => {
 });
 
 describe("SeasonFormDialog — duplicate name while editing", () => {
-  const season = { id: "s1", name: "Winter 2026", isActive: false, isArchived: false };
+  const season = {
+    id: "s1",
+    name: "Winter 2026",
+    isActive: false,
+    isArchived: false,
+    hasStudentData: false,
+  };
 
   it("reports the clash on the field when renaming onto a taken name", async () => {
     stubFetch(() =>

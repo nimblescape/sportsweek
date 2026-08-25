@@ -21,9 +21,15 @@ describe("zodConverter", () => {
       name: "Wintersportwoche 2026",
       isActive: true,
       isArchived: false,
+      hasStudentData: false,
     });
 
-    expect(written).toEqual({ name: "Wintersportwoche 2026", isActive: true, isArchived: false });
+    expect(written).toEqual({
+      name: "Wintersportwoche 2026",
+      isActive: true,
+      isArchived: false,
+      hasStudentData: false,
+    });
     expect(written).not.toHaveProperty("id");
   });
 
@@ -33,6 +39,7 @@ describe("zodConverter", () => {
         name: "Wintersportwoche 2026",
         isActive: true,
         isArchived: false,
+        hasStudentData: false,
       }),
       {},
     );
@@ -42,6 +49,7 @@ describe("zodConverter", () => {
       name: "Wintersportwoche 2026",
       isActive: true,
       isArchived: false,
+      hasStudentData: false,
     });
   });
 

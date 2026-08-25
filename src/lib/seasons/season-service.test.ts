@@ -19,7 +19,13 @@ beforeEach(() => firestore.reset());
 
 /** Mirrors createSeason: a season and the reservation that holds its name (US-4). */
 function seedSeason(id: string, overrides: Record<string, unknown> = {}) {
-  const season = { name: `Saison ${id}`, isActive: false, isArchived: false, ...overrides };
+  const season = {
+    name: `Saison ${id}`,
+    isActive: false,
+    isArchived: false,
+    hasStudentData: false,
+    ...overrides,
+  };
   firestore.seed("seasons", id, season);
   firestore.seed("reservedNames", `seasons|${String(season.name).trim().toLowerCase()}`, {
     scope: "seasons",
@@ -36,6 +42,7 @@ describe("createSeason", () => {
       name: "Wintersportwoche 2026",
       isActive: false,
       isArchived: false,
+      hasStudentData: false,
     });
   });
 
@@ -50,6 +57,12 @@ describe("createSeason", () => {
     const season = await createSeason({ name: "  Sommersportwoche  " });
 
     expect(season.name).toBe("Sommersportwoche");
+  });
+
+  it("starts with no student data", async () => {
+    const season = await createSeason({ name: "Wintersportwoche 2026" });
+
+    expect(season.hasStudentData).toBe(false);
   });
 
   it("rejects a blank name", async () => {
@@ -89,6 +102,7 @@ describe("updateSeason", () => {
       name: "Neuer Name",
       isActive: true,
       isArchived: false,
+      hasStudentData: false,
     });
   });
 });
@@ -185,12 +199,31 @@ describe("updateSeason — exactly one active season", () => {
 });
 
 describe("updateSeason — archiving", () => {
-  it("archives a season", async () => {
+  it("archives a season with student data", async () => {
     seedSeason("s1");
+    firestore.seed("studentMasterData", "m1", { seasonId: "s1", studentId: "u1" });
 
     await updateSeason("s1", { isArchived: true });
 
     expect(firestore.get("seasons", "s1")).toMatchObject({ isArchived: true });
+  });
+
+  it("self-heals a stale hasStudentData flag while archiving, since the client relies on it", async () => {
+    seedSeason("s1", { hasStudentData: false });
+    firestore.seed("studentMasterData", "m1", { seasonId: "s1", studentId: "u1" });
+
+    await updateSeason("s1", { isArchived: true });
+
+    expect(firestore.get("seasons", "s1")).toMatchObject({ hasStudentData: true });
+  });
+
+  it("refuses to archive a season with no student data", async () => {
+    seedSeason("s1");
+
+    await expect(updateSeason("s1", { isArchived: true })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(firestore.get("seasons", "s1")).toMatchObject({ isArchived: false });
   });
 
   it("refuses to archive the active season", async () => {
@@ -204,6 +237,7 @@ describe("updateSeason — archiving", () => {
 
   it("archives a season deactivated in the same call", async () => {
     seedSeason("s1", { isActive: true });
+    firestore.seed("studentMasterData", "m1", { seasonId: "s1", studentId: "u1" });
 
     await updateSeason("s1", { isActive: false, isArchived: true });
 
@@ -228,17 +262,35 @@ describe("updateSeason — archiving", () => {
 });
 
 describe("deleteSeason", () => {
-  it("refuses to delete a season that is not archived", async () => {
+  it("refuses to delete an unarchived season that still has student data", async () => {
     seedSeason("s1");
+    firestore.seed("studentMasterData", "m1", { seasonId: "s1", studentId: "u1" });
 
     await expect(deleteSeason("s1")).rejects.toMatchObject({ code: "CONFLICT" });
     expect(firestore.get("seasons", "s1")).toBeDefined();
   });
 
-  it("refuses to delete the active season", async () => {
+  it("refuses to delete an active season that still has student data", async () => {
     seedSeason("s1", { isActive: true });
+    firestore.seed("studentMasterData", "m1", { seasonId: "s1", studentId: "u1" });
 
     await expect(deleteSeason("s1")).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("deletes an unarchived season that has no student data", async () => {
+    seedSeason("s1");
+
+    await deleteSeason("s1");
+
+    expect(firestore.get("seasons", "s1")).toBeUndefined();
+  });
+
+  it("deletes an active season that has no student data", async () => {
+    seedSeason("s1", { isActive: true });
+
+    await deleteSeason("s1");
+
+    expect(firestore.get("seasons", "s1")).toBeUndefined();
   });
 
   it("reports a missing season as not found", async () => {
@@ -251,6 +303,16 @@ describe("deleteSeason", () => {
     await deleteSeason("s1");
 
     expect(firestore.get("seasons", "s1")).toBeUndefined();
+  });
+
+  it("deletes an archived season that still has student data", async () => {
+    seedSeason("s1", { isArchived: true });
+    firestore.seed("studentMasterData", "m1", { seasonId: "s1", studentId: "u1" });
+
+    await deleteSeason("s1");
+
+    expect(firestore.get("seasons", "s1")).toBeUndefined();
+    expect(firestore.count("studentMasterData")).toBe(0);
   });
 
   it("deletes every event of the season", async () => {
@@ -311,7 +373,12 @@ describe("deleteSeason", () => {
     firestore.seed("events", "orphan", { seasonId: "s1", name: "Übrig" });
 
     await deleteSeason("s1");
-    firestore.seed("seasons", "s1", { name: "Saison s1", isActive: false, isArchived: true });
+    firestore.seed("seasons", "s1", {
+      name: "Saison s1",
+      isActive: false,
+      isArchived: true,
+      hasStudentData: false,
+    });
     firestore.seed("events", "orphan", { seasonId: "s1", name: "Übrig" });
 
     await expect(deleteSeason("s1")).resolves.toBeUndefined();
@@ -367,6 +434,7 @@ describe("season names are unique", () => {
 
   it("lets a season keep its own name while another field changes", async () => {
     seedSeason("s1", { name: "Winter 2026" });
+    firestore.seed("studentMasterData", "m1", { seasonId: "s1", studentId: "u1" });
 
     await expect(
       updateSeason("s1", { name: "Winter 2026", isArchived: true }),

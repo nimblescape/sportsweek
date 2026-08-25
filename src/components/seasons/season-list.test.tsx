@@ -9,9 +9,34 @@ import { describe, expect, it, vi } from "vitest";
 import { SeasonList } from "@/components/seasons/season-list";
 
 const seasons = [
-  { id: "s1", name: "Wintersportwoche 2026", isActive: true, isArchived: false },
-  { id: "s2", name: "Wintersportwoche 2025", isActive: false, isArchived: true },
-  { id: "s3", name: "Wintersportwoche 2027", isActive: false, isArchived: false },
+  {
+    id: "s1",
+    name: "Wintersportwoche 2026",
+    isActive: true,
+    isArchived: false,
+    hasStudentData: true,
+  },
+  {
+    id: "s2",
+    name: "Wintersportwoche 2025",
+    isActive: false,
+    isArchived: true,
+    hasStudentData: true,
+  },
+  {
+    id: "s3",
+    name: "Wintersportwoche 2027",
+    isActive: false,
+    isArchived: false,
+    hasStudentData: true,
+  },
+  {
+    id: "s4",
+    name: "Wintersportwoche 2024",
+    isActive: false,
+    isArchived: false,
+    hasStudentData: false,
+  },
 ];
 
 function renderList(overrides: Record<string, unknown> = {}) {
@@ -81,7 +106,7 @@ describe("SeasonList — row actions", () => {
   });
 
   it.each([["Wintersportwoche 2026"], ["Wintersportwoche 2027"]])(
-    "disables deleting %s, because the season is not archived",
+    "disables deleting %s, because it still has student data and is not archived",
     (name) => {
       renderList();
 
@@ -94,10 +119,10 @@ describe("SeasonList — row actions", () => {
 
     expect(
       screen.getByRole("button", { name: "Saison Wintersportwoche 2026 löschen" }),
-    ).toHaveAccessibleDescription(/nur archivierte/i);
+    ).toHaveAccessibleDescription(/schülerdaten/i);
   });
 
-  it("allows deleting an archived season", async () => {
+  it("allows deleting an archived season, even though it still has student data", async () => {
     const { onDelete } = renderList();
 
     await userEvent.click(
@@ -105,6 +130,20 @@ describe("SeasonList — row actions", () => {
     );
 
     expect(onDelete).toHaveBeenCalledWith(seasons[1]);
+  });
+
+  it("allows deleting an unarchived season that has no student data", async () => {
+    const { onDelete } = renderList();
+
+    expect(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2024 löschen" }),
+    ).not.toBeDisabled();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2024 löschen" }),
+    );
+
+    expect(onDelete).toHaveBeenCalledWith(seasons[3]);
   });
 
   it("edits the season that was clicked", async () => {
@@ -197,6 +236,40 @@ describe("SeasonList — row actions", () => {
     ).toHaveAccessibleDescription(/zuerst deaktiviert/i);
   });
 
+  it("disables archiving a season with no student data", () => {
+    renderList();
+
+    expect(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2024 archivieren" }),
+    ).toBeDisabled();
+  });
+
+  it("explains why archiving a season with no student data is unavailable", () => {
+    renderList();
+
+    expect(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2024 archivieren" }),
+    ).toHaveAccessibleDescription(/schülerdaten/i);
+  });
+
+  it("allows unarchiving a season with no student data, since that rule only gates archiving", () => {
+    renderList({
+      seasons: [
+        {
+          id: "s5",
+          name: "Wintersportwoche 2023",
+          isActive: false,
+          isArchived: true,
+          hasStudentData: false,
+        },
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2023 wiederherstellen" }),
+    ).not.toBeDisabled();
+  });
+
   it("links to the events of the season", () => {
     renderList();
 
@@ -252,8 +325,8 @@ describe("SeasonList — tooltips", () => {
 
   it("explains on hover why deleting is unavailable, which the sr-only hint cannot do", async () => {
     renderList();
-    const hint = "Nur archivierte Saisonen können gelöscht werden.";
-    // One sr-only copy already exists per non-archived row; hovering adds the visible one.
+    const hint = "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.";
+    // One sr-only copy already exists per disabled row; hovering adds the visible one.
     const before = screen.getAllByText(hint).length;
 
     await userEvent.hover(

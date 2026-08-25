@@ -23,8 +23,10 @@ import { cn } from "@/lib/utils";
 import type { Season } from "@/lib/schemas/season";
 import { SEASON_STATE_LABELS, seasonState } from "@/lib/seasons/season-state";
 
-const DELETE_HINT = "Nur archivierte Saisonen können gelöscht werden.";
-const ARCHIVE_HINT = "Eine aktive Saison muss zuerst deaktiviert werden.";
+const ARCHIVE_ACTIVE_HINT = "Eine aktive Saison muss zuerst deaktiviert werden.";
+const ARCHIVE_NO_DATA_HINT = "Eine Saison ohne Schülerdaten kann nicht archiviert werden.";
+const DELETE_HINT =
+  "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.";
 
 type SeasonListProps = {
   seasons: Season[];
@@ -82,9 +84,15 @@ export function SeasonList({
       <ul>
         {seasons.map((season) => {
           const state = seasonState(season);
-          const hintId = `${season.id}-delete-hint`;
           const archiveHintId = `${season.id}-archive-hint`;
-          const archivingDisabled = state === "active";
+          const deleteHintId = `${season.id}-delete-hint`;
+          // Mirrors season-service.ts: archiving needs student data to sign off on, and an
+          // active season must be deactivated first; deleting still-unarchived data needs it
+          // gone first (US-4).
+          const archivingDisabled =
+            state === "active" || (!season.isArchived && !season.hasStudentData);
+          const archiveHint = state === "active" ? ARCHIVE_ACTIVE_HINT : ARCHIVE_NO_DATA_HINT;
+          const deletingDisabled = !season.isArchived && season.hasStudentData;
           const busy = busySeasonId === season.id;
 
           return (
@@ -180,20 +188,20 @@ export function SeasonList({
 
                 {archivingDisabled ? (
                   <span id={archiveHintId} className="sr-only">
-                    {ARCHIVE_HINT}
+                    {archiveHint}
                   </span>
                 ) : null}
 
                 {/* Wrapped in a span because a disabled button emits no pointer events, and the
                     reason it is disabled is exactly what needs explaining here (US-4). */}
-                <Tooltip label={season.isArchived ? "Löschen" : DELETE_HINT}>
+                <Tooltip label={deletingDisabled ? DELETE_HINT : "Löschen"}>
                   <span className="inline-flex">
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      disabled={!season.isArchived || busy}
+                      disabled={deletingDisabled || busy}
                       aria-label={`Saison ${season.name} löschen`}
-                      aria-describedby={season.isArchived ? undefined : hintId}
+                      aria-describedby={deletingDisabled ? deleteHintId : undefined}
                       onClick={() => onDelete(season)}
                       className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
@@ -202,11 +210,11 @@ export function SeasonList({
                   </span>
                 </Tooltip>
 
-                {season.isArchived ? null : (
-                  <span id={hintId} className="sr-only">
+                {deletingDisabled ? (
+                  <span id={deleteHintId} className="sr-only">
                     {DELETE_HINT}
                   </span>
-                )}
+                ) : null}
               </div>
             </li>
           );

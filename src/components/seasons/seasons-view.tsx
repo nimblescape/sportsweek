@@ -46,6 +46,29 @@ export function SeasonsView() {
     }
   }
 
+  async function deleteSeasonDirectly(season: Season) {
+    setBusySeasonId(season.id);
+    setActionError(null);
+    try {
+      await apiRequest(`/api/seasons/${season.id}`, { method: "DELETE" });
+    } catch (caught) {
+      setActionError(
+        caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
+      );
+    } finally {
+      setBusySeasonId(null);
+    }
+  }
+
+  // Typing the name out only earns its keep when there is student data to lose (US-4).
+  function handleDelete(season: Season) {
+    if (season.hasStudentData) {
+      setDialog({ kind: "delete", season });
+    } else {
+      void deleteSeasonDirectly(season);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -79,7 +102,7 @@ export function SeasonsView() {
         error={error}
         busySeasonId={busySeasonId}
         onEdit={(season) => setDialog({ kind: "form", season })}
-        onDelete={(season) => setDialog({ kind: "delete", season })}
+        onDelete={handleDelete}
         onActiveChange={(season, isActive) => patchSeason(season, { isActive })}
         onArchivedChange={(season, isArchived) => patchSeason(season, { isArchived })}
       />

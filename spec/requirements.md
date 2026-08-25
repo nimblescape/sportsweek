@@ -70,16 +70,21 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 - A view for maintaining the list of seasons exists.
 - The list shows every season, along with its state: active, archived, or inactive (neither active nor archived).
 - A teacher can add, edit, and remove seasons.
-- Only an archived season can be deleted; a non-archived season (whether active or inactive) cannot be deleted.
-- Each season row has a delete button, disabled for any non-archived season, with a hint explaining that only archived seasons can be deleted.
+- A season that holds no student master data (see US-11) can be deleted whether or not it is archived, and whether or not it is active.
+- A season that holds student master data can only be deleted once it is archived; while it is not archived it cannot be deleted.
+- Each season row has a delete button, disabled only for a non-archived season that holds student master data, with a hint explaining that such a season must be archived first.
 - Removing (deleting) a season also deletes all master data records (see US-11) and all events (see below) belonging to that season.
-- Before a season is deleted, a confirmation modal dialog (built with native HTML/CSS, not a separate browser popup window) asks the teacher whether they are sure they want to delete the season, showing the exact season name; it also states that all master data records for that season will be deleted along with it, and includes a hint that this cannot be undone.
+- The confirmation dialog described below is only required when the season holds student master data. A season with none is deleted directly, without confirmation, since there is nothing irreversible to lose beyond the season and its events.
+- Before a season that holds student master data is deleted, a confirmation modal dialog (built with native HTML/CSS, not a separate browser popup window) asks the teacher whether they are sure they want to delete the season, showing the exact season name; it also states that all master data records for that season will be deleted along with it, and includes a hint that this cannot be undone.
 - The confirmation dialog is a warning dialog (see Design Guidelines).
 - The confirmation dialog has a Delete button and a Cancel button.
 - The confirmation dialog requires the teacher to type the exact season name; the Delete button is only enabled once the entered text matches the season name being deleted.
 - A teacher can archive a season; an archived season no longer appears in the teacher's list of seasons.
-- A teacher can unarchive an archived season.
+- A season that holds no student master data cannot be archived: archiving signs off on a season's student data, so there must be data to sign off on.
+- Each season row has an archive button, disabled for the active season (which must be deactivated first) and for any season that holds no student master data, with a hint explaining whichever reason applies.
+- A teacher can unarchive an archived season. Unarchiving is not subject to the student-data rule, so a season that somehow ended up archived without data can still be brought back.
 - A season's active/archived state is stored directly on the season. A student master data record has no archived flag of its own; its archived status is computed from the archived state of the season it belongs to (see US-11).
+- Whether a season holds student master data is mirrored onto the season itself, so the client can enable or disable the archive and delete actions without reading master data it is not permitted to read. The server re-checks the underlying records on every archive and delete and is the sole authority.
 - Each season can contain multiple events.
 - A view for maintaining the list of events within a selected season exists.
 - A teacher can add, edit, and remove events within a season.
