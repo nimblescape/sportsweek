@@ -23,6 +23,8 @@ export const db = getFirestore(app);
 // (Authentication > Sign-in method > Microsoft) with your Entra ID tenant details.
 export function createMicrosoftAuthProvider() {
   const provider = new OAuthProvider("microsoft.com");
+  // Grants the Graph /me lookup that supplies the authoritative first/last name (US-1).
+  provider.addScope("User.Read");
   // Restrict to a single Entra ID tenant, or use "organizations"/"common" as needed.
   const tenantId = process.env.NEXT_PUBLIC_ENTRA_ID_TENANT_ID;
   if (tenantId) {

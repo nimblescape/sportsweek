@@ -10,6 +10,8 @@ const SESSION_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // Firebase caps session co
 
 const bodySchema = z.object({
   idToken: z.string().min(1),
+  // Only ever used to call Graph, which rejects a forged token — never trusted directly.
+  msAccessToken: z.string().min(1).optional(),
 });
 
 // Exchanges a client-side Firebase ID token (from signInWithPopup) for an httpOnly session cookie.
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
   // No record, no claim and no cookie for a UPN outside the allowed domains (US-3).
   let provisioned;
   try {
-    provisioned = await provisionUser(decoded);
+    provisioned = await provisionUser(decoded, parsed.data.msAccessToken);
   } catch (err) {
     // Typically a missing Firestore database or missing Application Default Credentials.
     console.error("Failed to provision the user record:", err);

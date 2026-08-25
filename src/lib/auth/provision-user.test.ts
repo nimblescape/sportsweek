@@ -6,11 +6,14 @@ const docUpdate = vi.fn();
 const doc = vi.fn(() => ({ get: docGet, set: docSet, update: docUpdate }));
 const collection = vi.fn(() => ({ doc }));
 const setCustomUserClaims = vi.fn();
+const fetchEntraName = vi.fn();
 
 vi.mock("@/lib/firebase/admin", () => ({
   adminDb: { collection },
   adminAuth: { setCustomUserClaims },
 }));
+
+vi.mock("@/lib/auth/graph", () => ({ fetchEntraName }));
 
 const { provisionUser } = await import("@/lib/auth/provision-user");
 
@@ -29,6 +32,7 @@ describe("provisionUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    fetchEntraName.mockResolvedValue(null);
   });
 
   it("creates the record on first login using the UPN as the document id", async () => {
@@ -154,5 +158,46 @@ describe("provisionUser", () => {
     expect(docSet).toHaveBeenCalledWith(
       expect.objectContaining({ firstName: expect.any(String), lastName: expect.any(String) }),
     );
+  });
+
+  it("prefers the name Entra holds over the display name", async () => {
+    fetchEntraName.mockResolvedValue({ firstName: "Hannes", lastName: "Stauss" });
+
+    const result = await provisionUser(
+      { uid: "firebase-uid-1", email: "hannes.stauss@htldornbirn.at", name: "Stauss Hannes" },
+      "graph-token",
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      user: { firstName: "Hannes", lastName: "Stauss" },
+    });
+    expect(fetchEntraName).toHaveBeenCalledWith("graph-token");
+  });
+
+  it("falls back to the display name when Graph cannot supply a name", async () => {
+    fetchEntraName.mockResolvedValue(null);
+
+    const result = await provisionUser(
+      { uid: "firebase-uid-1", email: "hannes.stauss@htldornbirn.at", name: "Stauss Hannes" },
+      "graph-token",
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      user: { firstName: "Stauss", lastName: "Hannes" },
+    });
+  });
+
+  it("does not call Graph when no access token is available", async () => {
+    await provisionUser(teacherClaims);
+
+    expect(fetchEntraName).not.toHaveBeenCalled();
+  });
+
+  it("does not call Graph for an ineligible domain", async () => {
+    await provisionUser({ ...teacherClaims, email: "jane@gmail.com" }, "graph-token");
+
+    expect(fetchEntraName).not.toHaveBeenCalled();
   });
 });

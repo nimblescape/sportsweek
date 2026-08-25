@@ -4,10 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const onAuthStateChanged = vi.fn();
 const signInWithRedirect = vi.fn();
 const signOut = vi.fn();
+const getRedirectResult = vi.fn();
+const credentialFromResult = vi.fn();
 const push = vi.fn();
 const refresh = vi.fn();
 
-vi.mock("firebase/auth", () => ({ onAuthStateChanged, signInWithRedirect, signOut }));
+vi.mock("firebase/auth", () => ({
+  onAuthStateChanged,
+  signInWithRedirect,
+  signOut,
+  getRedirectResult,
+  OAuthProvider: { credentialFromResult },
+}));
 
 vi.mock("@/lib/firebase/client", () => ({
   auth: {},
@@ -29,23 +37,46 @@ const { SignInCard } = await import("@/components/auth/sign-in-card");
 const signedInUser = { getIdToken: vi.fn().mockResolvedValue("id-token") };
 
 function respondWith(status: number, body: unknown) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({
-      ok: status >= 200 && status < 300,
-      status,
-      json: async () => body,
-    }),
-  );
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
 }
 
 describe("SignInCard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getRedirectResult.mockResolvedValue(null);
+    credentialFromResult.mockReturnValue(null);
     onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(signedInUser);
       return () => {};
     });
+  });
+
+  it("sends the Microsoft access token so the server can ask Graph for the name", async () => {
+    const fetchMock = respondWith(200, { status: "ok" });
+    getRedirectResult.mockResolvedValue({ user: signedInUser });
+    credentialFromResult.mockReturnValue({ accessToken: "graph-token" });
+
+    render(<SignInCard />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).msAccessToken).toBe("graph-token");
+  });
+
+  it("still signs in when no redirect credential is available", async () => {
+    const fetchMock = respondWith(200, { status: "ok" });
+
+    render(<SignInCard />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.idToken).toBe("id-token");
+    expect(body.msAccessToken).toBeUndefined();
   });
 
   it("shows the HTL Dornbirn logo", () => {

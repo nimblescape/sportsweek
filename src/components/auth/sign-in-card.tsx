@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
-import { onAuthStateChanged, signInWithRedirect, signOut } from "firebase/auth";
+import {
+  OAuthProvider,
+  getRedirectResult,
+  onAuthStateChanged,
+  signInWithRedirect,
+  signOut,
+} from "firebase/auth";
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +31,17 @@ export function SignInCard() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    // The Graph access token exists only in the redirect result, and only right after a
+    // sign-in — an already-signed-in visitor simply posts without it.
+    let graphAccessToken: string | undefined;
+    const redirectSettled = getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          graphAccessToken = OAuthProvider.credentialFromResult(result)?.accessToken ?? undefined;
+        }
+      })
+      .catch(() => undefined);
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setChecking(false);
@@ -32,11 +49,12 @@ export function SignInCard() {
       }
 
       try {
+        await redirectSettled;
         const idToken = await user.getIdToken();
         const response = await fetch("/api/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken }),
+          body: JSON.stringify({ idToken, msAccessToken: graphAccessToken }),
         });
 
         // The UPN domain isn't eligible (US-3) — leave no half-authenticated client state behind.

@@ -2,6 +2,7 @@ import "server-only";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { userSchema, type User } from "@/lib/schemas/user";
+import { fetchEntraName } from "./graph";
 import { roleFromUpn } from "./upn";
 
 export type EntraClaims = {
@@ -33,7 +34,10 @@ function resolveName(claims: EntraClaims, fallback: string) {
  * Creates the user record on first login and keeps the role custom claim in sync (US-1, US-3).
  * Runs server-side only — the Admin SDK bypasses Security Rules, which deny client writes to `users`.
  */
-export async function provisionUser(claims: EntraClaims): Promise<ProvisionOutcome> {
+export async function provisionUser(
+  claims: EntraClaims,
+  graphAccessToken?: string,
+): Promise<ProvisionOutcome> {
   const upn = claims.email?.trim().toLowerCase();
   if (!upn) return { ok: false, reason: "missing-upn" };
 
@@ -41,7 +45,10 @@ export async function provisionUser(claims: EntraClaims): Promise<ProvisionOutco
   if (!derivedRole) return { ok: false, reason: "unsupported-domain" };
 
   const localPart = upn.slice(0, upn.indexOf("@"));
-  const { firstName, lastName } = resolveName(claims, localPart);
+  // Graph is the only authoritative source for the name; the token claims carry a display
+  // name whose word order is tenant-specific and therefore unreliable to split.
+  const fromGraph = graphAccessToken ? await fetchEntraName(graphAccessToken) : null;
+  const { firstName, lastName } = fromGraph ?? resolveName(claims, localPart);
   const ref = adminDb.collection(COLLECTIONS.users).doc(upn);
   const snapshot = await ref.get();
 

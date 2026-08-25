@@ -75,7 +75,17 @@ describe("POST /api/session", () => {
 
     await POST(postRequest({ idToken: "good-token" }));
 
-    expect(provisionUser).toHaveBeenCalledWith(claims);
+    expect(provisionUser).toHaveBeenCalledWith(claims, undefined);
+  });
+
+  it("forwards the Microsoft access token so the name can come from Graph", async () => {
+    const claims = { uid: "user-1", email: "jane@htldornbirn.at" };
+    verifyIdToken.mockResolvedValue(claims);
+    createSessionCookie.mockResolvedValue("session-cookie-value");
+
+    await POST(postRequest({ idToken: "good-token", msAccessToken: "graph-token" }));
+
+    expect(provisionUser).toHaveBeenCalledWith(claims, "graph-token");
   });
 
   it.each(["unsupported-domain", "missing-upn"])(
