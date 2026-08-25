@@ -25,8 +25,16 @@ const NAMED_LIST_SCHEMAS = [
 ] as const;
 
 describe.each(NAMED_LIST_SCHEMAS)("%s schema", (_name, schema) => {
-  it("parses an item with an id and a name", () => {
-    expect(schema.parse({ id: "item-1", name: "Ski" })).toEqual({ id: "item-1", name: "Ski" });
+  it("parses an item with an id, a name and its place in the order", () => {
+    expect(schema.parse({ id: "item-1", name: "Ski", position: 2 })).toEqual({
+      id: "item-1",
+      name: "Ski",
+      position: 2,
+    });
+  });
+
+  it("sorts an item stored before ordering existed to the end, not the top", () => {
+    expect(schema.parse({ id: "item-1", name: "Ski" }).position).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it("requires a non-empty name", () => {
@@ -62,17 +70,21 @@ describe("requiredEquipmentSchema", () => {
 
 describe("programSchema", () => {
   it("carries its required equipment rather than pointing at records of its own", () => {
-    expect(programSchema.parse({ id: "p1", name: "Ski", requiredEquipment: ["Helm"] })).toEqual({
+    expect(
+      programSchema.parse({ id: "p1", name: "Ski", position: 0, requiredEquipment: ["Helm"] }),
+    ).toEqual({
       id: "p1",
       name: "Ski",
+      position: 0,
       requiredEquipment: ["Helm"],
     });
   });
 
   it("treats a program stored before the field existed as requiring nothing", () => {
-    expect(programSchema.parse({ id: "p1", name: "Alternativ" })).toEqual({
+    expect(programSchema.parse({ id: "p1", name: "Alternativ", position: 0 })).toEqual({
       id: "p1",
       name: "Alternativ",
+      position: 0,
       requiredEquipment: [],
     });
   });

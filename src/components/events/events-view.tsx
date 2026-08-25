@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
@@ -63,6 +64,9 @@ export function EventsView({ seasonId }: { seasonId: string }) {
         readOnly={season?.isArchived ?? false}
         onEdit={(event) => setDialog({ kind: "form", event })}
         onDelete={(event) => setDialog({ kind: "delete", event })}
+        onReorder={(order) => {
+          void apiRequest("/api/events", { method: "PATCH", body: { seasonId, order } });
+        }}
       />
 
       {dialog.kind === "form" ? (
@@ -87,9 +91,18 @@ type EventListProps = {
   readOnly: boolean;
   onEdit: (event: Event) => void;
   onDelete: (event: Event) => void;
+  onReorder: (orderedIds: string[]) => void;
 };
 
-function EventList({ events, loading, error, readOnly, onEdit, onDelete }: EventListProps) {
+function EventList({
+  events,
+  loading,
+  error,
+  readOnly,
+  onEdit,
+  onDelete,
+  onReorder,
+}: EventListProps) {
   if (loading) {
     return (
       <Card className="items-center">
@@ -122,12 +135,14 @@ function EventList({ events, loading, error, readOnly, onEdit, onDelete }: Event
 
   return (
     <Card className="[--card-spacing:--spacing(0)]">
-      <ul>
-        {events.map((event) => (
-          <li
-            key={event.id}
-            className="border-border flex items-center justify-between gap-4 border-b px-4 py-3 last:border-b-0"
-          >
+      <SortableList
+        items={events}
+        onReorder={onReorder}
+        // An archived season is read-only, so its order is frozen along with everything else.
+        disabled={readOnly}
+        className="[&>li]:border-border [&>li]:border-b [&>li:last-child]:border-b-0"
+        renderItem={(event) => (
+          <div className="flex items-center justify-between gap-4 py-3 pr-4 pl-2">
             <span className="text-sm font-medium">{event.name}</span>
 
             {readOnly ? null : (
@@ -155,9 +170,9 @@ function EventList({ events, loading, error, readOnly, onEdit, onDelete }: Event
                 </Tooltip>
               </div>
             )}
-          </li>
-        ))}
-      </ul>
+          </div>
+        )}
+      />
     </Card>
   );
 }

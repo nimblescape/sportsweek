@@ -22,6 +22,7 @@ describe("zodConverter", () => {
       isActive: true,
       isArchived: false,
       hasStudentData: false,
+      position: 0,
     });
 
     expect(written).toEqual({
@@ -29,6 +30,7 @@ describe("zodConverter", () => {
       isActive: true,
       isArchived: false,
       hasStudentData: false,
+      position: 0,
     });
     expect(written).not.toHaveProperty("id");
   });
@@ -40,6 +42,7 @@ describe("zodConverter", () => {
         isActive: true,
         isArchived: false,
         hasStudentData: false,
+        position: 0,
       }),
       {},
     );
@@ -50,6 +53,7 @@ describe("zodConverter", () => {
       isActive: true,
       isArchived: false,
       hasStudentData: false,
+      position: 0,
     });
   });
 

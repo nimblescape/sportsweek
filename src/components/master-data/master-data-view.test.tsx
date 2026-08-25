@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { stubRowLayout } from "@/test/stub-row-layout";
 import { CHILD_IN_USE_HINT, IN_USE_HINT } from "@/lib/master-data/categories";
 
 const useMasterData = vi.fn();
@@ -46,12 +47,14 @@ const conflict = (message: string) =>
   );
 
 beforeEach(() => {
+  stubRowLayout();
   useMasterData.mockReturnValue({ items, loading: false, error: null });
   useUsageReport.mockReturnValue({ blockedIds: new Set<string>(), blockedEquipment: {} });
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -309,5 +312,38 @@ describe("MasterDataView — per-row actions", () => {
     });
 
     expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toBeInTheDocument();
+  });
+});
+
+describe("MasterDataView — ordering", () => {
+  it("gives every item a grip handle, so the order can be changed by dragging", () => {
+    renderView();
+
+    expect(screen.getByRole("button", { name: "3AHIT verschieben" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "4BHIT verschieben" })).toBeInTheDocument();
+  });
+
+  it("offers the handle even for an item the in-use guard blocks, since ordering is always allowed", () => {
+    useUsageReport.mockReturnValue({ blockedIds: new Set(["c1"]), blockedEquipment: {} });
+    renderView();
+
+    expect(screen.getByRole("button", { name: "3AHIT verschieben" })).toBeEnabled();
+  });
+
+  it("sends the new order to its category's handler", async () => {
+    const fetchMock = stubFetch(() => Promise.resolve(new Response(null, { status: 204 })));
+    renderView();
+
+    const handle = screen.getByRole("button", { name: "3AHIT verschieben" });
+    handle.focus();
+    await userEvent.keyboard("{ }");
+    await userEvent.keyboard("{ArrowDown}");
+    await userEvent.keyboard("{ }");
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/master-data/classes");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(String(init.body))).toEqual({ order: ["c2", "c1"] });
   });
 });

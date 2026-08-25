@@ -5,6 +5,7 @@
  */
 import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
+import { reorderCollection } from "@/lib/firebase/reorder";
 import {
   normalizeName,
   releaseName,
@@ -106,6 +107,11 @@ export async function createMasterDataItem(
       ? undefined
       : parseEquipment(category, input.requiredEquipment ?? []);
 
+  // A new item goes to the end of the teacher's order (see Ordering). Read outside the
+  // transaction: two simultaneous creates would tie, which the name tiebreak absorbs and the
+  // next reorder renumbers away.
+  const position = (await adminDb.collection(category.collection).get()).size;
+
   // The reservation is what makes the name unique; it shares the transaction with the record,
   // so a rejected name leaves nothing behind (US-5 to US-10).
   return adminDb.runTransaction(async (transaction) => {
@@ -118,12 +124,22 @@ export async function createMasterDataItem(
 
     const data =
       category.equipmentField === undefined
-        ? { name }
-        : { name, [category.equipmentField]: equipment as string[] };
+        ? { name, position }
+        : { name, position, [category.equipmentField]: equipment as string[] };
     transaction.set(reference, data);
 
     return itemFrom(category, reference.id, data);
   });
+}
+
+/** Ordering touches no name, so it is deliberately not subject to the in-use guard (see Ordering). */
+export async function reorderMasterDataItems(
+  key: MasterDataCategoryKey,
+  orderedIds: readonly string[],
+): Promise<void> {
+  const category = categoryOf(masterDataCategorySchema.parse(key));
+
+  await reorderCollection({ collection: category.collection, orderedIds });
 }
 
 export type MasterDataUpdate = { name?: string; requiredEquipment?: readonly string[] };

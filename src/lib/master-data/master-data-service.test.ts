@@ -12,7 +12,7 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const { createMasterDataItem, deleteMasterDataItem, updateMasterDataItem } =
+const { createMasterDataItem, deleteMasterDataItem, reorderMasterDataItems, updateMasterDataItem } =
   await import("./master-data-service");
 const { ServiceError } = await import("@/lib/service-error");
 const { IN_USE_HINT } = await import("./categories");
@@ -64,7 +64,7 @@ describe("createMasterDataItem", () => {
   it("stores the item under its category's collection", async () => {
     const item = await createMasterDataItem("classes", { name: "3AHIT" });
 
-    expect(firestore.get("classOptions", item.id)).toEqual({ name: "3AHIT" });
+    expect(firestore.get("classOptions", item.id)).toEqual({ name: "3AHIT", position: 0 });
   });
 
   it("trims the name", async () => {
@@ -96,8 +96,58 @@ describe("createMasterDataItem", () => {
 
     expect(firestore.get("programs", program.id)).toEqual({
       name: "Alternativ",
+      position: 0,
       requiredEquipment: [],
     });
+  });
+});
+
+describe("createMasterDataItem — ordering", () => {
+  it("puts the first item at the top", async () => {
+    const item = await createMasterDataItem("classes", { name: "3AHIT" });
+
+    expect(firestore.get("classOptions", item.id)).toMatchObject({ position: 0 });
+  });
+
+  it("appends a new item to the end of the list", async () => {
+    seedItem("classOptions", "c1", "3AHIT");
+    seedItem("classOptions", "c2", "4BHIT");
+
+    const item = await createMasterDataItem("classes", { name: "5CHIT" });
+
+    expect(firestore.get("classOptions", item.id)).toMatchObject({ position: 2 });
+  });
+
+  it("counts only its own category", async () => {
+    seedItem("classOptions", "c1", "3AHIT");
+
+    const item = await createMasterDataItem("skill-levels", { name: "Profi" });
+
+    expect(firestore.get("skillLevels", item.id)).toMatchObject({ position: 0 });
+  });
+});
+
+describe("reorderMasterDataItems", () => {
+  it("stores the order the teacher dropped the items into", async () => {
+    seedItem("classOptions", "a", "A", { position: 0 });
+    seedItem("classOptions", "b", "B", { position: 1 });
+
+    await reorderMasterDataItems("classes", ["b", "a"]);
+
+    expect(firestore.get("classOptions", "b")).toMatchObject({ position: 0 });
+    expect(firestore.get("classOptions", "a")).toMatchObject({ position: 1 });
+  });
+
+  it("reorders an item that is in use, since ordering changes no stored value", async () => {
+    seedItem("classOptions", "a", "3AHIT", { position: 0 });
+    seedItem("classOptions", "b", "4BHIT", { position: 1 });
+    seedUsedIn("open", false, {});
+
+    await expect(reorderMasterDataItems("classes", ["b", "a"])).resolves.toBeUndefined();
+  });
+
+  it("rejects an unknown category before it can name a collection", async () => {
+    await expect(reorderMasterDataItems("users" as "classes", ["a"])).rejects.toBeInstanceOf(Error);
   });
 });
 
@@ -110,6 +160,7 @@ describe("createMasterDataItem — required equipment", () => {
 
     expect(firestore.get("programs", program.id)).toEqual({
       name: "Ski",
+      position: 0,
       requiredEquipment: ["Ski", "Helm"],
     });
   });

@@ -24,6 +24,7 @@ const season = {
   isActive: false,
   isArchived: true,
   hasStudentData: true,
+  position: 0,
 };
 
 function renderDialog(overrides: Record<string, unknown> = {}) {

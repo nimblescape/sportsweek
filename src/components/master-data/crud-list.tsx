@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
 import { namedListItemSchema } from "@/lib/schemas/master-data";
@@ -57,6 +58,8 @@ type CrudListProps = {
   /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
   onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
   onDelete: (item: CrudItem) => Promise<void>;
+  /** Receives the ids in their new order after a drag (see Ordering). */
+  onReorder: (orderedIds: string[]) => void;
   deleteNote: (item: CrudItem) => React.ReactNode;
 };
 
@@ -81,6 +84,7 @@ export function CrudList({
   renderRowAction,
   onSubmit,
   onDelete,
+  onReorder,
   deleteNote,
 }: CrudListProps) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
@@ -112,6 +116,7 @@ export function CrudList({
         renderRowAction={renderRowAction}
         onEdit={(item) => setDialog({ kind: "form", item })}
         onDelete={(item) => setDialog({ kind: "delete", item })}
+        onReorder={onReorder}
       />
 
       {dialog.kind === "form" ? (
@@ -148,6 +153,7 @@ type ItemListProps = Required<
   renderRowAction?: (item: CrudItem) => React.ReactNode;
   onEdit: (item: CrudItem) => void;
   onDelete: (item: CrudItem) => void;
+  onReorder: (orderedIds: string[]) => void;
 };
 
 function ItemList({
@@ -163,6 +169,7 @@ function ItemList({
   renderRowAction,
   onEdit,
   onDelete,
+  onReorder,
 }: ItemListProps) {
   const { title, singular, empty } = labels;
 
@@ -196,19 +203,18 @@ function ItemList({
 
   return (
     <Card className="[--card-spacing:--spacing(0)]">
-      <ul>
-        {items.map((item) => {
+      <SortableList
+        items={items}
+        onReorder={onReorder}
+        renderItem={(item) => {
           const blocked = blockedIds.has(item.id);
           const undeletable = blocked || undeletableIds.has(item.id);
           const deleteHint = blocked ? IN_USE_HINT : undeletableHint;
           const hintId = `${item.id}-in-use-hint`;
 
           return (
-            <li
-              key={item.id}
-              className="border-border flex items-center justify-between gap-4 border-b px-4 py-3 last:border-b-0"
-            >
-              <span className="text-sm font-medium">{item.name}</span>
+            <div className="flex items-center justify-between gap-4 py-3 pr-4 pl-2">
+              <span className="truncate text-sm font-medium">{item.name}</span>
 
               <div className="flex shrink-0 items-center gap-1">
                 {renderRowAction?.(item)}
@@ -252,10 +258,13 @@ function ItemList({
                   </span>
                 ) : null}
               </div>
-            </li>
+            </div>
           );
-        })}
+        }}
+        className="[&>li]:border-border [&>li]:border-b [&>li:last-child]:border-b-0"
+      />
 
+      <ul className="border-border [&>li]:border-border empty:hidden [&>li]:border-t">
         {/* Always offered to students and never a row of its own, so it carries no controls (US-9). */}
         {fixedItems.map((name) => {
           const hint = fixedItemsHint ?? "Diese Option ist fix und kann nicht geändert werden.";
@@ -263,7 +272,7 @@ function ItemList({
           return (
             <li
               key={name}
-              className="border-border text-muted-foreground flex items-center justify-between gap-4 border-b px-4 py-3 last:border-b-0"
+              className="text-muted-foreground flex items-center justify-between gap-4 py-3 pr-4 pl-9"
             >
               <span className="text-sm font-medium">{name}</span>
               <Tooltip label={hint}>

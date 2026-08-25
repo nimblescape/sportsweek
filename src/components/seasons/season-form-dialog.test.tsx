@@ -104,6 +104,7 @@ describe("SeasonFormDialog — editing", () => {
     isActive: false,
     isArchived: false,
     hasStudentData: false,
+    position: 0,
   };
 
   it("prefills the current name", () => {
@@ -205,6 +206,7 @@ describe("SeasonFormDialog — duplicate name while editing", () => {
     isActive: false,
     isArchived: false,
     hasStudentData: false,
+    position: 0,
   };
 
   it("reports the clash on the field when renaming onto a taken name", async () => {

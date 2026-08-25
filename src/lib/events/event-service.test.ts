@@ -43,7 +43,11 @@ describe("createEvent", () => {
 
     const event = await createEvent({ seasonId: "s1", name: "Montafon" });
 
-    expect(firestore.get("events", event.id)).toEqual({ seasonId: "s1", name: "Montafon" });
+    expect(firestore.get("events", event.id)).toEqual({
+      seasonId: "s1",
+      name: "Montafon",
+      position: 0,
+    });
   });
 
   it("trims the name", async () => {

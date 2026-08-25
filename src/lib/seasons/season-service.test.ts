@@ -24,6 +24,7 @@ function seedSeason(id: string, overrides: Record<string, unknown> = {}) {
     isActive: false,
     isArchived: false,
     hasStudentData: false,
+    position: 0,
     ...overrides,
   };
   firestore.seed("seasons", id, season);
@@ -43,6 +44,7 @@ describe("createSeason", () => {
       isActive: false,
       isArchived: false,
       hasStudentData: false,
+      position: 0,
     });
   });
 
@@ -103,6 +105,7 @@ describe("updateSeason", () => {
       isActive: true,
       isArchived: false,
       hasStudentData: false,
+      position: 0,
     });
   });
 });

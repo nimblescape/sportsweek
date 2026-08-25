@@ -6,10 +6,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, orderBy, query } from "firebase/firestore";
+import { collection, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { subscribeWithRecovery } from "@/lib/firebase/live-query";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { byPosition } from "@/lib/schemas/position";
 import { seasonSchema, type Season } from "@/lib/schemas/season";
 
 /** Real-time read straight from the client SDK, governed by Security Rules. */
@@ -22,7 +23,9 @@ export function useSeasons() {
     () =>
       subscribeWithRecovery<Season>({
         label: "seasons",
-        buildQuery: () => query(collection(db, COLLECTIONS.seasons), orderBy("name", "desc")),
+        // Sorted here rather than in the query: Firestore's orderBy silently omits documents
+        // that lack the field, which would hide any season stored before ordering existed.
+        buildQuery: () => query(collection(db, COLLECTIONS.seasons)),
         parse: (id, data) => {
           const parsed = seasonSchema.safeParse({ id, ...data });
           if (!parsed.success) {
@@ -32,7 +35,7 @@ export function useSeasons() {
           return parsed.data;
         },
         onData: (items) => {
-          setSeasons(items);
+          setSeasons([...items].sort(byPosition));
           setLoading(false);
         },
         onError: (message) => {

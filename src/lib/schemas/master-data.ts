@@ -5,11 +5,13 @@
  */
 import { z } from "zod";
 import { documentIdSchema, requiredText } from "./common";
+import { positionSchema } from "./position";
 
 /** Every teacher-maintained list (US-5 to US-10) shares this shape. */
 export const namedListItemSchema = z.object({
   id: documentIdSchema,
   name: requiredText(120),
+  position: positionSchema,
 });
 export type NamedListItem = z.infer<typeof namedListItemSchema>;
 

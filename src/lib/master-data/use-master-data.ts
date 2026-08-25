@@ -6,9 +6,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, doc, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, doc, onSnapshot, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { subscribeWithRecovery } from "@/lib/firebase/live-query";
+import { byPosition } from "@/lib/schemas/position";
 import {
   namedListItemSchema,
   programSchema,
@@ -28,7 +29,9 @@ export function useMasterData(key: MasterDataCategoryKey) {
 
     return subscribeWithRecovery<NamedListItem>({
       label: category.collection,
-      buildQuery: () => query(collection(db, category.collection), orderBy("name")),
+      // Sorted here rather than in the query: Firestore's orderBy silently omits documents that
+      // lack the field, which would hide any item stored before ordering existed.
+      buildQuery: () => query(collection(db, category.collection)),
       parse: (id, data) => {
         const parsed = namedListItemSchema.safeParse({ id, ...data });
         if (!parsed.success) {
@@ -38,7 +41,7 @@ export function useMasterData(key: MasterDataCategoryKey) {
         return parsed.data;
       },
       onData: (received) => {
-        setItems(received);
+        setItems([...received].sort(byPosition));
         setLoading(false);
       },
       onError: (message) => {

@@ -6,10 +6,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@/lib/api/handler";
+import { orderSchema } from "@/lib/schemas/order";
 import { seasonSchema } from "@/lib/schemas/season";
-import { createSeason } from "@/lib/seasons/season-service";
+import { createSeason, reorderSeasons } from "@/lib/seasons/season-service";
 
 const createSeasonSchema = z.strictObject({ name: seasonSchema.shape.name });
+
+const reorderSchema = z.strictObject({ order: orderSchema });
 
 export async function POST(request: Request) {
   const denied = await requireTeacherOrResponse();
@@ -23,5 +26,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ season }, { status: 201 });
   } catch (error) {
     return handleServiceFailure(error, "Creating a season");
+  }
+}
+
+/** Reorders the season list (see Ordering); it changes no name or flag, so it needs no guard. */
+export async function PATCH(request: Request) {
+  const denied = await requireTeacherOrResponse();
+  if (denied) return denied;
+
+  const body = await parseJsonBody(request, reorderSchema);
+  if (!body.ok) return body.response;
+
+  try {
+    await reorderSeasons(body.data.order);
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    return handleServiceFailure(error, "Reordering seasons");
   }
 }

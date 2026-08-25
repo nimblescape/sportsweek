@@ -6,10 +6,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, orderBy, query, where } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { subscribeWithRecovery } from "@/lib/firebase/live-query";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { byPosition } from "@/lib/schemas/position";
 import { eventSchema, type Event } from "@/lib/schemas/season";
 
 /** Real-time read scoped to one season, governed by Security Rules. */
@@ -22,12 +23,10 @@ export function useEvents(seasonId: string) {
     () =>
       subscribeWithRecovery<Event>({
         label: "events",
+        // Sorted here rather than in the query: Firestore's orderBy silently omits documents
+        // that lack the field, which would hide any event stored before ordering existed.
         buildQuery: () =>
-          query(
-            collection(db, COLLECTIONS.events),
-            where("seasonId", "==", seasonId),
-            orderBy("name"),
-          ),
+          query(collection(db, COLLECTIONS.events), where("seasonId", "==", seasonId)),
         parse: (id, data) => {
           const parsed = eventSchema.safeParse({ id, ...data });
           if (!parsed.success) {
@@ -37,7 +36,7 @@ export function useEvents(seasonId: string) {
           return parsed.data;
         },
         onData: (items) => {
-          setEvents(items);
+          setEvents([...items].sort(byPosition));
           setLoading(false);
         },
         onError: (message) => {

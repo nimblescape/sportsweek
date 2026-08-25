@@ -21,6 +21,7 @@ const active = {
   isActive: true,
   isArchived: false,
   hasStudentData: true,
+  position: 0,
 };
 const archived = {
   id: "s2",
@@ -28,6 +29,7 @@ const archived = {
   isActive: false,
   isArchived: true,
   hasStudentData: true,
+  position: 0,
 };
 const inactive = {
   id: "s3",
@@ -35,6 +37,7 @@ const inactive = {
   isActive: false,
   isArchived: false,
   hasStudentData: true,
+  position: 0,
 };
 const noStudentData = {
   id: "s4",
@@ -42,6 +45,7 @@ const noStudentData = {
   isActive: false,
   isArchived: false,
   hasStudentData: false,
+  position: 0,
 };
 
 function stubFetch(implementation: (...args: unknown[]) => unknown) {

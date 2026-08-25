@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Season } from "@/lib/schemas/season";
@@ -36,6 +37,8 @@ type SeasonListProps = {
   onDelete: (season: Season) => void;
   onActiveChange: (season: Season, isActive: boolean) => void;
   onArchivedChange: (season: Season, isArchived: boolean) => void;
+  /** Receives the ids of the shown seasons in their new order (see Ordering). */
+  onReorder: (orderedIds: string[]) => void;
   busySeasonId?: string | null;
 };
 
@@ -47,6 +50,7 @@ export function SeasonList({
   onDelete,
   onActiveChange,
   onArchivedChange,
+  onReorder,
   busySeasonId = null,
 }: SeasonListProps) {
   if (loading) {
@@ -81,8 +85,11 @@ export function SeasonList({
 
   return (
     <Card className="[--card-spacing:--spacing(0)]">
-      <ul>
-        {seasons.map((season) => {
+      <SortableList
+        items={seasons}
+        onReorder={onReorder}
+        className="[&>li]:border-border [&>li]:border-b [&>li:last-child]:border-b-0"
+        renderItem={(season) => {
           const state = seasonState(season);
           const archiveHintId = `${season.id}-archive-hint`;
           const deleteHintId = `${season.id}-delete-hint`;
@@ -96,10 +103,7 @@ export function SeasonList({
           const busy = busySeasonId === season.id;
 
           return (
-            <li
-              key={season.id}
-              className="border-border flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3 last:border-b-0"
-            >
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 pr-4 pl-2">
               <span className="flex-1 text-sm font-medium">{season.name}</span>
 
               <span
@@ -216,10 +220,10 @@ export function SeasonList({
                   </span>
                 ) : null}
               </div>
-            </li>
+            </div>
           );
-        })}
-      </ul>
+        }}
+      />
     </Card>
   );
 }

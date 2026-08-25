@@ -12,15 +12,21 @@ import {
   requireTeacherOrResponse,
 } from "@/lib/api/handler";
 import { ErrorCode } from "@/lib/errors";
+import { orderSchema } from "@/lib/schemas/order";
 import { namedListItemSchema, requiredEquipmentSchema } from "@/lib/schemas/master-data";
 import { categoryOf, masterDataCategorySchema } from "@/lib/master-data/categories";
-import { createMasterDataItem } from "@/lib/master-data/master-data-service";
+import {
+  createMasterDataItem,
+  reorderMasterDataItems,
+} from "@/lib/master-data/master-data-service";
 import { usageReport } from "@/lib/master-data/usage-guard";
 
 const createItemSchema = z.strictObject({
   name: namedListItemSchema.shape.name,
   requiredEquipment: requiredEquipmentSchema.optional(),
 });
+
+const reorderSchema = z.strictObject({ order: orderSchema });
 
 type Context = { params: Promise<{ category: string }> };
 
@@ -47,6 +53,30 @@ export async function POST(request: Request, context: Context) {
     return NextResponse.json({ item }, { status: 201 });
   } catch (error) {
     return handleServiceFailure(error, `Creating a ${category.data} item`);
+  }
+}
+
+/**
+ * Reorders the whole list (see Ordering). Deliberately free of the in-use guard the item writes
+ * carry: moving an item changes no stored name, so no master data record can be affected.
+ */
+export async function PATCH(request: Request, context: Context) {
+  const denied = await requireTeacherOrResponse();
+  if (denied) return denied;
+
+  const category = await readCategory(context);
+  if (!category.success) {
+    return errorResponse(ErrorCode.ValidationError, "Diese Kategorie gibt es nicht.");
+  }
+
+  const body = await parseJsonBody(request, reorderSchema);
+  if (!body.ok) return body.response;
+
+  try {
+    await reorderMasterDataItems(category.data, body.data.order);
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    return handleServiceFailure(error, `Reordering ${category.data}`);
   }
 }
 

@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getUserWithRole = vi.fn();
 const createMasterDataItem = vi.fn();
+const reorderMasterDataItems = vi.fn();
 const usageReport = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
@@ -15,13 +16,14 @@ vi.mock("@/lib/auth/guards", () => ({
 
 vi.mock("@/lib/master-data/master-data-service", () => ({
   createMasterDataItem: (...args: unknown[]) => createMasterDataItem(...args),
+  reorderMasterDataItems: (...args: unknown[]) => reorderMasterDataItems(...args),
 }));
 
 vi.mock("@/lib/master-data/usage-guard", () => ({
   usageReport: (...args: unknown[]) => usageReport(...args),
 }));
 
-const { GET, POST } = await import("./route");
+const { GET, PATCH, POST } = await import("./route");
 const { ServiceError } = await import("@/lib/service-error");
 
 function request(body: unknown) {
@@ -38,6 +40,7 @@ function context(category: string) {
 beforeEach(() => {
   getUserWithRole.mockReset();
   createMasterDataItem.mockReset();
+  reorderMasterDataItems.mockReset();
   usageReport.mockReset();
   getUserWithRole.mockResolvedValue({ uid: "u1", email: "t@htldornbirn.at", role: "teacher" });
   createMasterDataItem.mockResolvedValue({ id: "c1", name: "3AHIT", parentId: null });
@@ -121,6 +124,60 @@ describe("POST /api/master-data/[category]", () => {
 
     expect(response.status).toBe(500);
     expect(JSON.stringify(await response.json())).not.toContain("line 42");
+  });
+});
+
+describe("PATCH /api/master-data/[category]", () => {
+  function patchRequest(body: unknown) {
+    return new Request("https://example.com/api/master-data/classes", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("passes the new order to the service", async () => {
+    const response = await PATCH(patchRequest({ order: ["c2", "c1"] }), context("classes"));
+
+    expect(response.status).toBe(204);
+    expect(reorderMasterDataItems).toHaveBeenCalledWith("classes", ["c2", "c1"]);
+  });
+
+  it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
+    getUserWithRole.mockResolvedValue({
+      uid: "u2",
+      email: "s@student.htldornbirn.at",
+      role: "student",
+    });
+
+    const response = await PATCH(patchRequest({ order: ["c1"] }), context("classes"));
+
+    expect(response.status).toBe(403);
+    expect(reorderMasterDataItems).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown category", async () => {
+    const response = await PATCH(patchRequest({ order: ["c1"] }), context("users"));
+
+    expect(response.status).toBe(400);
+    expect(reorderMasterDataItems).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown field rather than ignoring it", async () => {
+    const response = await PATCH(
+      patchRequest({ order: ["c1"], name: "sneaky" }),
+      context("classes"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(reorderMasterDataItems).not.toHaveBeenCalled();
+  });
+
+  it("reports an id that is not in the list as 404", async () => {
+    reorderMasterDataItems.mockRejectedValue(new ServiceError("NOT_FOUND", "Gibt es nicht."));
+
+    const response = await PATCH(patchRequest({ order: ["ghost"] }), context("classes"));
+
+    expect(response.status).toBe(404);
   });
 });
 

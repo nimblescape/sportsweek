@@ -67,10 +67,34 @@ describe("useMasterData", () => {
     const { result } = renderHook(() => useMasterData("classes"));
     signIn();
 
-    emit([docOf("c1", { name: "3AHIT" })]);
+    emit([docOf("c1", { name: "3AHIT", position: 0 })]);
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.items).toEqual([{ id: "c1", name: "3AHIT" }]);
+    expect(result.current.items).toEqual([{ id: "c1", name: "3AHIT", position: 0 }]);
+  });
+
+  it("shows the items in the order the teacher set, not alphabetically", async () => {
+    const { result } = renderHook(() => useMasterData("classes"));
+    signIn();
+
+    emit([
+      docOf("a", { name: "Anton", position: 2 }),
+      docOf("z", { name: "Zoe", position: 0 }),
+      docOf("m", { name: "Mia", position: 1 }),
+    ]);
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.items.map((item) => item.id)).toEqual(["z", "m", "a"]);
+  });
+
+  it("keeps an item stored before ordering existed visible, at the end", async () => {
+    const { result } = renderHook(() => useMasterData("classes"));
+    signIn();
+
+    emit([docOf("old", { name: "Anton" }), docOf("new", { name: "Zoe", position: 0 })]);
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.items.map((item) => item.id)).toEqual(["new", "old"]);
   });
 
   it("drops a malformed document instead of failing the whole list", async () => {
@@ -78,10 +102,10 @@ describe("useMasterData", () => {
     const { result } = renderHook(() => useMasterData("classes"));
     signIn();
 
-    emit([docOf("c1", { name: "   " }), docOf("c2", { name: "4BHIT" })]);
+    emit([docOf("c1", { name: "   " }), docOf("c2", { name: "4BHIT", position: 0 })]);
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.items).toEqual([{ id: "c2", name: "4BHIT" }]);
+    expect(result.current.items).toEqual([{ id: "c2", name: "4BHIT", position: 0 }]);
   });
 
   it("scopes nothing by a parent, since no category has one any more", () => {
