@@ -34,7 +34,21 @@ export async function POST(request: Request) {
   }
 
   // No record, no claim and no cookie for a UPN outside the allowed domains (US-3).
-  const provisioned = await provisionUser(decoded);
+  let provisioned;
+  try {
+    provisioned = await provisionUser(decoded);
+  } catch (err) {
+    // Typically a missing Firestore database or missing Application Default Credentials.
+    console.error("Failed to provision the user record:", err);
+    return NextResponse.json(
+      apiError(
+        ErrorCode.InternalError,
+        "Anmeldung derzeit nicht möglich. Bitte später erneut versuchen.",
+      ),
+      { status: 500 },
+    );
+  }
+
   if (!provisioned.ok) {
     return NextResponse.json(
       apiError(ErrorCode.PermissionDenied, "Dieses Konto ist für Sportsweek nicht freigeschaltet."),

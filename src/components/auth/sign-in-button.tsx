@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged, signInWithRedirect, signOut } from "firebase/auth";
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/button";
+import { ROUTES } from "@/lib/routes";
 
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
 const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.";
@@ -49,7 +50,7 @@ export function SignInButton() {
           throw new Error(`Failed to create session (status ${response.status})`);
         }
 
-        router.push(searchParams.get("next") ?? "/");
+        router.push(searchParams.get("next") ?? ROUTES.appRoot);
         router.refresh();
       } catch {
         setChecking(false);

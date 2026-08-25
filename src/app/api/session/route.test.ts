@@ -101,6 +101,27 @@ describe("POST /api/session", () => {
 
     expect(JSON.stringify(await response.json())).not.toContain("htldornbirn");
   });
+
+  it("returns 500 and sets no cookie when provisioning throws", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "user-1", email: "jane@htldornbirn.at" });
+    provisionUser.mockRejectedValue(new Error("5 NOT_FOUND: the database does not exist"));
+
+    const response = await POST(postRequest({ idToken: "good-token" }));
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).error.code).toBe("INTERNAL_ERROR");
+    expect(cookieStore.set).not.toHaveBeenCalled();
+    expect(createSessionCookie).not.toHaveBeenCalled();
+  });
+
+  it("does not leak internal failure details to the client", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "user-1", email: "jane@htldornbirn.at" });
+    provisionUser.mockRejectedValue(new Error("5 NOT_FOUND: the database does not exist"));
+
+    const response = await POST(postRequest({ idToken: "good-token" }));
+
+    expect(JSON.stringify(await response.json())).not.toContain("NOT_FOUND");
+  });
 });
 
 describe("DELETE /api/session", () => {

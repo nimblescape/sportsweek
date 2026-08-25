@@ -48,12 +48,12 @@ describe("SignInButton", () => {
     });
   });
 
-  it("creates the session and navigates on success", async () => {
+  it("creates the session and navigates into the app on success", async () => {
     respondWith(200, { status: "ok" });
 
     render(<SignInButton />);
 
-    await waitFor(() => expect(push).toHaveBeenCalled());
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/app"));
     expect(signOut).not.toHaveBeenCalled();
   });
 
