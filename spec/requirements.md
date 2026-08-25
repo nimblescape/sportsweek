@@ -164,7 +164,7 @@ As a teacher, I can maintain the list of food/diet options so that students can 
 
 - A view for maintaining the list of food/diet options exists.
 - A teacher can add, edit, and remove food/diet options from the list.
-- The list is pre-populated with the options eats everything, vegetarian, vegan, and no pork.
+- The list is pre-populated with the options "Alles" (eats everything), "Vegetarisch", "Vegan", and "Kein Schweinefleisch" (no pork).
 - In addition to the teacher-maintained list, the option "other" is always available and cannot be removed or edited by the teacher.
 - Selecting the "other" option always requires the student to enter free text explaining the intolerance; the free text must not be empty.
 - The food/diet option a student selects in their master data (US-11) is chosen from this maintained list.

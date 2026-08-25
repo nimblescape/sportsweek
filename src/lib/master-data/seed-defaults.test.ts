@@ -61,8 +61,13 @@ describe("seedMasterDataDefaults", () => {
       "HTL Dornbirn",
       "Unterkunft",
     ]);
+    expect(namesOf("foodOptions")).toEqual([
+      "Alles",
+      "Kein Schweinefleisch",
+      "Vegan",
+      "Vegetarisch",
+    ]);
     expect(namesOf("seasonPassOptions")).toContain("Silvretta-Montafon");
-    expect(namesOf("foodOptions")).toContain("Vegetarisch");
   });
 
   it("leaves classes empty, since that list has no defaults", async () => {
