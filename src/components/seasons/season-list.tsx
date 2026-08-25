@@ -24,6 +24,7 @@ import type { Season } from "@/lib/schemas/season";
 import { SEASON_STATE_LABELS, seasonState } from "@/lib/seasons/season-state";
 
 const DELETE_HINT = "Nur archivierte Saisonen können gelöscht werden.";
+const ARCHIVE_HINT = "Eine aktive Saison muss zuerst deaktiviert werden.";
 
 type SeasonListProps = {
   seasons: Season[];
@@ -82,6 +83,8 @@ export function SeasonList({
         {seasons.map((season) => {
           const state = seasonState(season);
           const hintId = `${season.id}-delete-hint`;
+          const archiveHintId = `${season.id}-archive-hint`;
+          const archivingDisabled = state === "active";
           const busy = busySeasonId === season.id;
 
           return (
@@ -157,20 +160,29 @@ export function SeasonList({
                 </Tooltip>
 
                 <Tooltip label={season.isArchived ? "Wiederherstellen" : "Archivieren"}>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={busy}
-                    aria-label={
-                      season.isArchived
-                        ? `Saison ${season.name} wiederherstellen`
-                        : `Saison ${season.name} archivieren`
-                    }
-                    onClick={() => onArchivedChange(season, !season.isArchived)}
-                  >
-                    {season.isArchived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
-                  </Button>
+                  <span className="inline-flex">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={archivingDisabled || busy}
+                      aria-label={
+                        season.isArchived
+                          ? `Saison ${season.name} wiederherstellen`
+                          : `Saison ${season.name} archivieren`
+                      }
+                      aria-describedby={archivingDisabled ? archiveHintId : undefined}
+                      onClick={() => onArchivedChange(season, !season.isArchived)}
+                    >
+                      {season.isArchived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
+                    </Button>
+                  </span>
                 </Tooltip>
+
+                {archivingDisabled ? (
+                  <span id={archiveHintId} className="sr-only">
+                    {ARCHIVE_HINT}
+                  </span>
+                ) : null}
 
                 {/* Wrapped in a span because a disabled button emits no pointer events, and the
                     reason it is disabled is exactly what needs explaining here (US-4). */}

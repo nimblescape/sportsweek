@@ -75,6 +75,7 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
 
     const current = seasonSchema.parse({ id, ...snapshot.data() });
     const isArchived = update.isArchived ?? current.isArchived;
+    const isActive = update.isActive ?? current.isActive;
 
     if (wantsActivation && isArchived) {
       throw new ServiceError(
@@ -83,8 +84,14 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
       );
     }
 
-    // Archiving always stands the season down, so the invariant holds without a second call.
-    const isActive = isArchived ? false : (update.isActive ?? current.isActive);
+    // A season must be deactivated first, in its own call, before it can be archived (US-4).
+    if (isArchived && isActive) {
+      throw new ServiceError(
+        ErrorCode.Conflict,
+        "Eine aktive Saison kann nicht archiviert werden. Bitte zuerst deaktivieren.",
+      );
+    }
+
     const renaming = name !== undefined && name !== current.name;
 
     // Every read has to happen before the first write, and reserveName writes — so the query

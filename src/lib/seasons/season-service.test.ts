@@ -193,10 +193,19 @@ describe("updateSeason — archiving", () => {
     expect(firestore.get("seasons", "s1")).toMatchObject({ isArchived: true });
   });
 
-  it("clears the active flag when the active season is archived", async () => {
+  it("refuses to archive the active season", async () => {
     seedSeason("s1", { isActive: true });
 
-    await updateSeason("s1", { isArchived: true });
+    await expect(updateSeason("s1", { isArchived: true })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(firestore.get("seasons", "s1")).toMatchObject({ isActive: true, isArchived: false });
+  });
+
+  it("archives a season deactivated in the same call", async () => {
+    seedSeason("s1", { isActive: true });
+
+    await updateSeason("s1", { isActive: false, isArchived: true });
 
     expect(firestore.get("seasons", "s1")).toMatchObject({ isActive: false, isArchived: true });
   });

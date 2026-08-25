@@ -181,6 +181,22 @@ describe("SeasonList — row actions", () => {
     expect(onArchivedChange).toHaveBeenCalledWith(seasons[1], false);
   });
 
+  it("disables archiving the active season, which must be deactivated first", () => {
+    renderList();
+
+    expect(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2026 archivieren" }),
+    ).toBeDisabled();
+  });
+
+  it("explains why archiving the active season is unavailable", () => {
+    renderList();
+
+    expect(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2026 archivieren" }),
+    ).toHaveAccessibleDescription(/zuerst deaktiviert/i);
+  });
+
   it("links to the events of the season", () => {
     renderList();
 
