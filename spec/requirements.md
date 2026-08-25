@@ -142,7 +142,7 @@ As a teacher, I can maintain the list of ski/snowboard skill levels so that stud
 
 - A view for maintaining the list of skill levels exists.
 - A teacher can add, edit, and remove skill levels from the list.
-- The list is pre-populated with four skill levels, shown as "Beginner" (complete beginner), "Anfänger" (beginner), "Fortgeschritten" (advanced), and "Profi" (expert). The German wording is fixed: "Beginner" is the absolute first-timer and "Anfänger" already has some experience, which the English names alone would not make clear.
+- The list is pre-populated with four skill levels, shown as "Absoluter Anfänger" (complete beginner), "Anfänger" (beginner), "Fortgeschritten" (advanced), and "Profi" (expert).
 - The skill level a student selects in their master data (US-11) is chosen from this maintained list.
 
 ### US-8: Teacher maintains bus pickup points
