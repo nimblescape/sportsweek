@@ -1,0 +1,21 @@
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { Button, buttonVariants } from "@/components/ui/button";
+
+const VARIANTS = ["default", "outline", "secondary", "ghost", "destructive", "link"] as const;
+
+describe("Button design tokens", () => {
+  it("renders the default variant from the accent-backed primary token", () => {
+    render(<Button>Speichern</Button>);
+
+    expect(screen.getByRole("button").className).toContain("bg-primary");
+  });
+
+  it.each(VARIANTS)("gives the %s variant hover feedback", (variant) => {
+    expect(buttonVariants({ variant })).toMatch(/hover:(bg-|text-|underline)/);
+  });
+
+  it.each(VARIANTS)("gives the %s variant pressed feedback", (variant) => {
+    expect(buttonVariants({ variant })).toMatch(/active:[\w[\]()/.,-]*(bg-|text-)/);
+  });
+});

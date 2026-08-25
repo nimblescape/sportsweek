@@ -1,0 +1,66 @@
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/components/auth/sign-out-button", () => ({
+  SignOutButton: () => <button type="button">Abmelden</button>,
+}));
+
+const { AppShell } = await import("@/components/layout/app-shell");
+
+describe("AppShell", () => {
+  it("shows the application title on the left of the header", () => {
+    render(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("banner")).toHaveTextContent("Sportsweek");
+  });
+
+  it("renders the title above the section heading size in the type hierarchy", () => {
+    render(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    // Section headings use text-lg (see SectionPlaceholder), so the brand must outrank it.
+    expect(screen.getByText("Sportsweek").className).toContain("text-xl");
+  });
+
+  it("shows a logout button in the header", () => {
+    render(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("button", { name: /abmelden/i, hidden: true })).toBeInTheDocument();
+  });
+
+  it("renders the role-specific content below the header", () => {
+    render(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    const header = screen.getByRole("banner");
+    const content = screen.getByText("Inhalt");
+
+    expect(header).toBeInTheDocument();
+    expect(content).toBeInTheDocument();
+    expect(header.compareDocumentPosition(content) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("adds no navigation of its own, so the student view has none (US-15)", () => {
+    render(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  });
+});

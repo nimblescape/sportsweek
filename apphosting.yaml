@@ -41,4 +41,5 @@ env:
       - RUNTIME
 # No service account keys are used anywhere: on App Hosting, firebase-admin uses Application
 # Default Credentials automatically via the backend's service account. Local dev uses
-# `gcloud auth application-default login` instead — see .env.local.example.
+# `gcloud auth application-default login` instead. The public values above are read straight
+# from this file by next.config.ts, so no .env file is needed.

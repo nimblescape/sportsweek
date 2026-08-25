@@ -31,27 +31,41 @@ describe("getSessionUser", () => {
     expect(await getSessionUser()).toBeNull();
   });
 
-  it("returns the user with roles from custom claims", async () => {
+  it("returns the user with the role from custom claims", async () => {
     cookiesGet.mockReturnValue({ value: "good-cookie" });
     verifySessionCookie.mockResolvedValue({
       uid: "user-1",
       email: "user@example.com",
-      roles: ["teacher"],
+      role: "teacher",
     });
 
     expect(await getSessionUser()).toEqual({
       uid: "user-1",
       email: "user@example.com",
-      roles: ["teacher"],
+      role: "teacher",
     });
     expect(verifySessionCookie).toHaveBeenCalledWith("good-cookie", true);
   });
 
-  it("defaults roles to an empty array when claims don't include them", async () => {
+  it("returns a null role when the claim is missing", async () => {
     cookiesGet.mockReturnValue({ value: "good-cookie" });
     verifySessionCookie.mockResolvedValue({ uid: "user-1", email: null });
 
-    expect(await getSessionUser()).toEqual({ uid: "user-1", email: null, roles: [] });
+    expect(await getSessionUser()).toEqual({ uid: "user-1", email: null, role: null });
+  });
+
+  it.each(["admin", "", 42])("returns a null role for the unsupported claim %p", async (role) => {
+    cookiesGet.mockReturnValue({ value: "good-cookie" });
+    verifySessionCookie.mockResolvedValue({ uid: "user-1", email: null, role });
+
+    expect(await getSessionUser()).toEqual({ uid: "user-1", email: null, role: null });
+  });
+
+  it("ignores a legacy roles array, so the old model cannot grant access", async () => {
+    cookiesGet.mockReturnValue({ value: "good-cookie" });
+    verifySessionCookie.mockResolvedValue({ uid: "user-1", email: null, roles: ["teacher"] });
+
+    expect(await getSessionUser()).toEqual({ uid: "user-1", email: null, role: null });
   });
 
   it("reads the cookie using the exported cookie name", () => {

@@ -3,12 +3,24 @@ import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 
-function makeRequest(pathname: string, { withSession = false } = {}) {
+function sessionCookieWith(payload: Record<string, unknown>) {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "RS256" })}.${encode(payload)}.signature-not-checked`;
+}
+
+function makeRequest(pathname: string, { session }: { session?: string } = {}) {
   const headers = new Headers();
-  if (withSession) {
-    headers.set("cookie", `${SESSION_COOKIE_NAME}=abc123`);
+  if (session !== undefined) {
+    headers.set("cookie", `${SESSION_COOKIE_NAME}=${session}`);
   }
   return new NextRequest(new URL(pathname, "https://example.com"), { headers });
+}
+
+const asTeacher = { session: sessionCookieWith({ role: "teacher" }) };
+const asStudent = { session: sessionCookieWith({ role: "student" }) };
+
+function locationOf(response: Response) {
+  return new URL(response.headers.get("location")!).pathname;
 }
 
 describe("proxy", () => {
@@ -19,16 +31,47 @@ describe("proxy", () => {
   });
 
   it("redirects to sign-in when no session cookie is present", () => {
-    const response = proxy(makeRequest("/app/dashboard"));
+    const response = proxy(makeRequest("/app/report"));
     expect(response.status).toBe(307);
     const location = new URL(response.headers.get("location")!);
     expect(location.pathname).toBe("/sign-in");
-    expect(location.searchParams.get("next")).toBe("/app/dashboard");
+    expect(location.searchParams.get("next")).toBe("/app/report");
   });
 
-  it("passes through protected requests when a session cookie is present", () => {
-    const response = proxy(makeRequest("/app/dashboard", { withSession: true }));
+  it("passes the app landing route through for any signed-in role", () => {
+    expect(proxy(makeRequest("/app", asTeacher)).status).toBe(200);
+    expect(proxy(makeRequest("/app", asStudent)).status).toBe(200);
+  });
+
+  it.each(["/app/report", "/app/assignment", "/app/master-data/seasons"])(
+    "lets a teacher reach %s",
+    (pathname) => {
+      const response = proxy(makeRequest(pathname, asTeacher));
+      expect(response.status).toBe(200);
+    },
+  );
+
+  it.each(["/app/report", "/app/assignment", "/app/master-data/seasons"])(
+    "redirects a student away from %s",
+    (pathname) => {
+      const response = proxy(makeRequest(pathname, asStudent));
+      expect(response.status).toBe(307);
+      expect(locationOf(response)).toBe("/app");
+    },
+  );
+
+  it("lets a student reach their own master data", () => {
+    expect(proxy(makeRequest("/app/my-master-data", asStudent)).status).toBe(200);
+  });
+
+  it("redirects a teacher away from the student master data page", () => {
+    const response = proxy(makeRequest("/app/my-master-data", asTeacher));
+    expect(response.status).toBe(307);
+    expect(locationOf(response)).toBe("/app");
+  });
+
+  it("passes through when the role claim cannot be read, since the page re-checks it", () => {
+    const response = proxy(makeRequest("/app/report", { session: "unreadable" }));
     expect(response.status).toBe(200);
-    expect(response.headers.get("location")).toBeNull();
   });
 });
