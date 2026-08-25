@@ -162,7 +162,6 @@ describe("names are freed again when their owner goes", () => {
     const season = await createSeason({ name: "Winter 2026" });
     await createEvent({ seasonId: season.id, name: "Montafon" });
     await createEvent({ seasonId: season.id, name: "Lech" });
-    await updateSeason(season.id, { isArchived: true });
 
     await deleteSeason(season.id);
 
@@ -174,7 +173,6 @@ describe("names are freed again when their owner goes", () => {
   it("leaves no reservation behind after a season cascade", async () => {
     const season = await createSeason({ name: "Winter 2026" });
     await createEvent({ seasonId: season.id, name: "Montafon" });
-    await updateSeason(season.id, { isArchived: true });
 
     await deleteSeason(season.id);
 

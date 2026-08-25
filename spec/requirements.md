@@ -91,7 +91,7 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 - Removing (deleting) an event unassigns any students that were assigned to it (see US-12); the students themselves and their master data are not removed.
 - A teacher can activate a season, and can also deactivate the active season so that no season is active.
 - At most one season is active at any point in time: activating a season automatically deactivates the season that was active before, as one atomic step, so there is never a moment in which two seasons are active.
-- An archived season cannot be activated; archiving the active season deactivates it, leaving no season active.
+- An archived season cannot be activated, and the active season cannot be archived: it must be deactivated first, either in a prior call or in the same one. Either way no season is left active.
 - The assignment dialog (US-12) and the student report (US-13) only ever operate on the active season; when no season is active they show an explicit empty state instead of falling back to a previously active season.
 - Season names are unique: two seasons cannot share the same name.
 - Event names are unique within their season: two events of the same season cannot share the same name, while two different seasons may each have an event of the same name.

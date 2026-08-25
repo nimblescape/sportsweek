@@ -24,7 +24,13 @@ async function wipe(collection: string) {
 }
 
 async function reset() {
-  for (const collection of ["seasons", "events", "reservedNames"]) await wipe(collection);
+  for (const collection of ["seasons", "events", "reservedNames", "studentMasterData"])
+    await wipe(collection);
+}
+
+/** Archiving signs off on a season's student data (US-4), so there has to be some. */
+async function giveStudentData(seasonId: string) {
+  await adminDb.collection("studentMasterData").add({ seasonId, studentId: "u1" });
 }
 
 async function storedSeasons() {
@@ -119,6 +125,7 @@ describe("exactly one active season against a real Firestore", () => {
       createSeason({ name: "Winter 2027" }),
     ]);
     await updateSeason(first.id, { isActive: true });
+    await giveStudentData(second.id);
     await updateSeason(second.id, { isArchived: true });
 
     await expect(updateSeason(second.id, { isActive: true })).rejects.toMatchObject({
@@ -128,11 +135,24 @@ describe("exactly one active season against a real Firestore", () => {
     expect(await activeSeasons()).toEqual([expect.objectContaining({ id: first.id })]);
   });
 
-  it("leaves no season active when the active one is archived", async () => {
+  it("refuses to archive the active season, which stays active", async () => {
     const season = await createSeason({ name: "Winter 2026" });
+    await giveStudentData(season.id);
     await updateSeason(season.id, { isActive: true });
 
-    await updateSeason(season.id, { isArchived: true });
+    await expect(updateSeason(season.id, { isArchived: true })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+
+    expect(await activeSeasons()).toEqual([expect.objectContaining({ id: season.id })]);
+  });
+
+  it("leaves no season active when the active one is deactivated and archived at once", async () => {
+    const season = await createSeason({ name: "Winter 2026" });
+    await giveStudentData(season.id);
+    await updateSeason(season.id, { isActive: true });
+
+    await updateSeason(season.id, { isActive: false, isArchived: true });
 
     expect(await activeSeasons()).toHaveLength(0);
   });
