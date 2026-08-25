@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, type FirebaseOptions } from "firebase/app";
 import { getAuth, OAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { createFirestore } from "./firestore-transport";
 import { resolveAuthDomain } from "./auth-domain";
 
 const firebaseConfig: FirebaseOptions = {
@@ -17,7 +17,7 @@ const firebaseConfig: FirebaseOptions = {
 
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = createFirestore(app);
 
 // Entra ID (Microsoft) sign-in — configure this provider in the Firebase Console
 // (Authentication > Sign-in method > Microsoft) with your Entra ID tenant details.

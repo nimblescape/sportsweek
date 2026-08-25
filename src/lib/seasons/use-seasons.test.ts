@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type SnapshotHandler = (snapshot: { docs: { id: string; data: () => unknown }[] }) => void;
@@ -27,15 +27,17 @@ const validSeason = { name: "Wintersportwoche 2026", isActive: true, isArchived:
 
 /** The hook waits for Firebase Auth, so tests have to announce a signed-in user first. */
 function signIn() {
-  (onAuthStateChanged.mock.calls.at(-1)![1] as (user: unknown) => void)({ uid: "uid-1" });
+  act(() =>
+    (onAuthStateChanged.mock.calls.at(-1)![1] as (user: unknown) => void)({ uid: "uid-1" }),
+  );
 }
 
 function emit(docs: { id: string; data: () => unknown }[]) {
-  (onSnapshot.mock.calls.at(-1)![1] as SnapshotHandler)({ docs });
+  act(() => (onSnapshot.mock.calls.at(-1)![1] as SnapshotHandler)({ docs }));
 }
 
 function fail(error: Error) {
-  (onSnapshot.mock.calls.at(-1)![2] as ErrorHandler)(error);
+  act(() => (onSnapshot.mock.calls.at(-1)![2] as ErrorHandler)(error));
 }
 
 describe("useSeasons", () => {
