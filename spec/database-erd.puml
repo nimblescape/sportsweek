@@ -1,0 +1,135 @@
+@startuml database-erd
+!define PK <b><color:#b8860b><&key></color></b>
+!define FK <color:#4682b4><&link></color>
+
+hide circle
+skinparam linetype ortho
+
+entity "User" as user {
+  PK id : string  ' Entra ID UPN (US-1)
+  --
+  firstName : string
+  lastName : string
+  email : string
+  role : enum(admin, teacher, student)  ' US-2
+}
+
+entity "Season" as season {
+  PK id : string
+  --
+  name : string
+  isActive : boolean  ' exactly one true (US-7)
+}
+
+entity "Event" as event {
+  PK id : string
+  FK seasonId : string
+  --
+  name : string
+}
+
+entity "Program" as program {
+  PK id : string
+  --
+  name : string  ' e.g. Ski, Snowboard, Alternativ (US-8)
+}
+
+entity "RequiredEquipmentItem" as requiredEquipmentItem {
+  PK id : string
+  FK programId : string
+  --
+  name : string  ' e.g. ski, ski boots, poles, helmet (US-8)
+}
+
+entity "ClassOption" as classOption {
+  PK id : string
+  --
+  name : string  ' Klasse (US-9)
+}
+
+entity "SkillLevel" as skillLevel {
+  PK id : string
+  --
+  name : string  ' complete beginner, beginner, advanced, expert (US-10)
+}
+
+entity "BusPickupPoint" as busPickupPoint {
+  PK id : string
+  --
+  name : string  ' US-11
+}
+
+entity "FoodOption" as foodOption {
+  PK id : string
+  --
+  name : string  ' eats everything, vegetarian, vegan, no pork (US-12)
+  ' note: the fixed "other" option is not a row here, see StudentMasterData.foodOtherText
+}
+
+entity "SeasonPassOption" as seasonPassOption {
+  PK id : string
+  --
+  name : string  ' no, maybe, Golm-Bielerhöhe (Illwerke), Silvretta-Montafon (US-13)
+}
+
+entity "StudentMasterData" as studentMasterData {
+  PK id : string
+  FK userId : string
+  FK seasonId : string
+  FK classId : string
+  FK programId : string
+  FK skillLevelId : string
+  FK seasonPassOptionId : string
+  FK busPickupPointId : string
+  FK foodOptionId : string <<nullable>>
+  FK eventId : string <<nullable>>
+  --
+  dateOfBirth : date
+  gender : enum(male, female)
+  foodOtherText : string <<nullable>>  ' set when "other" food option is chosen
+  healthNotes : text
+  hasMedication : boolean
+  equipmentRentalNeeded : boolean
+  shoeSize : string <<nullable>>
+  heightCm : number <<nullable>>
+  weightKg : number <<nullable>>
+}
+
+entity "EmergencyContact" as emergencyContact {
+  PK id : string
+  FK studentMasterDataId : string
+  --
+  firstName : string
+  lastName : string
+  relationship : enum(mother, father, other)
+  relationshipOtherText : string <<nullable>>
+  phoneNumber : string  ' international format, e.g. +43...
+}
+
+entity "EquipmentRentalItem" as equipmentRentalItem {
+  PK id : string
+  FK studentMasterDataId : string
+  FK requiredEquipmentItemId : string
+}
+
+' Seasons & Events (US-7)
+season ||--o{ event : "contains"
+season ||--o{ studentMasterData : "registered in (US-14)"
+event  |o--o{ studentMasterData : "assigned to (US-15)"
+
+' Sports Week Master Data (US-8 .. US-13)
+program           ||--o{ requiredEquipmentItem : "requires"
+program           ||--o{ studentMasterData : "selected by"
+classOption       ||--o{ studentMasterData : "selected by"
+skillLevel        ||--o{ studentMasterData : "selected by"
+busPickupPoint    ||--o{ studentMasterData : "selected by"
+seasonPassOption  ||--o{ studentMasterData : "selected by"
+foodOption        |o--o{ studentMasterData : "selected by"
+
+' Student edits own master data (US-14)
+user              ||--o{ studentMasterData : "owns (student)"
+studentMasterData ||--|| emergencyContact : "has"
+studentMasterData ||--o{ equipmentRentalItem : "requests"
+requiredEquipmentItem ||--o{ equipmentRentalItem : "rented as"
+
+@enduml
