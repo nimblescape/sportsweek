@@ -9,6 +9,14 @@
   "auth": {
     "authorizedDomains": ["localhost"]
   },
+  "emulators": {
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": false
+    }
+  },
   "apphosting": {
     "backendId": "sportsweek",
     "rootDir": "/",

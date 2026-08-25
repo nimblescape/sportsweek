@@ -1,0 +1,37 @@
+name: Deploy Security Rules
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "firestore.rules"
+      - "storage.rules"
+      - ".github/workflows/deploy-rules.yml"
+
+concurrency:
+  group: deploy-rules-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # Required to mint the short-lived OIDC token that's exchanged for Google credentials —
+  # no long-lived service account key is stored anywhere.
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_RULES_DEPLOY_SERVICE_ACCOUNT }}
+      - name: Deploy firestore.rules and storage.rules
+        run: npx firebase-tools deploy --only firestore:rules,storage --project htld-sportsweek --non-interactive
