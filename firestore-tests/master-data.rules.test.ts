@@ -18,15 +18,6 @@ beforeAll(async () => {
 
 afterAll(async () => await testEnv.cleanup());
 
-beforeEach(async () => {
-  await testEnv.clearFirestore();
-  await testEnv.withSecurityRulesDisabled(async (context) => {
-    const db = context.firestore();
-    await db.collection("users").doc(TEACHER_UPN).set({ role: "teacher" });
-    await db.collection("users").doc(STUDENT_UPN).set({ role: "student" });
-  });
-});
-
 /**
  * `/users` is keyed by UPN, not by the Firebase uid, so the two are kept distinct here —
  * reusing one value for both would let a broken rule pass in tests and fail in production.
@@ -41,194 +32,118 @@ const teacher = () => signInAs(TEACHER_UPN);
 const student = () => signInAs(STUDENT_UPN);
 const anonymous = () => testEnv.unauthenticatedContext().firestore();
 
+beforeEach(async () => {
+  await testEnv.clearFirestore();
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db.collection("users").doc(TEACHER_UPN).set({ role: "teacher" });
+    await db.collection("users").doc(STUDENT_UPN).set({ role: "student" });
+  });
+});
+
 async function seed(collection: string, id: string, data: Record<string, unknown>) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await context.firestore().collection(collection).doc(id).set(data);
   });
 }
 
-/** Every teacher-maintained list shares the same `{ name }` shape (US-5 to US-10). */
-const NAMED_LISTS = [
-  "programs",
-  "classOptions",
-  "skillLevels",
-  "busPickupPoints",
-  "foodOptions",
-  "seasonPassOptions",
+/**
+ * Every teacher-maintained collection follows one model: anyone signed in may read, because
+ * student master data selects from these lists, and nobody may write from the client.
+ *
+ * Writes are closed because the invariants these collections carry cannot be expressed in
+ * rules at all — rules can `get()` a known path but cannot run a query, so "is this name
+ * already taken?" (US-4 to US-10), "is exactly one season active?" (US-4) and "is this item
+ * still in use?" (US-5 to US-10) are all unreachable here. They are enforced in transactions
+ * in the Route Handlers instead, and leaving a second, unchecked way in would make those
+ * guarantees worthless.
+ */
+const READABLE_COLLECTIONS: [string, Record<string, unknown>][] = [
+  ["programs", { name: "Ski" }],
+  ["classOptions", { name: "5AHIF" }],
+  ["skillLevels", { name: "Fortgeschritten" }],
+  ["busPickupPoints", { name: "Dornbirn" }],
+  ["foodOptions", { name: "Vegetarisch" }],
+  ["seasonPassOptions", { name: "Montafon Card" }],
+  ["requiredEquipmentItems", { programId: "p1", name: "Helm" }],
+  ["seasons", { name: "Winter 2026", isActive: false, isArchived: false }],
+  ["events", { seasonId: "s1", name: "Montafon" }],
 ];
 
-describe.each(NAMED_LISTS)("/%s", (collection) => {
-  it("lets a student read the list, since master data selects from it", async () => {
-    await seed(collection, "item1", { name: "Ski" });
+describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
+  it("lets a teacher read it", async () => {
+    await seed(collection, "item1", valid);
+
+    await assertSucceeds(teacher().collection(collection).doc("item1").get());
+  });
+
+  it("lets a student read it, since master data selects from these lists", async () => {
+    await seed(collection, "item1", valid);
 
     await assertSucceeds(student().collection(collection).doc("item1").get());
   });
 
+  it("lets a signed-in user query it, which is what the live list does", async () => {
+    await seed(collection, "item1", valid);
+
+    await assertSucceeds(student().collection(collection).get());
+  });
+
   it("denies an unauthenticated read", async () => {
-    await seed(collection, "item1", { name: "Ski" });
+    await seed(collection, "item1", valid);
 
     await assertFails(anonymous().collection(collection).doc("item1").get());
   });
 
-  it("lets a teacher create an item", async () => {
-    await assertSucceeds(teacher().collection(collection).doc("new").set({ name: "Ski" }));
+  it("denies a client create, even by a teacher, so the uniqueness check cannot be bypassed", async () => {
+    await assertFails(teacher().collection(collection).doc("new").set(valid));
   });
 
-  it("denies a student creating an item", async () => {
-    await assertFails(student().collection(collection).doc("new").set({ name: "Ski" }));
+  it("denies a client update, even by a teacher", async () => {
+    await seed(collection, "item1", valid);
+
+    await assertFails(teacher().collection(collection).doc("item1").update({ name: "Anders" }));
   });
 
-  it("denies a student updating an item", async () => {
-    await seed(collection, "item1", { name: "Ski" });
+  it("denies a client delete, even by a teacher", async () => {
+    await seed(collection, "item1", valid);
 
-    await assertFails(student().collection(collection).doc("item1").update({ name: "Hack" }));
+    await assertFails(teacher().collection(collection).doc("item1").delete());
   });
 
-  it("denies a student deleting an item", async () => {
-    await seed(collection, "item1", { name: "Ski" });
-
-    await assertFails(student().collection(collection).doc("item1").delete());
+  it("denies a student writing", async () => {
+    await assertFails(student().collection(collection).doc("new").set(valid));
   });
 
-  it("lets a teacher delete an item", async () => {
-    await seed(collection, "item1", { name: "Ski" });
-
-    await assertSucceeds(teacher().collection(collection).doc("item1").delete());
-  });
-
-  it("rejects a create with an unknown field", async () => {
-    await assertFails(
-      teacher().collection(collection).doc("new").set({ name: "Ski", sneaky: true }),
-    );
-  });
-
-  it("rejects a create with a blank name", async () => {
-    await assertFails(teacher().collection(collection).doc("new").set({ name: "" }));
-  });
-
-  it("rejects a create with a non-string name", async () => {
-    await assertFails(teacher().collection(collection).doc("new").set({ name: 42 }));
-  });
-
-  it("rejects an oversized name", async () => {
-    await assertFails(
-      teacher()
-        .collection(collection)
-        .doc("new")
-        .set({ name: "x".repeat(121) }),
-    );
+  it("denies an unauthenticated write", async () => {
+    await assertFails(anonymous().collection(collection).doc("new").set(valid));
   });
 });
 
-describe("/seasons", () => {
-  const valid = { name: "Wintersportwoche 2026", isActive: false, isArchived: false };
+describe("invariants that rules cannot express are not left half-guarded", () => {
+  it("stops a teacher marking a second season active from the client", async () => {
+    await seed("seasons", "a", { name: "Winter 2026", isActive: true, isArchived: false });
+    await seed("seasons", "b", { name: "Winter 2027", isActive: false, isArchived: false });
 
-  it("lets a student read seasons", async () => {
-    await seed("seasons", "s1", valid);
-
-    await assertSucceeds(student().collection("seasons").doc("s1").get());
+    await assertFails(teacher().collection("seasons").doc("b").update({ isActive: true }));
   });
 
-  it("lets a teacher create a season", async () => {
-    await assertSucceeds(teacher().collection("seasons").doc("s1").set(valid));
-  });
+  it("stops a teacher creating a duplicate season name from the client", async () => {
+    await seed("seasons", "a", { name: "Winter 2026", isActive: false, isArchived: false });
 
-  it("denies a student creating a season", async () => {
-    await assertFails(student().collection("seasons").doc("s1").set(valid));
-  });
-
-  it("rejects a season without its flags", async () => {
-    await assertFails(teacher().collection("seasons").doc("s1").set({ name: "Ohne Flags" }));
-  });
-
-  it("rejects a non-boolean flag", async () => {
     await assertFails(
       teacher()
         .collection("seasons")
-        .doc("s1")
-        .set({ ...valid, isActive: "yes" }),
+        .doc("b")
+        .set({ name: "Winter 2026", isActive: false, isArchived: false }),
     );
   });
 
-  it("rejects an unknown field", async () => {
+  it("stops a teacher creating a duplicate event name from the client", async () => {
+    await seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+
     await assertFails(
-      teacher()
-        .collection("seasons")
-        .doc("s1")
-        .set({ ...valid, deletedAt: "now" }),
-    );
-  });
-
-  it("lets a teacher archive a season", async () => {
-    await seed("seasons", "s1", valid);
-
-    await assertSucceeds(teacher().collection("seasons").doc("s1").update({ isArchived: true }));
-  });
-
-  it("denies deleting a season from the client, since removal has to cascade", async () => {
-    await seed("seasons", "s1", { ...valid, isArchived: true });
-
-    await assertFails(teacher().collection("seasons").doc("s1").delete());
-  });
-});
-
-describe("/events", () => {
-  const valid = { seasonId: "s1", name: "Montafon" };
-
-  it("lets a student read events", async () => {
-    await seed("events", "e1", valid);
-
-    await assertSucceeds(student().collection("events").doc("e1").get());
-  });
-
-  it("lets a teacher create an event", async () => {
-    await assertSucceeds(teacher().collection("events").doc("e1").set(valid));
-  });
-
-  it("denies a student creating an event", async () => {
-    await assertFails(student().collection("events").doc("e1").set(valid));
-  });
-
-  it("rejects an event without its season", async () => {
-    await assertFails(teacher().collection("events").doc("e1").set({ name: "Ohne Saison" }));
-  });
-
-  it("rejects an event with a blank season reference", async () => {
-    await assertFails(
-      teacher()
-        .collection("events")
-        .doc("e1")
-        .set({ ...valid, seasonId: "" }),
-    );
-  });
-
-  it("denies deleting an event from the client, since removal has to unassign students", async () => {
-    await seed("events", "e1", valid);
-
-    await assertFails(teacher().collection("events").doc("e1").delete());
-  });
-});
-
-describe("/requiredEquipmentItems", () => {
-  const valid = { programId: "p1", name: "Helm" };
-
-  it("lets a student read the required equipment", async () => {
-    await seed("requiredEquipmentItems", "r1", valid);
-
-    await assertSucceeds(student().collection("requiredEquipmentItems").doc("r1").get());
-  });
-
-  it("lets a teacher create an item", async () => {
-    await assertSucceeds(teacher().collection("requiredEquipmentItems").doc("r1").set(valid));
-  });
-
-  it("denies a student creating an item", async () => {
-    await assertFails(student().collection("requiredEquipmentItems").doc("r1").set(valid));
-  });
-
-  it("rejects an item without its program", async () => {
-    await assertFails(
-      teacher().collection("requiredEquipmentItems").doc("r1").set({ name: "Helm" }),
+      teacher().collection("events").doc("e2").set({ seasonId: "s1", name: "Montafon" }),
     );
   });
 });

@@ -35,20 +35,6 @@ service cloud.firestore {
       return upn() != '' && upn() == uid;
     }
 
-    // Mirrors requiredText(120) in src/lib/schemas/common.ts — keep both in sync.
-    function isName(value) {
-      return value is string && value.size() > 0 && value.size() <= 120;
-    }
-
-    // Mirrors documentIdSchema in src/lib/schemas/common.ts.
-    function isDocumentId(value) {
-      return value is string && value.size() > 0 && value.size() <= 1500;
-    }
-
-    function hasExactly(data, fields) {
-      return data.keys().hasOnly(fields) && data.keys().hasAll(fields);
-    }
-
     // See .github/instructions/firestore-security-rules.instructions.md before adding collections below.
     match /users/{uid} {
       allow read: if isSelf(uid) || isTeacher();
@@ -63,58 +49,26 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Every teacher-maintained list shares the same `{ name }` shape (US-5 to US-10), so one
-    // allowlisted wildcard keeps the six blocks from drifting apart. Any collection not named
-    // here falls through to its own match block below, or is denied outright.
-    match /{list}/{itemId} {
-      allow read: if isSignedIn()
-        && list in ['programs', 'classOptions', 'skillLevels', 'busPickupPoints', 'foodOptions', 'seasonPassOptions'];
+    /**
+     * Every teacher-maintained collection: anyone signed in may read, because student master
+     * data selects from these lists and the teacher views subscribe to them live. Nobody
+     * writes from the client.
+     *
+     * Writes are closed rather than merely restricted to teachers, because the invariants
+     * these collections carry cannot be expressed here at all. Rules can `get()` a known
+     * path but cannot run a query, so "is this name already taken?" (US-4 to US-10), "is
+     * exactly one season active?" (US-4), "is this item still in use?" (US-5 to US-10) and
+     * the cascade on delete (US-4) are all out of reach. They are enforced in transactions
+     * in the Route Handlers, which use the Admin SDK and bypass these rules — leaving a
+     * second, unchecked way in would make those guarantees worthless.
+     */
+    match /{collection}/{itemId} {
+      allow read: if isSignedIn() && collection in [
+        'seasons', 'events', 'programs', 'requiredEquipmentItems',
+        'classOptions', 'skillLevels', 'busPickupPoints', 'foodOptions', 'seasonPassOptions'
+      ];
 
-      allow create, update: if isTeacher()
-        && list in ['programs', 'classOptions', 'skillLevels', 'busPickupPoints', 'foodOptions', 'seasonPassOptions']
-        && hasExactly(request.resource.data, ['name'])
-        && isName(request.resource.data.name);
-
-      allow delete: if isTeacher()
-        && list in ['programs', 'classOptions', 'skillLevels', 'busPickupPoints', 'foodOptions', 'seasonPassOptions'];
-    }
-
-    match /seasons/{seasonId} {
-      // Students read seasons because their master data is scoped to the active one (US-11).
-      allow read: if isSignedIn();
-
-      allow create, update: if isTeacher()
-        && hasExactly(request.resource.data, ['name', 'isActive', 'isArchived'])
-        && isName(request.resource.data.name)
-        && request.resource.data.isActive is bool
-        && request.resource.data.isArchived is bool;
-
-      // Removal has to cascade to events and master data (US-4), so it runs through the
-      // Admin SDK in a Route Handler, which bypasses these rules.
-      allow delete: if false;
-    }
-
-    match /events/{eventId} {
-      allow read: if isSignedIn();
-
-      allow create, update: if isTeacher()
-        && hasExactly(request.resource.data, ['seasonId', 'name'])
-        && isDocumentId(request.resource.data.seasonId)
-        && isName(request.resource.data.name);
-
-      // Removal has to unassign the students first (US-4), so it runs through the Admin SDK.
-      allow delete: if false;
-    }
-
-    match /requiredEquipmentItems/{itemId} {
-      allow read: if isSignedIn();
-
-      allow create, update: if isTeacher()
-        && hasExactly(request.resource.data, ['programId', 'name'])
-        && isDocumentId(request.resource.data.programId)
-        && isName(request.resource.data.name);
-
-      allow delete: if isTeacher();
+      allow write: if false;
     }
   }
 }
