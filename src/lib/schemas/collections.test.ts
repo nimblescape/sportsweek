@@ -14,7 +14,6 @@ describe("COLLECTIONS", () => {
         "seasons",
         "events",
         "programs",
-        "requiredEquipmentItems",
         "classOptions",
         "skillLevels",
         "busPickupPoints",

@@ -68,7 +68,7 @@ service cloud.firestore {
      */
     match /{collection}/{itemId} {
       allow read: if isSignedIn() && collection in [
-        'seasons', 'events', 'programs', 'requiredEquipmentItems',
+        'seasons', 'events', 'programs',
         'classOptions', 'skillLevels', 'busPickupPoints', 'foodOptions', 'seasonPassOptions'
       ];
 

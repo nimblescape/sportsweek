@@ -51,24 +51,16 @@ describe("MASTER_DATA_CATEGORIES", () => {
     });
   });
 
-  it("matches required equipment items through the students' rental selections, not the program", () => {
-    expect(MASTER_DATA_CATEGORIES["required-equipment"].usage).toEqual({ kind: "rentalItem" });
-  });
-
-  it("scopes required equipment items to their program, and nothing else to a parent", () => {
-    const equipment: MasterDataCategory = MASTER_DATA_CATEGORIES["required-equipment"];
-    const classes: MasterDataCategory = MASTER_DATA_CATEGORIES.classes;
-
-    expect(equipment.parentField).toBe("programId");
-    expect(classes.parentField).toBeUndefined();
-  });
-
-  it("names the nested list a program owns, so deleting one can take it along", () => {
+  it("names the field a program keeps its required equipment in, and gives nothing else one", () => {
     const programs: MasterDataCategory = MASTER_DATA_CATEGORIES.programs;
     const classes: MasterDataCategory = MASTER_DATA_CATEGORIES.classes;
 
-    expect(programs.childKey).toBe("required-equipment");
-    expect(classes.childKey).toBeUndefined();
+    expect(programs.equipmentField).toBe("requiredEquipment");
+    expect(classes.equipmentField).toBeUndefined();
+  });
+
+  it("has no category of its own for required equipment, which is a field now", () => {
+    expect(Object.keys(MASTER_DATA_CATEGORIES)).not.toContain("required-equipment");
   });
 
   it("labels every category in German", () => {

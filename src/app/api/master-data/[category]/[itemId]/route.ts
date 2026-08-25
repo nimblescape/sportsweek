@@ -12,13 +12,18 @@ import {
   requireTeacherOrResponse,
 } from "@/lib/api/handler";
 import { ErrorCode } from "@/lib/errors";
-import { namedListItemSchema } from "@/lib/schemas/master-data";
+import { namedListItemSchema, requiredEquipmentSchema } from "@/lib/schemas/master-data";
 import { masterDataCategorySchema } from "@/lib/master-data/categories";
 import { deleteMasterDataItem, updateMasterDataItem } from "@/lib/master-data/master-data-service";
 
-// Strict, so a typo or an injected field is reported rather than silently ignored. An item
-// never moves between parents, which is why parentId is not accepted here.
-const updateItemSchema = z.strictObject({ name: namedListItemSchema.shape.name });
+// Strict, so a typo or an injected field is reported rather than silently ignored. The equipment
+// list is rewritten whole, which is what makes adding, renaming and removing one atomic (US-5).
+const updateItemSchema = z
+  .strictObject({
+    name: namedListItemSchema.shape.name.optional(),
+    requiredEquipment: requiredEquipmentSchema.optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "Es wurde nichts zum Ändern übergeben.");
 
 type Context = { params: Promise<{ category: string; itemId: string }> };
 

@@ -9,18 +9,18 @@ import { COLLECTIONS } from "@/lib/schemas/collections";
 /**
  * How an item is recognised as still in use (US-5 to US-10). Master data stores plain-text
  * snapshots rather than references (US-11), so "in use" is a name match, not a join — and the
- * field to match differs per category. Required equipment items are the odd one out: they are
- * matched through the students' rental selections, not through the program they belong to.
+ * field to match differs per category.
  */
-export type MasterDataUsage = { kind: "masterData"; field: string } | { kind: "rentalItem" };
+export type MasterDataUsage = { kind: "masterData"; field: string };
 
 export type MasterDataCategory = {
   collection: string;
   usage: MasterDataUsage;
-  /** Set only for a nested list: the field on the item that names its owner. */
-  parentField?: string;
-  /** Set only for a category that owns a nested list, which a delete has to take with it. */
-  childKey?: string;
+  /**
+   * Set only for a category whose items carry a list of their own. Its entries are matched
+   * against the students' rental selections, not against the field above (US-5).
+   */
+  equipmentField?: string;
   labels: {
     title: string;
     singular: string;
@@ -39,23 +39,12 @@ export const MASTER_DATA_CATEGORIES = {
   programs: {
     collection: COLLECTIONS.programs,
     usage: { kind: "masterData", field: "program" },
-    childKey: "required-equipment",
+    equipmentField: "requiredEquipment",
     labels: {
       title: "Programme",
       singular: "Programm",
       add: "Neues Programm",
       empty: "Es gibt noch kein Programm.",
-    },
-  },
-  "required-equipment": {
-    collection: COLLECTIONS.requiredEquipmentItems,
-    usage: { kind: "rentalItem" },
-    parentField: "programId",
-    labels: {
-      title: "Benötigte Ausrüstung",
-      singular: "Ausrüstungsgegenstand",
-      add: "Neuer Ausrüstungsgegenstand",
-      empty: "Dieses Programm benötigt keine Ausrüstung.",
     },
   },
   classes: {
@@ -119,6 +108,19 @@ export type MasterDataCategoryKey = keyof typeof MASTER_DATA_CATEGORIES;
 export const IN_USE_HINT =
   "Dieser Eintrag wird in einer nicht archivierten Saison noch verwendet. " +
   "Archiviere diese Saison, um ihn zu bearbeiten oder zu löschen.";
+
+/** Deleting a program takes its equipment with it, so a rented item holds the program back too. */
+export const CHILD_IN_USE_HINT =
+  "Ausrüstung dieses Programms wird in einer nicht archivierten Saison noch verwendet. " +
+  "Archiviere diese Saison, um das Programm zu löschen.";
+
+/** Labels for the equipment list a program carries, which is a field rather than a category. */
+export const EQUIPMENT_LABELS = {
+  title: "Benötigte Ausrüstung",
+  singular: "Ausrüstungsgegenstand",
+  add: "Neuer Ausrüstungsgegenstand",
+  empty: "Dieses Programm benötigt keine Ausrüstung.",
+} as const;
 
 /** Route segments arrive as untrusted strings, so a key is validated before it names a collection. */
 export const masterDataCategorySchema = z.enum(

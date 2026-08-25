@@ -18,14 +18,25 @@ export const skillLevelSchema = namedListItemSchema;
 export const busPickupPointSchema = namedListItemSchema;
 export const foodOptionSchema = namedListItemSchema;
 export const seasonPassOptionSchema = namedListItemSchema;
-export const programSchema = namedListItemSchema;
 
-export const requiredEquipmentItemSchema = z.object({
-  id: documentIdSchema,
-  programId: documentIdSchema,
-  name: requiredText(120),
+/**
+ * Required equipment lives on the program rather than in records of its own (US-5): an item has
+ * no identity outside the program that requires it, and nothing references one. Holding the list
+ * in a single field is also what makes uniqueness checkable without a query — the whole list is
+ * right there, and rewriting it is one atomic change.
+ */
+export const requiredEquipmentSchema = z
+  .array(requiredText(120))
+  .max(50, "Höchstens 50 Einträge.")
+  .refine((names) => {
+    const normalized = names.map((name) => name.trim().toLocaleLowerCase("de-AT"));
+    return new Set(normalized).size === normalized.length;
+  }, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
+
+export const programSchema = namedListItemSchema.extend({
+  requiredEquipment: requiredEquipmentSchema.default([]),
 });
-export type RequiredEquipmentItem = z.infer<typeof requiredEquipmentItemSchema>;
+export type Program = z.infer<typeof programSchema>;
 
 /** Always offered to students and not editable by teachers, so it is never a foodOptions row (US-9). */
 export const FOOD_OPTION_OTHER = "other";

@@ -102,7 +102,7 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 
 Unless a story below says otherwise, every list in this section follows the same edit/remove restriction: an item can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4); when blocked by this rule, a hint is shown: "This item is still in use in a non-archived season. Archive that season to edit or remove it."
 
-Every list in this section also enforces unique names: two items of the same category cannot share a name, compared ignoring surrounding whitespace and letter case. The same name may of course appear in two different categories (e.g. a class and a program). Required equipment items (US-5) are unique within their program, in the same way events are unique within their season. A rejected name is reported on the name field itself, in German, and nothing is saved.
+Every list in this section also enforces unique names: two items of the same category cannot share a name, compared ignoring surrounding whitespace and letter case. The same name may of course appear in two different categories (e.g. a class and a program). Required equipment items (US-5) are unique within their program — two different programs may each require a helmet. A rejected name is reported on the name field itself, in German, and nothing is saved.
 
 All categories in this section (US-5 through US-10) share one unified, intuitive CRUD interface pattern for adding, editing, and deleting list items — consistent across every category, differing only in the fields each item has.
 
@@ -116,9 +116,12 @@ As a teacher, I can maintain the list of programs so that students can register 
 - A teacher can add, edit, and remove programs from the list.
 - The list is pre-populated with the programs Ski, Snowboard, and Alternativ.
 - The program a student selects in their master data (US-11) is chosen from this maintained list.
-- Each program has an associated list of required equipment items; the default Ski program is pre-populated with ski, ski boots, poles, and helmet, and the default Snowboard program is pre-populated with board, boots, and helmet; the default Alternativ program has no pre-populated required equipment items.
+- Each program carries its required equipment as a list of names stored on the program itself, not as records of their own: an equipment item has no identity outside the program that requires it, and is never referenced from anywhere else. The default Ski program is pre-populated with ski, ski boots, poles, and helmet, and the default Snowboard program with board, boots, and helmet; the default Alternativ program has no pre-populated required equipment items.
 - A teacher can add, edit, and remove the required equipment items for each program.
+- Because the list lives on the program, the whole list is saved in one step: adding, renaming, or removing an item rewrites the program's equipment list as a single change, and either all of it is stored or none of it is.
+- Deleting a program deletes its required equipment list along with it, since the list has no existence apart from the program.
 - A program is matched via its `.program` value on master data records; a required equipment item is matched via students' equipment rental selections instead — both follow the shared edit/remove restriction above.
+- A program can only be deleted if none of its required equipment items is in use either, since deleting the program would take those items with it.
 
 ### US-6: Teacher maintains classes
 

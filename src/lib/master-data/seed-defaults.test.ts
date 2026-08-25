@@ -22,20 +22,17 @@ function namesOf(collection: string): string[] {
     .sort();
 }
 
-function idOfProgram(name: string): string {
+function programNamed(name: string): [string, Record<string, unknown>] {
   const entry = Object.entries(firestore.docs("programs")).find(
     ([, document]) => document.name === name,
   );
   if (!entry) throw new Error(`No program named ${name}`);
-  return entry[0];
+  return entry;
 }
 
 function equipmentOf(programName: string): string[] {
-  const programId = idOfProgram(programName);
-  return Object.values(firestore.docs("requiredEquipmentItems"))
-    .filter((document) => document.programId === programId)
-    .map((document) => String(document.name))
-    .sort();
+  const [, program] = programNamed(programName);
+  return [...(program.requiredEquipment as string[])].sort();
 }
 
 describe("seedMasterDataDefaults", () => {
@@ -131,11 +128,11 @@ describe("seedMasterDataDefaults", () => {
 
   it("adds a default introduced later without touching the ones already seeded", async () => {
     await seedMasterDataDefaults();
-    const skiId = idOfProgram("Ski");
-    const doomed = Object.entries(firestore.docs("requiredEquipmentItems")).find(
-      ([, document]) => document.programId === skiId && document.name === "Helm",
-    );
-    firestore.deleteDoc("requiredEquipmentItems", doomed![0]);
+    const [skiId, ski] = programNamed("Ski");
+    firestore.seed("programs", skiId, {
+      ...ski,
+      requiredEquipment: (ski.requiredEquipment as string[]).filter((item) => item !== "Helm"),
+    });
 
     await seedMasterDataDefaults();
 

@@ -12,15 +12,14 @@ import {
   requireTeacherOrResponse,
 } from "@/lib/api/handler";
 import { ErrorCode } from "@/lib/errors";
-import { documentIdSchema } from "@/lib/schemas/common";
-import { namedListItemSchema } from "@/lib/schemas/master-data";
+import { namedListItemSchema, requiredEquipmentSchema } from "@/lib/schemas/master-data";
 import { categoryOf, masterDataCategorySchema } from "@/lib/master-data/categories";
 import { createMasterDataItem } from "@/lib/master-data/master-data-service";
-import { blockedItemIds } from "@/lib/master-data/usage-guard";
+import { usageReport } from "@/lib/master-data/usage-guard";
 
 const createItemSchema = z.strictObject({
   name: namedListItemSchema.shape.name,
-  parentId: documentIdSchema.optional(),
+  requiredEquipment: requiredEquipmentSchema.optional(),
 });
 
 type Context = { params: Promise<{ category: string }> };
@@ -66,8 +65,7 @@ export async function GET(_request: Request, context: Context) {
   }
 
   try {
-    const blockedIds = await blockedItemIds(categoryOf(category.data));
-    return NextResponse.json({ blockedIds });
+    return NextResponse.json(await usageReport(categoryOf(category.data)));
   } catch (error) {
     return handleServiceFailure(error, `Reading ${category.data} usage`);
   }

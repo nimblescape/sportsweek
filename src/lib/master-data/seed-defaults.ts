@@ -9,8 +9,9 @@ import { normalizeName } from "@/lib/firebase/unique-name";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { programSchema } from "@/lib/schemas/master-data";
 import { categoryOf, type MasterDataCategoryKey } from "./categories";
-import { createMasterDataItem } from "./master-data-service";
+import { createMasterDataItem, updateMasterDataItem } from "./master-data-service";
 
 /** US-5: Alternativ deliberately requires nothing. */
 const PROGRAM_DEFAULTS = [
@@ -62,22 +63,24 @@ async function alreadySeeded(): Promise<Set<string>> {
 /** A default the teacher happened to type in first is already the desired end state. */
 async function createIgnoringDuplicates(
   key: MasterDataCategoryKey,
-  input: { name: string; parentId?: string },
-): Promise<string | null> {
+  input: { name: string; requiredEquipment?: readonly string[] },
+): Promise<void> {
   try {
-    return (await createMasterDataItem(key, input)).id;
+    await createMasterDataItem(key, input);
   } catch (error) {
-    if (error instanceof ServiceError && error.code === ErrorCode.Conflict) return null;
+    if (error instanceof ServiceError && error.code === ErrorCode.Conflict) return;
     throw error;
   }
 }
 
-async function findProgramByName(name: string): Promise<string | null> {
+async function findProgramByName(name: string) {
   const snapshot = await adminDb
     .collection(categoryOf("programs").collection)
     .where("name", "==", name)
     .get();
-  return snapshot.docs[0]?.id ?? null;
+
+  const found = snapshot.docs[0];
+  return found === undefined ? null : programSchema.parse({ id: found.id, ...found.data() });
 }
 
 /**
@@ -100,26 +103,32 @@ export async function seedMasterDataDefaults(): Promise<void> {
 
   for (const program of PROGRAM_DEFAULTS) {
     const programKey = keyOf("programs", program.name);
-    let programId: string | null = null;
+    const pendingEquipment = program.equipment.filter(
+      (item) => !seeded.has(keyOf("equipment", item, program.name)),
+    );
 
     if (!seeded.has(programKey)) {
-      programId = await createIgnoringDuplicates("programs", { name: program.name });
-      added.push(programKey);
+      await createIgnoringDuplicates("programs", {
+        name: program.name,
+        requiredEquipment: pendingEquipment,
+      });
+      added.push(
+        programKey,
+        ...pendingEquipment.map((item) => keyOf("equipment", item, program.name)),
+      );
+      continue;
     }
 
-    const pendingEquipment = program.equipment.filter(
-      (item) => !seeded.has(keyOf("required-equipment", item, program.name)),
-    );
     if (pendingEquipment.length === 0) continue;
 
-    // The program may predate this run, or the teacher may have removed it since.
-    programId ??= await findProgramByName(program.name);
-    if (programId === null) continue;
+    // The program predates this run, or the teacher has removed it since.
+    const existing = await findProgramByName(program.name);
+    if (existing === null) continue;
 
-    for (const item of pendingEquipment) {
-      await createIgnoringDuplicates("required-equipment", { name: item, parentId: programId });
-      added.push(keyOf("required-equipment", item, program.name));
-    }
+    await updateMasterDataItem("programs", existing.id, {
+      requiredEquipment: [...existing.requiredEquipment, ...pendingEquipment],
+    });
+    added.push(...pendingEquipment.map((item) => keyOf("equipment", item, program.name)));
   }
 
   if (added.length > 0) {

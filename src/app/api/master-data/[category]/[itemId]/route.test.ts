@@ -90,6 +90,41 @@ describe("PATCH /api/master-data/[category]/[itemId]", () => {
     expect(updateMasterDataItem).not.toHaveBeenCalled();
   });
 
+  it("rewrites a program's equipment list in one call", async () => {
+    updateMasterDataItem.mockResolvedValue({
+      id: "ski",
+      name: "Ski",
+      requiredEquipment: ["Helm"],
+    });
+
+    const response = await PATCH(
+      patchRequest({ requiredEquipment: ["Helm"] }),
+      context("programs", "ski"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateMasterDataItem).toHaveBeenCalledWith("programs", "ski", {
+      requiredEquipment: ["Helm"],
+    });
+  });
+
+  it("rejects an empty change set", async () => {
+    const response = await PATCH(patchRequest({}), context("programs", "ski"));
+
+    expect(response.status).toBe(400);
+    expect(updateMasterDataItem).not.toHaveBeenCalled();
+  });
+
+  it("rejects a duplicate equipment entry before it reaches the service", async () => {
+    const response = await PATCH(
+      patchRequest({ requiredEquipment: ["Helm", " helm "] }),
+      context("programs", "ski"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(updateMasterDataItem).not.toHaveBeenCalled();
+  });
+
   it("passes the in-use rejection on with its hint intact", async () => {
     updateMasterDataItem.mockRejectedValue(new ServiceError("CONFLICT", IN_USE_HINT));
 

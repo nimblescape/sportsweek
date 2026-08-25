@@ -7,19 +7,52 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { MasterDataView } from "@/components/master-data/master-data-view";
-import { useMasterData } from "@/lib/master-data/use-master-data";
+import { CrudList, type CrudItem } from "@/components/master-data/crud-list";
+import { apiRequest } from "@/lib/api/client";
+import { EQUIPMENT_LABELS } from "@/lib/master-data/categories";
+import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
 
-/** One program's required equipment items, on the same CRUD list every category uses (US-5). */
+/**
+ * A program's required equipment on the same CRUD list every category uses (US-5). The entries
+ * live in a field on the program, so every change rewrites the whole list — which is what makes
+ * adding, renaming and removing one atomic, and uniqueness checkable without a query.
+ */
 export function ProgramEquipmentView({ programId }: { programId: string }) {
-  const { items: programs } = useMasterData("programs");
-  const program = programs.find((candidate) => candidate.id === programId) ?? null;
+  const { program, loading, error } = useProgram(programId);
+  const report = useUsageReport("programs");
+
+  const equipment = program?.requiredEquipment ?? [];
+  // An entry has no id of its own, so its name is what identifies it within the program.
+  const items: CrudItem[] = equipment.map((name) => ({ id: name, name }));
+  const blockedIds = new Set(report.blockedEquipment[programId] ?? []);
+
+  async function save(names: string[]) {
+    await apiRequest(`/api/master-data/programs/${programId}`, {
+      method: "PATCH",
+      body: { requiredEquipment: names },
+    });
+  }
 
   return (
-    <MasterDataView
-      category="required-equipment"
-      parentId={programId}
-      title={`Benötigte Ausrüstung – ${program?.name ?? "Programm"}`}
+    <CrudList
+      labels={EQUIPMENT_LABELS}
+      title={`${EQUIPMENT_LABELS.title} – ${program?.name ?? "Programm"}`}
+      items={items}
+      loading={loading}
+      error={error}
+      blockedIds={blockedIds}
+      onSubmit={(name, item) =>
+        save(
+          item === null ? [...equipment, name] : equipment.map((e) => (e === item.id ? name : e)),
+        )
+      }
+      onDelete={(item) => save(equipment.filter((entry) => entry !== item.id))}
+      deleteNote={(item) => (
+        <>
+          <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.
+          Bereits gespeicherte Schülerdaten bleiben unverändert.
+        </>
+      )}
     >
       <Link
         href="/app/master-data/programs"
@@ -28,6 +61,6 @@ export function ProgramEquipmentView({ programId }: { programId: string }) {
         <ArrowLeft aria-hidden className="size-4" />
         Alle Programme
       </Link>
-    </MasterDataView>
+    </CrudList>
   );
 }

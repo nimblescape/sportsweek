@@ -15,16 +15,17 @@ const where = vi.fn((field: string, _op: string, value: unknown) => `where:${fie
 
 vi.mock("firebase/firestore", () => ({
   collection: (...args: unknown[]) => collection(args[0], args[1] as string),
+  doc: vi.fn(),
+  onSnapshot,
   query: vi.fn((...args: unknown[]) => args),
   orderBy: vi.fn((field: string) => `order-by:${field}`),
   where: (...args: unknown[]) => where(args[0] as string, args[1] as string, args[2]),
-  onSnapshot,
 }));
 
 vi.mock("firebase/auth", () => ({ onAuthStateChanged }));
 vi.mock("@/lib/firebase/client", () => ({ auth: {}, db: {} }));
 
-const { useBlockedItemIds, useMasterData } = await import("@/lib/master-data/use-master-data");
+const { useMasterData, useUsageReport } = await import("@/lib/master-data/use-master-data");
 
 function docOf(id: string, data: unknown) {
   return { id, data: () => data };
@@ -83,23 +84,18 @@ describe("useMasterData", () => {
     expect(result.current.items).toEqual([{ id: "c2", name: "4BHIT" }]);
   });
 
-  it("scopes a nested list to its parent", () => {
-    renderHook(() => useMasterData("required-equipment", "ski"));
-    signIn();
-
-    expect(where).toHaveBeenCalledWith("programId", "==", "ski");
-  });
-
-  it("does not filter a flat list by a parent", () => {
-    renderHook(() => useMasterData("classes"));
+  it("scopes nothing by a parent, since no category has one any more", () => {
+    renderHook(() => useMasterData("programs"));
     signIn();
 
     expect(where).not.toHaveBeenCalled();
   });
 });
 
-describe("useBlockedItemIds", () => {
+describe("useUsageReport", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  const nothingBlocked = { blockedIds: new Set(), blockedEquipment: {} };
 
   function stubFetch(implementation: (...args: unknown[]) => unknown) {
     const fetchMock = vi.fn(implementation);
@@ -107,50 +103,51 @@ describe("useBlockedItemIds", () => {
     return fetchMock;
   }
 
-  it("asks the handler for the category it was given", async () => {
-    const fetchMock = stubFetch(() =>
+  function respond(body: unknown) {
+    return () =>
       Promise.resolve(
-        new Response(JSON.stringify({ blockedIds: [] }), {
+        new Response(JSON.stringify(body), {
           status: 200,
           headers: { "content-type": "application/json" },
         }),
-      ),
-    );
+      );
+  }
 
-    renderHook(() => useBlockedItemIds("food-options"));
+  it("asks the handler for the category it was given", async () => {
+    const fetchMock = stubFetch(respond({ blockedIds: [], blockedEquipment: {} }));
+
+    renderHook(() => useUsageReport("food-options"));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/master-data/food-options"));
   });
 
-  it("returns the blocked ids", async () => {
-    stubFetch(() =>
-      Promise.resolve(
-        new Response(JSON.stringify({ blockedIds: ["c1", "c2"] }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
-      ),
+  it("keeps what is in use apart from the entries an item's own list holds", async () => {
+    stubFetch(respond({ blockedIds: ["p1"], blockedEquipment: { p2: ["Helm"] } }));
+
+    const { result } = renderHook(() => useUsageReport("programs"));
+
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        blockedIds: new Set(["p1"]),
+        blockedEquipment: { p2: ["Helm"] },
+      }),
     );
-
-    const { result } = renderHook(() => useBlockedItemIds("classes"));
-
-    await waitFor(() => expect(result.current).toEqual(new Set(["c1", "c2"])));
   });
 
   it("blocks nothing when the handler refuses, since the server re-checks every write", async () => {
     stubFetch(() => Promise.resolve(new Response(null, { status: 403 })));
 
-    const { result } = renderHook(() => useBlockedItemIds("classes"));
+    const { result } = renderHook(() => useUsageReport("classes"));
 
-    await waitFor(() => expect(result.current).toEqual(new Set()));
+    await waitFor(() => expect(result.current).toEqual(nothingBlocked));
   });
 
   it("survives a failed request", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     stubFetch(() => Promise.reject(new Error("offline")));
 
-    const { result } = renderHook(() => useBlockedItemIds("classes"));
+    const { result } = renderHook(() => useUsageReport("classes"));
 
-    await waitFor(() => expect(result.current).toEqual(new Set()));
+    await waitFor(() => expect(result.current).toEqual(nothingBlocked));
   });
 });

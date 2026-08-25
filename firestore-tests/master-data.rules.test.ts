@@ -64,13 +64,12 @@ async function seed(collection: string, id: string, data: Record<string, unknown
  * guarantees worthless.
  */
 const READABLE_COLLECTIONS: [string, Record<string, unknown>][] = [
-  ["programs", { name: "Ski" }],
+  ["programs", { name: "Ski", requiredEquipment: ["Helm"] }],
   ["classOptions", { name: "5AHIF" }],
   ["skillLevels", { name: "Fortgeschritten" }],
   ["busPickupPoints", { name: "Dornbirn" }],
   ["foodOptions", { name: "Vegetarisch" }],
   ["seasonPassOptions", { name: "Montafon Card" }],
-  ["requiredEquipmentItems", { programId: "p1", name: "Helm" }],
   ["seasons", { name: "Winter 2026", isActive: false, isArchived: false }],
   ["events", { seasonId: "s1", name: "Montafon" }],
 ];

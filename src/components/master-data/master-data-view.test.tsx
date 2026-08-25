@@ -6,14 +6,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { IN_USE_HINT } from "@/lib/master-data/categories";
+import { CHILD_IN_USE_HINT, IN_USE_HINT } from "@/lib/master-data/categories";
 
 const useMasterData = vi.fn();
-const useBlockedItemIds = vi.fn();
+const useUsageReport = vi.fn();
 
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (...args: unknown[]) => useMasterData(...args),
-  useBlockedItemIds: (...args: unknown[]) => useBlockedItemIds(...args),
+  useUsageReport: (...args: unknown[]) => useUsageReport(...args),
 }));
 
 const { MasterDataView } = await import("./master-data-view");
@@ -47,7 +47,7 @@ const conflict = (message: string) =>
 
 beforeEach(() => {
   useMasterData.mockReturnValue({ items, loading: false, error: null });
-  useBlockedItemIds.mockReturnValue(new Set<string>());
+  useUsageReport.mockReturnValue({ blockedIds: new Set<string>(), blockedEquipment: {} });
 });
 
 afterEach(() => {
@@ -98,7 +98,7 @@ describe("MasterDataView — reading the list", () => {
   it("subscribes to the category it was configured with", () => {
     render(<MasterDataView category="skill-levels" />);
 
-    expect(useMasterData).toHaveBeenCalledWith("skill-levels", undefined);
+    expect(useMasterData).toHaveBeenCalledWith("skill-levels");
     expect(screen.getByRole("heading", { name: "Könnensstufen" })).toBeInTheDocument();
   });
 });
@@ -117,19 +117,6 @@ describe("MasterDataView — adding", () => {
     expect(url).toBe("/api/master-data/classes");
     expect(init.method).toBe("POST");
     expect(JSON.parse(String(init.body))).toEqual({ name: "5CHIT" });
-  });
-
-  it("sends the parent along for a nested list", async () => {
-    const fetchMock = stubFetch(created);
-    render(<MasterDataView category="required-equipment" parentId="ski" />);
-
-    await userEvent.click(screen.getByRole("button", { name: /neuer ausrüstungsgegenstand/i }));
-    await userEvent.type(screen.getByLabelText("Name"), "Helm");
-    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toEqual({ name: "Helm", parentId: "ski" });
   });
 
   it("refuses a blank name without calling the server", async () => {
@@ -225,7 +212,9 @@ describe("MasterDataView — deleting", () => {
 });
 
 describe("MasterDataView — the in-use restriction", () => {
-  beforeEach(() => useBlockedItemIds.mockReturnValue(new Set(["c1"])));
+  beforeEach(() =>
+    useUsageReport.mockReturnValue({ blockedIds: new Set(["c1"]), blockedEquipment: {} }),
+  );
 
   it("disables editing and deleting for an item still in use", () => {
     renderView();
@@ -250,7 +239,34 @@ describe("MasterDataView — the in-use restriction", () => {
   it("asks the guard about the category it is showing", () => {
     renderView();
 
-    expect(useBlockedItemIds).toHaveBeenCalledWith("classes");
+    expect(useUsageReport).toHaveBeenCalledWith("classes");
+  });
+});
+
+describe("MasterDataView — an item whose own list is in use", () => {
+  beforeEach(() =>
+    useUsageReport.mockReturnValue({
+      blockedIds: new Set<string>(),
+      blockedEquipment: { c1: ["Helm"] },
+    }),
+  );
+
+  it("blocks deleting it, since deleting would take that entry along", () => {
+    renderView();
+
+    expect(screen.getByRole("button", { name: "Klasse 3AHIT löschen" })).toBeDisabled();
+  });
+
+  it("still allows renaming it, which touches no entry", () => {
+    renderView();
+
+    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeEnabled();
+  });
+
+  it("says why deleting is blocked", () => {
+    renderView();
+
+    expect(screen.getAllByText(CHILD_IN_USE_HINT).length).toBeGreaterThan(0);
   });
 });
 
@@ -285,7 +301,7 @@ describe("MasterDataView — per-row actions", () => {
   });
 
   it("leaves the extra action reachable for an item the in-use guard blocks", () => {
-    useBlockedItemIds.mockReturnValue(new Set(["c1"]));
+    useUsageReport.mockReturnValue({ blockedIds: new Set(["c1"]), blockedEquipment: {} });
     renderView({
       renderRowAction: (item: { id: string; name: string }) => (
         <a href={`/detail/${item.id}`}>Details zu {item.name}</a>

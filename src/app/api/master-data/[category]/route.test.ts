@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getUserWithRole = vi.fn();
 const createMasterDataItem = vi.fn();
-const blockedItemIds = vi.fn();
+const usageReport = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
   getUserWithRole: () => getUserWithRole(),
@@ -18,7 +18,7 @@ vi.mock("@/lib/master-data/master-data-service", () => ({
 }));
 
 vi.mock("@/lib/master-data/usage-guard", () => ({
-  blockedItemIds: (...args: unknown[]) => blockedItemIds(...args),
+  usageReport: (...args: unknown[]) => usageReport(...args),
 }));
 
 const { GET, POST } = await import("./route");
@@ -38,10 +38,10 @@ function context(category: string) {
 beforeEach(() => {
   getUserWithRole.mockReset();
   createMasterDataItem.mockReset();
-  blockedItemIds.mockReset();
+  usageReport.mockReset();
   getUserWithRole.mockResolvedValue({ uid: "u1", email: "t@htldornbirn.at", role: "teacher" });
   createMasterDataItem.mockResolvedValue({ id: "c1", name: "3AHIT", parentId: null });
-  blockedItemIds.mockResolvedValue(["c1"]);
+  usageReport.mockResolvedValue({ blockedIds: ["c1"], undeletableIds: ["c1", "c2"] });
 });
 
 describe("POST /api/master-data/[category]", () => {
@@ -53,12 +53,12 @@ describe("POST /api/master-data/[category]", () => {
     expect(createMasterDataItem).toHaveBeenCalledWith("classes", { name: "3AHIT" });
   });
 
-  it("passes the parent through for a nested list", async () => {
-    await POST(request({ name: "Helm", parentId: "ski" }), context("required-equipment"));
+  it("passes the equipment list through for a program", async () => {
+    await POST(request({ name: "Ski", requiredEquipment: ["Helm"] }), context("programs"));
 
-    expect(createMasterDataItem).toHaveBeenCalledWith("required-equipment", {
-      name: "Helm",
-      parentId: "ski",
+    expect(createMasterDataItem).toHaveBeenCalledWith("programs", {
+      name: "Ski",
+      requiredEquipment: ["Helm"],
     });
   });
 
@@ -125,11 +125,11 @@ describe("POST /api/master-data/[category]", () => {
 });
 
 describe("GET /api/master-data/[category]", () => {
-  it("reports the items blocked by the in-use guard", async () => {
+  it("reports what may not be edited and what may not be deleted", async () => {
     const response = await GET(new Request("https://example.com"), context("classes"));
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ blockedIds: ["c1"] });
+    expect(await response.json()).toEqual({ blockedIds: ["c1"], undeletableIds: ["c1", "c2"] });
   });
 
   it("rejects a student, since the answer is derived from data they cannot read", async () => {
@@ -142,13 +142,13 @@ describe("GET /api/master-data/[category]", () => {
     const response = await GET(new Request("https://example.com"), context("classes"));
 
     expect(response.status).toBe(403);
-    expect(blockedItemIds).not.toHaveBeenCalled();
+    expect(usageReport).not.toHaveBeenCalled();
   });
 
   it("rejects an unknown category", async () => {
     const response = await GET(new Request("https://example.com"), context("users"));
 
     expect(response.status).toBe(400);
-    expect(blockedItemIds).not.toHaveBeenCalled();
+    expect(usageReport).not.toHaveBeenCalled();
   });
 });

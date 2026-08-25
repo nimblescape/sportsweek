@@ -31,6 +31,12 @@ async function openRecords() {
   return perSeason.flatMap((snapshot) => snapshot.docs);
 }
 
+function normalizedNames(values: unknown[]): string[] {
+  return values.flatMap((value) =>
+    typeof value === "string" && value.trim() !== "" ? [normalizeName(value)] : [],
+  );
+}
+
 /**
  * The names an editing teacher may not touch, normalized for comparison.
  *
@@ -40,19 +46,18 @@ async function openRecords() {
  */
 export async function namesInUse(category: MasterDataCategory): Promise<Set<string>> {
   const records = await openRecords();
+  const field = category.usage.field;
 
-  if (category.usage.kind === "masterData") {
-    const field = category.usage.field;
-    return new Set(
-      records.flatMap((record) => {
-        const value = record.data()?.[field];
-        return typeof value === "string" && value.trim() !== "" ? [normalizeName(value)] : [];
-      }),
-    );
-  }
+  return new Set(normalizedNames(records.map((record) => record.data()?.[field])));
+}
 
-  // Required equipment is chosen per student, so it is the rental rows that mark an item as
-  // used — never the program the item belongs to (US-5).
+/**
+ * Required equipment is chosen per student, so it is the rental rows that mark an entry as used
+ * — never the program that requires it (US-5).
+ */
+export async function equipmentNamesInUse(): Promise<Set<string>> {
+  const records = await openRecords();
+
   const rentals = await Promise.all(
     records.map((record) =>
       adminDb
@@ -64,10 +69,7 @@ export async function namesInUse(category: MasterDataCategory): Promise<Set<stri
 
   return new Set(
     rentals.flatMap((snapshot) =>
-      snapshot.docs.flatMap((rental) => {
-        const value = rental.data()?.itemName;
-        return typeof value === "string" && value.trim() !== "" ? [normalizeName(value)] : [];
-      }),
+      normalizedNames(snapshot.docs.map((rental) => rental.data()?.itemName)),
     ),
   );
 }
@@ -83,20 +85,61 @@ export async function assertNotInUse(category: MasterDataCategory, name: string)
   }
 }
 
+/** Rejects as soon as one of `names` is still rented by a student of an open season (US-5). */
+export async function assertEquipmentNotInUse(names: readonly string[]): Promise<void> {
+  if (names.length === 0) return;
+
+  const blocked = await equipmentNamesInUse();
+  if (names.some((name) => blocked.has(normalizeName(name)))) {
+    throw new ServiceError(ErrorCode.Conflict, IN_USE_HINT);
+  }
+}
+
+export type MasterDataUsageReport = {
+  /** In use itself, so it can be neither edited nor deleted. */
+  blockedIds: string[];
+  /**
+   * Per item id, the entries of its own equipment list a student of an open season still rents,
+   * spelled exactly as the item stores them. An item with entries here cannot be deleted, since
+   * deleting it would take them along — but it can still be renamed (US-5).
+   */
+  blockedEquipment: Record<string, string[]>;
+};
+
 /**
  * The same answer keyed by document id, which is what the list view needs. Resolving the names
  * here rather than in the browser keeps one definition of "the same name" — the client would
  * otherwise have to re-implement the comparison, and drift the moment either side changed.
  */
-export async function blockedItemIds(category: MasterDataCategory): Promise<string[]> {
+export async function usageReport(category: MasterDataCategory): Promise<MasterDataUsageReport> {
   const blocked = await namesInUse(category);
-  if (blocked.size === 0) return [];
+  const equipmentField = category.equipmentField;
+  const needsItems = blocked.size > 0 || equipmentField !== undefined;
 
-  const items = await adminDb.collection(category.collection).get();
-  return items.docs
+  const items = needsItems ? (await adminDb.collection(category.collection).get()).docs : [];
+  const blockedIds = items
     .filter((item) => {
       const name = item.data()?.name;
       return typeof name === "string" && blocked.has(normalizeName(name));
     })
     .map((item) => item.id);
+
+  if (equipmentField === undefined) {
+    return { blockedIds, blockedEquipment: {} };
+  }
+
+  const blockedEquipmentNames = await equipmentNamesInUse();
+  const blockedEquipment: Record<string, string[]> = {};
+
+  for (const item of items) {
+    const equipment = item.data()?.[equipmentField];
+    if (!Array.isArray(equipment)) continue;
+
+    const rented = equipment.filter(
+      (entry) => typeof entry === "string" && blockedEquipmentNames.has(normalizeName(entry)),
+    );
+    if (rented.length > 0) blockedEquipment[item.id] = rented;
+  }
+
+  return { blockedIds, blockedEquipment };
 }

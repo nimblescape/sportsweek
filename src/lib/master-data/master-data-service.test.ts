@@ -27,12 +27,15 @@ function seedItem(
   extra: Record<string, unknown> = {},
 ) {
   firestore.seed(collection, id, { name, ...extra });
-  const scope = "programId" in extra ? `${collection}:${String(extra.programId)}` : collection;
-  firestore.seed("reservedNames", `${scope}|${name.trim().toLowerCase()}`, {
-    scope,
+  firestore.seed("reservedNames", `${collection}|${name.trim().toLowerCase()}`, {
+    scope: collection,
     name,
     ownerId: id,
   });
+}
+
+function seedProgram(id: string, name: string, requiredEquipment: string[] = []) {
+  seedItem("programs", id, name, { requiredEquipment });
 }
 
 function seedUsedIn(seasonId: string, isArchived: boolean, fields: Record<string, unknown>) {
@@ -47,6 +50,13 @@ function seedUsedIn(seasonId: string, isArchived: boolean, fields: Record<string
     seasonId,
     class: "3AHIT",
     ...fields,
+  });
+}
+
+function seedRental(seasonId: string, itemName: string) {
+  firestore.seed("equipmentRentalItems", `rent-${itemName}`, {
+    studentMasterDataId: `r-${seasonId}`,
+    itemName,
   });
 }
 
@@ -84,56 +94,63 @@ describe("createMasterDataItem", () => {
 
     const program = await createMasterDataItem("programs", { name: "Alternativ" });
 
-    expect(firestore.get("programs", program.id)).toEqual({ name: "Alternativ" });
+    expect(firestore.get("programs", program.id)).toEqual({
+      name: "Alternativ",
+      requiredEquipment: [],
+    });
   });
 });
 
-describe("createMasterDataItem — nested lists", () => {
-  beforeEach(() => {
-    seedItem("programs", "ski", "Ski");
-    seedItem("programs", "board", "Snowboard");
-  });
-
-  it("stores the parent id alongside the name", async () => {
-    const item = await createMasterDataItem("required-equipment", {
-      name: "Helm",
-      parentId: "ski",
+describe("createMasterDataItem — required equipment", () => {
+  it("stores the equipment list on the program itself", async () => {
+    const program = await createMasterDataItem("programs", {
+      name: "Ski",
+      requiredEquipment: ["Ski", "Helm"],
     });
 
-    expect(firestore.get("requiredEquipmentItems", item.id)).toEqual({
-      name: "Helm",
-      programId: "ski",
+    expect(firestore.get("programs", program.id)).toEqual({
+      name: "Ski",
+      requiredEquipment: ["Ski", "Helm"],
     });
   });
 
-  it("keeps names unique only within their program", async () => {
-    await createMasterDataItem("required-equipment", { name: "Helm", parentId: "ski" });
+  it("gives a program with no equipment an empty list rather than no field", async () => {
+    const program = await createMasterDataItem("programs", { name: "Alternativ" });
 
-    await expect(
-      createMasterDataItem("required-equipment", { name: "Helm", parentId: "board" }),
-    ).resolves.toMatchObject({ name: "Helm" });
-
-    await expect(
-      createMasterDataItem("required-equipment", { name: "helm", parentId: "ski" }),
-    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(program.requiredEquipment).toEqual([]);
   });
 
-  it("refuses to attach an item to a program that does not exist", async () => {
+  it("rejects a duplicate entry within one program, ignoring case and surrounding space", async () => {
     await expect(
-      createMasterDataItem("required-equipment", { name: "Helm", parentId: "ghost" }),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      createMasterDataItem("programs", { name: "Ski", requiredEquipment: ["Helm", " helm "] }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(firestore.count("programs")).toBe(0);
   });
 
-  it("refuses a nested item with no parent at all", async () => {
+  it("lets two programs each require the same item", async () => {
+    await createMasterDataItem("programs", { name: "Ski", requiredEquipment: ["Helm"] });
+
     await expect(
-      createMasterDataItem("required-equipment", { name: "Helm" }),
+      createMasterDataItem("programs", { name: "Snowboard", requiredEquipment: ["Helm"] }),
+    ).resolves.toMatchObject({ requiredEquipment: ["Helm"] });
+  });
+
+  it("rejects a blank entry", async () => {
+    await expect(
+      createMasterDataItem("programs", { name: "Ski", requiredEquipment: ["  "] }),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it("ignores a parent id on a flat category", async () => {
-    const item = await createMasterDataItem("classes", { name: "3AHIT", parentId: "ski" });
+  it("refuses an equipment list on a category that has none", async () => {
+    await expect(
+      createMasterDataItem("classes", { name: "3AHIT", requiredEquipment: ["Helm"] }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
 
-    expect(firestore.get("classOptions", item.id)).toEqual({ name: "3AHIT" });
+  it("claims no reservation for an entry, since one document holds every sibling", async () => {
+    await createMasterDataItem("programs", { name: "Ski", requiredEquipment: ["Helm"] });
+
+    expect(Object.keys(firestore.docs("reservedNames"))).toEqual(["programs|ski"]);
   });
 });
 
@@ -191,29 +208,93 @@ describe("updateMasterDataItem", () => {
       name: "3BHIT",
     });
   });
+});
 
-  it("blocks a rented equipment item through the rental rows, not through its program", async () => {
-    seedItem("programs", "ski", "Ski");
-    seedItem("requiredEquipmentItems", "e1", "Helm", { programId: "ski" });
-    seedUsedIn("open", false, { program: "Ski" });
-    firestore.seed("equipmentRentalItems", "rent1", {
-      studentMasterDataId: "r-open",
-      itemName: "Helm",
+describe("updateMasterDataItem — required equipment", () => {
+  it("rewrites the whole list in one step", async () => {
+    seedProgram("ski", "Ski", ["Helm"]);
+
+    await updateMasterDataItem("programs", "ski", { requiredEquipment: ["Helm", "Stöcke"] });
+
+    expect(firestore.get("programs", "ski")).toMatchObject({
+      requiredEquipment: ["Helm", "Stöcke"],
     });
+  });
+
+  it("leaves the program name alone when only the equipment changes", async () => {
+    seedProgram("ski", "Ski", []);
+
+    await updateMasterDataItem("programs", "ski", { requiredEquipment: ["Helm"] });
+
+    expect(firestore.get("programs", "ski")).toMatchObject({ name: "Ski" });
+  });
+
+  it("adds an entry even while the program itself is in use", async () => {
+    seedProgram("ski", "Ski", ["Helm"]);
+    seedUsedIn("open", false, { program: "Ski" });
 
     await expect(
-      updateMasterDataItem("required-equipment", "e1", { name: "Skihelm" }),
+      updateMasterDataItem("programs", "ski", { requiredEquipment: ["Helm", "Stöcke"] }),
+    ).resolves.toMatchObject({ requiredEquipment: ["Helm", "Stöcke"] });
+  });
+
+  it("refuses to remove an entry a student of an open season still rents", async () => {
+    seedProgram("ski", "Ski", ["Helm", "Stöcke"]);
+    seedUsedIn("open", false, { program: "Snowboard" });
+    seedRental("open", "Helm");
+
+    await expect(
+      updateMasterDataItem("programs", "ski", { requiredEquipment: ["Stöcke"] }),
+    ).rejects.toMatchObject({ code: "CONFLICT", message: IN_USE_HINT });
+    expect(firestore.get("programs", "ski")).toMatchObject({
+      requiredEquipment: ["Helm", "Stöcke"],
+    });
+  });
+
+  it("refuses to rename an entry a student of an open season still rents", async () => {
+    seedProgram("ski", "Ski", ["Helm"]);
+    seedUsedIn("open", false, { program: "Ski" });
+    seedRental("open", "Helm");
+
+    await expect(
+      updateMasterDataItem("programs", "ski", { requiredEquipment: ["Skihelm"] }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
-  it("leaves an equipment item alone when only its program is in use", async () => {
-    seedItem("programs", "ski", "Ski");
-    seedItem("requiredEquipmentItems", "e1", "Helm", { programId: "ski" });
+  it("treats a case-only change as keeping the entry", async () => {
+    seedProgram("ski", "Ski", ["Helm"]);
     seedUsedIn("open", false, { program: "Ski" });
+    seedRental("open", "Helm");
 
     await expect(
-      updateMasterDataItem("required-equipment", "e1", { name: "Skihelm" }),
-    ).resolves.toMatchObject({ name: "Skihelm" });
+      updateMasterDataItem("programs", "ski", { requiredEquipment: ["HELM"] }),
+    ).resolves.toMatchObject({ requiredEquipment: ["HELM"] });
+  });
+
+  it("removes an entry rented only in archived seasons", async () => {
+    seedProgram("ski", "Ski", ["Helm"]);
+    seedUsedIn("done", true, { program: "Ski" });
+    seedRental("done", "Helm");
+
+    await expect(
+      updateMasterDataItem("programs", "ski", { requiredEquipment: [] }),
+    ).resolves.toMatchObject({ requiredEquipment: [] });
+  });
+
+  it("rejects a duplicate entry", async () => {
+    seedProgram("ski", "Ski", []);
+
+    await expect(
+      updateMasterDataItem("programs", "ski", { requiredEquipment: ["Helm", "helm"] }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("refuses an equipment list on a category that has none", async () => {
+    seedItem("classOptions", "c1", "3AHIT");
+
+    await expect(
+      updateMasterDataItem("classes", "c1", { requiredEquipment: ["Helm"] }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 });
 
@@ -244,21 +325,49 @@ describe("deleteMasterDataItem", () => {
     expect(firestore.count("classOptions")).toBe(1);
   });
 
-  it("takes a program's required equipment items down with it", async () => {
-    seedItem("programs", "ski", "Ski");
-    seedItem("requiredEquipmentItems", "e1", "Helm", { programId: "ski" });
-    seedItem("requiredEquipmentItems", "e2", "Stöcke", { programId: "ski" });
-    seedItem("requiredEquipmentItems", "e3", "Board", { programId: "board" });
+  it("takes a program's equipment list down with it", async () => {
+    seedProgram("ski", "Ski", ["Helm", "Stöcke"]);
 
     await deleteMasterDataItem("programs", "ski");
 
-    expect(Object.keys(firestore.docs("requiredEquipmentItems"))).toEqual(["e3"]);
-    expect(firestore.get("reservedNames", "requiredEquipmentItems:ski|helm")).toBeUndefined();
-    expect(firestore.get("reservedNames", "requiredEquipmentItems:board|board")).toBeDefined();
+    expect(firestore.count("programs")).toBe(0);
+  });
+
+  it("refuses to delete a program whose equipment a student of an open season still rents", async () => {
+    seedProgram("ski", "Ski", ["Helm"]);
+    seedUsedIn("open", false, { program: "Snowboard" });
+    seedRental("open", "Helm");
+
+    await expect(deleteMasterDataItem("programs", "ski")).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: IN_USE_HINT,
+    });
+    expect(firestore.count("programs")).toBe(1);
+  });
+
+  it("deletes a program whose equipment is only rented in archived seasons", async () => {
+    seedProgram("ski", "Ski", ["Helm"]);
+    seedUsedIn("done", true, { program: "Ski" });
+    seedRental("done", "Helm");
+
+    await deleteMasterDataItem("programs", "ski");
+
+    expect(firestore.count("programs")).toBe(0);
+  });
+
+  it("ignores rented equipment another program requires", async () => {
+    seedProgram("ski", "Ski", ["Stöcke"]);
+    seedProgram("board", "Snowboard", ["Helm"]);
+    seedUsedIn("open", false, { program: "Snowboard" });
+    seedRental("open", "Helm");
+
+    await deleteMasterDataItem("programs", "ski");
+
+    expect(Object.keys(firestore.docs("programs"))).toEqual(["board"]);
   });
 
   it("leaves the snapshots already stored on master data records untouched", async () => {
-    seedItem("programs", "ski", "Ski");
+    seedProgram("ski", "Ski", []);
     seedUsedIn("done", true, { program: "Ski" });
 
     await deleteMasterDataItem("programs", "ski");

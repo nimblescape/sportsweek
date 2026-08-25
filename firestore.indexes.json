@@ -7,14 +7,6 @@
         { "fieldPath": "seasonId", "order": "ASCENDING" },
         { "fieldPath": "name", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "requiredEquipmentItems",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "programId", "order": "ASCENDING" },
-        { "fieldPath": "name", "order": "ASCENDING" }
-      ]
     }
   ],
   "fieldOverrides": []

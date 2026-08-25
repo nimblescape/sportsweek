@@ -9,7 +9,6 @@ export const COLLECTIONS = {
   seasons: "seasons",
   events: "events",
   programs: "programs",
-  requiredEquipmentItems: "requiredEquipmentItems",
   classOptions: "classOptions",
   skillLevels: "skillLevels",
   busPickupPoints: "busPickupPoints",
