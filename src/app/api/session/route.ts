@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ErrorCode, apiError } from "@/lib/errors";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { adminAuth } from "@/lib/firebase/admin";
+import { provisionUser } from "@/lib/auth/provision-user";
 
 const SESSION_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // Firebase caps session cookies at 14 days
 
@@ -21,14 +22,33 @@ export async function POST(request: Request) {
     );
   }
 
+  let decoded;
+  try {
+    decoded = await adminAuth.verifyIdToken(parsed.data.idToken);
+  } catch (err) {
+    console.error("Failed to verify ID token:", err);
+    return NextResponse.json(
+      apiError(ErrorCode.AuthenticationRequired, "Invalid or expired ID token"),
+      { status: 401 },
+    );
+  }
+
+  // No record, no claim and no cookie for a UPN outside the allowed domains (US-3).
+  const provisioned = await provisionUser(decoded);
+  if (!provisioned.ok) {
+    return NextResponse.json(
+      apiError(ErrorCode.PermissionDenied, "Dieses Konto ist für Sportsweek nicht freigeschaltet."),
+      { status: 403 },
+    );
+  }
+
   let sessionCookie: string;
   try {
-    await adminAuth.verifyIdToken(parsed.data.idToken);
     sessionCookie = await adminAuth.createSessionCookie(parsed.data.idToken, {
       expiresIn: SESSION_MAX_AGE_MS,
     });
   } catch (err) {
-    console.error("Failed to verify ID token / create session cookie:", err);
+    console.error("Failed to create session cookie:", err);
     return NextResponse.json(
       apiError(ErrorCode.AuthenticationRequired, "Invalid or expired ID token"),
       { status: 401 },

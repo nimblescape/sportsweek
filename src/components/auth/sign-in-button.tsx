@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { onAuthStateChanged, signInWithRedirect } from "firebase/auth";
+import { onAuthStateChanged, signInWithRedirect, signOut } from "firebase/auth";
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/button";
+
+const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
+const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.";
 
 // Sign-in itself only starts when the user clicks the button — same window, no popup.
 // onAuthStateChanged reliably reports the signed-in user once Firebase resolves the
@@ -32,6 +35,16 @@ export function SignInButton() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ idToken }),
         });
+
+        // The UPN domain isn't eligible (US-3) — leave no half-authenticated client state behind.
+        if (response.status === 403) {
+          const body = await response.json().catch(() => null);
+          await signOut(auth);
+          setChecking(false);
+          setError(body?.error?.message ?? ACCOUNT_NOT_ENABLED);
+          return;
+        }
+
         if (!response.ok) {
           throw new Error(`Failed to create session (status ${response.status})`);
         }
@@ -40,7 +53,7 @@ export function SignInButton() {
         router.refresh();
       } catch {
         setChecking(false);
-        setError("Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.");
+        setError(SIGN_IN_FAILED);
       }
     });
 
