@@ -49,7 +49,13 @@ describe("seedMasterDataDefaults", () => {
   it("stores the defaults with their German display text", async () => {
     await seedMasterDataDefaults();
 
-    expect(namesOf("busPickupPoints")).toContain("HTL Dornbirn");
+    expect(namesOf("skillLevels")).toEqual(["Anfänger", "Beginner", "Fortgeschritten", "Profi"]);
+    expect(namesOf("busPickupPoints")).toEqual([
+      "Bahnhof Bregenz",
+      "Bahnhof Feldkirch",
+      "HTL Dornbirn",
+      "Unterkunft",
+    ]);
     expect(namesOf("seasonPassOptions")).toContain("Silvretta-Montafon");
     expect(namesOf("foodOptions")).toContain("Vegetarisch");
   });

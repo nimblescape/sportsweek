@@ -25,13 +25,8 @@ const PROGRAM_DEFAULTS = [
  * from the food options — it is always offered to students and is never a row (US-9).
  */
 const LIST_DEFAULTS: Partial<Record<MasterDataCategoryKey, readonly string[]>> = {
-  "skill-levels": ["Blutiger Anfänger", "Anfänger", "Fortgeschritten", "Könner"],
-  "bus-pickup-points": [
-    "HTL Dornbirn",
-    "Bahnhof Feldkirch",
-    "Bahnhof Bregenz",
-    "Direkt bei der Unterkunft in Tschagguns",
-  ],
+  "skill-levels": ["Beginner", "Anfänger", "Fortgeschritten", "Profi"],
+  "bus-pickup-points": ["HTL Dornbirn", "Bahnhof Feldkirch", "Bahnhof Bregenz", "Unterkunft"],
   "food-options": ["Isst alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
   "season-pass-options": ["Nein", "Vielleicht", "Golm-Bielerhöhe (Illwerke)", "Silvretta-Montafon"],
 };

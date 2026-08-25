@@ -142,7 +142,7 @@ As a teacher, I can maintain the list of ski/snowboard skill levels so that stud
 
 - A view for maintaining the list of skill levels exists.
 - A teacher can add, edit, and remove skill levels from the list.
-- The list is pre-populated with the skill levels complete beginner, beginner, advanced, and expert.
+- The list is pre-populated with four skill levels, shown as "Beginner" (complete beginner), "Anfänger" (beginner), "Fortgeschritten" (advanced), and "Profi" (expert). The German wording is fixed: "Beginner" is the absolute first-timer and "Anfänger" already has some experience, which the English names alone would not make clear.
 - The skill level a student selects in their master data (US-11) is chosen from this maintained list.
 
 ### US-8: Teacher maintains bus pickup points
@@ -153,7 +153,7 @@ As a teacher, I can maintain the list of bus pickup points so that students can 
 
 - A view for maintaining the list of bus pickup points exists.
 - A teacher can add, edit, and remove bus pickup points from the list.
-- The list is pre-populated with the pickup points HTL Dornbirn, Feldkirch station, Bregenz station, and directly at the Tschagguns accommodation.
+- The list is pre-populated with the pickup points "HTL Dornbirn", "Bahnhof Feldkirch", "Bahnhof Bregenz", and "Unterkunft" (boarding at the accommodation itself rather than travelling by bus).
 - The bus pickup point a student selects in their master data (US-11) is chosen from this maintained list.
 
 ### US-9: Teacher maintains food/diet options
