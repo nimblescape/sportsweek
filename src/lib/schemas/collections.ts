@@ -14,6 +14,8 @@ export const COLLECTIONS = {
   emergencyContacts: "emergencyContacts",
   equipmentRentalItems: "equipmentRentalItems",
   savedReportFilters: "savedReportFilters",
+  /** Name reservations: the document id is the name, which is how uniqueness is enforced. */
+  reservedNames: "reservedNames",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

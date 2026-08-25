@@ -12,12 +12,14 @@ const { ServiceError } = await import("@/lib/service-error");
 
 beforeEach(() => firestore.reset());
 
+/** Mirrors createSeason: a season and the reservation that holds its name (US-4). */
 function seedSeason(id: string, overrides: Record<string, unknown> = {}) {
-  firestore.seed("seasons", id, {
-    name: `Saison ${id}`,
-    isActive: false,
-    isArchived: false,
-    ...overrides,
+  const season = { name: `Saison ${id}`, isActive: false, isArchived: false, ...overrides };
+  firestore.seed("seasons", id, season);
+  firestore.seed("reservedNames", `seasons|${String(season.name).trim().toLowerCase()}`, {
+    scope: "seasons",
+    name: season.name,
+    ownerId: id,
   });
 }
 

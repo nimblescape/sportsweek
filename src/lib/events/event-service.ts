@@ -1,7 +1,7 @@
 import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
-import { assertNameIsFree } from "@/lib/firebase/unique-name";
+import { releaseName, reservationRef, reserveName, scopeOf } from "@/lib/firebase/unique-name";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
@@ -43,15 +43,15 @@ export async function createEvent(input: { seasonId: string; name: string }): Pr
   const name = parseName(input.name);
   await requireOpenSeason(input.seasonId);
 
-  // A name only has to be unique within its season, so two seasons may both hold a "Montafon".
+  // Scoped to the season, so two seasons may both hold a "Montafon".
   return adminDb.runTransaction(async (transaction) => {
-    await assertNameIsFree(transaction, {
-      collection: COLLECTIONS.events,
+    const reference = adminDb.collection(COLLECTIONS.events).doc();
+    await reserveName(transaction, {
+      scope: scopeOf(COLLECTIONS.events, input.seasonId),
       name,
-      scope: { field: "seasonId", value: input.seasonId },
+      ownerId: reference.id,
     });
 
-    const reference = adminDb.collection(COLLECTIONS.events).doc();
     const data = { seasonId: input.seasonId, name };
     transaction.set(reference, data);
     return { id: reference.id, ...data };
@@ -72,13 +72,10 @@ export async function updateEvent(id: string, update: { name: string }): Promise
 
     const current = eventSchema.parse({ id, ...snapshot.data() });
 
+    const scope = scopeOf(COLLECTIONS.events, current.seasonId);
     if (name !== current.name) {
-      await assertNameIsFree(transaction, {
-        collection: COLLECTIONS.events,
-        name,
-        scope: { field: "seasonId", value: current.seasonId },
-        exceptId: id,
-      });
+      await reserveName(transaction, { scope, name, ownerId: id });
+      releaseName(transaction, { scope, name: current.name });
     }
 
     transaction.update(reference, { name });
@@ -97,6 +94,8 @@ export async function deleteEvent(id: string): Promise<void> {
     throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es nicht.");
   }
 
+  const current = eventSchema.parse({ id, ...snapshot.data() });
+
   const assigned = await adminDb
     .collection(COLLECTIONS.studentMasterData)
     .where("eventId", "==", id)
@@ -107,5 +106,7 @@ export async function deleteEvent(id: string): Promise<void> {
   );
   await commitInChunks(operations);
 
-  await reference.delete();
+  // Frees the name for reuse; otherwise a deleted event would keep blocking it.
+  const nameRef = reservationRef(scopeOf(COLLECTIONS.events, current.seasonId), current.name);
+  await adminDb.batch().delete(nameRef).delete(reference).commit();
 }

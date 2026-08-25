@@ -19,6 +19,9 @@ describe("COLLECTIONS", () => {
         "emergencyContacts",
         "equipmentRentalItems",
         "savedReportFilters",
+        // Not an entity of its own: one document per claimed name, which is how uniqueness
+        // is enforced (US-4 to US-10). See lib/firebase/unique-name.ts.
+        "reservedNames",
       ].sort(),
     );
   });

@@ -1,7 +1,7 @@
 import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
-import { assertNameIsFree } from "@/lib/firebase/unique-name";
+import { releaseName, reservationRef, reserveName, scopeOf } from "@/lib/firebase/unique-name";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
@@ -27,11 +27,16 @@ function seasonDoc(id: string) {
 export async function createSeason(input: { name: string }): Promise<Season> {
   const name = parseName(input.name);
 
-  // Inside a transaction so two concurrent creates cannot both find the name free (US-4).
+  // The reservation is what makes the name unique; it shares the transaction with the
+  // record, so a rejected name leaves nothing behind (US-4).
   return adminDb.runTransaction(async (transaction) => {
-    await assertNameIsFree(transaction, { collection: COLLECTIONS.seasons, name });
-
     const reference = adminDb.collection(COLLECTIONS.seasons).doc();
+    await reserveName(transaction, {
+      scope: scopeOf(COLLECTIONS.seasons),
+      name,
+      ownerId: reference.id,
+    });
+
     const data = { name, isActive: false, isArchived: false };
     transaction.set(reference, data);
     return { id: reference.id, ...data };
@@ -74,11 +79,12 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
     const isActive = isArchived ? false : (update.isActive ?? current.isActive);
 
     // Every read has to happen before the first write in a transaction.
-    if (name !== undefined && name !== current.name) {
-      await assertNameIsFree(transaction, {
-        collection: COLLECTIONS.seasons,
+    const renaming = name !== undefined && name !== current.name;
+    if (renaming) {
+      await reserveName(transaction, {
+        scope: scopeOf(COLLECTIONS.seasons),
         name,
-        exceptId: id,
+        ownerId: id,
       });
     }
 
@@ -91,6 +97,8 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
       : [];
 
     const next = { name: name ?? current.name, isActive, isArchived };
+    if (renaming)
+      releaseName(transaction, { scope: scopeOf(COLLECTIONS.seasons), name: current.name });
     transaction.set(reference, next);
     for (const doc of previouslyActive) transaction.update(doc.ref, { isActive: false });
 
@@ -128,7 +136,21 @@ export async function deleteSeason(id: string): Promise<void> {
     .where("seasonId", "==", id)
     .get();
 
-  const doomed = [...(await referencesOf(COLLECTIONS.events, "seasonId", id))];
+  const eventsSnapshot = await adminDb
+    .collection(COLLECTIONS.events)
+    .where("seasonId", "==", id)
+    .get();
+
+  const doomed = eventsSnapshot.docs.map((event) => event.ref);
+
+  // Free the names as well, otherwise they stay claimed by records that no longer exist.
+  doomed.push(reservationRef(scopeOf(COLLECTIONS.seasons), season.name));
+  for (const event of eventsSnapshot.docs) {
+    const eventName = event.data().name;
+    if (typeof eventName === "string") {
+      doomed.push(reservationRef(scopeOf(COLLECTIONS.events, id), eventName));
+    }
+  }
 
   for (const record of masterDataSnapshot.docs) {
     doomed.push(

@@ -1,8 +1,9 @@
 import "server-only";
-import type { Transaction } from "firebase-admin/firestore";
+import type { Transaction, WriteBatch } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
+import { COLLECTIONS } from "@/lib/schemas/collections";
 
 /**
  * Reduces a name to the form used for comparison: trimmed and case-folded, so "Montafon",
@@ -15,46 +16,60 @@ export function normalizeName(name: string): string {
   return name.trim().toLocaleLowerCase("de-AT");
 }
 
-type Params = {
-  collection: string;
-  name: string;
-  /** Restricts the check to one parent, e.g. events within their season. */
-  scope?: { field: string; value: string };
-  /** The record being renamed, so keeping its own name is not a clash. */
-  exceptId?: string;
-};
+/**
+ * The set a name has to be unique within: "seasons" covers every season, while
+ * "events:<seasonId>" keeps events unique only inside their own season.
+ */
+export function scopeOf(collection: string, parentId?: string): string {
+  return parentId === undefined ? collection : `${collection}:${parentId}`;
+}
+
+/** A slash would split the value into a subcollection path, so it cannot survive in an id. */
+function reservationId(scope: string, name: string): string {
+  return `${scope}|${normalizeName(name)}`.replaceAll("/", "\u2215");
+}
+
+export function reservationRef(scope: string, name: string) {
+  return adminDb.collection(COLLECTIONS.reservedNames).doc(reservationId(scope, name));
+}
+
+type Reservation = { scope: string; name: string; ownerId: string };
 
 /**
- * Firestore has no unique constraint, so uniqueness is enforced by reading the siblings
- * inside the caller's transaction. The Admin SDK takes read locks, which is what stops two
- * concurrent creates from both finding the name free.
+ * Claims a name by writing a document whose id *is* the name.
  *
- * The comparison happens in memory because Firestore cannot query case-insensitively; these
- * lists are teacher-maintained and small, so reading them is cheap.
+ * Firestore has no unique constraint, but document ids are unique by construction, so this
+ * turns "is this name free?" into a single-document read. That matters for more than elegance:
+ * the obvious alternative — querying the siblings inside the transaction — makes Firestore lock
+ * the index range it scans, so two teachers adding events to *different* seasons block each
+ * other. Measured against the emulator that took ~20s; this takes milliseconds, because two
+ * different names are two different documents and never contend.
+ *
+ * Firestore requires every read before the first write, so call this before writing the record.
  */
-export async function assertNameIsFree(
+export async function reserveName(
   transaction: Transaction,
-  { collection, name, scope, exceptId }: Params,
+  { scope, name, ownerId }: Reservation,
 ): Promise<void> {
-  const siblings = scope
-    ? adminDb.collection(collection).where(scope.field, "==", scope.value)
-    : adminDb.collection(collection);
+  const reference = reservationRef(scope, name);
+  const existing = await transaction.get(reference);
 
-  const snapshot = await transaction.get(siblings);
-  const wanted = normalizeName(name);
-
-  const clash = snapshot.docs.some((doc) => {
-    if (doc.id === exceptId) return false;
-    const existing = doc.data().name;
-    return typeof existing === "string" && normalizeName(existing) === wanted;
-  });
-
-  if (clash) {
+  if (existing.exists && existing.data()?.ownerId !== ownerId) {
     throw new ServiceError(
       ErrorCode.Conflict,
-      scope
-        ? `Den Namen „${name.trim()}" gibt es in dieser Saison bereits.`
+      scope.includes(":")
+        ? `Den Namen „${name.trim()}" gibt es hier bereits.`
         : `Den Namen „${name.trim()}" gibt es bereits.`,
     );
   }
+
+  transaction.set(reference, { scope, name: name.trim(), ownerId });
+}
+
+/** Frees a name for reuse — on rename, and when its owner is deleted. */
+export function releaseName(
+  writer: Transaction | WriteBatch,
+  { scope, name }: Omit<Reservation, "ownerId">,
+): void {
+  writer.delete(reservationRef(scope, name));
 }

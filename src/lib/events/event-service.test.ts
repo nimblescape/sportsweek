@@ -21,6 +21,16 @@ function seedSeason(id: string, overrides: Record<string, unknown> = {}) {
   });
 }
 
+/** Mirrors createEvent: an event and the reservation that holds its name within its season. */
+function seedEvent(id: string, seasonId: string, name: string) {
+  firestore.seed("events", id, { seasonId, name });
+  firestore.seed("reservedNames", `events:${seasonId}|${name.trim().toLowerCase()}`, {
+    scope: `events:${seasonId}`,
+    name,
+    ownerId: id,
+  });
+}
+
 describe("createEvent", () => {
   it("stores the event under its season", async () => {
     seedSeason("s1");
@@ -174,7 +184,7 @@ describe("deleteEvent", () => {
 describe("event names are unique within their season", () => {
   it("refuses a duplicate name in the same season", async () => {
     seedSeason("s1");
-    firestore.seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+    seedEvent("e1", "s1", "Montafon");
 
     await expect(createEvent({ seasonId: "s1", name: "Montafon" })).rejects.toMatchObject({
       code: "CONFLICT",
@@ -184,7 +194,7 @@ describe("event names are unique within their season", () => {
 
   it("compares names ignoring case and surrounding whitespace", async () => {
     seedSeason("s1");
-    firestore.seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+    seedEvent("e1", "s1", "Montafon");
 
     await expect(createEvent({ seasonId: "s1", name: " MONTAFON " })).rejects.toMatchObject({
       code: "CONFLICT",
@@ -203,8 +213,8 @@ describe("event names are unique within their season", () => {
 
   it("refuses to rename an event onto a sibling's name", async () => {
     seedSeason("s1");
-    firestore.seed("events", "e1", { seasonId: "s1", name: "Montafon" });
-    firestore.seed("events", "e2", { seasonId: "s1", name: "Lech" });
+    seedEvent("e1", "s1", "Montafon");
+    seedEvent("e2", "s1", "Lech");
 
     await expect(updateEvent("e2", { name: "Montafon" })).rejects.toMatchObject({
       code: "CONFLICT",
