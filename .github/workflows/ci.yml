@@ -48,15 +48,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Load Firebase client config from apphosting.yaml (single source of truth)
-        run: |
-          yq -o=json '.env' apphosting.yaml | node -e '
-            const vars = JSON.parse(require("fs").readFileSync(0, "utf8"));
-            const lines = vars
-              .filter((v) => v.value !== undefined && (!v.availability || v.availability.includes("BUILD")))
-              .map((v) => `${v.variable}=${v.value}`);
-            require("fs").appendFileSync(process.env.GITHUB_ENV, lines.join("\n") + "\n");
-          '
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v7
