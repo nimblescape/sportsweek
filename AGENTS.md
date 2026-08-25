@@ -1,3 +1,9 @@
+<!--
+SPDX-License-Identifier: MIT
+Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+Licensed under the MIT License. See LICENSE in the repository root for details.
+-->
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

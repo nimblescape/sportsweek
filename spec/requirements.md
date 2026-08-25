@@ -1,3 +1,9 @@
+<!--
+SPDX-License-Identifier: MIT
+Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+Licensed under the MIT License. See LICENSE in the repository root for details.
+-->
+
 # Requirements
 
 ## General
@@ -64,25 +70,39 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 - A view for maintaining the list of seasons exists.
 - The list shows every season, along with its state: active, archived, or inactive (neither active nor archived).
 - A teacher can add, edit, and remove seasons.
-- Only an archived season can be deleted; a non-archived season (whether active or inactive) cannot be deleted.
-- Each season row has a delete button, disabled for any non-archived season, with a hint explaining that only archived seasons can be deleted.
+- A season that holds no student master data (see US-11) can be deleted whether or not it is archived, and whether or not it is active.
+- A season that holds student master data can only be deleted once it is archived; while it is not archived it cannot be deleted.
+- Each season row has a delete button, disabled only for a non-archived season that holds student master data, with a hint explaining that such a season must be archived first.
 - Removing (deleting) a season also deletes all master data records (see US-11) and all events (see below) belonging to that season.
-- Before a season is deleted, a confirmation modal dialog (built with native HTML/CSS, not a separate browser popup window) asks the teacher whether they are sure they want to delete the season, showing the exact season name; it also states that all master data records for that season will be deleted along with it, and includes a hint that this cannot be undone.
+- The confirmation dialog described below is only required when the season holds student master data. A season with none is deleted directly, without confirmation, since there is nothing irreversible to lose beyond the season and its events.
+- Before a season that holds student master data is deleted, a confirmation modal dialog (built with native HTML/CSS, not a separate browser popup window) asks the teacher whether they are sure they want to delete the season, showing the exact season name; it also states that all master data records for that season will be deleted along with it, and includes a hint that this cannot be undone.
 - The confirmation dialog is a warning dialog (see Design Guidelines).
 - The confirmation dialog has a Delete button and a Cancel button.
 - The confirmation dialog requires the teacher to type the exact season name; the Delete button is only enabled once the entered text matches the season name being deleted.
 - A teacher can archive a season; an archived season no longer appears in the teacher's list of seasons.
-- A teacher can unarchive an archived season.
+- A season that holds no student master data cannot be archived: archiving signs off on a season's student data, so there must be data to sign off on.
+- Each season row has an archive button, disabled for the active season (which must be deactivated first) and for any season that holds no student master data, with a hint explaining whichever reason applies.
+- A teacher can unarchive an archived season. Unarchiving is not subject to the student-data rule, so a season that somehow ended up archived without data can still be brought back.
 - A season's active/archived state is stored directly on the season. A student master data record has no archived flag of its own; its archived status is computed from the archived state of the season it belongs to (see US-11).
+- Whether a season holds student master data is mirrored onto the season itself, so the client can enable or disable the archive and delete actions without reading master data it is not permitted to read. The server re-checks the underlying records on every archive and delete and is the sole authority.
 - Each season can contain multiple events.
 - A view for maintaining the list of events within a selected season exists.
 - A teacher can add, edit, and remove events within a season.
 - Removing (deleting) an event unassigns any students that were assigned to it (see US-12); the students themselves and their master data are not removed.
-- A teacher can define exactly one season as the active season.
+- A teacher can activate a season, and can also deactivate the active season so that no season is active.
+- At most one season is active at any point in time: activating a season automatically deactivates the season that was active before, as one atomic step, so there is never a moment in which two seasons are active.
+- An archived season cannot be activated, and the active season cannot be archived: it must be deactivated first, either in a prior call or in the same one. Either way no season is left active.
+- The assignment dialog (US-12) and the student report (US-13) only ever operate on the active season; when no season is active they show an explicit empty state instead of falling back to a previously active season.
+- Season names are unique: two seasons cannot share the same name.
+- Event names are unique within their season: two events of the same season cannot share the same name, while two different seasons may each have an event of the same name.
+- Name comparison ignores surrounding whitespace and letter case, so "Montafon" and " montafon " count as the same name.
+- A rejected name is reported on the name field itself, in German, and nothing is saved.
 
 ## Sports Week Master Data
 
 Unless a story below says otherwise, every list in this section follows the same edit/remove restriction: an item can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4); when blocked by this rule, a hint is shown: "This item is still in use in a non-archived season. Archive that season to edit or remove it."
+
+Every list in this section also enforces unique names: two items of the same category cannot share a name, compared ignoring surrounding whitespace and letter case. The same name may of course appear in two different categories (e.g. a class and a program). Required equipment items (US-5) are unique within their program, in the same way events are unique within their season. A rejected name is reported on the name field itself, in German, and nothing is saved.
 
 All categories in this section (US-5 through US-10) share one unified, intuitive CRUD interface pattern for adding, editing, and deleting list items — consistent across every category, differing only in the fields each item has.
 
@@ -164,6 +184,7 @@ As a student, I can edit my master data so that I can provide the information ne
 **Acceptance criteria:**
 
 - A student can view and edit the master data for their own user record.
+- If no season is active, the student sees a German notification saying that no sports event has been released yet ("Es ist noch keine Sportveranstaltung freigeschalten.") and the master data dialog is not shown.
 - The master data a student edits is bound to the currently active season (see US-4).
 - Last name and first name are taken from the user record (see US-1) and are shown but not editable as part of this master data.
 - The following master data fields are available:

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -6,13 +10,34 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function getRole(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    /**
+     * `/users` is keyed by UPN (see provisionUser), not by the opaque Firebase uid, so every
+     * identity check has to go through the token's e-mail. Lowercased to match the stored id.
+     */
+    function upn() {
+      return isSignedIn() && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
     }
 
-    // Hierarchical by construction: every student-level rule also admits isTeacher().
-    function isTeacher() { return isSignedIn() && getRole(request.auth.uid) == 'teacher'; }
-    function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function recordRole() {
+      return get(/databases/$(database)/documents/users/$(upn())).data.role;
+    }
+
+    /**
+     * Hierarchical by construction: every student-level rule also admits isTeacher().
+     * The claim is checked first so the common case costs no document read; it is missing on
+     * the very first login, which is what the fallback covers (see resolveRole in guards.ts).
+     */
+    function isTeacher() {
+      return upn() != ''
+        && (request.auth.token.role == 'teacher'
+          || (exists(/databases/$(database)/documents/users/$(upn())) && recordRole() == 'teacher'));
+    }
+
+    function isSelf(uid) {
+      return upn() != '' && upn() == uid;
+    }
 
     // See .github/instructions/firestore-security-rules.instructions.md before adding collections below.
     match /users/{uid} {
@@ -26,6 +51,28 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
 
       allow delete: if false;
+    }
+
+    /**
+     * Every teacher-maintained collection: anyone signed in may read, because student master
+     * data selects from these lists and the teacher views subscribe to them live. Nobody
+     * writes from the client.
+     *
+     * Writes are closed rather than merely restricted to teachers, because the invariants
+     * these collections carry cannot be expressed here at all. Rules can `get()` a known
+     * path but cannot run a query, so "is this name already taken?" (US-4 to US-10), "is
+     * at most one season active?" (US-4), "is this item still in use?" (US-5 to US-10) and
+     * the cascade on delete (US-4) are all out of reach. They are enforced in transactions
+     * in the Route Handlers, which use the Admin SDK and bypass these rules — leaving a
+     * second, unchecked way in would make those guarantees worthless.
+     */
+    match /{collection}/{itemId} {
+      allow read: if isSignedIn() && collection in [
+        'seasons', 'events', 'programs', 'requiredEquipmentItems',
+        'classOptions', 'skillLevels', 'busPickupPoints', 'foodOptions', 'seasonPassOptions'
+      ];
+
+      allow write: if false;
     }
   }
 }

@@ -1,3 +1,7 @@
+' SPDX-License-Identifier: MIT
+' Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+' Licensed under the MIT License. See LICENSE in the repository root for details.
+
 @startuml database-erd
 !define PK <b><color:#b8860b><&key></color></b>
 !define FK <color:#4682b4><&link></color>
@@ -18,14 +22,20 @@ entity "Season" as season {
   PK id : string
   --
   name : string
-  isActive : boolean  ' exactly one true (US-4)
+  isActive : boolean  ' at most one season may be true at any point in time; activating one
+                      ' clears the flag on the previously active season in the same
+                      ' transaction, and deactivating leaves none active (US-4)
   isArchived : boolean  ' archived seasons are hidden from the teacher's list (US-4);
                         ' this is the only persisted archive flag — StudentMasterData's
                         ' archived state is computed via its seasonId, never stored redundantly
+  hasStudentData : boolean  ' mirrors "a StudentMasterData record exists for this season", so the
+                            ' client can enable/disable archive and delete without reading a
+                            ' collection it may not read; the server re-checks and decides (US-4)
   --
   ' Displayed state is derived, not stored: active (isActive), archived (isArchived),
-  ' or inactive (neither). Only an archived season can be deleted; deleting it cascades
-  ' to its events and to all StudentMasterData records for that season (US-4).
+  ' or inactive (neither). A season with no student data can be deleted in any state but
+  ' cannot be archived; one with student data must be archived before it can be deleted.
+  ' Deleting cascades to its events and to all StudentMasterData records for that season (US-4).
 }
 
 entity "Event" as event {

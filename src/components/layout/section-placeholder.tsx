@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
 /** Temporary stand-in for a section whose view lands in its own ticket. */
 export function SectionPlaceholder({ title }: { title: string }) {
   return (

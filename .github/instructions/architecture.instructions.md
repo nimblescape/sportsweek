@@ -2,6 +2,12 @@
 description: "Use when deciding where to put new backend logic, API endpoints, or data access in this Firebase + Next.js app — choosing between Next.js Route Handlers, Server Actions, Cloud Functions, Cloud Run, or direct Firestore Client SDK access. Also covers the tech stack (Next.js, Tailwind CSS, shadcn/ui, React Hook Form, Zod) and Firebase Auth with Entra ID."
 ---
 
+<!--
+SPDX-License-Identifier: MIT
+Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+Licensed under the MIT License. See LICENSE in the repository root for details.
+-->
+
 # Architecture & Stack Conventions
 
 ## Stack

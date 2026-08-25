@@ -3,6 +3,12 @@ description: "Firestore Security Rules patterns for this app's role model (teach
 applyTo: "firestore.rules, **/firestore.rules"
 ---
 
+<!--
+SPDX-License-Identifier: MIT
+Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+Licensed under the MIT License. See LICENSE in the repository root for details.
+-->
+
 # Firestore Security Rules — Role Model
 
 ## Role Storage

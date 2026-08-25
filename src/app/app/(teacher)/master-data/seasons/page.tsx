@@ -1,6 +1,10 @@
-import { SectionPlaceholder } from "@/components/layout/section-placeholder";
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
+import { SeasonsView } from "@/components/seasons/seasons-view";
 
-// Replaced by the season list in #13.
 export default function SeasonsPage() {
-  return <SectionPlaceholder title="Saisonen" />;
+  return <SeasonsView />;
 }

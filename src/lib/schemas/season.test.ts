@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
 import { describe, expect, it } from "vitest";
 import { eventSchema, seasonSchema } from "@/lib/schemas/season";
 
@@ -6,6 +11,7 @@ const validSeason = {
   name: "Wintersportwoche 2026",
   isActive: true,
   isArchived: false,
+  hasStudentData: false,
 };
 const validEvent = { id: "event-1", seasonId: "season-1", name: "Montafon" };
 
@@ -18,13 +24,13 @@ describe("seasonSchema", () => {
     expect(seasonSchema.safeParse({ ...validSeason, name: "" }).success).toBe(false);
   });
 
-  it.each(["isActive", "isArchived"])("requires %s to be a boolean", (field) => {
+  it.each(["isActive", "isArchived", "hasStudentData"])("requires %s to be a boolean", (field) => {
     expect(seasonSchema.safeParse({ ...validSeason, [field]: "yes" }).success).toBe(false);
   });
 
   it("carries no third state field, since the displayed state is derived", () => {
     expect(Object.keys(seasonSchema.shape).sort()).toEqual(
-      ["id", "isActive", "isArchived", "name"].sort(),
+      ["id", "isActive", "isArchived", "hasStudentData", "name"].sort(),
     );
   });
 });
