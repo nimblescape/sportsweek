@@ -55,9 +55,12 @@ export type SeasonUpdate = {
 };
 
 /**
- * Every flag change runs in one transaction, because activating a season has to clear the
- * previously active one atomically — two independent writes could leave two seasons active,
- * which would silently corrupt master data, assignment and the report (US-4, US-11 to US-13).
+ * At most one season is active at any point in time (US-4). Every flag change therefore runs in
+ * one transaction: activating a season stands the previously active one down in the same commit,
+ * so no window exists in which two are active — which would silently corrupt master data,
+ * assignment and the report (US-11 to US-13). The query is what makes this safe under
+ * concurrency: Firestore locks the `isActive == true` index range it scans, so a second
+ * activation racing the first has to wait and then sees the season the first one activated.
  */
 export async function updateSeason(id: string, update: SeasonUpdate): Promise<Season> {
   const name = update.name === undefined ? undefined : parseName(update.name);
@@ -82,17 +85,12 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
 
     // Archiving always stands the season down, so the invariant holds without a second call.
     const isActive = isArchived ? false : (update.isActive ?? current.isActive);
-
-    // Every read has to happen before the first write in a transaction.
     const renaming = name !== undefined && name !== current.name;
-    if (renaming) {
-      await reserveName(transaction, {
-        scope: scopeOf(COLLECTIONS.seasons),
-        name,
-        ownerId: id,
-      });
-    }
 
+    // Every read has to happen before the first write, and reserveName writes — so the query
+    // that finds the outgoing season has to run first. Every match is stood down rather than
+    // just the first, so a database that somehow already held two active seasons is repaired
+    // by the next activation instead of staying broken.
     const previouslyActive = wantsActivation
       ? (
           await transaction.get(
@@ -101,9 +99,16 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
         ).docs.filter((doc) => doc.id !== id)
       : [];
 
-    const next = { name: name ?? current.name, isActive, isArchived };
-    if (renaming)
+    if (renaming) {
+      await reserveName(transaction, {
+        scope: scopeOf(COLLECTIONS.seasons),
+        name,
+        ownerId: id,
+      });
       releaseName(transaction, { scope: scopeOf(COLLECTIONS.seasons), name: current.name });
+    }
+
+    const next = { name: name ?? current.name, isActive, isArchived };
     transaction.set(reference, next);
     for (const doc of previouslyActive) transaction.update(doc.ref, { isActive: false });
 

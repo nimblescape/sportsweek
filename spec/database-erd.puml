@@ -22,7 +22,9 @@ entity "Season" as season {
   PK id : string
   --
   name : string
-  isActive : boolean  ' exactly one true (US-4)
+  isActive : boolean  ' at most one season may be true at any point in time; activating one
+                      ' clears the flag on the previously active season in the same
+                      ' transaction, and deactivating leaves none active (US-4)
   isArchived : boolean  ' archived seasons are hidden from the teacher's list (US-4);
                         ' this is the only persisted archive flag — StudentMasterData's
                         ' archived state is computed via its seasonId, never stored redundantly

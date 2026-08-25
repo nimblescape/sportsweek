@@ -61,7 +61,7 @@ service cloud.firestore {
      * Writes are closed rather than merely restricted to teachers, because the invariants
      * these collections carry cannot be expressed here at all. Rules can `get()` a known
      * path but cannot run a query, so "is this name already taken?" (US-4 to US-10), "is
-     * exactly one season active?" (US-4), "is this item still in use?" (US-5 to US-10) and
+     * at most one season active?" (US-4), "is this item still in use?" (US-5 to US-10) and
      * the cascade on delete (US-4) are all out of reach. They are enforced in transactions
      * in the Route Handlers, which use the Admin SDK and bypass these rules — leaving a
      * second, unchecked way in would make those guarantees worthless.

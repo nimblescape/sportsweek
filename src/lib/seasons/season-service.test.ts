@@ -131,6 +131,31 @@ describe("updateSeason — exactly one active season", () => {
     expect(firestore.transactionCount).toBe(1);
   });
 
+  it("activates and renames in the same call", async () => {
+    seedSeason("a", { isActive: true });
+    seedSeason("b");
+
+    await updateSeason("b", { name: "Wintersportwoche 2027", isActive: true });
+
+    expect(firestore.get("seasons", "a")).toMatchObject({ isActive: false });
+    expect(firestore.get("seasons", "b")).toMatchObject({
+      name: "Wintersportwoche 2027",
+      isActive: true,
+    });
+  });
+
+  it("stands down every active season, even if the data already held more than one", async () => {
+    seedSeason("a", { isActive: true });
+    seedSeason("b", { isActive: true });
+    seedSeason("c");
+
+    await updateSeason("c", { isActive: true });
+
+    expect(firestore.get("seasons", "a")).toMatchObject({ isActive: false });
+    expect(firestore.get("seasons", "b")).toMatchObject({ isActive: false });
+    expect(firestore.get("seasons", "c")).toMatchObject({ isActive: true });
+  });
+
   it("refuses to activate an archived season", async () => {
     seedSeason("s1", { isArchived: true });
 
