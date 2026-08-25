@@ -6,13 +6,34 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function getRole(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    /**
+     * `/users` is keyed by UPN (see provisionUser), not by the opaque Firebase uid, so every
+     * identity check has to go through the token's e-mail. Lowercased to match the stored id.
+     */
+    function upn() {
+      return isSignedIn() && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
     }
 
-    // Hierarchical by construction: every student-level rule also admits isTeacher().
-    function isTeacher() { return isSignedIn() && getRole(request.auth.uid) == 'teacher'; }
-    function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function recordRole() {
+      return get(/databases/$(database)/documents/users/$(upn())).data.role;
+    }
+
+    /**
+     * Hierarchical by construction: every student-level rule also admits isTeacher().
+     * The claim is checked first so the common case costs no document read; it is missing on
+     * the very first login, which is what the fallback covers (see resolveRole in guards.ts).
+     */
+    function isTeacher() {
+      return upn() != ''
+        && (request.auth.token.role == 'teacher'
+          || (exists(/databases/$(database)/documents/users/$(upn())) && recordRole() == 'teacher'));
+    }
+
+    function isSelf(uid) {
+      return upn() != '' && upn() == uid;
+    }
 
     // Mirrors requiredText(120) in src/lib/schemas/common.ts — keep both in sync.
     function isName(value) {

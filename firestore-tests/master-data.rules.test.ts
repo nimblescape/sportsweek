@@ -22,13 +22,23 @@ beforeEach(async () => {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
-    await db.collection("users").doc("teacher1").set({ role: "teacher" });
-    await db.collection("users").doc("student1").set({ role: "student" });
+    await db.collection("users").doc(TEACHER_UPN).set({ role: "teacher" });
+    await db.collection("users").doc(STUDENT_UPN).set({ role: "student" });
   });
 });
 
-const teacher = () => testEnv.authenticatedContext("teacher1").firestore();
-const student = () => testEnv.authenticatedContext("student1").firestore();
+/**
+ * `/users` is keyed by UPN, not by the Firebase uid, so the two are kept distinct here —
+ * reusing one value for both would let a broken rule pass in tests and fail in production.
+ */
+const TEACHER_UPN = "lehrperson@htldornbirn.at";
+const STUDENT_UPN = "schuelerin@student.htldornbirn.at";
+
+const signInAs = (upn: string) =>
+  testEnv.authenticatedContext(`uid-of-${upn}`, { email: upn }).firestore();
+
+const teacher = () => signInAs(TEACHER_UPN);
+const student = () => signInAs(STUDENT_UPN);
 const anonymous = () => testEnv.unauthenticatedContext().firestore();
 
 async function seed(collection: string, id: string, data: Record<string, unknown>) {
