@@ -1,6 +1,7 @@
 {
   "name": "sportsweek",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "engines": {
     "node": ">=24"
@@ -12,6 +13,8 @@
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "license:check": "node scripts/check-license-headers.mjs",
+    "license:fix": "node scripts/check-license-headers.mjs --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",

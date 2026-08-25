@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
 import { test, expect } from "@playwright/test";
 
 test("unauthenticated visitor is redirected to sign-in", async ({ page }) => {

@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
 import { z } from "zod";
 
 const PHONE_MESSAGE = "Bitte im internationalen Format angeben, z. B. +43 660 1234567.";

@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+
 # See .agents/skills/firebase-app-hosting-basics/references/configuration.md for the full schema.
 runConfig:
   minInstances: 0

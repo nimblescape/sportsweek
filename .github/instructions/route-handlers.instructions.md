@@ -3,6 +3,12 @@ description: "Zod schema and error-response conventions for Next.js Route Handle
 applyTo: "app/api/**/*.ts, src/app/api/**/*.ts"
 ---
 
+<!--
+SPDX-License-Identifier: MIT
+Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+Licensed under the MIT License. See LICENSE in the repository root for details.
+-->
+
 # Route Handler Conventions
 
 ## Zod Schemas

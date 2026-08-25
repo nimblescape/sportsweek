@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
 import { initializeApp, getApps, getApp, type FirebaseOptions } from "firebase/app";
 import { getAuth, OAuthProvider } from "firebase/auth";
 import { createFirestore } from "./firestore-transport";

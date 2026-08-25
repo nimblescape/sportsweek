@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
 import type { NextConfig } from "next";
 import { parse } from "yaml";
 import { readFileSync } from "node:fs";

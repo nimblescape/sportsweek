@@ -3,6 +3,12 @@ description: "Use when implementing any new feature, bug fix, Route Handler, Ser
 applyTo: "src/**/*.ts, src/**/*.tsx, firestore.rules"
 ---
 
+<!--
+SPDX-License-Identifier: MIT
+Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+Licensed under the MIT License. See LICENSE in the repository root for details.
+-->
+
 # Test-Driven Development
 
 ## Rule: Red → Green → Refactor
