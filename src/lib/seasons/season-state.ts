@@ -18,3 +18,38 @@ export const SEASON_STATE_LABELS: Record<SeasonState, string> = {
   archived: "Archiviert",
   inactive: "Inaktiv",
 };
+
+/** Archived seasons are hidden by default; the list offers a toggle to bring them back (US-4). */
+export function visibleSeasons<T extends Pick<Season, "isArchived">>(
+  seasons: T[],
+  includeArchived: boolean,
+): T[] {
+  return includeArchived ? seasons : seasons.filter((season) => !season.isArchived);
+}
+
+/**
+ * A master data record carries no archived flag of its own — its state is derived from the
+ * season it belongs to (US-4, US-11), so archiving a season locks its records in one write.
+ */
+export function isRecordArchived(
+  record: { seasonId: string },
+  seasons: Pick<Season, "id" | "isArchived">[],
+): boolean {
+  const season = seasons.find((candidate) => candidate.id === record.seasonId);
+  return season?.isArchived ?? false;
+}
+
+/**
+ * Student master data, the assignment dialog and the report all bind to the active season,
+ * so an ambiguous result is a data defect and has to surface loudly rather than be guessed at.
+ */
+export function activeSeasonOf<T extends Pick<Season, "isActive">>(seasons: T[]): T {
+  const active = seasons.filter((season) => season.isActive);
+
+  if (active.length === 0) throw new Error("Es ist keine Saison als aktiv gesetzt.");
+  if (active.length > 1) {
+    throw new Error(`Es sind ${active.length} Saisonen aktiv, es darf aber nur eine geben.`);
+  }
+
+  return active[0];
+}
