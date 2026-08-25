@@ -101,7 +101,12 @@ describe.each(NAMED_LISTS)("/%s", (collection) => {
   });
 
   it("rejects an oversized name", async () => {
-    await assertFails(teacher().collection(collection).doc("new").set({ name: "x".repeat(121) }));
+    await assertFails(
+      teacher()
+        .collection(collection)
+        .doc("new")
+        .set({ name: "x".repeat(121) }),
+    );
   });
 });
 
