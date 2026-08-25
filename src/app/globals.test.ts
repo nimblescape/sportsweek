@@ -62,3 +62,40 @@ describe("shared elevation token", () => {
     expect(css).toMatch(/--shadow-card:/);
   });
 });
+
+describe("typography", () => {
+  const fonts = declarations(themeBlock("@theme inline")).filter((d) =>
+    d.name.startsWith("--font-"),
+  );
+
+  it("wires up a sans and a mono font token", () => {
+    const names = fonts.map((f) => f.name);
+
+    expect(names).toContain("--font-sans");
+    expect(names).toContain("--font-mono");
+  });
+
+  it.each(["--font-sans", "--font-mono", "--font-heading"])(
+    "does not point %s at itself",
+    (name) => {
+      const font = fonts.find((f) => f.name === name);
+
+      expect(font?.value).not.toBe(`var(${name})`);
+    },
+  );
+
+  it("points every font token at a variable that layout.tsx actually defines", () => {
+    const layout = readFileSync("src/app/layout.tsx", "utf8");
+    const themeTokens = new Set(fonts.map((f) => f.name));
+
+    for (const font of fonts) {
+      const referenced = font.value.match(/var\((--font-[\w-]+)\)/)?.[1];
+      // Aliasing another theme token is fine; only loaded font variables need declaring.
+      if (!referenced || themeTokens.has(referenced)) continue;
+
+      expect(layout, `${font.name} -> ${referenced} is not declared in layout.tsx`).toContain(
+        `variable: "${referenced}"`,
+      );
+    }
+  });
+});
