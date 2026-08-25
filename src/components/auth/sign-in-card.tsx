@@ -108,15 +108,17 @@ export function SignInCard() {
             Sportsweek
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">Sportwochen-Verwaltung</p>
-          <Button className="mt-8 h-10 w-full" onClick={handleSignIn} disabled={checking}>
-            Anmelden über Office 365
-          </Button>
-          {checking ? (
-            <p role="status" className="text-muted-foreground mt-4 flex items-center gap-2 text-sm">
-              <LoaderCircle aria-hidden className="size-4 animate-spin" />
-              Anmelden…
-            </p>
-          ) : null}
+          <div className="mt-8 flex w-full flex-col items-center gap-4">
+            {checking ? (
+              // Icon-only, so the accessible name has to come from the label.
+              <div role="status" aria-label="Anmelden" className="text-muted-foreground">
+                <LoaderCircle aria-hidden className="size-5 animate-spin" />
+              </div>
+            ) : null}
+            <Button className="h-10 w-full" onClick={handleSignIn} disabled={checking}>
+              Anmelden über Office 365
+            </Button>
+          </div>
           {error ? (
             <p role="alert" className="text-destructive mt-4 text-sm">
               {error}

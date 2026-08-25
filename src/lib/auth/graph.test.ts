@@ -15,13 +15,13 @@ describe("fetchEntraName", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("returns the given name and surname Entra holds", async () => {
-    respondWith(200, { givenName: "Hannes", surname: "Stauss" });
+    respondWith(200, { givenName: "Erika", surname: "Mustermann" });
 
-    expect(await fetchEntraName("token")).toEqual({ firstName: "Hannes", lastName: "Stauss" });
+    expect(await fetchEntraName("token")).toEqual({ firstName: "Erika", lastName: "Mustermann" });
   });
 
   it("asks Graph only for the two fields it needs", async () => {
-    const fetchMock = respondWith(200, { givenName: "Hannes", surname: "Stauss" });
+    const fetchMock = respondWith(200, { givenName: "Erika", surname: "Mustermann" });
 
     await fetchEntraName("token");
 
@@ -32,7 +32,7 @@ describe("fetchEntraName", () => {
   });
 
   it("authenticates with the caller's bearer token", async () => {
-    const fetchMock = respondWith(200, { givenName: "Hannes", surname: "Stauss" });
+    const fetchMock = respondWith(200, { givenName: "Erika", surname: "Mustermann" });
 
     await fetchEntraName("access-token-123");
 
@@ -51,8 +51,8 @@ describe("fetchEntraName", () => {
   });
 
   it.each([
-    ["only a given name", { givenName: "Hannes" }],
-    ["only a surname", { surname: "Stauss" }],
+    ["only a given name", { givenName: "Erika" }],
+    ["only a surname", { surname: "Mustermann" }],
     ["blank values", { givenName: "  ", surname: "  " }],
     ["nothing at all", {}],
   ])("returns null when Graph provides %s", async (_case, body) => {

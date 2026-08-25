@@ -161,16 +161,20 @@ describe("provisionUser", () => {
   });
 
   it("prefers the name Entra holds over the display name", async () => {
-    fetchEntraName.mockResolvedValue({ firstName: "Hannes", lastName: "Stauss" });
+    fetchEntraName.mockResolvedValue({ firstName: "Erika", lastName: "Mustermann" });
 
     const result = await provisionUser(
-      { uid: "firebase-uid-1", email: "hannes.stauss@htldornbirn.at", name: "Stauss Hannes" },
+      {
+        uid: "firebase-uid-1",
+        email: "erika.mustermann@htldornbirn.at",
+        name: "Mustermann Erika",
+      },
       "graph-token",
     );
 
     expect(result).toMatchObject({
       ok: true,
-      user: { firstName: "Hannes", lastName: "Stauss" },
+      user: { firstName: "Erika", lastName: "Mustermann" },
     });
     expect(fetchEntraName).toHaveBeenCalledWith("graph-token");
   });
@@ -179,13 +183,17 @@ describe("provisionUser", () => {
     fetchEntraName.mockResolvedValue(null);
 
     const result = await provisionUser(
-      { uid: "firebase-uid-1", email: "hannes.stauss@htldornbirn.at", name: "Stauss Hannes" },
+      {
+        uid: "firebase-uid-1",
+        email: "erika.mustermann@htldornbirn.at",
+        name: "Mustermann Erika",
+      },
       "graph-token",
     );
 
     expect(result).toMatchObject({
       ok: true,
-      user: { firstName: "Stauss", lastName: "Hannes" },
+      user: { firstName: "Mustermann", lastName: "Erika" },
     });
   });
 

@@ -131,6 +131,26 @@ describe("SignInCard", () => {
     expect(screen.getByRole("button").querySelector("svg")).toBeNull();
   });
 
+  it("places the spinner above the button", () => {
+    respondWith(200, { status: "ok" });
+
+    render(<SignInCard />);
+
+    const status = screen.getByRole("status");
+    const button = screen.getByRole("button");
+    expect(status.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps the spinner icon-only while still announcing it", () => {
+    respondWith(200, { status: "ok" });
+
+    render(<SignInCard />);
+
+    const status = screen.getByRole("status");
+    expect(status.textContent?.trim()).toBe("");
+    expect(status).toHaveAccessibleName(/anmelden/i);
+  });
+
   it("shows no spinner once the visitor can sign in", async () => {
     onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(null);
