@@ -5,7 +5,9 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
-  reporter: "list",
+  // "list" for readable console output; add "html" in CI so playwright-report/
+  // exists for the upload-artifact step to capture on failure.
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: "http://localhost:3100",
     trace: "on-first-retry",
