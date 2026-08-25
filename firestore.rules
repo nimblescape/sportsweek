@@ -12,7 +12,6 @@ service cloud.firestore {
 
     // Hierarchical by construction: every student-level rule also admits isTeacher().
     function isTeacher() { return isSignedIn() && getRole(request.auth.uid) == 'teacher'; }
-    function isStudent() { return isSignedIn() && getRole(request.auth.uid) == 'student'; }
     function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
 
     // See .github/instructions/firestore-security-rules.instructions.md before adding collections below.
