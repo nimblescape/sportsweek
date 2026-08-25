@@ -51,7 +51,7 @@ As a user, my role is automatically determined by the domain of my Entra ID UPN 
 - If the UPN's domain (the part after @) is exactly "htldornbirn.at", the newly created user record is assigned the teacher role.
 - If the UPN's domain is exactly "student.htldornbirn.at", the newly created user record is assigned the student role.
 - If the UPN's domain matches neither pattern, the login is rejected and no user record is created.
-- Once assigned, a role can only be changed by an administrator with direct database access; there is no in-app role management.
+- Once assigned, a role can only be changed by someone with direct database access (e.g. IT staff); there is no in-app role management.
 
 ## Seasons & Events
 
@@ -73,7 +73,7 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 - The confirmation dialog requires the teacher to type the exact season name; the Delete button is only enabled once the entered text matches the season name being deleted.
 - A teacher can archive a season; an archived season no longer appears in the teacher's list of seasons.
 - A teacher can unarchive an archived season.
-- Archiving (or unarchiving) a season is a computed state: the master data records for that season are considered archived accordingly, without storing a separate archived flag on each master data record.
+- A season's active/archived state is stored directly on the season. A student master data record has no archived flag of its own; its archived status is computed from the archived state of the season it belongs to (see US-11).
 - Each season can contain multiple events.
 - A view for maintaining the list of events within a selected season exists.
 - A teacher can add, edit, and remove events within a season.
@@ -173,7 +173,7 @@ As a student, I can edit my master data so that I can provide the information ne
   - Date of birth
   - Gender: male / female
   - Phone number (must be in international format, e.g. +43...)
-  - Emergency contact: first name, last name, relationship (mother, father, other with free text), phone number (must be in international format, e.g. +43...)
+  - Emergency contact: first name, last name, relationship (mother, father, other with free text that must not be empty), phone number (must be in international format, e.g. +43...)
   - Which program are you registering for?: one of the programs maintained by a teacher (see US-5)
   - Equipment rental — shown only if the selected program has at least one required equipment item (see US-5): do you need to borrow any of the required equipment?: yes / no
     - If yes: shoe size, height [cm], weight [kg]
@@ -185,6 +185,7 @@ As a student, I can edit my master data so that I can provide the information ne
   - Health: free text about illnesses/allergies the teachers should know about (e.g. diabetes, epilepsy, asthma)
   - Do you carry medication for that?: yes / no
 - All master data fields other than "Are you attending the sports week?" are shown only if the student answers "yes"; a master data record is always created and saved regardless of the answer, and switching from "yes" to "no" only hides those fields — their values are kept and reappear if the student switches back to "yes".
+- If a student who is already assigned to an event (see US-12) switches their answer to "no", the event assignment is removed and the student becomes unassigned.
 - The required equipment items for the selected program are shown directly below the program field, in read-only form, only if the selected program has at least one required equipment item.
 - When a value is selected from a teacher-maintained list (class, program, skill level, bus pickup point, food/diet option, or season pass option), the master data record stores that value redundantly as plain text (like an enum value), not as a foreign key/reference to the list item; later changes to the maintained list do not alter already-stored master data records.
 - Unlike those teacher-maintained lists, the season (see US-4) the master data record belongs to is a genuine foreign key relationship, not a redundant plain-text copy — this is what allows a season's archived state to be computed for its master data records.
@@ -198,11 +199,12 @@ As a teacher, I can assign students to the events of the active season using an 
 **Acceptance criteria:**
 
 - An assignment dialog exists, showing all students registered for the active season (see US-4) who answered "yes" to "Are you attending the sports week?" (see US-11); students who answered "no" are not shown.
-- A per-class overview table shows, for each class, the total number of students, the number of male students, the number of female students, and the skill-level statistics (see US-7) per program (see US-5).
-- Below the per-class overview table, a second table shows the same statistics (total, male, female, skill levels per program), broken down by event instead of by class.
+- A per-class overview table shows, for each class, the total number of students, the number of male students, the number of female students, the percentage of registered students in the class who are attending, and the skill-level statistics (see US-7) per program (see US-5).
+- Below the per-class overview table, a second table shows the same statistics (total, male, female, skill levels per program, without the attendance percentage), broken down by event instead of by class; it only counts students who are both attending and assigned to that event.
 - Below the two overview tables, a left/right (transfer) list shows students for the event selected by clicking its row in the per-event overview table: the left list shows students not yet assigned to any event; the right list shows the students assigned to the selected event.
 - The teacher can select a student in either list and move it to the other list by dragging and dropping it.
 - Multi-select is supported when moving students from left to right and from right to left.
+- To move a student from one event to a different event, the teacher first drags the student from the right list back to the left list (unassigning them), then selects the other event and drags the student from the left list into its right list; no direct move-between-events action exists.
 - Both the left and right lists can be filtered by class (see US-6), by gender, by program (see US-5), by skill level (see US-7), and by a free-text filter that searches the first name and last name.
 - Above each list, a free-text filter field for the name is shown, with a clear button (using a suitable icon) to reset it; below it, a single wrapping row of tags contains all the class, gender, program, and skill level filter options together, in that order.
 - Each tag in the row can be individually selected and deselected; a selected tag is highlighted. Selecting multiple tags combines them with AND logic (a student must match all selected tags to be shown).
@@ -222,7 +224,7 @@ As a teacher, I can view a report listing all students so that I have their cont
 - The report has two independent tag lists: a filter tag list that determines which students are shown, and a columns tag list that determines which additional fields are shown for each student.
 - The filter tag list works the same way as in the assignment dialog (see US-12): a free-text filter for the name with a clear button, and a wrapping tag row (with a first "all" tag) for class, gender, program, and skill level, combined with AND logic.
 - The columns tag list lets the teacher select which additional fields, beyond first name and last name, are shown for each student: class (see US-6), gender (see US-11), date of birth (see US-11), contact data (email address, see US-1; phone number and emergency contact — name, relationship, and phone number — see US-11), skill level (see US-11), body measurements (weight, height, shoe size, see US-11), and needed rental equipment (see US-11).
-- A dropdown next to the filter tag list shows all saved filters by name; selecting one applies its saved filter tag list selection to the report.
+- A dropdown next to the filter tag list shows all saved filters by name, shared among all teachers (not private to the teacher who saved it); selecting one applies its saved filter tag list selection to the report.
 - Next to the dropdown, a Save button lets the teacher save the current filter tag list selection under a name, entered inline (e.g. in a small popover) without leaving the report page.
 - In the dropdown, each saved filter has a rename and a delete icon, shown on hover, so the teacher can rename or delete it inline, directly in the dropdown, without a separate management page.
 - Renaming a saved filter edits its name in place; deleting one requires a lightweight inline confirmation before it is removed.

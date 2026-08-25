@@ -132,7 +132,8 @@ entity "EquipmentRentalItem" as equipmentRentalItem {
 
 entity "SavedReportFilter" as savedReportFilter {
   PK id : string
-  FK createdByUserId : string  ' the teacher who saved it (US-13)
+  FK createdByUserId : string  ' the teacher who saved it, for audit only \u2014 the filter itself
+                               ' is shared/visible to all teachers, not private (US-13)
   --
   name : string
   classFilter : string <<nullable>>
