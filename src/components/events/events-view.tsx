@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/tooltip";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
 import { eventSchema, type Event } from "@/lib/schemas/season";
@@ -126,23 +127,27 @@ function EventList({ events, loading, error, readOnly, onEdit, onDelete }: Event
 
             {readOnly ? null : (
               <div className="flex shrink-0 items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Event ${event.name} bearbeiten`}
-                  onClick={() => onEdit(event)}
-                >
-                  <Pencil aria-hidden />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Event ${event.name} löschen`}
-                  onClick={() => onDelete(event)}
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 aria-hidden />
-                </Button>
+                <Tooltip label="Bearbeiten">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Event ${event.name} bearbeiten`}
+                    onClick={() => onEdit(event)}
+                  >
+                    <Pencil aria-hidden />
+                  </Button>
+                </Tooltip>
+                <Tooltip label="Löschen">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Event ${event.name} löschen`}
+                    onClick={() => onDelete(event)}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 aria-hidden />
+                  </Button>
+                </Tooltip>
               </div>
             )}
           </li>

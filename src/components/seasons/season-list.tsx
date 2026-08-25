@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Season } from "@/lib/schemas/season";
 import { SEASON_STATE_LABELS, seasonState } from "@/lib/seasons/season-state";
@@ -96,63 +97,77 @@ export function SeasonList({
               </span>
 
               <div className="flex shrink-0 items-center gap-1">
-                <Link
-                  href={`/app/master-data/seasons/${season.id}`}
-                  aria-label={`Events der Saison ${season.name}`}
-                  className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
-                >
-                  <CalendarDays aria-hidden className="size-3.5" />
-                </Link>
+                <Tooltip label="Events">
+                  <Link
+                    href={`/app/master-data/seasons/${season.id}`}
+                    aria-label={`Events der Saison ${season.name}`}
+                    className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                  >
+                    <CalendarDays aria-hidden className="size-3.5" />
+                  </Link>
+                </Tooltip>
 
                 {/* Only an inactive season can be activated: the active one already is, and an
                     archived one is not allowed to be (US-4). */}
                 {state === "inactive" ? (
+                  <Tooltip label="Aktiv setzen">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={busy}
+                      aria-label={`Saison ${season.name} aktiv setzen`}
+                      onClick={() => onActivate(season)}
+                    >
+                      <CircleCheck aria-hidden />
+                    </Button>
+                  </Tooltip>
+                ) : null}
+
+                <Tooltip label="Bearbeiten">
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     disabled={busy}
-                    aria-label={`Saison ${season.name} aktiv setzen`}
-                    onClick={() => onActivate(season)}
+                    aria-label={`Saison ${season.name} bearbeiten`}
+                    onClick={() => onEdit(season)}
                   >
-                    <CircleCheck aria-hidden />
+                    <Pencil aria-hidden />
                   </Button>
-                ) : null}
+                </Tooltip>
 
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={busy}
-                  aria-label={`Saison ${season.name} bearbeiten`}
-                  onClick={() => onEdit(season)}
-                >
-                  <Pencil aria-hidden />
-                </Button>
+                <Tooltip label={season.isArchived ? "Wiederherstellen" : "Archivieren"}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={busy}
+                    aria-label={
+                      season.isArchived
+                        ? `Saison ${season.name} wiederherstellen`
+                        : `Saison ${season.name} archivieren`
+                    }
+                    onClick={() => onArchivedChange(season, !season.isArchived)}
+                  >
+                    {season.isArchived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
+                  </Button>
+                </Tooltip>
 
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={busy}
-                  aria-label={
-                    season.isArchived
-                      ? `Saison ${season.name} wiederherstellen`
-                      : `Saison ${season.name} archivieren`
-                  }
-                  onClick={() => onArchivedChange(season, !season.isArchived)}
-                >
-                  {season.isArchived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={!season.isArchived || busy}
-                  aria-label={`Saison ${season.name} löschen`}
-                  aria-describedby={season.isArchived ? undefined : hintId}
-                  onClick={() => onDelete(season)}
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 aria-hidden />
-                </Button>
+                {/* Wrapped in a span because a disabled button emits no pointer events, and the
+                    reason it is disabled is exactly what needs explaining here (US-4). */}
+                <Tooltip label={season.isArchived ? "Löschen" : DELETE_HINT}>
+                  <span className="inline-flex">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={!season.isArchived || busy}
+                      aria-label={`Saison ${season.name} löschen`}
+                      aria-describedby={season.isArchived ? undefined : hintId}
+                      onClick={() => onDelete(season)}
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 aria-hidden />
+                    </Button>
+                  </span>
+                </Tooltip>
 
                 {season.isArchived ? null : (
                   <span id={hintId} className="sr-only">

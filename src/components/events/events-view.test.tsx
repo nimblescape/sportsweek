@@ -198,3 +198,17 @@ describe("EventsView — archived season", () => {
     expect(screen.queryByRole("button", { name: "Neues Event" })).not.toBeInTheDocument();
   });
 });
+
+describe("EventsView — tooltips", () => {
+  it.each([
+    ["Event Montafon bearbeiten", "Bearbeiten"],
+    ["Event Montafon löschen", "Löschen"],
+  ])("explains the %s icon on hover", async (accessibleName, tooltip) => {
+    stubFetch(created);
+    renderView();
+
+    await userEvent.hover(screen.getByRole("button", { name: accessibleName }));
+
+    expect(await screen.findByText(tooltip)).toBeInTheDocument();
+  });
+});

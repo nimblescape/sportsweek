@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SeasonList } from "@/components/seasons/season-list";
@@ -164,5 +164,65 @@ describe("SeasonList — row actions", () => {
     expect(
       screen.getByRole("link", { name: "Events der Saison Wintersportwoche 2026" }),
     ).toHaveAttribute("href", "/app/master-data/seasons/s1");
+  });
+});
+
+describe("SeasonList — tooltips", () => {
+  it.each([
+    ["Saison Wintersportwoche 2027 bearbeiten", "Bearbeiten"],
+    ["Saison Wintersportwoche 2027 archivieren", "Archivieren"],
+    ["Saison Wintersportwoche 2027 aktiv setzen", "Aktiv setzen"],
+  ])("explains the %s icon on hover", async (accessibleName, tooltip) => {
+    renderList();
+
+    await userEvent.hover(screen.getByRole("button", { name: accessibleName }));
+
+    expect(await screen.findByText(tooltip)).toBeInTheDocument();
+  });
+
+  it("explains the events icon, which is a link rather than a button", async () => {
+    renderList();
+
+    await userEvent.hover(
+      screen.getByRole("link", { name: "Events der Saison Wintersportwoche 2027" }),
+    );
+
+    expect(await screen.findByText("Events")).toBeInTheDocument();
+  });
+
+  it("labels the restore icon differently from the archive icon", async () => {
+    renderList();
+
+    await userEvent.hover(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2025 wiederherstellen" }),
+    );
+
+    expect(await screen.findByText("Wiederherstellen")).toBeInTheDocument();
+  });
+
+  it("shows a plain label for a season that may be deleted", async () => {
+    renderList();
+
+    await userEvent.hover(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2025 löschen" }),
+    );
+
+    expect(await screen.findByText("Löschen")).toBeInTheDocument();
+  });
+
+  it("explains on hover why deleting is unavailable, which the sr-only hint cannot do", async () => {
+    renderList();
+    const hint = "Nur archivierte Saisonen können gelöscht werden.";
+    // One sr-only copy already exists per non-archived row; hovering adds the visible one.
+    const before = screen.getAllByText(hint).length;
+
+    await userEvent.hover(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2026 löschen" }).parentElement!,
+    );
+
+    await waitFor(() => expect(screen.getAllByText(hint)).toHaveLength(before + 1));
+    expect(screen.getAllByText(hint).some((node) => !node.className.includes("sr-only"))).toBe(
+      true,
+    );
   });
 });

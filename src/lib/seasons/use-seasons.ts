@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
+import { subscribeWithRecovery } from "@/lib/firebase/live-query";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { seasonSchema, type Season } from "@/lib/schemas/season";
 
@@ -12,32 +13,30 @@ export function useSeasons() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const seasonsQuery = query(collection(db, COLLECTIONS.seasons), orderBy("name", "desc"));
-
-    return onSnapshot(
-      seasonsQuery,
-      (snapshot) => {
-        setSeasons(
-          snapshot.docs.flatMap((document) => {
-            const parsed = seasonSchema.safeParse({ id: document.id, ...document.data() });
-            if (!parsed.success) {
-              console.error(`Season ${document.id} does not match the schema`, parsed.error);
-              return [];
-            }
-            return [parsed.data];
-          }),
-        );
-        setError(null);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Failed to read seasons:", err);
-        setError(err.message);
-        setLoading(false);
-      },
-    );
-  }, []);
+  useEffect(
+    () =>
+      subscribeWithRecovery<Season>({
+        label: "seasons",
+        buildQuery: () => query(collection(db, COLLECTIONS.seasons), orderBy("name", "desc")),
+        parse: (id, data) => {
+          const parsed = seasonSchema.safeParse({ id, ...data });
+          if (!parsed.success) {
+            console.error(`Season ${id} does not match the schema`, parsed.error);
+            return null;
+          }
+          return parsed.data;
+        },
+        onData: (items) => {
+          setSeasons(items);
+          setLoading(false);
+        },
+        onError: (message) => {
+          setError(message);
+          if (message !== null) setLoading(false);
+        },
+      }),
+    [],
+  );
 
   return { seasons, loading, error };
 }
