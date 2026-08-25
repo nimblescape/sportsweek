@@ -42,4 +42,14 @@ describe("AppShell", () => {
     expect(content).toBeInTheDocument();
     expect(header.compareDocumentPosition(content) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  it("adds no navigation of its own, so the student view has none (US-15)", () => {
+    render(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  });
 });
