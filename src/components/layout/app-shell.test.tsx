@@ -18,6 +18,17 @@ describe("AppShell", () => {
     expect(screen.getByRole("banner")).toHaveTextContent("Sportsweek");
   });
 
+  it("renders the title above the section heading size in the type hierarchy", () => {
+    render(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    // Section headings use text-lg (see SectionPlaceholder), so the brand must outrank it.
+    expect(screen.getByText("Sportsweek").className).toContain("text-xl");
+  });
+
   it("shows a logout button in the header", () => {
     render(
       <AppShell>
