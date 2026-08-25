@@ -80,7 +80,9 @@ export async function POST(request: Request) {
     path: "/",
   });
 
-  return NextResponse.json({ status: "ok" });
+  // Returning the role lets the client skip the /app landing hop, which would otherwise cost
+  // another request and another session-cookie verification.
+  return NextResponse.json({ status: "ok", role: provisioned.user.role });
 }
 
 // Signs the user out by clearing the session cookie.

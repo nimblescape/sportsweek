@@ -33,7 +33,19 @@ describe("POST /api/session", () => {
     provisionUser.mockReset();
     cookieStore.set.mockReset();
     cookieStore.delete.mockReset();
-    provisionUser.mockResolvedValue({ ok: true, user: { id: "jane@htldornbirn.at" } });
+    provisionUser.mockResolvedValue({
+      ok: true,
+      user: { id: "jane@htldornbirn.at", role: "teacher" },
+    });
+  });
+
+  it("returns the provisioned role so the client can skip the landing hop", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "user-1", email: "jane@htldornbirn.at" });
+    createSessionCookie.mockResolvedValue("session-cookie-value");
+
+    const response = await POST(postRequest({ idToken: "good-token" }));
+
+    expect(await response.json()).toMatchObject({ status: "ok", role: "teacher" });
   });
 
   it("returns 400 when idToken is missing", async () => {

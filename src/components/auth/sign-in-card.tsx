@@ -14,7 +14,8 @@ import {
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ROUTES } from "@/lib/routes";
+import { ROUTES, homeFor } from "@/lib/routes";
+import { userRoleSchema } from "@/lib/schemas/user";
 
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
 const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.";
@@ -70,7 +71,12 @@ export function SignInCard() {
           throw new Error(`Failed to create session (status ${response.status})`);
         }
 
-        router.push(searchParams.get("next") ?? ROUTES.appRoot);
+        const body = await response.json().catch(() => null);
+        const role = userRoleSchema.safeParse(body?.role);
+
+        router.push(
+          searchParams.get("next") ?? (role.success ? homeFor(role.data) : ROUTES.appRoot),
+        );
         router.refresh();
       } catch {
         setChecking(false);

@@ -152,6 +152,25 @@ describe("SignInCard", () => {
     expect(signOut).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["teacher", "/app/report"],
+    ["student", "/app/my-master-data"],
+  ])("sends a %s straight to their own start page", async (role, expected) => {
+    respondWith(200, { status: "ok", role });
+
+    render(<SignInCard />);
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith(expected));
+  });
+
+  it("ignores an unusable role and falls back to the landing route", async () => {
+    respondWith(200, { status: "ok", role: "admin" });
+
+    render(<SignInCard />);
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/app"));
+  });
+
   it("shows the account-not-enabled message when the account is rejected", async () => {
     respondWith(403, {
       error: { code: "PERMISSION_DENIED", message: "Dieses Konto ist nicht freigeschaltet." },
