@@ -124,10 +124,14 @@ function getStyle(filePath) {
       ".css",
       ".scss",
       ".less",
-      ".rules",
     ].includes(ext)
   ) {
     return "block";
+  }
+
+  // Security Rules accept `//` only: `#` and `/* */` both fail to compile.
+  if (ext === ".rules") {
+    return "slash";
   }
 
   if ([".yml", ".yaml", ".sh", ".bash", ".zsh"].includes(ext)) {
@@ -155,6 +159,8 @@ function buildHeader(filePath, style) {
   switch (style) {
     case "block":
       return ["/*", ...lines.map((line) => comment(line, " *")), " */", ""].join("\n");
+    case "slash":
+      return [...lines.map((line) => comment(line, "//")), ""].join("\n");
     case "markdown":
       return ["<!--", ...lines, "-->", ""].join("\n");
     case "hash":
@@ -189,6 +195,7 @@ function hasHeader(filePath, fileContent) {
 function stripExistingHeader(body, style) {
   const blocks = {
     block: /^\/\*[\s\S]*?SPDX-License-Identifier[\s\S]*?\*\/\n+/,
+    slash: /^(?:\/\/.*\n)*?\/\/.*SPDX-License-Identifier.*\n(?:\/\/.*\n)*\n*/,
     markdown: /^<!--[\s\S]*?SPDX-License-Identifier[\s\S]*?-->\n+/,
     hash: /^(?:#.*\n)*?#.*SPDX-License-Identifier.*\n(?:#.*\n)*\n*/,
     plantuml: /^(?:'.*\n)*?'.*SPDX-License-Identifier.*\n(?:'.*\n)*\n*/,

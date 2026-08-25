@@ -84,7 +84,7 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 - A view for maintaining the list of events within a selected season exists.
 - A teacher can add, edit, and remove events within a season.
 - Removing (deleting) an event unassigns any students that were assigned to it (see US-12); the students themselves and their master data are not removed.
-- A teacher can define exactly one season as the active season.
+- A teacher can activate a season, and can also deactivate the active season so that no season is active.
 - Season names are unique: two seasons cannot share the same name.
 - Event names are unique within their season: two events of the same season cannot share the same name, while two different seasons may each have an event of the same name.
 - Name comparison ignores surrounding whitespace and letter case, so "Montafon" and " montafon " count as the same name.
@@ -176,6 +176,7 @@ As a student, I can edit my master data so that I can provide the information ne
 **Acceptance criteria:**
 
 - A student can view and edit the master data for their own user record.
+- If no season is active, the student sees a German notification saying that no sports event has been released yet ("Es ist noch keine Sportveranstaltung freigeschalten.") and the master data dialog is not shown.
 - The master data a student edits is bound to the currently active season (see US-4).
 - Last name and first name are taken from the user record (see US-1) and are shown but not editable as part of this master data.
 - The following master data fields are available:
