@@ -9,6 +9,17 @@ export const ROUTES = {
   studentMasterData: "/app/my-master-data",
 } as const;
 
+/** One sub-item per teacher-maintained category (US-4 to US-10). */
+export const MASTER_DATA_SECTIONS = [
+  { href: "/app/master-data/seasons", label: "Saisonen" },
+  { href: "/app/master-data/programs", label: "Programme" },
+  { href: "/app/master-data/classes", label: "Klassen" },
+  { href: "/app/master-data/skill-levels", label: "Könnensstufen" },
+  { href: "/app/master-data/bus-pickup-points", label: "Zustiegsstellen" },
+  { href: "/app/master-data/food-options", label: "Verpflegung" },
+  { href: "/app/master-data/season-pass-options", label: "Saisonkarten" },
+] as const;
+
 export const TEACHER_ONLY_PREFIXES = [ROUTES.report, ROUTES.assignment, ROUTES.masterData] as const;
 
 // A teacher has no master data record of their own, so this page is student-only (US-15).
