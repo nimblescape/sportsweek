@@ -18,7 +18,7 @@ function renderList(overrides: Record<string, unknown> = {}) {
   const handlers = {
     onEdit: vi.fn(),
     onDelete: vi.fn(),
-    onActivate: vi.fn(),
+    onActiveChange: vi.fn(),
     onArchivedChange: vi.fn(),
   };
   render(
@@ -118,13 +118,23 @@ describe("SeasonList — row actions", () => {
   });
 
   it("offers activation for an inactive season", async () => {
-    const { onActivate } = renderList();
+    const { onActiveChange } = renderList();
 
     await userEvent.click(
       screen.getByRole("button", { name: "Saison Wintersportwoche 2027 aktiv setzen" }),
     );
 
-    expect(onActivate).toHaveBeenCalledWith(seasons[2]);
+    expect(onActiveChange).toHaveBeenCalledWith(seasons[2], true);
+  });
+
+  it("offers deactivation for the active season, so no season can be active at all", async () => {
+    const { onActiveChange } = renderList();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2026 deaktivieren" }),
+    );
+
+    expect(onActiveChange).toHaveBeenCalledWith(seasons[0], false);
   });
 
   it("does not offer activation for the season that is already active", () => {
@@ -132,6 +142,14 @@ describe("SeasonList — row actions", () => {
 
     expect(
       screen.queryByRole("button", { name: "Saison Wintersportwoche 2026 aktiv setzen" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not offer deactivation for a season that is not active", () => {
+    renderList();
+
+    expect(
+      screen.queryByRole("button", { name: "Saison Wintersportwoche 2027 deaktivieren" }),
     ).not.toBeInTheDocument();
   });
 
@@ -177,6 +195,7 @@ describe("SeasonList — tooltips", () => {
     ["Saison Wintersportwoche 2027 bearbeiten", "Bearbeiten"],
     ["Saison Wintersportwoche 2027 archivieren", "Archivieren"],
     ["Saison Wintersportwoche 2027 aktiv setzen", "Aktiv setzen"],
+    ["Saison Wintersportwoche 2026 deaktivieren", "Deaktivieren"],
   ])("explains the %s icon on hover", async (accessibleName, tooltip) => {
     renderList();
 

@@ -57,6 +57,20 @@ describe("PATCH /api/seasons/[seasonId]", () => {
     expect(updateSeason).toHaveBeenCalledWith("s1", { isActive: true });
   });
 
+  it("deactivates the season, so a teacher can leave none active", async () => {
+    updateSeason.mockResolvedValue({
+      id: "s1",
+      name: "Winter",
+      isActive: false,
+      isArchived: false,
+    });
+
+    const response = await PATCH(patchRequest({ isActive: false }), context);
+
+    expect(response.status).toBe(200);
+    expect(updateSeason).toHaveBeenCalledWith("s1", { isActive: false });
+  });
+
   it("archives the season", async () => {
     await PATCH(patchRequest({ isArchived: true }), context);
 

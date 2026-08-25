@@ -11,6 +11,7 @@ import {
   ArchiveRestore,
   CalendarDays,
   CircleCheck,
+  CircleSlash,
   LoaderCircle,
   Pencil,
   Trash2,
@@ -30,7 +31,7 @@ type SeasonListProps = {
   error: string | null;
   onEdit: (season: Season) => void;
   onDelete: (season: Season) => void;
-  onActivate: (season: Season) => void;
+  onActiveChange: (season: Season, isActive: boolean) => void;
   onArchivedChange: (season: Season, isArchived: boolean) => void;
   busySeasonId?: string | null;
 };
@@ -41,7 +42,7 @@ export function SeasonList({
   error,
   onEdit,
   onDelete,
-  onActivate,
+  onActiveChange,
   onArchivedChange,
   busySeasonId = null,
 }: SeasonListProps) {
@@ -112,8 +113,9 @@ export function SeasonList({
                   </Link>
                 </Tooltip>
 
-                {/* Only an inactive season can be activated: the active one already is, and an
-                    archived one is not allowed to be (US-4). */}
+                {/* An inactive season can be activated and the active one stood down again, so
+                    the teacher can leave no season active at all; an archived one is neither
+                    (US-4). With no active season, students cannot edit master data (US-11). */}
                 {state === "inactive" ? (
                   <Tooltip label="Aktiv setzen">
                     <Button
@@ -121,9 +123,23 @@ export function SeasonList({
                       size="icon-sm"
                       disabled={busy}
                       aria-label={`Saison ${season.name} aktiv setzen`}
-                      onClick={() => onActivate(season)}
+                      onClick={() => onActiveChange(season, true)}
                     >
                       <CircleCheck aria-hidden />
+                    </Button>
+                  </Tooltip>
+                ) : null}
+
+                {state === "active" ? (
+                  <Tooltip label="Deaktivieren">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={busy}
+                      aria-label={`Saison ${season.name} deaktivieren`}
+                      onClick={() => onActiveChange(season, false)}
+                    >
+                      <CircleSlash aria-hidden />
                     </Button>
                   </Tooltip>
                 ) : null}

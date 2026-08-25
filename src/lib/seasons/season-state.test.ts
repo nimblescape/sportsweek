@@ -95,11 +95,15 @@ describe("activeSeasonOf", () => {
   it("returns the single active season", () => {
     const list = [season("a"), season("b", { isActive: true })];
 
-    expect(activeSeasonOf(list).id).toBe("b");
+    expect(activeSeasonOf(list)?.id).toBe("b");
   });
 
-  it("fails loudly when no season is active, instead of silently returning nothing", () => {
-    expect(() => activeSeasonOf([season("a")])).toThrow(/keine Saison/i);
+  it("reports no active season, which is a state a teacher can deliberately create", () => {
+    expect(activeSeasonOf([season("a")])).toBeNull();
+  });
+
+  it("reports no active season for an empty list", () => {
+    expect(activeSeasonOf([])).toBeNull();
   });
 
   it("fails loudly when more than one season is active", () => {

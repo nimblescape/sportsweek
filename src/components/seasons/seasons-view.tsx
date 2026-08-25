@@ -80,7 +80,7 @@ export function SeasonsView() {
         busySeasonId={busySeasonId}
         onEdit={(season) => setDialog({ kind: "form", season })}
         onDelete={(season) => setDialog({ kind: "delete", season })}
-        onActivate={(season) => patchSeason(season, { isActive: true })}
+        onActiveChange={(season, isActive) => patchSeason(season, { isActive })}
         onArchivedChange={(season, isArchived) => patchSeason(season, { isArchived })}
       />
 

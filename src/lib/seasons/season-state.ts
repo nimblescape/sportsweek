@@ -45,16 +45,16 @@ export function isRecordArchived(
 }
 
 /**
- * Student master data, the assignment dialog and the report all bind to the active season,
- * so an ambiguous result is a data defect and has to surface loudly rather than be guessed at.
+ * Student master data, the assignment dialog and the report all bind to the active season.
+ * Having none is a legitimate state a teacher creates by deactivating (US-4) — callers then
+ * lock their view instead — whereas an ambiguous result is a data defect and must surface loudly.
  */
-export function activeSeasonOf<T extends Pick<Season, "isActive">>(seasons: T[]): T {
+export function activeSeasonOf<T extends Pick<Season, "isActive">>(seasons: T[]): T | null {
   const active = seasons.filter((season) => season.isActive);
 
-  if (active.length === 0) throw new Error("Es ist keine Saison als aktiv gesetzt.");
   if (active.length > 1) {
     throw new Error(`Es sind ${active.length} Saisonen aktiv, es darf aber nur eine geben.`);
   }
 
-  return active[0];
+  return active[0] ?? null;
 }

@@ -103,6 +103,20 @@ describe("SeasonsView — flags", () => {
     );
   });
 
+  it("deactivates the active season through the API, leaving none active", async () => {
+    const fetchMock = stubFetch(okJson);
+    renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: "Saison Winter 2026 deaktivieren" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/seasons/s1",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ isActive: false }) }),
+      ),
+    );
+  });
+
   it("archives a season through the API", async () => {
     const fetchMock = stubFetch(okJson);
     renderView();
