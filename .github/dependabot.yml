@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+#
+# Dependabot version updates. Security updates are driven by the advisory database and need
+# no configuration here, but they inherit this file's grouping and scheduling, so keeping the
+# two ecosystems below configured is what stops security bumps arriving one PR at a time.
+# Reference: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+      timezone: "Europe/Vienna"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: "scope"
+    # Order matters: a dependency joins the *first* group it matches, so the narrow Firebase
+    # group has to precede the catch-all ones or it would never match anything.
+    groups:
+      # The Firebase packages move together and share transitive dependencies -- which is
+      # where most advisories against this repo surface. Bumping them in one PR lets a single
+      # emulator run prove the whole set, instead of each PR re-testing the same tree.
+      firebase:
+        patterns:
+          - "firebase"
+          - "firebase-admin"
+          - "firebase-tools"
+          - "@firebase/*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Every PR runs the full CI matrix and `main` refuses anything that is not green, so a
+      # PR costs a CI run rather than a click. Group the low-risk updates to keep that bill
+      # small; majors stay ungrouped, since those are the ones that need actually reading.
+      production-minor-and-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      development-minor-and-patch:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+      timezone: "Europe/Vienna"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      # The workflows pin actions by major tag, so these are nearly always retag bumps.
+      actions:
+        patterns:
+          - "*"
