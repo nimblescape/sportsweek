@@ -85,13 +85,14 @@ entity "StudentMasterData" as studentMasterData {
   FK userId : string
   FK seasonId : string  ' genuine FK — the only real reference among the "selected value" fields (US-11)
   --
-  isAttendingSportsWeek : boolean  ' "Are you attending the sports week?"; all fields below are
-                                   ' shown/required only if this is true (US-11)
+  isAttendingSportsWeek : boolean  ' "Are you attending the sports week?"; all fields below
+                                   ' are shown/required only if this is true (US-11),
+                                   ' EXCEPT .class, which is always shown/required regardless
   --
   ' The fields below are plain-text/enum snapshots of a teacher-maintained list value at
   ' selection time (US-11) — NOT foreign keys. Later edits/removals in the source list do
   ' not alter already-stored records.
-  class : string             ' copied from ClassOption.name
+  class : string             ' copied from ClassOption.name; always shown/required, not gated by isAttendingSportsWeek
   program : string           ' copied from Program.name
   skillLevel : string        ' copied from SkillLevel.name
   busPickupPoint : string    ' copied from BusPickupPoint.name
@@ -136,10 +137,14 @@ entity "SavedReportFilter" as savedReportFilter {
                                ' is shared/visible to all teachers, not private (US-13)
   --
   name : string
-  classFilter : string <<nullable>>
-  genderFilter : enum(male, female) <<nullable>>
-  programFilter : string <<nullable>>
-  skillLevelFilter : string <<nullable>>
+  ' Each *Filter field below is a set of selected tags for that category: OR within the field
+  ' (a student matches if it matches any selected tag), AND across fields, empty/null = no
+  ' restriction from that category (US-12, US-13)
+  classFilter : string[] <<nullable>>
+  genderFilter : enum(male, female)[] <<nullable>>
+  programFilter : string[] <<nullable>>
+  skillLevelFilter : string[] <<nullable>>
+  attendingFilter : boolean[] <<nullable>>  ' US-13 only \u2014 no equivalent in the assignment dialog (US-12)
   nameTextFilter : string <<nullable>>
 }
 

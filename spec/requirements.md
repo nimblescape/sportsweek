@@ -82,7 +82,7 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 
 ## Sports Week Master Data
 
-Unless a story below says otherwise, every list in this section follows the same edit/remove restriction: an item can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4); when blocked by this rule, a hint is shown: "This item is still in use in an active season. Archive that season to edit or remove it."
+Unless a story below says otherwise, every list in this section follows the same edit/remove restriction: an item can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4); when blocked by this rule, a hint is shown: "This item is still in use in a non-archived season. Archive that season to edit or remove it."
 
 All categories in this section (US-5 through US-10) share one unified, intuitive CRUD interface pattern for adding, editing, and deleting list items — consistent across every category, differing only in the fields each item has.
 
@@ -169,7 +169,7 @@ As a student, I can edit my master data so that I can provide the information ne
 - The following master data fields are available:
   - Season: the active season the student is registering for (read-only)
   - Are you attending the sports week?: yes / no
-  - Class: one of the classes maintained by a teacher (see US-6)
+  - Class: one of the classes maintained by a teacher (see US-6); always shown and required, regardless of the answer above
   - Date of birth
   - Gender: male / female
   - Phone number (must be in international format, e.g. +43...)
@@ -184,7 +184,7 @@ As a student, I can edit my master data so that I can provide the information ne
   - Food: one of the food/diet options maintained by a teacher (see US-9), with free text if "other" is selected
   - Health: free text about illnesses/allergies the teachers should know about (e.g. diabetes, epilepsy, asthma)
   - Do you carry medication for that?: yes / no
-- All master data fields other than "Are you attending the sports week?" are shown only if the student answers "yes"; a master data record is always created and saved regardless of the answer, and switching from "yes" to "no" only hides those fields — their values are kept and reappear if the student switches back to "yes".
+- All master data fields other than "Are you attending the sports week?" and "Class" are shown only if the student answers "yes"; a master data record is always created and saved regardless of the answer, and switching from "yes" to "no" only hides those fields — their values are kept and reappear if the student switches back to "yes".
 - If a student who is already assigned to an event (see US-12) switches their answer to "no", the event assignment is removed and the student becomes unassigned.
 - The required equipment items for the selected program are shown directly below the program field, in read-only form, only if the selected program has at least one required equipment item.
 - When a value is selected from a teacher-maintained list (class, program, skill level, bus pickup point, food/diet option, or season pass option), the master data record stores that value redundantly as plain text (like an enum value), not as a foreign key/reference to the list item; later changes to the maintained list do not alter already-stored master data records.
@@ -198,17 +198,18 @@ As a teacher, I can assign students to the events of the active season using an 
 
 **Acceptance criteria:**
 
-- An assignment dialog exists, showing all students registered for the active season (see US-4) who answered "yes" to "Are you attending the sports week?" (see US-11); students who answered "no" are not shown.
-- A per-class overview table shows, for each class, the total number of students, the number of male students, the number of female students, the percentage of registered students in the class who are attending, and the skill-level statistics (see US-7) per program (see US-5).
-- Below the per-class overview table, a second table shows the same statistics (total, male, female, skill levels per program, without the attendance percentage), broken down by event instead of by class; it only counts students who are both attending and assigned to that event.
+- An assignment dialog exists, scoped to all students registered for the active season (see US-4). Students who answered "no" to "Are you attending the sports week?" (see US-11) are counted only in the per-class overview table's total and attendance-percentage figures; they are excluded from the transfer lists and from every other statistic (male, female, skill level per program), since only attending students can be assigned to an event.
+- A per-class overview table shows, for each class: the total number of registered students (attending and not attending), the number of those students who are attending, and the percentage of registered students in the class who are attending; the remaining columns (number of male students, number of female students, and skill-level statistics per program, see US-7 and US-5) describe attending students only.
+- Below the per-class overview table, a second table shows the same attending-only statistics (male, female, skill levels per program — no total or attendance percentage, since every student in this table is by definition attending), broken down by event instead of by class; it only counts students assigned to that event.
 - Below the two overview tables, a left/right (transfer) list shows students for the event selected by clicking its row in the per-event overview table: the left list shows students not yet assigned to any event; the right list shows the students assigned to the selected event.
-- The teacher can select a student in either list and move it to the other list by dragging and dropping it.
-- Multi-select is supported when moving students from left to right and from right to left.
-- To move a student from one event to a different event, the teacher first drags the student from the right list back to the left list (unassigning them), then selects the other event and drags the student from the left list into its right list; no direct move-between-events action exists.
+- The teacher can select one or more students in either list (multi-select is supported) and move the selection to the other list either by dragging and dropping, or by pressing a move button between the two lists (e.g. arrow buttons); the button-based option keeps the dialog fully usable on touch devices (tablet, mobile), where drag-and-drop is unreliable or unsupported (see General).
+- To move a student from one event to a different event, the teacher first moves the student from the right list back to the left list (unassigning them), then selects the other event and moves the student from the left list into its right list; no direct move-between-events action exists.
 - Both the left and right lists can be filtered by class (see US-6), by gender, by program (see US-5), by skill level (see US-7), and by a free-text filter that searches the first name and last name.
 - Above each list, a free-text filter field for the name is shown, with a clear button (using a suitable icon) to reset it; below it, a single wrapping row of tags contains all the class, gender, program, and skill level filter options together, in that order.
-- Each tag in the row can be individually selected and deselected; a selected tag is highlighted. Selecting multiple tags combines them with AND logic (a student must match all selected tags to be shown).
-- The tag row includes an "all" tag as its very first tag, that deselects all other tags; it is highlighted while no other tag is selected, and stops being highlighted as soon as any other tag is selected.
+- Multiple tags can be selected at once within the same category (e.g. two classes, or both genders); a selected tag is highlighted, and selecting or deselecting a tag never affects tags belonging to a different category.
+- Within a category, selected tags combine with OR logic (a student matches that category if it matches at least one of its selected tags); a category with no tag selected does not restrict the results (equivalent to every option in that category being allowed, including having no tag selected in every category, which shows all students).
+- Different categories combine with AND logic (a student must satisfy every category's OR condition above to be shown).
+- The tag row includes an "all" tag as its very first tag, that deselects all other tags across every category; it is highlighted while no other tag is selected, and stops being highlighted as soon as any other tag is selected.
 - Below each list, the number of currently shown (filtered) items is displayed.
 
 ## Reporting
@@ -222,11 +223,11 @@ As a teacher, I can view a report listing all students so that I have their cont
 - A report page exists, listing all students registered for the active season (see US-4).
 - For each student, the report always shows the first name and last name (see US-1).
 - The report has two independent tag lists: a filter tag list that determines which students are shown, and a columns tag list that determines which additional fields are shown for each student.
-- The filter tag list works the same way as in the assignment dialog (see US-12): a free-text filter for the name with a clear button, and a wrapping tag row (with a first "all" tag) for class, gender, program, and skill level, combined with AND logic.
-- The columns tag list lets the teacher select which additional fields, beyond first name and last name, are shown for each student: class (see US-6), gender (see US-11), date of birth (see US-11), contact data (email address, see US-1; phone number and emergency contact — name, relationship, and phone number — see US-11), skill level (see US-11), body measurements (weight, height, shoe size, see US-11), and needed rental equipment (see US-11).
-- A dropdown next to the filter tag list shows all saved filters by name, shared among all teachers (not private to the teacher who saved it); selecting one applies its saved filter tag list selection to the report.
+- The filter tag list works the same way as in the assignment dialog (see US-12): a free-text filter for the name with a clear button, and a wrapping tag row (with a first "all" tag) for class, gender, program, and skill level, each following the same within-category-OR / across-category-AND combination rules. In addition, since this report (unlike the assignment dialog) also lists students who answered "no", the tag row has an extra attendance category with the tags "attending" and "not attending" (see US-11), following the same selection rules as the other categories.
+- The columns tag list lets the teacher select which additional fields, beyond first name and last name, are shown for each student: attending status (yes/no, see US-11), class (see US-6), gender (see US-11), date of birth (see US-11), contact data (email address, see US-1; phone number and emergency contact — name, relationship, and phone number — see US-11), program (see US-5), skill level (see US-7), body measurements (weight, height, shoe size, see US-11), needed rental equipment (see US-11), bus pickup point (see US-8), season pass (see US-10), food/diet option (including its free text if "other" is selected, see US-9), and health/medication (health notes and whether medication is carried, see US-11).
+- A dropdown next to the filter tag list shows all saved filters by name, shared among all teachers (not private to the teacher who saved it); selecting one applies its saved filter tag list selection to the report. This is a custom dropdown/listbox component (e.g. a popover-based combobox), not a native HTML `<select>` element, since a native `<select>` cannot render the per-item rename/delete icons described below.
 - Next to the dropdown, a Save button lets the teacher save the current filter tag list selection under a name, entered inline (e.g. in a small popover) without leaving the report page.
-- In the dropdown, each saved filter has a rename and a delete icon, shown on hover, so the teacher can rename or delete it inline, directly in the dropdown, without a separate management page.
+- In the dropdown, each saved filter has a rename and a delete icon, so the teacher can rename or delete it inline, directly in the dropdown, without a separate management page. On pointer-based devices (desktop) the icons appear on hover; on touch devices (tablet, mobile), where there is no hover state, the icons are always visible instead, so the feature stays usable on every supported screen size (see General).
 - Renaming a saved filter edits its name in place; deleting one requires a lightweight inline confirmation before it is removed.
 - A print button on the report page opens the report as HTML in a popup window, which the teacher can then print (e.g. to PDF or any format supported by the installed printers).
 

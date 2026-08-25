@@ -1,5 +1,5 @@
 ---
-description: "Firestore Security Rules patterns for this app's role model (admin/teacher/student) — role lookup, ownership checks, and field-level locking for student records."
+description: "Firestore Security Rules patterns for this app's role model (teacher/student) — role lookup, ownership checks, and field-level locking for student records."
 applyTo: "firestore.rules, **/firestore.rules"
 ---
 
@@ -7,9 +7,9 @@ applyTo: "firestore.rules, **/firestore.rules"
 
 ## Role Storage
 
-- Roles live in `/users/{uid}` as an array field: `roles: string[]`, values `"admin" | "teacher" | "student"`.
-- A user can hold multiple roles (e.g. a teacher who is also an admin) — always check membership in the array, never equality against a single string.
-- Never let a client write its own `/users/{uid}.roles` field. Role changes must go through a privileged Route Handler / Cloud Function using the Admin SDK (which bypasses rules). In rules, deny any update that touches `roles` unless the requester is already an admin.
+- Each `/users/{uid}` document has a single `role` field: `role: "teacher" | "student"`. There is no admin role and no array of roles — a user has exactly one role.
+- Roles are hierarchical: a teacher has all the rights of a student, so `isTeacher()` implies student-level access too; there's no separate "teacher AND student" combination to check for.
+- The role is assigned once, at account creation, based on the Entra ID UPN domain (`htldornbirn.at` → teacher, `student.htldornbirn.at` → student). It is never writable by any client, at any role — not even by a teacher. Deny every `update` that touches `role`, full stop. Correcting a wrong role requires direct database access (e.g. by IT staff), not an app code path.
 
 ## Helper Functions
 
@@ -18,21 +18,24 @@ function isSignedIn() {
   return request.auth != null;
 }
 
-function getRoles(uid) {
-  return get(/databases/$(database)/documents/users/$(uid)).data.roles;
+function getRole(uid) {
+  return get(/databases/$(database)/documents/users/$(uid)).data.role;
 }
 
-function hasRole(role) {
-  return isSignedIn() && role in getRoles(request.auth.uid);
+function isTeacher() {
+  return isSignedIn() && getRole(request.auth.uid) == 'teacher';
 }
 
-function isAdmin() { return hasRole('admin'); }
-function isTeacher() { return hasRole('teacher'); }
-function isStudent() { return hasRole('student'); }
-function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
+function isStudent() {
+  return isSignedIn() && getRole(request.auth.uid) == 'student';
+}
+
+function isSelf(uid) {
+  return isSignedIn() && request.auth.uid == uid;
+}
 ```
 
-`get()` calls count as a document read and add latency — call `getRoles()` once per rule (e.g. via `let`) instead of once per helper if a rule needs several role checks.
+`get()` calls count as a document read and add latency — call `getRole()` once per rule (e.g. via `let`) instead of once per helper if a rule needs several role checks.
 
 ## Access Pattern for Student-Owned Records (Template)
 
@@ -45,15 +48,14 @@ This is a template, not a fixed field list — before applying it to a real coll
 
 ```
 match /studentRecords/{studentId} {
-  allow read: if isAdmin() || isTeacher() || isSelf(studentId);
+  allow read: if isTeacher() || isSelf(studentId);
 
-  allow create: if isAdmin() || isTeacher();
+  allow create: if isTeacher();
 
-  allow update: if isAdmin()
-    || isTeacher()
+  allow update: if isTeacher()
     || (isSelf(studentId) && noLockedFieldsChanged());
 
-  allow delete: if isAdmin();
+  allow delete: if isTeacher();
 
   function noLockedFieldsChanged() {
     // Keep in sync with the server-managed fields of `studentRecordSchema` in lib/schemas/student-record.ts
@@ -64,12 +66,12 @@ match /studentRecords/{studentId} {
 ```
 
 - This is a **denylist**: a student update is rejected only if it touches a `lockedFields` key; any other field change is allowed. Since new fields default to editable, treat every schema change as a checkpoint to update `lockedFields` — don't rely on remembering to do it later.
-- Admin/teacher branches intentionally allow all fields; only the student branch is field-restricted.
-- Apply the same `isAdmin() || isTeacher() || isSelf(...)` + schema-derived-denylist shape to any other collection where students own most fields but a few must stay locked — re-deriving `lockedFields` from that collection's own schema each time, never copy-pasting another collection's field list.
+- The teacher branch intentionally allows all fields; only the student branch is field-restricted.
+- Apply the same `isTeacher() || isSelf(...)` + schema-derived-denylist shape to any other collection where students own most fields but a few must stay locked — re-deriving `lockedFields` from that collection's own schema each time, never copy-pasting another collection's field list.
 
 ## Rules
 
 - Every `allow write`/`allow update` must be reachable by at least one role — don't rely on rules that are unreachable due to earlier broader `allow` statements.
-- Write `create` and `update` rules separately when the allowed fields or roles differ between the two (e.g. only admin/teacher can `create`, but the owning student can `update` a subset of fields).
+- Write `create` and `update` rules separately when the allowed fields or roles differ between the two (e.g. only the teacher can `create`, but the owning student can `update` a subset of fields).
 - Validate field types and required keys on `create` (`request.resource.data.keys().hasOnly([...])`, `is string`, `is timestamp`, etc.) — don't only check role/ownership.
 - Before deploying, audit new rules with the `firebase-security-rules-auditor` skill for privilege escalation and create-vs-update gaps.
