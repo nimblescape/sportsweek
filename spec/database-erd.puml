@@ -22,6 +22,10 @@ entity "Season" as season {
   isArchived : boolean  ' archived seasons are hidden from the teacher's list (US-4);
                         ' this is the only persisted archive flag — StudentMasterData's
                         ' archived state is computed via its seasonId, never stored redundantly
+  --
+  ' Displayed state is derived, not stored: active (isActive), archived (isArchived),
+  ' or inactive (neither). Only an archived season can be deleted; deleting it cascades
+  ' to its events and to all StudentMasterData records for that season (US-4).
 }
 
 entity "Event" as event {

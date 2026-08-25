@@ -62,10 +62,10 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 **Acceptance criteria:**
 
 - A view for maintaining the list of seasons exists.
-- The list shows every season, along with a state showing whether it is active, archived, or neither.
-- Each season row has a delete button.
+- The list shows every season, along with its state: active, archived, or inactive (neither active nor archived).
 - A teacher can add, edit, and remove seasons.
-- Only an archived season can be removed (deleted); an active (non-archived) season cannot be deleted.
+- Only an archived season can be deleted; a non-archived season (whether active or inactive) cannot be deleted.
+- Each season row has a delete button, disabled for any non-archived season, with a hint explaining that only archived seasons can be deleted.
 - Removing (deleting) a season also deletes all master data records (see US-11) and all events (see below) belonging to that season.
 - Before a season is deleted, a confirmation modal dialog (built with native HTML/CSS, not a separate browser popup window) asks the teacher whether they are sure they want to delete the season, showing the exact season name; it also states that all master data records for that season will be deleted along with it, and includes a hint that this cannot be undone.
 - The confirmation dialog is a warning dialog (see Design Guidelines).
@@ -82,6 +82,10 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 
 ## Sports Week Master Data
 
+Unless a story below says otherwise, every list in this section follows the same edit/remove restriction: an item can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4); when blocked by this rule, a hint is shown: "This item is still in use in an active season. Archive that season to edit or remove it."
+
+All categories in this section (US-5 through US-10) share one unified, intuitive CRUD interface pattern for adding, editing, and deleting list items — consistent across every category, differing only in the fields each item has.
+
 ### US-5: Teacher maintains programs
 
 As a teacher, I can maintain the list of programs so that students can register for a current program.
@@ -94,9 +98,7 @@ As a teacher, I can maintain the list of programs so that students can register 
 - The program a student selects in their master data (US-11) is chosen from this maintained list.
 - Each program has an associated list of required equipment items; the default Ski program is pre-populated with ski, ski boots, poles, and helmet, and the default Snowboard program is pre-populated with board, boots, and helmet; the default Alternativ program has no pre-populated required equipment items.
 - A teacher can add, edit, and remove the required equipment items for each program.
-- A program can only be edited or removed if it is not currently selected (via its `.program` value) by any master data record (US-11) belonging to a non-archived season (US-4).
-- A required equipment item can only be edited or removed if it is not currently selected by any student's equipment rental selection (US-11) belonging to a non-archived season (US-4).
-- When a program or required equipment item cannot be edited or removed, a hint is shown: "This item is still in use in an active season. Archive that season to edit or remove it."
+- A program is matched via its `.program` value on master data records; a required equipment item is matched via students' equipment rental selections instead — both follow the shared edit/remove restriction above.
 
 ### US-6: Teacher maintains classes
 
@@ -108,8 +110,6 @@ As a teacher, I can maintain the list of classes so that students can select the
 - A teacher can add, edit, and remove classes from the list.
 - A student can only select a class from this maintained list; a student cannot create or edit a class.
 - The class a student selects in their master data (US-11) is chosen from this maintained list.
-- A class can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4).
-- When a class cannot be edited or removed, a hint is shown: "This item is still in use in an active season. Archive that season to edit or remove it."
 
 ### US-7: Teacher maintains skill levels
 
@@ -121,8 +121,6 @@ As a teacher, I can maintain the list of ski/snowboard skill levels so that stud
 - A teacher can add, edit, and remove skill levels from the list.
 - The list is pre-populated with the skill levels complete beginner, beginner, advanced, and expert.
 - The skill level a student selects in their master data (US-11) is chosen from this maintained list.
-- A skill level can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4).
-- When a skill level cannot be edited or removed, a hint is shown: "This item is still in use in an active season. Archive that season to edit or remove it."
 
 ### US-8: Teacher maintains bus pickup points
 
@@ -134,8 +132,6 @@ As a teacher, I can maintain the list of bus pickup points so that students can 
 - A teacher can add, edit, and remove bus pickup points from the list.
 - The list is pre-populated with the pickup points HTL Dornbirn, Feldkirch station, Bregenz station, and directly at the Tschagguns accommodation.
 - The bus pickup point a student selects in their master data (US-11) is chosen from this maintained list.
-- A bus pickup point can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4).
-- When a bus pickup point cannot be edited or removed, a hint is shown: "This item is still in use in an active season. Archive that season to edit or remove it."
 
 ### US-9: Teacher maintains food/diet options
 
@@ -149,8 +145,6 @@ As a teacher, I can maintain the list of food/diet options so that students can 
 - In addition to the teacher-maintained list, the option "other" is always available and cannot be removed or edited by the teacher.
 - Selecting the "other" option always requires the student to enter free text explaining the intolerance; the free text must not be empty.
 - The food/diet option a student selects in their master data (US-11) is chosen from this maintained list.
-- A food/diet option can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4).
-- When a food/diet option cannot be edited or removed, a hint is shown: "This item is still in use in an active season. Archive that season to edit or remove it."
 
 ### US-10: Teacher maintains season pass options
 
@@ -162,8 +156,6 @@ As a teacher, I can maintain the list of season pass options so that students ca
 - A teacher can add, edit, and remove season pass options from the list.
 - The list is pre-populated with the options no, maybe, Golm-Bielerhöhe (Illwerke), and Silvretta-Montafon.
 - The season pass option a student selects in their master data (US-11) is chosen from this maintained list.
-- A season pass option can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4).
-- When a season pass option cannot be edited or removed, a hint is shown: "This item is still in use in an active season. Archive that season to edit or remove it."
 
 ### US-11: Student edits own master data
 
@@ -185,16 +177,14 @@ As a student, I can edit my master data so that I can provide the information ne
   - Which program are you registering for?: one of the programs maintained by a teacher (see US-5)
   - Equipment rental — shown only if the selected program has at least one required equipment item (see US-5): do you need to borrow any of the required equipment?: yes / no
     - If yes: shoe size, height [cm], weight [kg]
-    - If yes, which equipment: one or more of the required equipment items for the selected program (see US-5)
+    - If yes, which equipment: one or more of the required equipment items for the selected program (see US-5), selected via checkboxes, plus an "all" checkbox that is UI-only (not a distinct equipment item); selecting "all" checks every equipment item, deselecting any single item automatically unchecks "all", and manually checking every item automatically checks "all" as well
   - Skill level: one of the skill levels maintained by a teacher (see US-7)
   - Season pass: one of the season pass options maintained by a teacher (see US-10)
   - Bus pickup point on arrival: one of the pickup points maintained by a teacher (see US-8)
   - Food: one of the food/diet options maintained by a teacher (see US-9), with free text if "other" is selected
   - Health: free text about illnesses/allergies the teachers should know about (e.g. diabetes, epilepsy, asthma)
   - Do you carry medication for that?: yes / no
-- All master data fields other than "Are you attending the sports week?" are shown only if the student answers that question with "yes".
-- A master data record is created and its data saved regardless of whether the student answers "yes" or "no" to "Are you attending the sports week?".
-- Switching the answer from "yes" to "no" only hides the other fields; their previously entered values are kept in storage and are shown again if the student switches back to "yes".
+- All master data fields other than "Are you attending the sports week?" are shown only if the student answers "yes"; a master data record is always created and saved regardless of the answer, and switching from "yes" to "no" only hides those fields — their values are kept and reappear if the student switches back to "yes".
 - The required equipment items for the selected program are shown directly below the program field, in read-only form, only if the selected program has at least one required equipment item.
 - When a value is selected from a teacher-maintained list (class, program, skill level, bus pickup point, food/diet option, or season pass option), the master data record stores that value redundantly as plain text (like an enum value), not as a foreign key/reference to the list item; later changes to the maintained list do not alter already-stored master data records.
 - Unlike those teacher-maintained lists, the season (see US-4) the master data record belongs to is a genuine foreign key relationship, not a redundant plain-text copy — this is what allows a season's archived state to be computed for its master data records.

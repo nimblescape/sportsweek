@@ -37,5 +37,8 @@
   },
   "[yaml]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[plantuml]": {
+    "editor.defaultFormatter": "jebbs.plantuml"
   }
 }
