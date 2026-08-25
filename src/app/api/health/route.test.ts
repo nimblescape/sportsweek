@@ -23,7 +23,7 @@ describe("GET /api/health", () => {
   });
 
   it("returns 400 for an invalid query parameter", async () => {
-    getSessionUser.mockResolvedValue({ uid: "user-1", email: null, roles: [] });
+    getSessionUser.mockResolvedValue({ uid: "user-1", email: null, role: "student" });
 
     const response = await GET(new Request("https://example.com/api/health?verbose=maybe"));
 
@@ -33,7 +33,7 @@ describe("GET /api/health", () => {
   });
 
   it("returns 200 with the user's uid when signed in", async () => {
-    getSessionUser.mockResolvedValue({ uid: "user-1", email: null, roles: [] });
+    getSessionUser.mockResolvedValue({ uid: "user-1", email: null, role: "student" });
 
     const response = await GET(new Request("https://example.com/api/health"));
 

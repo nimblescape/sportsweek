@@ -32,95 +32,127 @@ async function seedUser(uid: string, data: Record<string, unknown>) {
   });
 }
 
-describe("/users/{uid} security rules", () => {
+const student = (extra: Record<string, unknown> = {}) => ({ role: "student", ...extra });
+const teacher = (extra: Record<string, unknown> = {}) => ({ role: "teacher", ...extra });
+
+describe("/users/{uid} read access", () => {
   it("denies read access to signed-out users", async () => {
-    await seedUser("alice", { roles: ["student"] });
+    await seedUser("alice", student());
     const db = testEnv.unauthenticatedContext().firestore();
 
     await assertFails(db.collection("users").doc("alice").get());
   });
 
   it("allows a user to read their own document", async () => {
-    await seedUser("alice", { roles: ["student"] });
+    await seedUser("alice", student());
     const db = testEnv.authenticatedContext("alice").firestore();
 
     await assertSucceeds(db.collection("users").doc("alice").get());
   });
 
   it("denies a student reading another user's document", async () => {
-    await seedUser("bob", { roles: ["student"] });
+    await seedUser("alice", student());
+    await seedUser("bob", student());
     const db = testEnv.authenticatedContext("alice").firestore();
 
     await assertFails(db.collection("users").doc("bob").get());
   });
 
   it("allows a teacher to read any user's document", async () => {
-    await seedUser("alice", { roles: ["student"] });
-    await seedUser("carol", { roles: ["teacher"] });
+    await seedUser("alice", student());
+    await seedUser("carol", teacher());
     const db = testEnv.authenticatedContext("carol").firestore();
 
     await assertSucceeds(db.collection("users").doc("alice").get());
   });
+});
 
-  it("denies a non-admin creating a user document", async () => {
+describe("/users/{uid} role immutability", () => {
+  it("denies a student changing their own role", async () => {
+    await seedUser("alice", student({ firstName: "Alice" }));
     const db = testEnv.authenticatedContext("alice").firestore();
 
-    await assertFails(
-      db
-        .collection("users")
-        .doc("dave")
-        .set({ roles: ["student"] }),
-    );
+    await assertFails(db.collection("users").doc("alice").update({ role: "teacher" }));
   });
 
-  it("allows an admin to create a user document", async () => {
-    await seedUser("admin1", { roles: ["admin"] });
-    const db = testEnv.authenticatedContext("admin1").firestore();
+  it("denies a teacher changing their own role", async () => {
+    await seedUser("carol", teacher({ firstName: "Carol" }));
+    const db = testEnv.authenticatedContext("carol").firestore();
 
-    await assertSucceeds(
-      db
-        .collection("users")
-        .doc("dave")
-        .set({ roles: ["student"] }),
-    );
+    await assertFails(db.collection("users").doc("carol").update({ role: "student" }));
   });
 
-  it("denies a user changing their own roles", async () => {
-    await seedUser("alice", { roles: ["student"], name: "Alice" });
-    const db = testEnv.authenticatedContext("alice").firestore();
+  it("denies a teacher changing someone else's role", async () => {
+    await seedUser("carol", teacher());
+    await seedUser("alice", student());
+    const db = testEnv.authenticatedContext("carol").firestore();
 
-    await assertFails(
-      db
-        .collection("users")
-        .doc("alice")
-        .update({ roles: ["admin"] }),
-    );
+    await assertFails(db.collection("users").doc("alice").update({ role: "teacher" }));
   });
 
   it("allows a user to update their own non-role fields", async () => {
-    await seedUser("alice", { roles: ["student"], name: "Alice" });
+    await seedUser("alice", student({ firstName: "Alice" }));
     const db = testEnv.authenticatedContext("alice").firestore();
 
-    await assertSucceeds(db.collection("users").doc("alice").update({ name: "Alice B." }));
+    await assertSucceeds(db.collection("users").doc("alice").update({ firstName: "Alicia" }));
   });
 
-  it("allows an admin to change a user's roles", async () => {
-    await seedUser("admin1", { roles: ["admin"] });
-    await seedUser("alice", { roles: ["student"] });
-    const db = testEnv.authenticatedContext("admin1").firestore();
+  it("denies a student updating another user's document", async () => {
+    await seedUser("alice", student());
+    await seedUser("bob", student({ firstName: "Bob" }));
+    const db = testEnv.authenticatedContext("alice").firestore();
 
-    await assertSucceeds(
-      db
-        .collection("users")
-        .doc("alice")
-        .update({ roles: ["teacher"] }),
-    );
+    await assertFails(db.collection("users").doc("bob").update({ firstName: "Bobby" }));
+  });
+});
+
+describe("/users/{uid} create and delete", () => {
+  it("denies a student creating a user document", async () => {
+    await seedUser("alice", student());
+    const db = testEnv.authenticatedContext("alice").firestore();
+
+    await assertFails(db.collection("users").doc("dave").set(student()));
   });
 
-  it("denies a non-admin deleting a user document", async () => {
-    await seedUser("alice", { roles: ["student"] });
+  it("denies a teacher creating a user document, since provisioning is server-side only", async () => {
+    await seedUser("carol", teacher());
+    const db = testEnv.authenticatedContext("carol").firestore();
+
+    await assertFails(db.collection("users").doc("dave").set(student()));
+  });
+
+  it("denies a user deleting their own document", async () => {
+    await seedUser("alice", student());
     const db = testEnv.authenticatedContext("alice").firestore();
 
     await assertFails(db.collection("users").doc("alice").delete());
+  });
+
+  it("denies a teacher deleting a user document", async () => {
+    await seedUser("carol", teacher());
+    await seedUser("alice", student());
+    const db = testEnv.authenticatedContext("carol").firestore();
+
+    await assertFails(db.collection("users").doc("alice").delete());
+  });
+});
+
+describe("/users/{uid} has no admin role", () => {
+  it("grants a document claiming role 'admin' no privileges at all", async () => {
+    await seedUser("mallory", { role: "admin" });
+    await seedUser("alice", student());
+    const db = testEnv.authenticatedContext("mallory").firestore();
+
+    await assertFails(db.collection("users").doc("alice").get());
+    await assertFails(db.collection("users").doc("alice").update({ role: "teacher" }));
+    await assertFails(db.collection("users").doc("dave").set(student()));
+  });
+
+  it("grants a legacy roles array no privileges, so the old model cannot be reused", async () => {
+    await seedUser("mallory", { roles: ["teacher", "admin"] });
+    await seedUser("alice", student());
+    const db = testEnv.authenticatedContext("mallory").firestore();
+
+    await assertFails(db.collection("users").doc("alice").get());
   });
 });
