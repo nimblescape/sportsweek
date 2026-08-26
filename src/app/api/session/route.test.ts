@@ -60,6 +60,19 @@ describe("POST /api/session", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
+  // "not enabled for Sportsweek" would send a student looking for someone to enable them.
+  it("says why when a student is turned away from a test environment", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "u", email: "max@student.htldornbirn.at" });
+    provisionUser.mockResolvedValue({ ok: false, reason: "students-excluded" });
+
+    const response = await POST(postRequest({ idToken: "good-token" }));
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error.message).toMatch(/Lehrpersonen/);
+    expect(cookieStore.set).not.toHaveBeenCalled();
+  });
+
   it("returns 401 when the ID token is invalid", async () => {
     verifyIdToken.mockRejectedValue(new Error("invalid token"));
 
