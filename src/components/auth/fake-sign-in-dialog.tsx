@@ -184,7 +184,14 @@ export function FakeSignInDialog({ open, onClose }: { open: boolean; onClose: ()
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={upnId}>E-Mail / UPN</Label>
-          <Input id={upnId} readOnly tabIndex={-1} value={upn ?? ""} />
+          {/* An <output>, not a read-only input: the tenant derives this from the name, so
+              there should be nowhere to put a caret and nothing to edit it into. */}
+          <output
+            id={upnId}
+            className="border-input bg-muted text-muted-foreground flex h-9 items-center rounded-lg border px-3 text-sm"
+          >
+            {upn ?? ""}
+          </output>
         </div>
 
         {submitError ? (

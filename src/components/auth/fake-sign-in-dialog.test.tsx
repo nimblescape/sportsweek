@@ -82,12 +82,25 @@ describe("FakeSignInDialog", () => {
     const { user } = renderDialog();
 
     await typeName(user, "Jürgen", "Müller");
-    expect(screen.getByLabelText("E-Mail / UPN")).toHaveValue("juergen.mueller@htldornbirn.at");
+    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent(
+      "juergen.mueller@htldornbirn.at",
+    );
 
     await user.click(screen.getByLabelText("Schüler:in"));
-    expect(screen.getByLabelText("E-Mail / UPN")).toHaveValue(
+    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent(
       "juergen.mueller@student.htldornbirn.at",
     );
+  });
+
+  // It is derived from the two names, so offering somewhere to type would invite editing it
+  // into something the tenant would never issue.
+  it("presents the UPN as a result rather than a field", async () => {
+    const { user } = renderDialog();
+
+    await typeName(user, "Jane", "Doe");
+
+    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent("jane.doe@htldornbirn.at");
+    expect(screen.queryByRole("textbox", { name: "E-Mail / UPN" })).not.toBeInTheDocument();
   });
 
   it("signs in with the token the server minted", async () => {
