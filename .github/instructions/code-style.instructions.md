@@ -17,8 +17,8 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
   wanted, and one keyword for one job keeps the shapes searchable.
 - **No `any`.** `unknown` at a boundary, narrowed by a Zod parse or a type guard. `strict` is
   on and stays on.
-- **Types are inferred from schemas**, never written twice — see
-  [single-source-of-truth.instructions.md](single-source-of-truth.instructions.md).
+- **Types are inferred from schemas**, never written twice: infer the type from the validator
+  rather than maintaining a parallel declaration of the same shape.
 - **`as const satisfies T`** for a registry or a lookup table: the literal types survive, and
   the shape is still checked. Plain `as const` where nothing needs checking.
 - **Named exports.** A default export appears only where a framework demands one — a Next.js
@@ -30,8 +30,7 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 
 ## Naming
 
-- Identifiers, types, files and comments are English, whatever language the UI speaks (see
-  [language.instructions.md](language.instructions.md)).
+- Identifiers, types, files and comments are English, whatever language the interface speaks.
 - Files are kebab-case; a component file is named after the component it exports
   (`equipment-checklist.tsx` → `EquipmentChecklist`).
 - Hooks read as questions or nouns (`useSeasons`, `useRowAction`), predicates start with `is`
@@ -58,10 +57,10 @@ what breaks if the order changes, which requirement forced it.
 items.sort(byPosition);
 
 // yes — says what the reader cannot see
-// Sorted here rather than in the query: Firestore's orderBy silently omits documents that
-// lack the field, which would hide any item stored before ordering existed.
+// Sorted here rather than in the query: the database's own sort silently omits documents
+// that lack the field, which would hide any item stored before ordering existed.
 ```
 
-Reference a requirement by its number (`US-11`) rather than describing it, so the spec stays
+Point at a requirement by its identifier rather than describing it, so the specification stays
 the place it is written down. Do not narrate a change for a reviewer — the commit message and
 the pull request do that, and the comment outlives both.

@@ -50,7 +50,7 @@ emulator itself through `firebase emulators:exec`.
 
 ## Rules
 
-- Every new/changed Route Handler, Server Action, or Cloud Function must have a test for the success path and a test for a validation/error path — assert against the error envelope in [route-handlers.instructions.md](route-handlers.instructions.md).
+- Every new/changed Route Handler, Server Action, or Cloud Function must have a test for the success path and a test for a validation/error path, asserting against the shared error envelope.
 - Every `firestore.rules` change (allow/deny logic, role checks, field locks) must have a corresponding rules test asserting both an allowed and a denied case.
 - Never mark a task complete while a test is red, unless the red state is the intended step before implementation.
 - Mock the Firebase Admin SDK and other network calls in unit tests — never hit real Firestore/Auth from Vitest.

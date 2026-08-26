@@ -54,7 +54,7 @@ documented status and sanitises anything else into a logged 500.
 | 400    | `ErrorCode.ValidationError`        | Zod `safeParse` failed                                                             |
 | 401    | `ErrorCode.AuthenticationRequired` | No/invalid session                                                                 |
 | 403    | `ErrorCode.PermissionDenied`       | Authenticated but missing required role/permission                                 |
-| 404    | `ErrorCode.NotFound`               | Referenced Firestore document / resource doesn't exist                             |
+| 404    | `ErrorCode.NotFound`               | The referenced resource does not exist                                             |
 | 409    | `ErrorCode.Conflict`               | Duplicate, concurrent update                                                       |
 | 500    | `ErrorCode.InternalError`          | Unexpected error / Admin SDK failure — log server-side, return a sanitized message |
 
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 
 - Never return raw Zod errors, exceptions, or stack traces directly to the client.
 - Log the full error server-side before returning a sanitized 500 response.
-- Re-verify the role here even when the Proxy already checked it: that check is optimistic by
-  design (see [security.instructions.md](security.instructions.md)).
+- Re-verify the role here even when edge middleware already checked it: that check runs where
+  the session cannot be fully verified, and is optimistic by design.
 - An endpoint that acts on "my" record takes no id — whose record it is follows from the
   session.

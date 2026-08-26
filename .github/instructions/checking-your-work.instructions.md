@@ -47,5 +47,4 @@ Security Rules have their own runner, against the emulator:
 npm run test:rules
 ```
 
-A red test is only acceptable while it is the deliberate first half of red-green-refactor (see
-[test-driven-development.instructions.md](test-driven-development.instructions.md)).
+A red test is only acceptable while it is the deliberate first half of red-green-refactor.

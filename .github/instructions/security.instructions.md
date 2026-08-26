@@ -1,5 +1,5 @@
 ---
-description: "Secure by default and least privilege — where trust boundaries are, what the browser may never hold, and what the server always re-checks."
+description: "Secure by default and least privilege — closed until a use case opens it, trust boundaries, credentials, and what an error response may say."
 applyTo: "**/*"
 ---
 
@@ -11,59 +11,50 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 
 # Secure by Default, Least Privilege
 
-This app holds a school's data about minors: dates of birth, phone numbers, emergency contacts,
-health notes. Every default is therefore closed, and every permission is asked for by name.
-
 ## Closed until a use case opens it
 
-- A new Firestore collection is unreadable and unwritable until a view needs it, and then only
-  as far as that view needs (see
-  [firestore-security-rules.instructions.md](firestore-security-rules.instructions.md)).
-- A capability nothing exercises is not "harmless" — it is surface with no test behind it.
-  Teacher reads of student master data are not granted, because US-11 does not need them.
-- A feature that must not exist in an environment is compiled out of it, not switched off in
-  it. The fake login's modules are absent from a build that has not opted in, so a
-  configuration mistake cannot turn it on afterwards; `npm run check:production-build` proves
-  it against the artifact.
+- A new store, table or collection is unreadable and unwritable until something needs it, and
+  then only as far as that thing needs.
+- A permission nothing exercises is not harmless. It is surface with no test behind it and no
+  reader who knows why it is there.
+- A capability that must not exist in an environment is **built out of it**, not switched off
+  in it. Code that is absent cannot be enabled by a configuration mistake, and a check against
+  the built artefact proves it stayed absent.
 
 ## Trust boundaries
 
-The browser is not trusted, ever — not for who the user is, not for what they may do.
+The client is not trusted — not for who the user is, and not for what they may do.
 
-- **The role is re-verified server-side on every write.** The Proxy check ahead of it is
-  optimistic by design: the Edge runtime cannot verify the session cookie, so
-  `requireTeacherOrResponse` / `requireStudentOrResponse` decide again in the handler.
-- **The session decides whose data is touched.** Endpoints that act on "my" record take no id:
-  `/api/my-master-data` reads the UPN from the session, so there is nothing for a caller to
-  point somewhere else.
-- **Server-owned fields are refused, not ignored.** Input schemas are strict and omit
-  `SERVER_OWNED`, so a body naming `seasonId` or `isIncomplete` is a 400 rather than a silent
-  drop — a caller trying it should hear about it.
-- **Every input is parsed at the boundary** with Zod (`safeParse`, never `parse`) before it
-  reaches a service.
+- **Re-verify authorization where the work happens.** A check in edge middleware or in the UI
+  is a convenience; the handler that performs the operation decides again.
+- **Identity comes from the session.** An endpoint acting on the caller's own data takes no
+  identifier, so there is nothing for a caller to point at someone else's.
+- **Server-owned fields are refused, not ignored.** Keep them off the input schema and make the
+  schema strict, so a request naming one fails loudly. A caller attempting it should hear about
+  it rather than have it quietly dropped.
+- **Validate at the boundary**, once, with a schema, before anything reaches domain code — and
+  with the non-throwing form, so a failure is handled rather than raised.
 
 ## Credentials and secrets
 
-- **No service account keys, ever.** The Admin SDK uses Application Default Credentials: the
-  metadata server when deployed, `gcloud auth application-default login` locally.
-- **The browser holds no secret.** Anything prefixed `NEXT_PUBLIC_` is public by definition and
-  ends up in the bundle; treat it as published. The Firebase Web API key is one of these and is
-  restricted at the console rather than hidden.
-- **A third-party token stays where it was issued for.** The Microsoft Graph access token is
-  used server-side to read a name and never stored; it is only forwarded when the sign-in
-  provider actually was `microsoft.com`, so an impersonated session cannot carry the real
-  teacher's token with it.
+- **No long-lived credential files.** Use the ambient identity the platform provides; where
+  that is unavailable locally, use a developer's own short-lived credentials.
+- **The client holds no secret.** Anything shipped to the browser is published, whatever it is
+  named — treat a key that reaches the bundle as public and restrict it at its own service
+  instead of hiding it.
+- **A third-party token stays where it was issued for**, is used server-side, and is not
+  stored. Forward it only when the flow that produced it is the flow currently in progress; a
+  token held in a closure outlives the session that earned it.
 
-## Error responses
+## What an error may say
 
-- A 500 carries a sanitised message; the real error is logged server-side. Stack traces,
-  Firestore paths and internal messages never reach a client.
-- `details` is populated for validation failures only — it describes the caller's own input.
+- A server fault returns a sanitised message; the detail is logged, not sent. Stack traces,
+  storage paths and internal messages never reach a client.
+- Validation detail is the exception, because it describes the caller's own input.
+- Never return a raw exception or validator error object.
 
 ## When adding anything
 
-Ask, in this order: does the browser need this at all? If yes, what is the narrowest read that
-serves it? What re-checks it on the server? What test proves the denial, not just the success?
-
-Audit new Security Rules with the `firebase-security-rules-auditor` skill before deploying, and
-keep changes free of the OWASP Top 10 by construction rather than by review.
+Ask, in this order: does the client need this at all? If so, what is the narrowest access that
+serves it? What re-checks it on the server? And what test proves the denial — not only the
+success?
