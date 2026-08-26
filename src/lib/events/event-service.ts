@@ -6,6 +6,7 @@
 import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
+import { reorderCollection } from "@/lib/firebase/reorder";
 import { releaseName, reservationRef, reserveName, scopeOf } from "@/lib/firebase/unique-name";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
@@ -48,6 +49,15 @@ export async function createEvent(input: { seasonId: string; name: string }): Pr
   const name = parseName(input.name);
   await requireOpenSeason(input.seasonId);
 
+  // A new event goes to the end of its season's order (see Ordering).
+  const position = (
+    await adminDb
+      .collection(COLLECTIONS.events)
+      .where("seasonId", "==", input.seasonId)
+      .count()
+      .get()
+  ).data().count;
+
   // Scoped to the season, so two seasons may both hold a "Montafon".
   return adminDb.runTransaction(async (transaction) => {
     const reference = adminDb.collection(COLLECTIONS.events).doc();
@@ -57,9 +67,21 @@ export async function createEvent(input: { seasonId: string; name: string }): Pr
       ownerId: reference.id,
     });
 
-    const data = { seasonId: input.seasonId, name };
+    const data = { seasonId: input.seasonId, name, position };
     transaction.set(reference, data);
     return { id: reference.id, ...data };
+  });
+}
+
+/** Ordering is per season, so one season's list can never renumber another's (see Ordering). */
+export async function reorderEvents(
+  seasonId: string,
+  orderedIds: readonly string[],
+): Promise<void> {
+  await reorderCollection({
+    collection: COLLECTIONS.events,
+    orderedIds,
+    scope: { field: "seasonId", value: seasonId },
   });
 }
 

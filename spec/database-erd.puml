@@ -31,6 +31,7 @@ entity "Season" as season {
   hasStudentData : boolean  ' mirrors "a StudentMasterData record exists for this season", so the
                             ' client can enable/disable archive and delete without reading a
                             ' collection it may not read; the server re-checks and decides (US-4)
+  position : number  ' teacher-defined order, not alphabetical (see Ordering)
   --
   ' Displayed state is derived, not stored: active (isActive), archived (isArchived),
   ' or inactive (neither). A season with no student data can be deleted in any state but
@@ -43,43 +44,49 @@ entity "Event" as event {
   FK seasonId : string
   --
   name : string
+  position : number  ' teacher-defined order within the season (see Ordering)
 }
 
 entity "Program" as program {
   PK id : string
   --
   name : string  ' e.g. Ski, Snowboard, Alternativ (US-5); only editable/removable if unused by a non-archived season's master data
-}
-
-entity "RequiredEquipmentItem" as requiredEquipmentItem {
-  PK id : string
-  FK programId : string
-  --
-  name : string  ' e.g. ski, ski boots, poles, helmet (US-5)
+  requiredEquipment : string[]  ' e.g. ski, ski boots, poles, helmet (US-5); stored on the program
+                                ' itself rather than as records of their own — an item has no
+                                ' identity outside the program and is referenced from nowhere.
+                                ' Unique within the program, compared case- and space-insensitively;
+                                ' two programs may each require a helmet. The whole list is
+                                ' rewritten in one step, so adding/renaming/removing is atomic,
+                                ' and the array order is the teacher-defined order (see Ordering).
+  position : number  ' teacher-defined order, not alphabetical (see Ordering)
 }
 
 entity "ClassOption" as classOption {
   PK id : string
   --
   name : string  ' Klasse (US-6); only editable/removable if unused by a non-archived season's master data
+  position : number  ' teacher-defined order (see Ordering)
 }
 
 entity "SkillLevel" as skillLevel {
   PK id : string
   --
-  name : string  ' complete beginner, beginner, advanced, expert (US-7)
+  name : string  ' Absoluter Anfänger, Anfänger, Fortgeschritten, Profi (US-7)
+  position : number  ' teacher-defined order — these are ranked, so alphabetical would be wrong
 }
 
 entity "BusPickupPoint" as busPickupPoint {
   PK id : string
   --
   name : string  ' US-8
+  position : number  ' teacher-defined order, typically along the bus route (see Ordering)
 }
 
 entity "FoodOption" as foodOption {
   PK id : string
   --
-  name : string  ' eats everything, vegetarian, vegan, no pork (US-9)
+  name : string  ' Alles, Vegetarisch, Vegan, Kein Schweinefleisch (US-9)
+  position : number  ' teacher-defined order (see Ordering)
   ' note: the fixed "other" option is not a row here — it is always available
   ' and cannot be edited/removed; see StudentMasterData.foodOtherText
 }
@@ -87,7 +94,8 @@ entity "FoodOption" as foodOption {
 entity "SeasonPassOption" as seasonPassOption {
   PK id : string
   --
-  name : string  ' no, maybe, Golm-Bielerhöhe (Illwerke), Silvretta-Montafon (US-10)
+  name : string  ' Keine, Vielleicht, Golm-Bielerhöhe (Illwerke), Silvretta-Montafon (US-10)
+  position : number  ' teacher-defined order (see Ordering)
 }
 
 entity "StudentMasterData" as studentMasterData {
@@ -138,7 +146,7 @@ entity "EquipmentRentalItem" as equipmentRentalItem {
   PK id : string
   FK studentMasterDataId : string
   --
-  itemName : string  ' copied from RequiredEquipmentItem.name at selection time, not a foreign key
+  itemName : string  ' copied from a Program.requiredEquipment entry at selection time, not a foreign key
 }
 
 entity "SavedReportFilter" as savedReportFilter {
@@ -164,7 +172,7 @@ season ||--o{ studentMasterData : "registered in (US-11)"
 event  |o--o{ studentMasterData : "assigned to (US-12); removing an event unassigns its students"
 
 ' Sports Week Master Data teacher-maintained lists (US-5 .. US-10)
-program ||--o{ requiredEquipmentItem : "requires"
+' Program.requiredEquipment is an attribute, not an entity — there is no relationship to draw.
 
 ' The dotted lines below are NOT foreign keys — they indicate that a StudentMasterData
 ' field is a plain-text copy of a list item's name at the time it was selected (US-11).
@@ -174,7 +182,7 @@ skillLevel        .down.> studentMasterData : "value copied to .skillLevel"
 busPickupPoint    .down.> studentMasterData : "value copied to .busPickupPoint"
 seasonPassOption  .down.> studentMasterData : "value copied to .seasonPassOption"
 foodOption        .down.> studentMasterData : "value copied to .foodOption"
-requiredEquipmentItem .down.> equipmentRentalItem : "value copied to .itemName"
+program           .down.> equipmentRentalItem : "a .requiredEquipment entry is copied to .itemName"
 
 ' Student edits own master data (US-11)
 user              ||--o{ studentMasterData : "owns (student)"

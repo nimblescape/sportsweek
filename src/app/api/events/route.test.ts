@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getUserWithRole = vi.fn();
 const createEvent = vi.fn();
+const reorderEvents = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
   getUserWithRole: () => getUserWithRole(),
@@ -14,9 +15,10 @@ vi.mock("@/lib/auth/guards", () => ({
 
 vi.mock("@/lib/events/event-service", () => ({
   createEvent: (...args: unknown[]) => createEvent(...args),
+  reorderEvents: (...args: unknown[]) => reorderEvents(...args),
 }));
 
-const { POST } = await import("./route");
+const { PATCH, POST } = await import("./route");
 const { ServiceError } = await import("@/lib/service-error");
 
 function postRequest(body: unknown) {
@@ -28,6 +30,7 @@ function postRequest(body: unknown) {
 
 beforeEach(() => {
   getUserWithRole.mockReset();
+  reorderEvents.mockReset();
   createEvent.mockReset();
   getUserWithRole.mockResolvedValue({ uid: "u1", email: "t@htldornbirn.at", role: "teacher" });
   createEvent.mockResolvedValue({ id: "e1", seasonId: "s1", name: "Montafon" });
@@ -75,5 +78,41 @@ describe("POST /api/events", () => {
     const response = await POST(postRequest({ seasonId: "ghost", name: "Montafon" }));
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe("PATCH /api/events", () => {
+  function patchRequest(body: unknown) {
+    return new Request("https://example.com/api/events", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("reorders within the season it was given", async () => {
+    const response = await PATCH(patchRequest({ seasonId: "s1", order: ["e2", "e1"] }));
+
+    expect(response.status).toBe(204);
+    expect(reorderEvents).toHaveBeenCalledWith("s1", ["e2", "e1"]);
+  });
+
+  it("requires the season, so one season cannot renumber another's events", async () => {
+    const response = await PATCH(patchRequest({ order: ["e1"] }));
+
+    expect(response.status).toBe(400);
+    expect(reorderEvents).not.toHaveBeenCalled();
+  });
+
+  it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
+    getUserWithRole.mockResolvedValue({
+      uid: "u2",
+      email: "s@student.htldornbirn.at",
+      role: "student",
+    });
+
+    const response = await PATCH(patchRequest({ seasonId: "s1", order: ["e1"] }));
+
+    expect(response.status).toBe(403);
+    expect(reorderEvents).not.toHaveBeenCalled();
   });
 });

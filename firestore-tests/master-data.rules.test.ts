@@ -64,13 +64,12 @@ async function seed(collection: string, id: string, data: Record<string, unknown
  * guarantees worthless.
  */
 const READABLE_COLLECTIONS: [string, Record<string, unknown>][] = [
-  ["programs", { name: "Ski" }],
+  ["programs", { name: "Ski", requiredEquipment: ["Helm"] }],
   ["classOptions", { name: "5AHIF" }],
   ["skillLevels", { name: "Fortgeschritten" }],
   ["busPickupPoints", { name: "Dornbirn" }],
   ["foodOptions", { name: "Vegetarisch" }],
   ["seasonPassOptions", { name: "Montafon Card" }],
-  ["requiredEquipmentItems", { programId: "p1", name: "Helm" }],
   ["seasons", { name: "Winter 2026", isActive: false, isArchived: false }],
   ["events", { seasonId: "s1", name: "Montafon" }],
 ];
@@ -122,6 +121,39 @@ describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
 
   it("denies an unauthenticated write", async () => {
     await assertFails(anonymous().collection(collection).doc("new").set(valid));
+  });
+});
+
+/**
+ * Bookkeeping the app keeps for itself. Neither is part of any view, and both would hand a
+ * client a way to interfere with invariants it is not allowed to touch: freeing a reserved
+ * name would let a duplicate through, and rewriting the seed marker would resurrect defaults
+ * a teacher deleted (US-5 to US-10).
+ */
+describe.each([
+  ["reservedNames", { scope: "classOptions", name: "5AHIF", ownerId: "c1" }],
+  ["seedState", { seededKeys: ["classes|5ahif"] }],
+])("/%s stays invisible to every client", (collection, valid) => {
+  it("denies a teacher reading it", async () => {
+    await seed(collection, "item1", valid);
+
+    await assertFails(teacher().collection(collection).doc("item1").get());
+  });
+
+  it("denies a student reading it", async () => {
+    await seed(collection, "item1", valid);
+
+    await assertFails(student().collection(collection).doc("item1").get());
+  });
+
+  it("denies a teacher writing it", async () => {
+    await assertFails(teacher().collection(collection).doc("new").set(valid));
+  });
+
+  it("denies a teacher deleting it", async () => {
+    await seed(collection, "item1", valid);
+
+    await assertFails(teacher().collection(collection).doc("item1").delete());
   });
 });
 

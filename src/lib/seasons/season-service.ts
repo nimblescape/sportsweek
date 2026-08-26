@@ -6,6 +6,7 @@
 import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
+import { reorderCollection } from "@/lib/firebase/reorder";
 import { releaseName, reservationRef, reserveName, scopeOf } from "@/lib/firebase/unique-name";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
@@ -32,6 +33,9 @@ function seasonDoc(id: string) {
 export async function createSeason(input: { name: string }): Promise<Season> {
   const name = parseName(input.name);
 
+  // A new season goes to the end of the teacher's order (see Ordering).
+  const position = (await adminDb.collection(COLLECTIONS.seasons).count().get()).data().count;
+
   // The reservation is what makes the name unique; it shares the transaction with the
   // record, so a rejected name leaves nothing behind (US-4).
   return adminDb.runTransaction(async (transaction) => {
@@ -42,10 +46,15 @@ export async function createSeason(input: { name: string }): Promise<Season> {
       ownerId: reference.id,
     });
 
-    const data = { name, isActive: false, isArchived: false, hasStudentData: false };
+    const data = { name, isActive: false, isArchived: false, hasStudentData: false, position };
     transaction.set(reference, data);
     return { id: reference.id, ...data };
   });
+}
+
+/** Ordering touches no name or flag, so it needs none of the guards the other writes carry. */
+export async function reorderSeasons(orderedIds: readonly string[]): Promise<void> {
+  await reorderCollection({ collection: COLLECTIONS.seasons, orderedIds });
 }
 
 export type SeasonUpdate = {
@@ -135,7 +144,14 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
       releaseName(transaction, { scope: scopeOf(COLLECTIONS.seasons), name: current.name });
     }
 
-    const next = { name: name ?? current.name, isActive, isArchived, hasStudentData };
+    // `set` replaces the document, so the teacher's ordering has to be carried across.
+    const next = {
+      name: name ?? current.name,
+      isActive,
+      isArchived,
+      hasStudentData,
+      position: current.position,
+    };
     transaction.set(reference, next);
     for (const doc of previouslyActive) transaction.update(doc.ref, { isActive: false });
 

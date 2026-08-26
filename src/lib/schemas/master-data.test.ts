@@ -8,9 +8,10 @@ import {
   busPickupPointSchema,
   classOptionSchema,
   FOOD_OPTION_OTHER,
+  FOOD_OPTION_OTHER_LABEL,
   foodOptionSchema,
   programSchema,
-  requiredEquipmentItemSchema,
+  requiredEquipmentSchema,
   seasonPassOptionSchema,
   skillLevelSchema,
 } from "@/lib/schemas/master-data";
@@ -21,12 +22,19 @@ const NAMED_LIST_SCHEMAS = [
   ["busPickupPoint", busPickupPointSchema],
   ["foodOption", foodOptionSchema],
   ["seasonPassOption", seasonPassOptionSchema],
-  ["program", programSchema],
 ] as const;
 
 describe.each(NAMED_LIST_SCHEMAS)("%s schema", (_name, schema) => {
-  it("parses an item with an id and a name", () => {
-    expect(schema.parse({ id: "item-1", name: "Ski" })).toEqual({ id: "item-1", name: "Ski" });
+  it("parses an item with an id, a name and its place in the order", () => {
+    expect(schema.parse({ id: "item-1", name: "Ski", position: 2 })).toEqual({
+      id: "item-1",
+      name: "Ski",
+      position: 2,
+    });
+  });
+
+  it("sorts an item stored before ordering existed to the end, not the top", () => {
+    expect(schema.parse({ id: "item-1", name: "Ski" }).position).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it("requires a non-empty name", () => {
@@ -38,22 +46,61 @@ describe.each(NAMED_LIST_SCHEMAS)("%s schema", (_name, schema) => {
   });
 });
 
-describe("requiredEquipmentItemSchema", () => {
-  const validItem = { id: "equip-1", programId: "program-1", name: "Skischuhe" };
-
-  it("parses a valid required equipment item", () => {
-    expect(requiredEquipmentItemSchema.parse(validItem)).toEqual(validItem);
+describe("requiredEquipmentSchema", () => {
+  it("accepts a list of names", () => {
+    expect(requiredEquipmentSchema.parse(["Ski", "Helm"])).toEqual(["Ski", "Helm"]);
   });
 
-  it("belongs to a program via a genuine foreign key", () => {
-    expect(requiredEquipmentItemSchema.safeParse({ ...validItem, programId: "" }).success).toBe(
-      false,
-    );
+  it("accepts an empty list, which is what Alternativ needs", () => {
+    expect(requiredEquipmentSchema.parse([])).toEqual([]);
+  });
+
+  it("trims each name", () => {
+    expect(requiredEquipmentSchema.parse(["  Helm  "])).toEqual(["Helm"]);
+  });
+
+  it("rejects a blank entry", () => {
+    expect(requiredEquipmentSchema.safeParse(["Helm", "   "]).success).toBe(false);
+  });
+
+  it("rejects a duplicate within the same program, ignoring case and surrounding space", () => {
+    expect(requiredEquipmentSchema.safeParse(["Helm", " helm "]).success).toBe(false);
+  });
+});
+
+describe("programSchema", () => {
+  it("carries its required equipment rather than pointing at records of its own", () => {
+    expect(
+      programSchema.parse({ id: "p1", name: "Ski", position: 0, requiredEquipment: ["Helm"] }),
+    ).toEqual({
+      id: "p1",
+      name: "Ski",
+      position: 0,
+      requiredEquipment: ["Helm"],
+    });
+  });
+
+  it("treats a program stored before the field existed as requiring nothing", () => {
+    expect(programSchema.parse({ id: "p1", name: "Alternativ", position: 0 })).toEqual({
+      id: "p1",
+      name: "Alternativ",
+      position: 0,
+      requiredEquipment: [],
+    });
+  });
+
+  it("requires a non-empty name", () => {
+    expect(programSchema.safeParse({ id: "p1", name: "  " }).success).toBe(false);
   });
 });
 
 describe("FOOD_OPTION_OTHER", () => {
   it("is a stable sentinel rather than teacher-editable display text", () => {
     expect(FOOD_OPTION_OTHER).toBe("other");
+  });
+
+  it("is shown to the user under a German label, which is not the stored value", () => {
+    expect(FOOD_OPTION_OTHER_LABEL).toBe("Sonstiges");
+    expect(FOOD_OPTION_OTHER_LABEL).not.toBe(FOOD_OPTION_OTHER);
   });
 });

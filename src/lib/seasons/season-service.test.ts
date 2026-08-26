@@ -24,6 +24,7 @@ function seedSeason(id: string, overrides: Record<string, unknown> = {}) {
     isActive: false,
     isArchived: false,
     hasStudentData: false,
+    position: 0,
     ...overrides,
   };
   firestore.seed("seasons", id, season);
@@ -43,6 +44,7 @@ describe("createSeason", () => {
       isActive: false,
       isArchived: false,
       hasStudentData: false,
+      position: 0,
     });
   });
 
@@ -51,6 +53,18 @@ describe("createSeason", () => {
 
     expect(season).toMatchObject({ name: "Wintersportwoche 2026", isActive: false });
     expect(season.id).toBeTruthy();
+  });
+
+  // The position is one number, so it must not cost a download of every season.
+  it("counts the existing seasons rather than downloading them", async () => {
+    seedSeason("s1", { position: 0 });
+    seedSeason("s2", { position: 1 });
+    firestore.queryDocumentsRead = 0;
+
+    const season = await createSeason({ name: "Wintersportwoche 2026" });
+
+    expect(firestore.get("seasons", season.id)).toMatchObject({ position: 2 });
+    expect(firestore.queryDocumentsRead).toBe(0);
   });
 
   it("trims the name", async () => {
@@ -103,6 +117,7 @@ describe("updateSeason", () => {
       isActive: true,
       isArchived: false,
       hasStudentData: false,
+      position: 0,
     });
   });
 });

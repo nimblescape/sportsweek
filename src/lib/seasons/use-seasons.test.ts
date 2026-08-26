@@ -33,6 +33,7 @@ const validSeason = {
   isActive: true,
   isArchived: false,
   hasStudentData: false,
+  position: 0,
 };
 
 /** The hook waits for Firebase Auth, so tests have to announce a signed-in user first. */

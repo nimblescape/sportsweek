@@ -84,6 +84,14 @@ export class FakeDocumentReference {
 
 type Filter = { field: string; value: unknown };
 
+export class FakeAggregateSnapshot {
+  constructor(private readonly matches: number) {}
+
+  data(): { count: number } {
+    return { count: this.matches };
+  }
+}
+
 export class FakeQuery {
   constructor(
     protected readonly firestore: FakeFirestore,
@@ -106,6 +114,14 @@ export class FakeQuery {
 
   limit(count: number): FakeQuery {
     return new FakeQuery(this.firestore, this.collectionPath, this.filters, count);
+  }
+
+  /** Aggregates server-side, so the documents themselves never cross the wire. */
+  count(): { get(): Promise<FakeAggregateSnapshot> } {
+    return {
+      get: async () =>
+        new FakeAggregateSnapshot(this.firestore.runCount(this.collectionPath, this.filters)),
+    };
   }
 
   async get(): Promise<FakeQuerySnapshot> {
@@ -213,6 +229,9 @@ export class FakeFirestore {
   commitCount = 0;
   batchSizes: number[] = [];
 
+  /** Documents a query actually handed back, so a test can prove a read is not O(collection). */
+  queryDocumentsRead = 0;
+
   /** Runs before each transaction attempt, letting a test simulate a concurrent write. */
   onTransactionAttempt: ((attempt: number) => void) | null = null;
   transactionCount = 0;
@@ -285,14 +304,24 @@ export class FakeFirestore {
     filters: Filter[],
     limitCount: number | null,
   ): FakeQuerySnapshot {
-    const matches = [...this.collectionMap(collectionPath).entries()]
-      .filter(([, data]) => filters.every((filter) => data[filter.field] === filter.value))
-      .map(
-        ([id, data]) =>
-          new FakeDocumentSnapshot(id, data, new FakeDocumentReference(this, collectionPath, id)),
-      );
+    const matches = this.matching(collectionPath, filters).map(
+      ([id, data]) =>
+        new FakeDocumentSnapshot(id, data, new FakeDocumentReference(this, collectionPath, id)),
+    );
 
-    return new FakeQuerySnapshot(limitCount === null ? matches : matches.slice(0, limitCount));
+    const returned = limitCount === null ? matches : matches.slice(0, limitCount);
+    this.queryDocumentsRead += returned.length;
+    return new FakeQuerySnapshot(returned);
+  }
+
+  runCount(collectionPath: string, filters: Filter[]): number {
+    return this.matching(collectionPath, filters).length;
+  }
+
+  private matching(collectionPath: string, filters: Filter[]): [string, DocumentData][] {
+    return [...this.collectionMap(collectionPath).entries()].filter(([, data]) =>
+      filters.every((filter) => data[filter.field] === filter.value),
+    );
   }
 
   seed(collectionPath: string, id: string, data: DocumentData): void {
@@ -316,6 +345,7 @@ export class FakeFirestore {
     this.idCounter = 0;
     this.commitCount = 0;
     this.batchSizes = [];
+    this.queryDocumentsRead = 0;
     this.transactionCount = 0;
     this.onTransactionAttempt = null;
   }

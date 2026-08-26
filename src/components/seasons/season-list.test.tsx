@@ -15,6 +15,7 @@ const seasons = [
     isActive: true,
     isArchived: false,
     hasStudentData: true,
+    position: 0,
   },
   {
     id: "s2",
@@ -22,6 +23,7 @@ const seasons = [
     isActive: false,
     isArchived: true,
     hasStudentData: true,
+    position: 0,
   },
   {
     id: "s3",
@@ -29,6 +31,7 @@ const seasons = [
     isActive: false,
     isArchived: false,
     hasStudentData: true,
+    position: 0,
   },
   {
     id: "s4",
@@ -36,6 +39,7 @@ const seasons = [
     isActive: false,
     isArchived: false,
     hasStudentData: false,
+    position: 0,
   },
 ];
 
@@ -45,6 +49,7 @@ function renderList(overrides: Record<string, unknown> = {}) {
     onDelete: vi.fn(),
     onActiveChange: vi.fn(),
     onArchivedChange: vi.fn(),
+    onReorder: vi.fn(),
   };
   render(
     <SeasonList seasons={seasons} loading={false} error={null} {...handlers} {...overrides} />,
@@ -261,6 +266,7 @@ describe("SeasonList — row actions", () => {
           isActive: false,
           isArchived: true,
           hasStudentData: false,
+          position: 0,
         },
       ],
     });

@@ -12,6 +12,7 @@ import { DeleteSeasonDialog } from "@/components/seasons/delete-season-dialog";
 import { SeasonFormDialog } from "@/components/seasons/season-form-dialog";
 import { SeasonList } from "@/components/seasons/season-list";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
+import { applyVisibleOrder } from "@/lib/schemas/position";
 import type { Season } from "@/lib/schemas/season";
 import { visibleSeasons } from "@/lib/seasons/season-state";
 import { useSeasons } from "@/lib/seasons/use-seasons";
@@ -105,6 +106,15 @@ export function SeasonsView() {
         onDelete={handleDelete}
         onActiveChange={(season, isActive) => patchSeason(season, { isActive })}
         onArchivedChange={(season, isArchived) => patchSeason(season, { isArchived })}
+        onReorder={(orderedIds) => {
+          // The list may be hiding archived seasons, so the visible order is folded back into
+          // the full one rather than sent on its own (see Ordering).
+          const order = applyVisibleOrder(
+            seasons.map((season) => season.id),
+            orderedIds,
+          );
+          return apiRequest("/api/seasons", { method: "PATCH", body: { order } }).then(() => {});
+        }}
       />
 
       {dialog.kind === "form" ? (

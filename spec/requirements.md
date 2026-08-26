@@ -22,6 +22,29 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 - Warning dialogs (e.g. irreversible delete confirmations) and error messages are exceptions to the palette rule above and may use red in a suitable way to signal danger or a problem.
 - Icons throughout the UI use a single, consistent, minimalistic icon set (Lucide, the default icon set for shadcn/ui) that fits the clean visual design while still looking polished and refined.
 
+## Drag and Drop
+
+One drag-and-drop mechanism is used everywhere in the application: for ordering lists (US-4 through US-10) and for the assignment dialog's transfer lists (US-12). It is specified once here rather than per story, so the gesture a user learns in one place works in every other.
+
+- Dragging is initiated from a dedicated grip handle on the item, not from the item's body, so a drag can never be started by accident and the rest of the row stays free for its own controls.
+- The grip handle is always visible, on every device — it is not revealed on hover. A control that only appears on hover is unreachable on touch (see General), and a handle the user cannot see is a feature they will not find.
+- The handle uses the shared icon set (see Design Guidelines) and is the leftmost element of the item.
+- Dragging works with mouse, touch, and pen alike, because it is driven by pointer input rather than by the browser's native HTML drag-and-drop, which touch devices do not support.
+- Dragging is keyboard-accessible: the handle can be focused, and the item moved with the arrow keys, so ordering is not a mouse-only capability.
+- While an item is dragged, the position it would take is shown, and the item follows the pointer.
+- A drag that is cancelled (Escape, or released outside a valid target) leaves the list exactly as it was.
+
+## Ordering
+
+Every list the teacher maintains is shown in an order the teacher decides, not in alphabetical order. Sorting by name would be a guess at intent: teachers group classes by year, put the most common program first, and order pickup points along the bus route. None of that is alphabetical.
+
+- The teacher can reorder the items of a list by dragging them (see Drag and Drop).
+- The order is persisted and is the order in which the list is shown to everyone, including the order in which students see the options they choose from (US-11).
+- A newly added item goes to the end of the list.
+- Removing an item closes the gap; the remaining items keep their relative order.
+- Reordering is never restricted by the in-use rule that governs editing and removing (see Sports Week Master Data): moving an item changes no stored value, so master data records cannot be affected by it.
+- The lists that are ordered this way are: seasons and, within a season, events (US-4); every teacher-maintained category (US-5 through US-10); and the required equipment of a program (US-5).
+
 ## Authentication & User Management
 
 ### US-1: Login with Microsoft Entra ID
@@ -94,6 +117,7 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 - An archived season cannot be activated, and the active season cannot be archived: it must be deactivated first, either in a prior call or in the same one. Either way no season is left active.
 - The assignment dialog (US-12) and the student report (US-13) only ever operate on the active season; when no season is active they show an explicit empty state instead of falling back to a previously active season.
 - Season names are unique: two seasons cannot share the same name.
+- The list of seasons, and the list of events within a season, are each shown in an order the teacher sets by dragging (see Ordering).
 - Event names are unique within their season: two events of the same season cannot share the same name, while two different seasons may each have an event of the same name.
 - Name comparison ignores surrounding whitespace and letter case, so "Montafon" and " montafon " count as the same name.
 - A rejected name is reported on the name field itself, in German, and nothing is saved.
@@ -102,9 +126,9 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 
 Unless a story below says otherwise, every list in this section follows the same edit/remove restriction: an item can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4); when blocked by this rule, a hint is shown: "This item is still in use in a non-archived season. Archive that season to edit or remove it."
 
-Every list in this section also enforces unique names: two items of the same category cannot share a name, compared ignoring surrounding whitespace and letter case. The same name may of course appear in two different categories (e.g. a class and a program). Required equipment items (US-5) are unique within their program, in the same way events are unique within their season. A rejected name is reported on the name field itself, in German, and nothing is saved.
+Every list in this section also enforces unique names: two items of the same category cannot share a name, compared ignoring surrounding whitespace and letter case. The same name may of course appear in two different categories (e.g. a class and a program). Required equipment items (US-5) are unique within their program — two different programs may each require a helmet. A rejected name is reported on the name field itself, in German, and nothing is saved.
 
-All categories in this section (US-5 through US-10) share one unified, intuitive CRUD interface pattern for adding, editing, and deleting list items — consistent across every category, differing only in the fields each item has.
+All categories in this section (US-5 through US-10) share one unified, intuitive CRUD interface pattern for adding, editing, and deleting list items — consistent across every category, differing only in the fields each item has. Every one of them is also shown in an order the teacher sets by dragging (see Ordering).
 
 ### US-5: Teacher maintains programs
 
@@ -116,9 +140,13 @@ As a teacher, I can maintain the list of programs so that students can register 
 - A teacher can add, edit, and remove programs from the list.
 - The list is pre-populated with the programs Ski, Snowboard, and Alternativ.
 - The program a student selects in their master data (US-11) is chosen from this maintained list.
-- Each program has an associated list of required equipment items; the default Ski program is pre-populated with ski, ski boots, poles, and helmet, and the default Snowboard program is pre-populated with board, boots, and helmet; the default Alternativ program has no pre-populated required equipment items.
+- Each program carries its required equipment as a list of names stored on the program itself, not as records of their own: an equipment item has no identity outside the program that requires it, and is never referenced from anywhere else. The default Ski program is pre-populated with ski, ski boots, poles, and helmet, and the default Snowboard program with board, boots, and helmet; the default Alternativ program has no pre-populated required equipment items.
 - A teacher can add, edit, and remove the required equipment items for each program.
+- The required equipment of a program is shown in an order the teacher sets by dragging (see Ordering); the list's order is the order the items are stored in.
+- Because the list lives on the program, the whole list is saved in one step: adding, renaming, or removing an item rewrites the program's equipment list as a single change, and either all of it is stored or none of it is.
+- Deleting a program deletes its required equipment list along with it, since the list has no existence apart from the program.
 - A program is matched via its `.program` value on master data records; a required equipment item is matched via students' equipment rental selections instead — both follow the shared edit/remove restriction above.
+- A program can only be deleted if none of its required equipment items is in use either, since deleting the program would take those items with it.
 
 ### US-6: Teacher maintains classes
 
@@ -139,7 +167,7 @@ As a teacher, I can maintain the list of ski/snowboard skill levels so that stud
 
 - A view for maintaining the list of skill levels exists.
 - A teacher can add, edit, and remove skill levels from the list.
-- The list is pre-populated with the skill levels complete beginner, beginner, advanced, and expert.
+- The list is pre-populated with four skill levels, shown as "Absoluter Anfänger" (complete beginner), "Anfänger" (beginner), "Fortgeschritten" (advanced), and "Profi" (expert).
 - The skill level a student selects in their master data (US-11) is chosen from this maintained list.
 
 ### US-8: Teacher maintains bus pickup points
@@ -150,7 +178,7 @@ As a teacher, I can maintain the list of bus pickup points so that students can 
 
 - A view for maintaining the list of bus pickup points exists.
 - A teacher can add, edit, and remove bus pickup points from the list.
-- The list is pre-populated with the pickup points HTL Dornbirn, Feldkirch station, Bregenz station, and directly at the Tschagguns accommodation.
+- The list is pre-populated with the pickup points "HTL Dornbirn", "Bahnhof Feldkirch", "Bahnhof Bregenz", and "Unterkunft" (boarding at the accommodation itself rather than travelling by bus).
 - The bus pickup point a student selects in their master data (US-11) is chosen from this maintained list.
 
 ### US-9: Teacher maintains food/diet options
@@ -161,7 +189,7 @@ As a teacher, I can maintain the list of food/diet options so that students can 
 
 - A view for maintaining the list of food/diet options exists.
 - A teacher can add, edit, and remove food/diet options from the list.
-- The list is pre-populated with the options eats everything, vegetarian, vegan, and no pork.
+- The list is pre-populated with the options "Alles" (eats everything), "Vegetarisch", "Vegan", and "Kein Schweinefleisch" (no pork).
 - In addition to the teacher-maintained list, the option "other" is always available and cannot be removed or edited by the teacher.
 - Selecting the "other" option always requires the student to enter free text explaining the intolerance; the free text must not be empty.
 - The food/diet option a student selects in their master data (US-11) is chosen from this maintained list.
@@ -174,7 +202,7 @@ As a teacher, I can maintain the list of season pass options so that students ca
 
 - A view for maintaining the list of season pass options exists.
 - A teacher can add, edit, and remove season pass options from the list.
-- The list is pre-populated with the options no, maybe, Golm-Bielerhöhe (Illwerke), and Silvretta-Montafon.
+- The list is pre-populated, in this order, with the options "Keine" (no season pass), "Vielleicht" (maybe), "Golm-Bielerhöhe (Illwerke)", and "Silvretta-Montafon".
 - The season pass option a student selects in their master data (US-11) is chosen from this maintained list.
 
 ### US-11: Student edits own master data
@@ -223,7 +251,7 @@ As a teacher, I can assign students to the events of the active season using an 
 - A per-class overview table shows, for each class: the total number of registered students (attending and not attending), the number of those students who are attending, and the percentage of registered students in the class who are attending; the remaining columns (number of male students, number of female students, and skill-level statistics per program, see US-7 and US-5) describe attending students only.
 - Below the per-class overview table, a second table shows the same attending-only statistics (male, female, skill levels per program — no total or attendance percentage, since every student in this table is by definition attending), broken down by event instead of by class; it only counts students assigned to that event.
 - Below the two overview tables, a left/right (transfer) list shows students for the event selected by clicking its row in the per-event overview table: the left list shows students not yet assigned to any event; the right list shows the students assigned to the selected event.
-- The teacher can select one or more students in either list (multi-select is supported) and move the selection to the other list either by dragging and dropping, or by pressing a move button between the two lists (e.g. arrow buttons); the button-based option keeps the dialog fully usable on touch devices (tablet, mobile), where drag-and-drop is unreliable or unsupported (see General).
+- The teacher can select one or more students in either list (multi-select is supported) and move the selection to the other list either by dragging and dropping, or by pressing a move button between the two lists (e.g. arrow buttons). Dragging uses the application's one drag-and-drop mechanism (see Drag and Drop) and therefore works on touch devices as well; the move buttons remain because they are what moves a multi-student selection in one action, and because they keep the dialog usable by keyboard alone.
 - To move a student from one event to a different event, the teacher first moves the student from the right list back to the left list (unassigning them), then selects the other event and moves the student from the left list into its right list; no direct move-between-events action exists.
 - Both the left and right lists can be filtered by class (see US-6), by gender, by program (see US-5), by skill level (see US-7), and by a free-text filter that searches the first name and last name.
 - Above each list, a free-text filter field for the name is shown, with a clear button (using a suitable icon) to reset it; below it, a single wrapping row of tags contains all the class, gender, program, and skill level filter options together, in that order.

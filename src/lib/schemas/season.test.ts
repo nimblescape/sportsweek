@@ -12,8 +12,9 @@ const validSeason = {
   isActive: true,
   isArchived: false,
   hasStudentData: false,
+  position: 0,
 };
-const validEvent = { id: "event-1", seasonId: "season-1", name: "Montafon" };
+const validEvent = { id: "event-1", seasonId: "season-1", name: "Montafon", position: 0 };
 
 describe("seasonSchema", () => {
   it("parses a valid season", () => {
@@ -30,7 +31,7 @@ describe("seasonSchema", () => {
 
   it("carries no third state field, since the displayed state is derived", () => {
     expect(Object.keys(seasonSchema.shape).sort()).toEqual(
-      ["id", "isActive", "isArchived", "hasStudentData", "name"].sort(),
+      ["id", "isActive", "isArchived", "hasStudentData", "name", "position"].sort(),
     );
   });
 });

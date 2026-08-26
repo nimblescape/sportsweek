@@ -43,7 +43,11 @@ describe("createEvent", () => {
 
     const event = await createEvent({ seasonId: "s1", name: "Montafon" });
 
-    expect(firestore.get("events", event.id)).toEqual({ seasonId: "s1", name: "Montafon" });
+    expect(firestore.get("events", event.id)).toEqual({
+      seasonId: "s1",
+      name: "Montafon",
+      position: 0,
+    });
   });
 
   it("trims the name", async () => {
@@ -52,6 +56,20 @@ describe("createEvent", () => {
     const event = await createEvent({ seasonId: "s1", name: "  Lech  " });
 
     expect(event.name).toBe("Lech");
+  });
+
+  // Only this season's events decide the position, and only how many of them there are.
+  it("counts the season's existing events rather than downloading them", async () => {
+    seedSeason("s1");
+    seedEvent("e1", "s1", "Montafon");
+    seedEvent("e2", "s1", "Lech");
+    seedEvent("e3", "s2", "Silvretta");
+    firestore.queryDocumentsRead = 0;
+
+    const event = await createEvent({ seasonId: "s1", name: "Damuels" });
+
+    expect(firestore.get("events", event.id)).toMatchObject({ position: 2 });
+    expect(firestore.queryDocumentsRead).toBe(0);
   });
 
   it("rejects a blank name", async () => {

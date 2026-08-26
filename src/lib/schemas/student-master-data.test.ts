@@ -23,7 +23,7 @@ const validRecord = {
   busPickupPoint: "HTL Dornbirn",
   foodOption: "Vegetarisch",
   foodOtherText: null,
-  seasonPassOption: "Nein",
+  seasonPassOption: "Keine",
   dateOfBirth: "2008-05-04",
   gender: "female",
   phoneNumber: "+436601234567",

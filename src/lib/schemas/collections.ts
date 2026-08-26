@@ -9,7 +9,6 @@ export const COLLECTIONS = {
   seasons: "seasons",
   events: "events",
   programs: "programs",
-  requiredEquipmentItems: "requiredEquipmentItems",
   classOptions: "classOptions",
   skillLevels: "skillLevels",
   busPickupPoints: "busPickupPoints",
@@ -21,6 +20,8 @@ export const COLLECTIONS = {
   savedReportFilters: "savedReportFilters",
   /** Name reservations: the document id is the name, which is how uniqueness is enforced. */
   reservedNames: "reservedNames",
+  /** Which defaults have already been seeded, so a deleted one is never resurrected. */
+  seedState: "seedState",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
