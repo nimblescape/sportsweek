@@ -31,7 +31,11 @@ jobs:
       - run: npm run license:check
       - run: npm run format:check
       - run: npm run lint
+      # Route types follow pageExtensions, which follows the sign-in mode: generated for
+      # production they would omit /api/auth/fake, and the code that calls it fails to compile.
       - run: npx next typegen
+        env:
+          APP_HOSTING_ENV: development
       - run: npx tsc --noEmit
       - run: npm test
 
