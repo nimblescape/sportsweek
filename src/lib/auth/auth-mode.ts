@@ -11,6 +11,11 @@ export type AuthMode = z.infer<typeof authModeSchema>;
 /** The one project holding real people's data, and so the one that may never fake a login. */
 export const PRODUCTION_PROJECT_ID = "htld-sportsweek";
 
+/** Anything else is a test environment, holding invented people and unfinished work. */
+export function isProductionProject(): boolean {
+  return process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID === PRODUCTION_PROJECT_ID;
+}
+
 /**
  * Picks the sign-in implementation for this deployment (`AUTH_MODE`).
  *

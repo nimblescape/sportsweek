@@ -3,7 +3,8 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PRODUCTION_PROJECT_ID } from "@/lib/auth/auth-mode";
 
 const docGet = vi.fn();
 const docSet = vi.fn();
@@ -32,6 +33,56 @@ const teacherClaims = {
 function existingRecord(data: Record<string, unknown>) {
   docGet.mockResolvedValue({ exists: true, data: () => data });
 }
+
+const ENTRA = { firebase: { sign_in_provider: "microsoft.com" } };
+const IMPERSONATED = { firebase: { sign_in_provider: "custom" } };
+
+const studentClaims = {
+  uid: "firebase-uid-2",
+  email: "max.mustermann@student.htldornbirn.at",
+  given_name: "Max",
+  family_name: "Mustermann",
+};
+
+/**
+ * A test environment holds invented people and unfinished work. A student's real account has
+ * no business there — but an impersonated student is exactly what it is for.
+ */
+describe("students outside production", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID", "htld-sportsweek-staging");
+    docGet.mockResolvedValue({ exists: false, data: () => undefined });
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("turns away a student signing in with their real account", async () => {
+    const result = await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(result).toEqual({ ok: false, reason: "students-excluded" });
+    expect(docSet).not.toHaveBeenCalled();
+  });
+
+  it("still admits a student the fake login is standing in for", async () => {
+    const result = await provisionUser({ ...studentClaims, ...IMPERSONATED });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("leaves teachers alone", async () => {
+    const result = await provisionUser({ ...teacherClaims, ...ENTRA });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("admits a real student in production, where the rule does not apply", async () => {
+    vi.stubEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID", PRODUCTION_PROJECT_ID);
+
+    const result = await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(result.ok).toBe(true);
+  });
+});
 
 describe("provisionUser", () => {
   beforeEach(() => {
