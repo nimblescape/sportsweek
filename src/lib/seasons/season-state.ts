@@ -8,6 +8,9 @@ import type { Season } from "@/lib/schemas/season";
 export const SEASON_STATES = ["active", "archived", "inactive"] as const;
 export type SeasonState = (typeof SEASON_STATES)[number];
 
+/** Shown by the views that bind to the active season, and returned by the handlers behind them. */
+export const NO_ACTIVE_SEASON_HINT = "Es ist keine Saison aktiv.";
+
 /**
  * Derives the displayed state from the two stored flags (US-4) — it is never persisted.
  * Archived takes precedence, so a contradictory record still resolves to exactly one state.

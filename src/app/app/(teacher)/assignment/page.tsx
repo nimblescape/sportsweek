@@ -3,9 +3,8 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { SectionPlaceholder } from "@/components/layout/section-placeholder";
+import { AssignmentView } from "@/components/assignment/assignment-view";
 
-// Replaced by the assignment dialog in #38 to #41.
 export default function AssignmentPage() {
-  return <SectionPlaceholder title="Zuteilung" />;
+  return <AssignmentView />;
 }

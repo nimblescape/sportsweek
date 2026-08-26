@@ -133,10 +133,10 @@ export type UsageReport = {
 const NOTHING_BLOCKED: UsageReport = { blockedIds: new Set(), blockedEquipment: {} };
 
 /**
- * What the in-use guard blocks (US-5 to US-10). The answer is derived from student master data,
- * which no client may read (see firestore.rules), so it comes from a teacher-guarded handler
- * rather than a subscription. Fetching once is enough: it only moves when a student edits their
- * master data, which cannot happen from this view.
+ * What the in-use guard blocks (US-5 to US-10). The answer is a cross-collection question — is
+ * this value still named by a record whose season is not archived — so it comes from a
+ * teacher-guarded handler rather than a subscription. Fetching once is enough: it only moves
+ * when a student edits their master data, which cannot happen from this view.
  */
 export function useUsageReport(key: MasterDataCategoryKey): UsageReport {
   const [report, setReport] = useState<UsageReport>(NOTHING_BLOCKED);
