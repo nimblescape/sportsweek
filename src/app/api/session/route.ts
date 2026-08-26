@@ -57,10 +57,14 @@ export async function POST(request: Request) {
   }
 
   if (!provisioned.ok) {
-    return NextResponse.json(
-      apiError(ErrorCode.PermissionDenied, "Dieses Konto ist für Sportsweek nicht freigeschaltet."),
-      { status: 403 },
-    );
+    // A student turned away from a test environment is not an account problem, and telling
+    // them it is would send them looking for someone to enable them.
+    const message =
+      provisioned.reason === "students-excluded"
+        ? "Diese Umgebung steht nur Lehrpersonen offen."
+        : "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
+
+    return NextResponse.json(apiError(ErrorCode.PermissionDenied, message), { status: 403 });
   }
 
   let sessionCookie: string;

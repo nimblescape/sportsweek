@@ -8,6 +8,7 @@ import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { userSchema, type User } from "@/lib/schemas/user";
 import { fetchEntraName } from "./graph";
+import { isProductionProject } from "./auth-mode";
 import { roleFromUpn } from "./upn";
 
 export type EntraClaims = {
@@ -17,10 +18,12 @@ export type EntraClaims = {
   given_name?: string;
   family_name?: string;
   role?: unknown;
+  firebase?: { sign_in_provider?: string };
 };
 
 export type ProvisionOutcome =
-  { ok: true; user: User } | { ok: false; reason: "missing-upn" | "unsupported-domain" };
+  | { ok: true; user: User }
+  | { ok: false; reason: "missing-upn" | "unsupported-domain" | "students-excluded" };
 
 function resolveName(claims: EntraClaims, fallback: string) {
   const given = claims.given_name?.trim();
@@ -48,6 +51,18 @@ export async function provisionUser(
 
   const derivedRole = roleFromUpn(upn);
   if (!derivedRole) return { ok: false, reason: "unsupported-domain" };
+
+  // A test environment is for staff trying things out, so a student's own account is turned
+  // away there. The provider is what separates that from the fake login standing in for a
+  // student, which is the entire point of the environment: Firebase sets it, and a caller
+  // cannot claim `microsoft.com` without having actually been through Entra ID.
+  if (
+    derivedRole === "student" &&
+    !isProductionProject() &&
+    claims.firebase?.sign_in_provider === "microsoft.com"
+  ) {
+    return { ok: false, reason: "students-excluded" };
+  }
 
   const localPart = upn.slice(0, upn.indexOf("@"));
   // Graph is the only authoritative source for the name; the token claims carry a display
