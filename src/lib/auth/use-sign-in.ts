@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   OAuthProvider,
   getRedirectResult,
-  onAuthStateChanged,
+  onIdTokenChanged,
   signInWithRedirect,
   signOut,
 } from "firebase/auth";
@@ -56,7 +56,10 @@ export function useSignIn() {
       })
       .catch(() => undefined);
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    // Tokens rather than sign-in state: impersonating yourself keeps the same uid, and
+    // onAuthStateChanged only reports a *change* of user — it would stay silent exactly
+    // when the impersonation dialog is waiting to hand over.
+    const unsubscribe = onIdTokenChanged(auth, async (user) => {
       if (!user) {
         setChecking(false);
         return;

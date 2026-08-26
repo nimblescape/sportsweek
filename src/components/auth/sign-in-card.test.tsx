@@ -3,10 +3,11 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const onIdTokenChanged = vi.fn();
 const onAuthStateChanged = vi.fn();
 const signInWithRedirect = vi.fn();
 const signOut = vi.fn();
@@ -16,6 +17,7 @@ const push = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("firebase/auth", () => ({
+  onIdTokenChanged,
   onAuthStateChanged,
   signInWithRedirect,
   signOut,
@@ -30,7 +32,7 @@ vi.mock("@/lib/firebase/client", () => ({
 }));
 
 // Stable across renders, as the real hooks are: a fresh object each call would re-run the
-// auth-state effect on every render, which the card is not written to expect.
+// subscription effect on every render, which the card is not written to expect.
 const router = { push, refresh };
 const searchParams = new URLSearchParams();
 
@@ -71,7 +73,7 @@ describe("SignInCard", () => {
     vi.clearAllMocks();
     getRedirectResult.mockResolvedValue(null);
     credentialFromResult.mockReturnValue(null);
-    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(signedInUser);
       return () => {};
     });
@@ -166,7 +168,7 @@ describe("SignInCard", () => {
     ["when idle", false],
   ])("reserves the spinner's space %s so the card keeps its height", async (_case, busy) => {
     respondWith(200, { status: "ok" });
-    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(busy ? signedInUser : null);
       return () => {};
     });
@@ -189,7 +191,7 @@ describe("SignInCard", () => {
   });
 
   it("shows no spinner once the visitor can sign in", async () => {
-    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(null);
       return () => {};
     });
@@ -264,7 +266,7 @@ describe("SignInCard", () => {
   });
 
   it("starts the real sign-in when the button is pressed", async () => {
-    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(null);
       return () => {};
     });
@@ -277,7 +279,7 @@ describe("SignInCard", () => {
 
   // A rejected redirect never leaves the page, so saying nothing looks like a dead button.
   it("reports a sign-in that could not even start", async () => {
-    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(null);
       return () => {};
     });
@@ -288,5 +290,26 @@ describe("SignInCard", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/fehlgeschlagen/i);
     expect(screen.getByRole("button")).not.toBeDisabled();
+  });
+
+  // Impersonating yourself keeps the same uid, so the sign-in *state* never changes and
+  // onAuthStateChanged stays silent -- only the token is new. Listening to the wrong one
+  // leaves the card waiting for a callback that will not come.
+  it("notices a fresh token for the user already signed in", async () => {
+    respondWith(200, { status: "ok" });
+    let notify: (user: unknown) => void = () => {};
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+      notify = callback;
+      callback(null);
+      return () => {};
+    });
+
+    render(<SignInCard />);
+    await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
+
+    await act(async () => notify(userSignedInVia("custom")));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/app"));
+    expect(onAuthStateChanged).not.toHaveBeenCalled();
   });
 });
