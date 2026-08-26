@@ -79,6 +79,29 @@ describe("ProgramsView", () => {
     expect(screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Programm Ski bearbeiten" })).toBeDisabled();
   });
+
+  it("locks the equipment link while a write on that program is in flight", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
+    render(<ProgramsView />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Programm Ski löschen" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Löschen" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    expect(
+      screen.getByRole("link", { name: "Benötigte Ausrüstung für Alternativ" }),
+    ).not.toHaveAttribute("aria-disabled");
+  });
 });
 
 describe("ProgramEquipmentView", () => {

@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { DeleteSeasonDialog } from "@/components/seasons/delete-season-dialog";
 import { SeasonFormDialog } from "@/components/seasons/season-form-dialog";
 import { SeasonList } from "@/components/seasons/season-list";
-import { apiRequest, ApiRequestError } from "@/lib/api/client";
+import { apiRequest, ApiRequestError, type RequestOptions } from "@/lib/api/client";
+import { useRowAction } from "@/lib/api/use-row-action";
 import { applyVisibleOrder } from "@/lib/schemas/position";
 import type { Season } from "@/lib/schemas/season";
 import { visibleSeasons } from "@/lib/seasons/season-state";
@@ -24,7 +25,7 @@ export function SeasonsView() {
   const { seasons, loading, error } = useSeasons();
   const [showArchived, setShowArchived] = React.useState(false);
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
-  const [busySeasonId, setBusySeasonId] = React.useState<string | null>(null);
+  const { busyId, run } = useRowAction();
   const [actionError, setActionError] = React.useState<string | null>(null);
   const toggleId = React.useId();
 
@@ -33,31 +34,16 @@ export function SeasonsView() {
   // The list is a live Firestore subscription, so a successful write shows up on its own.
   const closeDialog = () => setDialog({ kind: "none" });
 
-  async function patchSeason(season: Season, body: Record<string, unknown>) {
-    setBusySeasonId(season.id);
+  // The whole row is held while the round trip runs, so a slow connection cannot leave the
+  // other controls offering actions against a season this one is already changing.
+  async function writeSeason(season: Season, request: RequestOptions) {
     setActionError(null);
     try {
-      await apiRequest(`/api/seasons/${season.id}`, { method: "PATCH", body });
+      await run(season.id, () => apiRequest(`/api/seasons/${season.id}`, request));
     } catch (caught) {
       setActionError(
         caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
       );
-    } finally {
-      setBusySeasonId(null);
-    }
-  }
-
-  async function deleteSeasonDirectly(season: Season) {
-    setBusySeasonId(season.id);
-    setActionError(null);
-    try {
-      await apiRequest(`/api/seasons/${season.id}`, { method: "DELETE" });
-    } catch (caught) {
-      setActionError(
-        caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
-      );
-    } finally {
-      setBusySeasonId(null);
     }
   }
 
@@ -66,7 +52,7 @@ export function SeasonsView() {
     if (season.hasStudentData) {
       setDialog({ kind: "delete", season });
     } else {
-      void deleteSeasonDirectly(season);
+      void writeSeason(season, { method: "DELETE" });
     }
   }
 
@@ -101,11 +87,15 @@ export function SeasonsView() {
         seasons={listed}
         loading={loading}
         error={error}
-        busySeasonId={busySeasonId}
+        busySeasonId={busyId}
         onEdit={(season) => setDialog({ kind: "form", season })}
         onDelete={handleDelete}
-        onActiveChange={(season, isActive) => patchSeason(season, { isActive })}
-        onArchivedChange={(season, isArchived) => patchSeason(season, { isArchived })}
+        onActiveChange={(season, isActive) =>
+          writeSeason(season, { method: "PATCH", body: { isActive } })
+        }
+        onArchivedChange={(season, isArchived) =>
+          writeSeason(season, { method: "PATCH", body: { isArchived } })
+        }
         onReorder={(orderedIds) => {
           // The list may be hiding archived seasons, so the visible order is folded back into
           // the full one rather than sent on its own (see Ordering).

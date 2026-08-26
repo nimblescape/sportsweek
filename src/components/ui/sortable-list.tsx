@@ -39,6 +39,8 @@ type SortableListProps<T extends SortableItem> = {
   renderItem: (item: T) => React.ReactNode;
   /** Hides the handles, for a list that is read-only in its current state. */
   disabled?: boolean;
+  /** The row a write is running on; its handle is locked until the write is answered. */
+  busyId?: string | null;
   className?: string;
 };
 
@@ -55,6 +57,7 @@ export function SortableList<T extends SortableItem>({
   onReorder,
   renderItem,
   disabled = false,
+  busyId = null,
   className,
 }: SortableListProps<T>) {
   /**
@@ -66,10 +69,17 @@ export function SortableList<T extends SortableItem>({
    */
   const [dropped, setDropped] = React.useState<string[] | null>(null);
 
-  // Once the stored order says the same thing, the local one has nothing left to add. Adjusted
-  // during render rather than in an effect, which would show the list twice to say it once.
-  const storedOrder = items.map((item) => item.id).join("\u0000");
-  if (dropped !== null && dropped.join("\u0000") === storedOrder) setDropped(null);
+  // The local order speaks only for the items it was made from. Once the stored order agrees
+  // about those — whatever else was added, removed or renamed alongside — it has nothing left
+  // to say, and holding on to it would keep ordering the list by a list that no longer exists.
+  // Adjusted during render rather than in an effect, which would show the list twice to say it
+  // once.
+  if (dropped !== null) {
+    const storedIds = items.map((item) => item.id);
+    const stillStored = dropped.filter((id) => storedIds.includes(id));
+    const asStored = storedIds.filter((id) => dropped.includes(id));
+    if (stillStored.join("\u0000") === asStored.join("\u0000")) setDropped(null);
+  }
 
   const ordered = React.useMemo(() => {
     if (dropped === null) return items;
@@ -129,7 +139,7 @@ export function SortableList<T extends SortableItem>({
       <SortableContext items={ordered} strategy={verticalListSortingStrategy}>
         <ul className={className}>
           {ordered.map((item) => (
-            <SortableRow key={item.id} item={item}>
+            <SortableRow key={item.id} item={item} disabled={item.id === busyId}>
               {renderItem(item)}
             </SortableRow>
           ))}
@@ -139,9 +149,18 @@ export function SortableList<T extends SortableItem>({
   );
 }
 
-function SortableRow({ item, children }: { item: SortableItem; children: React.ReactNode }) {
+function SortableRow({
+  item,
+  disabled,
+  children,
+}: {
+  item: SortableItem;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
+    disabled,
   });
 
   return (
@@ -152,8 +171,9 @@ function SortableRow({ item, children }: { item: SortableItem; children: React.R
     >
       <button
         type="button"
+        disabled={disabled}
         aria-label={`${item.name} verschieben`}
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 ml-2 shrink-0 cursor-grab touch-none rounded-md p-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 ml-2 shrink-0 cursor-grab touch-none rounded-md p-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50"
         {...attributes}
         {...listeners}
       >

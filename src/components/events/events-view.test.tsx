@@ -195,6 +195,49 @@ describe("EventsView — removing", () => {
   });
 });
 
+// The list refreshes from a separate subscription, so between the answer and the refresh a row
+// still offers actions against an event the write it is waiting on may already have removed.
+describe("EventsView — while a write is in flight", () => {
+  async function confirmDelete() {
+    await userEvent.click(screen.getByRole("button", { name: "Event Montafon löschen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Löschen" }));
+  }
+
+  it("locks the row that is being written to", async () => {
+    stubFetch(() => new Promise(() => {}));
+    renderView();
+
+    await confirmDelete();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Event Montafon bearbeiten" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "Montafon verschieben" })).toBeDisabled();
+  });
+
+  it("leaves every other row alone", async () => {
+    stubFetch(() => new Promise(() => {}));
+    renderView();
+
+    await confirmDelete();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Event Montafon bearbeiten" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "Event Lech bearbeiten" })).toBeEnabled();
+  });
+
+  it("releases the row once the write is answered", async () => {
+    stubFetch(noContent);
+    renderView();
+
+    await confirmDelete();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Event Montafon bearbeiten" })).toBeEnabled();
+  });
+});
+
 describe("EventsView — archived season", () => {
   it("does not offer adding events to an archived season", () => {
     stubFetch(created);

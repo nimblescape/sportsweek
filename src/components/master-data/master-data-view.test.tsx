@@ -214,6 +214,78 @@ describe("MasterDataView — deleting", () => {
   });
 });
 
+// The list refreshes from a separate subscription, so between the answer and the refresh a row
+// still offers actions against an item the write it is waiting on may already have removed.
+describe("MasterDataView — while a write is in flight", () => {
+  async function confirmDelete() {
+    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT löschen" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Löschen" }),
+    );
+  }
+
+  it("locks the row that is being written to", async () => {
+    stubFetch(() => new Promise(() => {}));
+    renderView();
+
+    await confirmDelete();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "3AHIT verschieben" })).toBeDisabled();
+  });
+
+  it("leaves every other row alone", async () => {
+    stubFetch(() => new Promise(() => {}));
+    renderView();
+
+    await confirmDelete();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "Klasse 4BHIT bearbeiten" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "4BHIT verschieben" })).toBeEnabled();
+  });
+
+  it("releases the row once the write is answered", async () => {
+    stubFetch(() => Promise.resolve(new Response(null, { status: 204 })));
+    renderView();
+
+    await confirmDelete();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeEnabled();
+  });
+
+  it("locks the extra action a category contributes, which acts on the same item", async () => {
+    stubFetch(() => new Promise(() => {}));
+    renderView({
+      renderRowAction: (
+        item: { id: string; name: string },
+        { disabled }: { disabled: boolean },
+      ) => (
+        <a href={`/detail/${item.id}`} aria-disabled={disabled || undefined}>
+          Details zu {item.name}
+        </a>
+      ),
+    });
+
+    await confirmDelete();
+
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    expect(screen.getByRole("link", { name: "Details zu 4BHIT" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+  });
+});
+
 describe("MasterDataView — the in-use restriction", () => {
   beforeEach(() =>
     useUsageReport.mockReturnValue({ blockedIds: new Set(["c1"]), blockedEquipment: {} }),
