@@ -62,11 +62,15 @@ export async function assignStudents(
   const season = await requireActiveSeason();
   if (eventId !== null) await requireEventOfSeason(eventId, season.id);
 
-  const operations: BatchOperation[] = [];
+  const references = recordIds.map((recordId) =>
+    adminDb.collection(COLLECTIONS.studentMasterData).doc(recordId),
+  );
 
-  for (const recordId of recordIds) {
-    const reference = adminDb.collection(COLLECTIONS.studentMasterData).doc(recordId);
-    const snapshot = await reference.get();
+  // All in flight together. Read one after the other, moving a class was as many round trips as
+  // it had students, which is seconds of waiting for a single drop.
+  const snapshots = await Promise.all(references.map((reference) => reference.get()));
+
+  const operations: BatchOperation[] = snapshots.map((snapshot, index) => {
     if (!snapshot.exists) {
       throw new ServiceError(ErrorCode.NotFound, "Diese Anmeldung gibt es nicht.");
     }
@@ -85,8 +89,8 @@ export async function assignStudents(
       );
     }
 
-    operations.push((batch) => batch.update(reference, { eventId }));
-  }
+    return (batch) => batch.update(references[index], { eventId });
+  });
 
   await commitInChunks(operations);
 }

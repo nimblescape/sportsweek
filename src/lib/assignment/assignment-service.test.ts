@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { FakeFirestore } from "@/test/fake-firestore";
+import { FakeDocumentReference, FakeFirestore } from "@/test/fake-firestore";
 
 const firestore = new FakeFirestore();
 
@@ -144,5 +144,34 @@ describe("assignStudents", () => {
     });
 
     await expect(assignStudents([ANNA], null)).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  /**
+   * One round trip per student, taken one after the other, is seconds of waiting for a single
+   * drop once a whole class is moved at once.
+   */
+  it("reads every record at once rather than one round trip after another", async () => {
+    const CLARA = "s1__clara@student.htldornbirn.at";
+    seedRecord(CLARA);
+
+    const started: string[] = [];
+    let startedWhenFirstReturned = 0;
+
+    const read = FakeDocumentReference.prototype.get;
+    vi.spyOn(FakeDocumentReference.prototype, "get").mockImplementation(async function (
+      this: FakeDocumentReference,
+    ) {
+      const isRecord = this.collectionPath === "studentMasterData";
+      if (isRecord) started.push(this.id);
+
+      const snapshot = await read.call(this);
+      if (isRecord && startedWhenFirstReturned === 0) startedWhenFirstReturned = started.length;
+      return snapshot;
+    });
+
+    await assignStudents([ANNA, BENE, CLARA], "event1");
+
+    expect(startedWhenFirstReturned).toBe(3);
+    vi.restoreAllMocks();
   });
 });
