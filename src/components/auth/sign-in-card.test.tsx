@@ -3,10 +3,9 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SignInInterstitialProps } from "@/components/auth/sign-in-interstitial";
 
 const onAuthStateChanged = vi.fn();
 const signInWithRedirect = vi.fn();
@@ -40,18 +39,6 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
 }));
 
-// The build decides whether anything sits between signing in and the app; production
-// resolves this to null. A getter lets each test pick without reloading the card.
-const interstitial: { current: React.ComponentType<SignInInterstitialProps> | null } = {
-  current: null,
-};
-
-vi.mock("@/components/auth/sign-in-interstitial", () => ({
-  get SignInInterstitial() {
-    return interstitial.current;
-  },
-}));
-
 vi.mock("next/image", () => ({
   // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
   default: (props: Record<string, unknown>) => <img {...props} />,
@@ -82,7 +69,6 @@ function respondWith(status: number, body: unknown) {
 describe("SignInCard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    interstitial.current = null;
     getRedirectResult.mockResolvedValue(null);
     credentialFromResult.mockReturnValue(null);
     onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
@@ -289,58 +275,18 @@ describe("SignInCard", () => {
     expect(signInWithRedirect).toHaveBeenCalled();
   });
 
-  describe("with an interstitial in the build", () => {
-    // Everything the interstitial is given, so a test can assert on it rather than guess.
-    let seen: SignInInterstitialProps | null = null;
-
-    beforeEach(() => {
-      seen = null;
-      respondWith(200, { status: "ok" });
-      interstitial.current = (props: SignInInterstitialProps) => {
-        seen = props;
-        return <div data-testid="interstitial" />;
-      };
+  // A rejected redirect never leaves the page, so saying nothing looks like a dead button.
+  it("reports a sign-in that could not even start", async () => {
+    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+      callback(null);
+      return () => {};
     });
+    signInWithRedirect.mockRejectedValue(new Error("auth/unauthorized-domain"));
 
-    it("stops at the interstitial rather than going into the app", async () => {
-      render(<SignInCard />);
+    render(<SignInCard />);
+    await userEvent.click(await screen.findByRole("button", { name: /Office 365/i }));
 
-      expect(await screen.findByTestId("interstitial")).toBeInTheDocument();
-      expect(push).not.toHaveBeenCalled();
-    });
-
-    // The card does not read this itself — deciding what it means belongs to whoever
-    // supplies the interstitial.
-    it("passes on how the session was signed in", async () => {
-      render(<SignInCard />);
-
-      await screen.findByTestId("interstitial");
-      expect(seen!.signInProvider).toBe("microsoft.com");
-    });
-
-    it("goes into the app once the interstitial is done", async () => {
-      render(<SignInCard />);
-      await screen.findByTestId("interstitial");
-
-      await act(async () => seen!.onDone());
-
-      expect(push).toHaveBeenCalledWith("/app");
-      expect(refresh).toHaveBeenCalled();
-      expect(screen.queryByTestId("interstitial")).not.toBeInTheDocument();
-    });
-
-    it("honours a next parameter the interstitial was reached with", async () => {
-      searchParams.set("next", "/app/seasons");
-      try {
-        render(<SignInCard />);
-        await screen.findByTestId("interstitial");
-
-        await act(async () => seen!.onDone());
-
-        expect(push).toHaveBeenCalledWith("/app/seasons");
-      } finally {
-        searchParams.delete("next");
-      }
-    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(/fehlgeschlagen/i);
+    expect(screen.getByRole("button")).not.toBeDisabled();
   });
 });

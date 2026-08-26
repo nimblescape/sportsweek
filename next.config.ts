@@ -46,8 +46,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveAlias: fakeLogin
       ? {
-          "@/components/auth/sign-in-interstitial":
-            "./src/components/auth/fake/sign-in-interstitial.tsx",
+          "@/components/auth/sign-in-view": "./src/components/auth/fake/sign-in-view.tsx",
           "@/lib/auth/sign-in-policy": "./src/lib/auth/fake/sign-in-policy.ts",
         }
       : {},
