@@ -54,6 +54,39 @@ service cloud.firestore {
     }
 
     /**
+     * A student's own registration (US-11). Ownership is the record's `userId`, which holds the
+     * UPN, so the same check serves a direct read and the query the form subscribes to.
+     *
+     * Writes are closed for the reason the collections below are: a save carries invariants
+     * rules cannot run a query for — it belongs to *the* active season, answering "no" gives up
+     * the event assignment (US-12), and the season's `hasStudentData` mirror follows it (US-4).
+     */
+    match /studentMasterData/{recordId} {
+      allow read: if isSignedIn() && resource.data.userId == upn();
+      allow write: if false;
+    }
+
+    /**
+     * The child records of one registration. They carry no owner of their own, so ownership is
+     * read from the record they hang off rather than duplicated onto each of them — a copy is
+     * one more thing that can disagree with the original.
+     */
+    match /{collection}/{childId} {
+      allow read: if isSignedIn()
+        && collection in ['emergencyContacts', 'equipmentRentalItems']
+        && exists(/databases/$(database)/documents/studentMasterData/$(resource.data.studentMasterDataId))
+        && get(/databases/$(database)/documents/studentMasterData/$(resource.data.studentMasterDataId)).data.userId == upn();
+
+      allow write: if false;
+    }
+
+    /** Saved report filters are shared among all teachers, not private to who saved them (US-13). */
+    match /savedReportFilters/{filterId} {
+      allow read: if isTeacher();
+      allow write: if false;
+    }
+
+    /**
      * Every teacher-maintained collection: anyone signed in may read, because student master
      * data selects from these lists and the teacher views subscribe to them live. Nobody
      * writes from the client.
