@@ -4,11 +4,14 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { ErrorCode, apiError } from "@/lib/errors";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { currentAuthMode } from "@/lib/auth/auth-mode";
+import { resolveRole } from "@/lib/auth/guards";
 import { buildUpn, isSchoolUpn } from "@/lib/auth/upn";
+import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { userRoleSchema, userSchema } from "@/lib/schemas/user";
 
@@ -19,11 +22,56 @@ import { userRoleSchema, userSchema } from "@/lib/schemas/user";
  * like any real login, so provisioning, the role claim and the session cookie stay on the
  * code path production uses.
  *
- * Anyone who can reach it can become anyone, which is why every entry point re-checks the
- * mode and otherwise answers 404 — an endpoint that is off should not advertise that it exists.
+ * Reaching it takes a real Entra ID sign-in first — see `entraTeacherCookie`. The mode check
+ * answers 404 rather than 403, because an endpoint that is off should not advertise that it
+ * exists; once it is on, refusing an unauthorised caller is no longer a secret worth keeping.
  */
 const notFound = () =>
   NextResponse.json(apiError(ErrorCode.NotFound, "Not found"), { status: 404 });
+
+const forbidden = () =>
+  NextResponse.json(apiError(ErrorCode.PermissionDenied, "Zuerst über Office 365 anmelden."), {
+    status: 403,
+  });
+
+/** Kept beside `__session`, which impersonating replaces with a custom-token one. */
+const ENTRA_COOKIE_NAME = "__entra_session";
+
+/**
+ * The credential that unlocks impersonation, and the reason it cannot be `__session` alone:
+ * this endpoint mints sessions, so one forged identity would otherwise authorise minting the
+ * next indefinitely. `sign_in_provider` is set by Firebase and survives into the session
+ * cookie, which makes it the one thing here that a caller cannot influence.
+ *
+ * Returns the cookie value so the caller can stash it — a tester who has switched identity
+ * still holds it and can switch again.
+ */
+async function entraTeacherCookie(): Promise<string | null> {
+  const store = await cookies();
+
+  for (const name of [ENTRA_COOKIE_NAME, SESSION_COOKIE_NAME]) {
+    const value = store.get(name)?.value;
+    if (!value) continue;
+
+    try {
+      const decoded = await adminAuth.verifySessionCookie(value, true);
+      if (decoded.firebase?.sign_in_provider !== "microsoft.com") continue;
+
+      // Impersonation is a staff capability: without this a student could sign in for real
+      // and then become a teacher.
+      const role = await resolveRole({
+        uid: decoded.uid,
+        email: decoded.email ?? null,
+        role: userRoleSchema.safeParse(decoded.role).data ?? null,
+      });
+      if (role === "teacher") return value;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
 
 const bodySchema = z.object({
   firstName: userSchema.shape.firstName,
@@ -36,6 +84,7 @@ const listedUserSchema = userSchema.omit({ id: true, email: true });
 /** The UPNs already in Firestore, so a known user can be picked instead of retyped. */
 export async function GET() {
   if (currentAuthMode() !== "fake") return notFound();
+  if (!(await entraTeacherCookie())) return forbidden();
 
   try {
     const snapshot = await adminDb.collection(COLLECTIONS.users).get();
@@ -67,6 +116,9 @@ async function uidFor(upn: string, displayName: string): Promise<string> {
 export async function POST(request: Request) {
   if (currentAuthMode() !== "fake") return notFound();
 
+  const entraCookie = await entraTeacherCookie();
+  if (!entraCookie) return forbidden();
+
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json(
@@ -96,6 +148,15 @@ export async function POST(request: Request) {
     const customToken = await adminAuth.createCustomToken(uid, {
       given_name: firstName,
       family_name: lastName,
+    });
+
+    // Signing in with that token is about to overwrite `__session`, taking the proof of the
+    // real sign-in with it.
+    (await cookies()).set(ENTRA_COOKIE_NAME, entraCookie, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
     });
 
     return NextResponse.json({ customToken, upn });
