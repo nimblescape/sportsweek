@@ -75,7 +75,13 @@ export function useSignIn() {
         const response = await fetch("/api/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken: token, msAccessToken: graphAccessToken }),
+          body: JSON.stringify({
+            idToken: token,
+            // The token describes the person who signed in through Entra ID. An impersonated
+            // session reaches this same listener, and asking Graph with a token that is not
+            // that session's would store the real user's name on the impersonated account.
+            msAccessToken: signInProvider === "microsoft.com" ? graphAccessToken : undefined,
+          }),
         });
 
         // The UPN domain isn't eligible (US-3) — leave no half-authenticated client state behind.

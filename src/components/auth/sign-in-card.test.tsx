@@ -101,6 +101,30 @@ describe("SignInCard", () => {
     expect(body.msAccessToken).toBeUndefined();
   });
 
+  // Impersonating reaches the same listener with somebody else's session, while the Graph
+  // token in hand still belongs to the teacher who signed in for real — sending it on would
+  // file that teacher's name under the impersonated account.
+  it("keeps the Microsoft access token out of a session that is not that sign-in's", async () => {
+    const fetchMock = respondWith(200, { status: "ok" });
+    getRedirectResult.mockResolvedValue({ user: signedInUser });
+    credentialFromResult.mockReturnValue({ accessToken: "graph-token" });
+
+    let notify: ((user: unknown) => void) | undefined;
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+      notify = callback;
+      callback(signedInUser);
+      return () => {};
+    });
+
+    render(<SignInCard />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => notify?.(userSignedInVia("custom")));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).msAccessToken).toBeUndefined();
+  });
+
   it("shows the HTL Dornbirn logo", () => {
     respondWith(200, { status: "ok" });
 
