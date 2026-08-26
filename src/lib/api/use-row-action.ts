@@ -8,27 +8,36 @@
 import * as React from "react";
 
 /**
- * Which row of a list a write is currently running on.
+ * Which row of a list a write is currently running on, and whether one is running at all.
  *
  * Every control on a row acts on the same record — deleting it, activating it, opening what
  * hangs off it — so while one of them is waiting for its round trip the others are offering
  * actions against a record that may already be gone. On a slow connection that window is long
- * enough to act in, and the second action then fails against data the first one removed.
+ * enough to act in, and the second action then fails against data the first one removed. The
+ * same holds for the list as a whole, which is why `pending` covers writes that belong to no
+ * row at all: adding an item, or dropping one into a new position.
  *
  * The row is released as soon as the write is answered: the list refreshes from a Firestore
  * subscription that the very same write feeds, so by then the new data is already on its way.
  */
 export function useRowAction() {
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [running, setRunning] = React.useState(0);
 
-  const run = React.useCallback(async <T>(id: string, action: () => Promise<T>): Promise<T> => {
-    setBusyId(id);
-    try {
-      return await action();
-    } finally {
-      setBusyId(null);
-    }
-  }, []);
+  /** `id` is null for a write with no row of its own, which holds the list without holding a row. */
+  const run = React.useCallback(
+    async <T>(id: string | null, action: () => Promise<T>): Promise<T> => {
+      setBusyId(id);
+      setRunning((count) => count + 1);
+      try {
+        return await action();
+      } finally {
+        setBusyId(null);
+        setRunning((count) => count - 1);
+      }
+    },
+    [],
+  );
 
-  return { busyId, run };
+  return { busyId, pending: running > 0, run };
 }

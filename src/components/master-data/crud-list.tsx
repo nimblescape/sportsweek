@@ -11,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { LoaderCircle, Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BusyOverlay } from "@/components/ui/busy-overlay";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -89,44 +90,48 @@ export function CrudList({
   deleteNote,
 }: CrudListProps) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
-  const { busyId, run } = useRowAction();
+  const { busyId, pending, run } = useRowAction();
 
   const closeDialog = () => setDialog({ kind: "none" });
 
-  // A write started from a row holds that row until it is answered. The list refreshes from a
-  // separate subscription, so until then the remaining controls would act on an item this write
-  // may already have removed. A new item has no row yet, so there is nothing to hold.
+  // A write started from a row holds that row until it is answered, and every write holds the
+  // list. The list refreshes from a separate subscription, so until then the other controls
+  // would act on data this write may already have changed. A new item has no row to hold.
   const submit = (name: string, item: CrudItem | null) =>
-    item === null ? onSubmit(name, null) : run(item.id, () => onSubmit(name, item));
+    run(item?.id ?? null, () => onSubmit(name, item));
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
       {children}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-lg font-semibold">{title ?? labels.title}</h1>
-        <Button onClick={() => setDialog({ kind: "form", item: null })}>
-          <Plus aria-hidden data-icon="inline-start" />
-          {labels.add}
-        </Button>
-      </div>
+      <BusyOverlay busy={pending} label={`${title ?? labels.title} werden gespeichert`}>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="font-heading text-lg font-semibold">{title ?? labels.title}</h1>
+            <Button onClick={() => setDialog({ kind: "form", item: null })}>
+              <Plus aria-hidden data-icon="inline-start" />
+              {labels.add}
+            </Button>
+          </div>
 
-      <ItemList
-        labels={labels}
-        items={items}
-        loading={loading}
-        error={error}
-        blockedIds={blockedIds}
-        undeletableIds={undeletableIds}
-        undeletableHint={undeletableHint}
-        fixedItems={fixedItems}
-        fixedItemsHint={fixedItemsHint}
-        renderRowAction={renderRowAction}
-        busyId={busyId}
-        onEdit={(item) => setDialog({ kind: "form", item })}
-        onDelete={(item) => setDialog({ kind: "delete", item })}
-        onReorder={onReorder}
-      />
+          <ItemList
+            labels={labels}
+            items={items}
+            loading={loading}
+            error={error}
+            blockedIds={blockedIds}
+            undeletableIds={undeletableIds}
+            undeletableHint={undeletableHint}
+            fixedItems={fixedItems}
+            fixedItemsHint={fixedItemsHint}
+            renderRowAction={renderRowAction}
+            busyId={busyId}
+            onEdit={(item) => setDialog({ kind: "form", item })}
+            onDelete={(item) => setDialog({ kind: "delete", item })}
+            onReorder={(orderedIds) => run(null, async () => onReorder(orderedIds))}
+          />
+        </div>
+      </BusyOverlay>
 
       {dialog.kind === "form" ? (
         <ItemFormDialog

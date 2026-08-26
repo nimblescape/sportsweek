@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowLeft, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BusyOverlay } from "@/components/ui/busy-overlay";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,7 @@ export function EventsView({ seasonId }: { seasonId: string }) {
   const { events, loading, error } = useEvents(seasonId);
   const { seasons } = useSeasons();
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
-  const { busyId, run } = useRowAction();
+  const { busyId, pending, run } = useRowAction();
 
   const season = seasons.find((candidate) => candidate.id === seasonId) ?? null;
 
@@ -48,29 +49,37 @@ export function EventsView({ seasonId }: { seasonId: string }) {
         Alle Saisonen
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-lg font-semibold">Events – {season?.name ?? "Saison"}</h1>
-        {/* An archived season is read-only, so nothing new can be attached to it (US-4). */}
-        {season?.isArchived ? null : (
-          <Button onClick={() => setDialog({ kind: "form", event: null })}>
-            <Plus aria-hidden data-icon="inline-start" />
-            Neues Event
-          </Button>
-        )}
-      </div>
+      <BusyOverlay busy={pending} label="Events werden gespeichert">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="font-heading text-lg font-semibold">
+              Events – {season?.name ?? "Saison"}
+            </h1>
+            {/* An archived season is read-only, so nothing new can be attached to it (US-4). */}
+            {season?.isArchived ? null : (
+              <Button onClick={() => setDialog({ kind: "form", event: null })}>
+                <Plus aria-hidden data-icon="inline-start" />
+                Neues Event
+              </Button>
+            )}
+          </div>
 
-      <EventList
-        events={events}
-        loading={loading}
-        error={error}
-        readOnly={season?.isArchived ?? false}
-        busyEventId={busyId}
-        onEdit={(event) => setDialog({ kind: "form", event })}
-        onDelete={(event) => setDialog({ kind: "delete", event })}
-        onReorder={(order) =>
-          apiRequest("/api/events", { method: "PATCH", body: { seasonId, order } }).then(() => {})
-        }
-      />
+          <EventList
+            events={events}
+            loading={loading}
+            error={error}
+            readOnly={season?.isArchived ?? false}
+            busyEventId={busyId}
+            onEdit={(event) => setDialog({ kind: "form", event })}
+            onDelete={(event) => setDialog({ kind: "delete", event })}
+            onReorder={(order) =>
+              run(null, () =>
+                apiRequest("/api/events", { method: "PATCH", body: { seasonId, order } }),
+              ).then(() => {})
+            }
+          />
+        </div>
+      </BusyOverlay>
 
       {dialog.kind === "form" ? (
         <EventFormDialog
