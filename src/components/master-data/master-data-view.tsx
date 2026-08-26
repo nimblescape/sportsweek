@@ -63,7 +63,7 @@ export function MasterDataView({
       deleteNote={(item) => (
         <>
           <strong>{item.name}</strong> wird aus der Liste entfernt. Bereits gespeicherte
-          Schülerdaten bleiben unverändert.
+          Schüler:innendaten bleiben unverändert.
         </>
       )}
     />

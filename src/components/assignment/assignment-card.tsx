@@ -123,7 +123,7 @@ export function AssignmentCard({
             </section>
 
             <section className={cn(AREA, "sm:flex-1")}>
-              <AreaTitle>Schüler</AreaTitle>
+              <AreaTitle>Schüler:innen</AreaTitle>
               <ul className="max-h-72 overflow-y-auto">
                 {shown.length > 0 && (
                   <Row

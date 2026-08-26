@@ -146,19 +146,19 @@ export function ImpersonationDialog({
     <Dialog
       open={open}
       title="Test-Anmeldung"
-      description="Als anderer Benutzer fortfahren, ohne dessen Entra-ID-Konto zu brauchen."
+      description="Als andere Person fortfahren, ohne deren Entra-ID-Konto zu brauchen."
       onClose={onCancel}
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={knownId}>Bestehende Benutzer</Label>
+          <Label htmlFor={knownId}>Bestehende Benutzer:innen</Label>
           <select
             id={knownId}
             className={SELECT_CLASS}
             defaultValue=""
             onChange={(event) => pickKnown(event.target.value)}
           >
-            <option value="">Neuer Benutzer</option>
+            <option value="">Neue Person</option>
             {known.map((entry) => (
               <option key={entry.upn} value={entry.upn}>
                 {entry.upn}

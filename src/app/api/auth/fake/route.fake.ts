@@ -99,7 +99,7 @@ export async function GET() {
   } catch (err) {
     console.error("Failed to list the fake-login users:", err);
     return NextResponse.json(
-      apiError(ErrorCode.InternalError, "Benutzer konnten nicht geladen werden."),
+      apiError(ErrorCode.InternalError, "Benutzer:innen konnten nicht geladen werden."),
       { status: 500 },
     );
   }

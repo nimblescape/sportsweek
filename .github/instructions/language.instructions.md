@@ -43,6 +43,35 @@ are grouped by ability; the assignment produces a Gruppe, not a Stufe.
 sports week; the assignment produces a group, this field states a level.
 ```
 
+## German the interface speaks addresses everyone
+
+A German noun for a person carries a gender, and the masculine form does not stand in for
+everybody. Every such noun the interface shows names all of them.
+
+Prefer a word that has no gender to begin with — it reads better than any punctuation:
+
+| Instead of        | Write                  |
+| ----------------- | ---------------------- |
+| Neuer Benutzer    | Neue Person            |
+| Der Lehrer        | Die Lehrperson         |
+| Anzahl der Nutzer | Anzahl der Anmeldungen |
+
+Where the role has no neutral word, use the colon form — one word, screen readers pause at it,
+and it is what the school itself writes:
+
+```text
+Schüler:innen, Benutzer:innen, Anfänger:in, Teilnehmer:innen
+```
+
+- One form throughout. Not `Schülerinnen und Schüler` in one dialog and `Schüler:innen` in
+  the next, and never `SchülerInnen`, `Schüler/innen` or a bare `Schüler`.
+- It applies to every string the program shows: labels, buttons, hints, validation and error
+  messages, and the seeded master data a teacher starts from.
+- It does not apply to the words for a gender itself. "Männlich" and "Weiblich" are the
+  answers to a question about gender (US-11), not a way of addressing anyone.
+- Identifiers stay English, so none of this reaches the code: the label is `Schüler:innen`,
+  the type is still `RosterStudent`.
+
 ## Internals stay English behind a German label
 
 Renaming what the user sees never renames what the code calls it:

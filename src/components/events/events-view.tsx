@@ -328,8 +328,8 @@ function DeleteEventDialog({
       }
     >
       <p className="text-sm">
-        Das Event <strong>{event.name}</strong> wird gelöscht. Schülerinnen und Schüler, die diesem
-        Event zugeteilt sind, verlieren ihre Zuteilung. Ihre Stammdaten bleiben erhalten.
+        Das Event <strong>{event.name}</strong> wird gelöscht. Schüler:innen, die diesem Event
+        zugeteilt sind, verlieren ihre Zuteilung. Ihre Stammdaten bleiben erhalten.
       </p>
       {error ? (
         <p role="alert" className="text-destructive mt-2 text-sm">

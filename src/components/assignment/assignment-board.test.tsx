@@ -120,7 +120,11 @@ describe("AssignmentBoard", () => {
 
     const areas = card("Montafon").getAllByRole("heading", { level: 3 });
 
-    expect(areas.map((heading) => heading.textContent)).toEqual(["Filter", "Schüler", "Statistik"]);
+    expect(areas.map((heading) => heading.textContent)).toEqual([
+      "Filter",
+      "Schüler:innen",
+      "Statistik",
+    ]);
     expect(areas[1].parentElement?.className).toContain("border");
     expect(areas[2].parentElement?.className).toContain("border");
   });

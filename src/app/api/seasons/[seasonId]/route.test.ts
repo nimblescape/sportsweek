@@ -147,7 +147,7 @@ describe("DELETE /api/seasons/[seasonId]", () => {
     deleteSeason.mockRejectedValue(
       new ServiceError(
         "CONFLICT",
-        "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.",
+        "Eine Saison mit Schüler:innendaten kann nur gelöscht werden, wenn sie archiviert ist.",
       ),
     );
 
@@ -157,7 +157,8 @@ describe("DELETE /api/seasons/[seasonId]", () => {
     expect(await response.json()).toEqual({
       error: {
         code: "CONFLICT",
-        message: "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.",
+        message:
+          "Eine Saison mit Schüler:innendaten kann nur gelöscht werden, wenn sie archiviert ist.",
       },
     });
   });

@@ -35,8 +35,8 @@ function FakeSignInCard() {
         subtitle="Testumgebung"
         note={
           <p className="text-muted-foreground mt-4 text-center text-sm text-balance">
-            Erfundene Daten, keine echten Schülerinnen und Schüler. Nach der Anmeldung können Sie
-            als beliebige Person fortfahren.
+            Erfundene Daten, keine echten Schüler:innen. Nach der Anmeldung können Sie als beliebige
+            Person fortfahren.
           </p>
         }
         action="Anmelden über Office 365"

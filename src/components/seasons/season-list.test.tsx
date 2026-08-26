@@ -125,7 +125,7 @@ describe("SeasonList — row actions", () => {
 
     expect(
       screen.getByRole("button", { name: "Saison Wintersportwoche 2026 löschen" }),
-    ).toHaveAccessibleDescription(/schülerdaten/i);
+    ).toHaveAccessibleDescription(/schüler:innendaten/i);
   });
 
   it("allows deleting an archived season, even though it still has student data", async () => {
@@ -255,7 +255,7 @@ describe("SeasonList — row actions", () => {
 
     expect(
       screen.getByRole("button", { name: "Saison Wintersportwoche 2024 archivieren" }),
-    ).toHaveAccessibleDescription(/schülerdaten/i);
+    ).toHaveAccessibleDescription(/schüler:innendaten/i);
   });
 
   it("allows unarchiving a season with no student data, since that rule only gates archiving", () => {
@@ -379,7 +379,8 @@ describe("SeasonList — tooltips", () => {
 
   it("explains on hover why deleting is unavailable, which the sr-only hint cannot do", async () => {
     renderList();
-    const hint = "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.";
+    const hint =
+      "Eine Saison mit Schüler:innendaten kann nur gelöscht werden, wenn sie archiviert ist.";
     // One sr-only copy already exists per disabled row; hovering adds the visible one.
     const before = screen.getAllByText(hint).length;
 

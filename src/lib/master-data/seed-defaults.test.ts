@@ -58,7 +58,7 @@ describe("seedMasterDataDefaults", () => {
 
     expect(orderedNamesOf("skillLevels")).toEqual([
       "Keine Vorkenntnisse",
-      "Anfänger",
+      "Anfänger:in",
       "Fortgeschritten",
       "Profi",
     ]);
@@ -142,16 +142,16 @@ describe("seedMasterDataDefaults", () => {
   });
 
   it("tolerates a default a teacher had already added by hand", async () => {
-    firestore.seed("skillLevels", "manual", { name: "Anfänger" });
-    firestore.seed("reservedNames", "skillLevels|anfänger", {
+    firestore.seed("skillLevels", "manual", { name: "Anfänger:in" });
+    firestore.seed("reservedNames", "skillLevels|anfänger:in", {
       scope: "skillLevels",
-      name: "Anfänger",
+      name: "Anfänger:in",
       ownerId: "manual",
     });
 
     await expect(seedMasterDataDefaults()).resolves.toBeUndefined();
 
-    expect(namesOf("skillLevels").filter((name) => name === "Anfänger")).toHaveLength(1);
+    expect(namesOf("skillLevels").filter((name) => name === "Anfänger:in")).toHaveLength(1);
   });
 
   it("adds a default introduced later without touching the ones already seeded", async () => {

@@ -51,7 +51,7 @@ export function ProgramEquipmentView({ programId }: { programId: string }) {
       deleteNote={(item) => (
         <>
           <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.
-          Bereits gespeicherte Schülerdaten bleiben unverändert.
+          Bereits gespeicherte Schüler:innendaten bleiben unverändert.
         </>
       )}
     >

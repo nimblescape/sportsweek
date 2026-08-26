@@ -24,9 +24,9 @@ import type { Season } from "@/lib/schemas/season";
 import { SEASON_STATE_LABELS, seasonState } from "@/lib/seasons/season-state";
 
 const ARCHIVE_ACTIVE_HINT = "Eine aktive Saison muss zuerst deaktiviert werden.";
-const ARCHIVE_NO_DATA_HINT = "Eine Saison ohne Schülerdaten kann nicht archiviert werden.";
+const ARCHIVE_NO_DATA_HINT = "Eine Saison ohne Schüler:innendaten kann nicht archiviert werden.";
 const DELETE_HINT =
-  "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.";
+  "Eine Saison mit Schüler:innendaten kann nur gelöscht werden, wenn sie archiviert ist.";
 
 type SeasonListProps = {
   seasons: Season[];
