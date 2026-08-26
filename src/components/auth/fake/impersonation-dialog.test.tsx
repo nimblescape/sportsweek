@@ -12,7 +12,7 @@ const signInWithCustomToken = vi.fn();
 vi.mock("firebase/auth", () => ({ signInWithCustomToken }));
 vi.mock("@/lib/firebase/client", () => ({ auth: {} }));
 
-const { FakeSignInDialog } = await import("@/components/auth/fake-sign-in-dialog");
+const { ImpersonationDialog } = await import("@/components/auth/fake/impersonation-dialog");
 
 const KNOWN_USERS = [
   { upn: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", role: "teacher" },
@@ -39,7 +39,7 @@ function stubApi(post: PostResult = { ok: true, status: 200, body: { customToken
 function renderDialog() {
   const onCancel = vi.fn();
   const onImpersonated = vi.fn();
-  render(<FakeSignInDialog open onCancel={onCancel} onImpersonated={onImpersonated} />);
+  render(<ImpersonationDialog open onCancel={onCancel} onImpersonated={onImpersonated} />);
   return { onCancel, onImpersonated, user: userEvent.setup() };
 }
 
@@ -52,7 +52,7 @@ async function typeName(
   await user.type(screen.getByLabelText("Nachname"), last);
 }
 
-describe("FakeSignInDialog", () => {
+describe("ImpersonationDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     stubApi();

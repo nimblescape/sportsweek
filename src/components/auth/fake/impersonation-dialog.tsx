@@ -16,7 +16,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
-import { buildUpn, isSchoolUpn } from "@/lib/auth/upn";
+import { buildUpn, isSchoolUpn } from "@/lib/auth/fake/upn-builder";
 import { userRoleSchema, userSchema, type UserRole } from "@/lib/schemas/user";
 
 const NO_UPN = "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden.";
@@ -53,7 +53,7 @@ const SELECT_CLASS =
  * custom token, and signing in with it puts the app on the same path as a real login — so
  * the app can be tried as several teachers and students without tenant accounts.
  */
-export function FakeSignInDialog({
+export function ImpersonationDialog({
   open,
   onCancel,
   onImpersonated,

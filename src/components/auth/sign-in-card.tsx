@@ -19,10 +19,9 @@ import {
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FakeSignInDialog } from "@/components/auth/fake-sign-in-dialog";
+import { SignInInterstitial } from "@/components/auth/sign-in-interstitial";
 import { ROUTES, homeFor } from "@/lib/routes";
 import { userRoleSchema } from "@/lib/schemas/user";
-import type { AuthMode } from "@/lib/auth/auth-mode";
 
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
 const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.";
@@ -30,13 +29,14 @@ const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut."
 // Sign-in itself only starts when the user clicks the button — same window, no popup.
 // onAuthStateChanged reliably reports the signed-in user once Firebase resolves the
 // redirect (relies on the /__/auth/* proxy in next.config.ts — see redirect-best-practices).
-// It is also what finishes an impersonation, which only has to put a user on `auth`.
-export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
+export function SignInCard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  // Set together: the dialog is open, and this is where closing it without impersonating goes.
-  const [continueAs, setContinueAs] = useState<string | null>(null);
+  // Where to go once nothing stands between signing in and the app.
+  const [pending, setPending] = useState<{ destination: string; provider: string | null } | null>(
+    null,
+  );
   // True until Firebase's first auth-state callback fires, which only happens once any
   // pending redirect has been resolved — avoids flashing the button during that window.
   const [checking, setChecking] = useState(true);
@@ -60,7 +60,7 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
       }
 
       // A sign-in that happened in this page rather than by redirect leaves the card idle
-      // while the session is still being created — the fake login's dialog closes first.
+      // while the session is still being created — an interstitial closes before that finishes.
       setChecking(true);
 
       try {
@@ -90,11 +90,11 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
         const destination =
           searchParams.get("next") ?? (role.success ? homeFor(role.data) : ROUTES.appRoot);
 
-        // Only a real sign-in unlocks the dialog, and only a real sign-in should be offered
-        // it: an impersonated session arriving here came *from* the dialog.
-        if (mode === "fake" && signInProvider === "microsoft.com") {
+        // Whether anything belongs between here and the app is the interstitial's decision,
+        // not this card's.
+        if (SignInInterstitial) {
           setChecking(false);
-          setContinueAs(destination);
+          setPending({ destination, provider: signInProvider });
           return;
         }
 
@@ -107,7 +107,7 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
     });
 
     return () => unsubscribe();
-  }, [router, searchParams, mode]);
+  }, [router, searchParams]);
 
   async function handleSignIn() {
     setError(null);
@@ -149,15 +149,14 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
           ) : null}
         </CardContent>
       </Card>
-      {continueAs ? (
-        <FakeSignInDialog
-          open
-          onCancel={() => {
-            setContinueAs(null);
-            router.push(continueAs);
+      {SignInInterstitial && pending ? (
+        <SignInInterstitial
+          signInProvider={pending.provider}
+          onDone={() => {
+            setPending(null);
+            router.push(pending.destination);
             router.refresh();
           }}
-          onImpersonated={() => setContinueAs(null)}
         />
       ) : null}
     </div>

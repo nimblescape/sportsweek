@@ -3,8 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PRODUCTION_PROJECT_ID } from "@/lib/auth/auth-mode";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const docGet = vi.fn();
 const docSet = vi.fn();
@@ -20,6 +19,11 @@ vi.mock("@/lib/firebase/admin", () => ({
 }));
 
 vi.mock("@/lib/auth/graph", () => ({ fetchEntraName }));
+
+// Whatever else a deployment refuses. Production refuses nothing, so the tests below say so
+// explicitly rather than leaning on which module the build happens to resolve.
+const refuseSignIn = vi.fn();
+vi.mock("@/lib/auth/sign-in-policy", () => ({ refuseSignIn }));
 
 const { provisionUser } = await import("@/lib/auth/provision-user");
 
@@ -45,39 +49,47 @@ const studentClaims = {
 };
 
 /**
- * A test environment holds invented people and unfinished work. A student's real account has
- * no business there — but an impersonated student is exactly what it is for.
+ * Which sign-ins are refused is the policy's business, not this function's. What belongs here
+ * is that a refusal is asked for, and honoured when one comes back.
  */
-describe("students outside production", () => {
+describe("the deployment's own sign-in policy", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID", "htld-sportsweek-staging");
+    vi.clearAllMocks();
+    refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    fetchEntraName.mockResolvedValue(null);
   });
 
-  afterEach(() => vi.unstubAllEnvs());
+  it("refuses the sign-in the policy refuses, and writes nothing", async () => {
+    refuseSignIn.mockReturnValue({ reason: "students-excluded", message: "Nur Lehrpersonen." });
 
-  it("turns away a student signing in with their real account", async () => {
     const result = await provisionUser({ ...studentClaims, ...ENTRA });
 
-    expect(result).toEqual({ ok: false, reason: "students-excluded" });
+    expect(result).toEqual({
+      ok: false,
+      reason: "students-excluded",
+      message: "Nur Lehrpersonen.",
+    });
     expect(docSet).not.toHaveBeenCalled();
   });
 
-  it("still admits a student the fake login is standing in for", async () => {
-    const result = await provisionUser({ ...studentClaims, ...IMPERSONATED });
+  // The role has been derived by then, so the policy never has to parse a UPN itself.
+  it("asks with the derived role and the provider Firebase reported", async () => {
+    await provisionUser({ ...studentClaims, ...ENTRA });
 
-    expect(result.ok).toBe(true);
+    expect(refuseSignIn).toHaveBeenCalledWith({
+      role: "student",
+      signInProvider: "microsoft.com",
+    });
   });
 
-  it("leaves teachers alone", async () => {
-    const result = await provisionUser({ ...teacherClaims, ...ENTRA });
+  it("passes on an impersonated provider unchanged, so the policy can tell them apart", async () => {
+    await provisionUser({ ...studentClaims, ...IMPERSONATED });
 
-    expect(result.ok).toBe(true);
+    expect(refuseSignIn).toHaveBeenCalledWith({ role: "student", signInProvider: "custom" });
   });
 
-  it("admits a real student in production, where the rule does not apply", async () => {
-    vi.stubEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID", PRODUCTION_PROJECT_ID);
-
+  it("provisions as usual when nothing is refused", async () => {
     const result = await provisionUser({ ...studentClaims, ...ENTRA });
 
     expect(result.ok).toBe(true);
@@ -87,6 +99,7 @@ describe("students outside production", () => {
 describe("provisionUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
   });

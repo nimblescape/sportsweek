@@ -10,7 +10,7 @@ import { ErrorCode, apiError } from "@/lib/errors";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { currentAuthMode } from "@/lib/auth/auth-mode";
 import { resolveRole } from "@/lib/auth/guards";
-import { buildUpn, isSchoolUpn } from "@/lib/auth/upn";
+import { buildUpn, isSchoolUpn } from "@/lib/auth/fake/upn-builder";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { userRoleSchema, userSchema } from "@/lib/schemas/user";

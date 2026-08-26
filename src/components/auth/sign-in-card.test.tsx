@@ -6,6 +6,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SignInInterstitialProps } from "@/components/auth/sign-in-interstitial";
 
 const onAuthStateChanged = vi.fn();
 const signInWithRedirect = vi.fn();
@@ -39,6 +40,18 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
 }));
 
+// The build decides whether anything sits between signing in and the app; production
+// resolves this to null. A getter lets each test pick without reloading the card.
+const interstitial: { current: React.ComponentType<SignInInterstitialProps> | null } = {
+  current: null,
+};
+
+vi.mock("@/components/auth/sign-in-interstitial", () => ({
+  get SignInInterstitial() {
+    return interstitial.current;
+  },
+}));
+
 vi.mock("next/image", () => ({
   // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
   default: (props: Record<string, unknown>) => <img {...props} />,
@@ -69,6 +82,7 @@ function respondWith(status: number, body: unknown) {
 describe("SignInCard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    interstitial.current = null;
     getRedirectResult.mockResolvedValue(null);
     credentialFromResult.mockReturnValue(null);
     onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
@@ -263,67 +277,70 @@ describe("SignInCard", () => {
     await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
   });
 
-  describe("in fake auth mode", () => {
+  it("starts the real sign-in when the button is pressed", async () => {
+    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+      callback(null);
+      return () => {};
+    });
+
+    render(<SignInCard />);
+    await userEvent.click(await screen.findByRole("button", { name: /Office 365/i }));
+
+    expect(signInWithRedirect).toHaveBeenCalled();
+  });
+
+  describe("with an interstitial in the build", () => {
+    // Everything the interstitial is given, so a test can assert on it rather than guess.
+    let seen: SignInInterstitialProps | null = null;
+
     beforeEach(() => {
+      seen = null;
       respondWith(200, { status: "ok" });
-      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
-        callback(null);
-        return () => {};
-      });
+      interstitial.current = (props: SignInInterstitialProps) => {
+        seen = props;
+        return <div data-testid="interstitial" />;
+      };
     });
 
-    // Impersonating is reached through the real provider, not instead of it.
-    it("still offers the real sign-in as the way in", async () => {
-      render(<SignInCard mode="fake" />);
+    it("stops at the interstitial rather than going into the app", async () => {
+      render(<SignInCard />);
 
-      await userEvent.click(await screen.findByRole("button", { name: /Office 365/i }));
-
-      expect(signInWithRedirect).toHaveBeenCalled();
-    });
-
-    it("offers to impersonate once the real sign-in has produced a session", async () => {
-      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
-        callback(userSignedInVia("microsoft.com"));
-        return () => {};
-      });
-
-      render(<SignInCard mode="fake" />);
-
-      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+      expect(await screen.findByTestId("interstitial")).toBeInTheDocument();
       expect(push).not.toHaveBeenCalled();
     });
 
-    // Without this the impersonated session would reopen the dialog it just came from.
-    it("goes into the app instead of asking again once impersonating", async () => {
-      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
-        callback(userSignedInVia("custom"));
-        return () => {};
-      });
+    // The card does not read this itself — deciding what it means belongs to whoever
+    // supplies the interstitial.
+    it("passes on how the session was signed in", async () => {
+      render(<SignInCard />);
 
-      render(<SignInCard mode="fake" />);
-
-      await waitFor(() => expect(push).toHaveBeenCalledWith("/app"));
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      await screen.findByTestId("interstitial");
+      expect(seen!.signInProvider).toBe("microsoft.com");
     });
 
-    // The dialog closes the moment it has signed in, and the session still has to be created
-    // before anything navigates. Entra ID never shows that gap because it arrives by redirect,
-    // so the card is already busy on first render.
-    it("goes back to showing progress once the dialog has signed in", async () => {
-      let notify: (user: unknown) => void = () => {};
-      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
-        notify = callback;
-        callback(null);
-        return () => {};
-      });
+    it("goes into the app once the interstitial is done", async () => {
+      render(<SignInCard />);
+      await screen.findByTestId("interstitial");
 
-      render(<SignInCard mode="fake" />);
-      await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
+      await act(async () => seen!.onDone());
 
-      await act(async () => notify(userSignedInVia("custom")));
+      expect(push).toHaveBeenCalledWith("/app");
+      expect(refresh).toHaveBeenCalled();
+      expect(screen.queryByTestId("interstitial")).not.toBeInTheDocument();
+    });
 
-      expect(screen.getByRole("status")).toBeInTheDocument();
-      expect(screen.getByRole("button")).toBeDisabled();
+    it("honours a next parameter the interstitial was reached with", async () => {
+      searchParams.set("next", "/app/seasons");
+      try {
+        render(<SignInCard />);
+        await screen.findByTestId("interstitial");
+
+        await act(async () => seen!.onDone());
+
+        expect(push).toHaveBeenCalledWith("/app/seasons");
+      } finally {
+        searchParams.delete("next");
+      }
     });
   });
 });
