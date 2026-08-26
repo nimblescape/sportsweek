@@ -165,14 +165,8 @@ export function StudentMasterDataForm({
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
       <Section title="Anmeldung">
-        <Field label="Name">{(id) => <Input id={id} value={studentName} readOnly />}</Field>
         <Field label="Saison">{(id) => <Input id={id} value={seasonName} readOnly />}</Field>
-        <RadioField
-          control={control}
-          name="isAttendingSportsWeek"
-          label="Nimmst du an der Sportwoche teil?"
-          options={YES_NO}
-        />
+        <Field label="Name">{(id) => <Input id={id} value={studentName} readOnly />}</Field>
         <SelectField
           control={control}
           name="class"
@@ -180,6 +174,12 @@ export function StudentMasterDataForm({
           options={lists.classes}
           placeholder="Klasse wählen"
           error={errors.class?.message}
+        />
+        <RadioField
+          control={control}
+          name="isAttendingSportsWeek"
+          label="Nimmst du an der Sportwoche teil?"
+          options={YES_NO}
         />
       </Section>
 
