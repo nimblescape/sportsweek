@@ -101,14 +101,13 @@ describe("TransferLists", () => {
   it("counts what the filter leaves in each title", () => {
     setup();
 
-    expect(upper().getByText("2")).toBeInTheDocument();
-    expect(lower().getByText("1")).toBeInTheDocument();
+    expect(upper().getByText("Nicht zugeteilt: 2")).toBeInTheDocument();
+    expect(lower().getByText("Montafon: 1")).toBeInTheDocument();
   });
 
   it("titles the lower list with the week itself, the card above having said the rest", () => {
     setup();
 
-    expect(lower().getByText("Montafon")).toBeInTheDocument();
     expect(lower().queryByText(/^Zugeteilt/)).not.toBeInTheDocument();
   });
 
@@ -117,7 +116,7 @@ describe("TransferLists", () => {
 
     await userEvent.click(upper().getByRole("button", { name: "Klasse: 5BHIF" }));
 
-    expect(upper().getByText("1")).toBeInTheDocument();
+    expect(upper().getByText("Nicht zugeteilt: 1")).toBeInTheDocument();
     expect(upper().queryByRole("button", { name: "Muster Anna" })).not.toBeInTheDocument();
   });
 

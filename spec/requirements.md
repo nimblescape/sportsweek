@@ -274,7 +274,7 @@ As a teacher, I can assign students to the events of the active season using an 
 - Within a category, selected tags combine with OR logic (a student matches that category if it matches at least one of its selected tags); a category with no tag selected does not restrict the results (equivalent to every option in that category being allowed, including having no tag selected in every category, which shows all students).
 - Different categories combine with AND logic (a student must satisfy every category's OR condition above to be shown).
 - The tag row includes an "all" tag as its very first tag, that deselects all other tags across every category; it is highlighted while no other tag is selected, and stops being highlighted as soon as any other tag is selected.
-- Each list's title carries the number of currently shown (filtered) items on its right. The lower list is titled with the selected event itself, the card above it having already said what that is.
+- Each list's title is followed by a colon and the number of currently shown (filtered) items. The lower list is titled with the selected event itself, the card above it having already said what that is.
 
 ## Reporting
 

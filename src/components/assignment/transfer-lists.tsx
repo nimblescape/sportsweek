@@ -243,13 +243,8 @@ function StudentList({
       className={cn("transition-shadow", isOver && "ring-ring ring-2")}
     >
       <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-3">
-          {title}
-          {/* What the filter leaves, not what the list holds (US-12). */}
-          <span className="text-muted-foreground text-sm font-normal tabular-nums">
-            {students.length}
-          </span>
-        </CardTitle>
+        {/* The count is what the filter leaves, not what the list holds (US-12). */}
+        <CardTitle>{`${title}: ${students.length}`}</CardTitle>
       </CardHeader>
 
       <CardContent className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
