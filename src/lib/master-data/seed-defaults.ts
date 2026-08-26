@@ -26,9 +26,14 @@ const PROGRAM_DEFAULTS = [
  */
 const LIST_DEFAULTS: Partial<Record<MasterDataCategoryKey, readonly string[]>> = {
   "skill-levels": ["Absoluter Anfänger", "Anfänger", "Fortgeschritten", "Profi"],
-  "bus-pickup-points": ["HTL Dornbirn", "Bahnhof Feldkirch", "Bahnhof Bregenz", "Unterkunft"],
+  "bus-pickup-points": ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Unterkunft"],
   "food-options": ["Alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
-  "season-pass-options": ["Nein", "Vielleicht", "Golm-Bielerhöhe (Illwerke)", "Silvretta-Montafon"],
+  "season-pass-options": [
+    "Keine",
+    "Vielleicht",
+    "Golm-Bielerhöhe (Illwerke)",
+    "Silvretta-Montafon",
+  ],
 };
 
 const MARKER_ID = "masterDataDefaults";

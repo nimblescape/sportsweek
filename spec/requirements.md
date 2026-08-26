@@ -202,7 +202,7 @@ As a teacher, I can maintain the list of season pass options so that students ca
 
 - A view for maintaining the list of season pass options exists.
 - A teacher can add, edit, and remove season pass options from the list.
-- The list is pre-populated with the options no, maybe, Golm-Bielerhöhe (Illwerke), and Silvretta-Montafon.
+- The list is pre-populated, in this order, with the options "Keine" (no season pass), "Vielleicht" (maybe), "Golm-Bielerhöhe (Illwerke)", and "Silvretta-Montafon".
 - The season pass option a student selects in their master data (US-11) is chosen from this maintained list.
 
 ### US-11: Student edits own master data

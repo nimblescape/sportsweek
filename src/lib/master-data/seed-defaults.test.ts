@@ -22,6 +22,13 @@ function namesOf(collection: string): string[] {
     .sort();
 }
 
+/** The order the teacher sees, which is the order the defaults were seeded in. */
+function orderedNamesOf(collection: string): string[] {
+  return Object.values(firestore.docs(collection))
+    .sort((a, b) => Number(a.position) - Number(b.position))
+    .map((document) => String(document.name));
+}
+
 function programNamed(name: string): [string, Record<string, unknown>] {
   const entry = Object.entries(firestore.docs("programs")).find(
     ([, document]) => document.name === name,
@@ -55,10 +62,10 @@ describe("seedMasterDataDefaults", () => {
       "Fortgeschritten",
       "Profi",
     ]);
-    expect(namesOf("busPickupPoints")).toEqual([
+    expect(orderedNamesOf("busPickupPoints")).toEqual([
+      "HTL Dornbirn",
       "Bahnhof Bregenz",
       "Bahnhof Feldkirch",
-      "HTL Dornbirn",
       "Unterkunft",
     ]);
     expect(namesOf("foodOptions")).toEqual([
@@ -67,7 +74,12 @@ describe("seedMasterDataDefaults", () => {
       "Vegan",
       "Vegetarisch",
     ]);
-    expect(namesOf("seasonPassOptions")).toContain("Silvretta-Montafon");
+    expect(orderedNamesOf("seasonPassOptions")).toEqual([
+      "Keine",
+      "Vielleicht",
+      "Golm-Bielerhöhe (Illwerke)",
+      "Silvretta-Montafon",
+    ]);
   });
 
   it("leaves classes empty, since that list has no defaults", async () => {

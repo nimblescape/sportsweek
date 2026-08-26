@@ -94,7 +94,7 @@ entity "FoodOption" as foodOption {
 entity "SeasonPassOption" as seasonPassOption {
   PK id : string
   --
-  name : string  ' no, maybe, Golm-Bielerhöhe (Illwerke), Silvretta-Montafon (US-10)
+  name : string  ' Keine, Vielleicht, Golm-Bielerhöhe (Illwerke), Silvretta-Montafon (US-10)
   position : number  ' teacher-defined order (see Ordering)
 }
 
