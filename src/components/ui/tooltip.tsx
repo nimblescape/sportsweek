@@ -31,7 +31,7 @@ export function Tooltip({ label, children, side = "top", className }: TooltipPro
               aria-hidden
               className={cn(
                 "bg-foreground text-background z-50 rounded-md px-2 py-1 text-xs font-medium shadow-md",
-                "origin-(--transform-origin) transition-[transform,opacity] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
+                "origin-(--transform-origin) transition-[transform,opacity] data-ending-style:opacity-0 data-starting-style:opacity-0",
                 className,
               )}
             >
