@@ -39,15 +39,18 @@ const fakeLogin = resolveAuthMode(env.AUTH_MODE, env.NEXT_PUBLIC_FIREBASE_PROJEC
 const nextConfig: NextConfig = {
   env,
   pageExtensions: ["ts", "tsx", ...(fakeLogin ? ["fake.ts", "fake.tsx"] : [])],
-  // Same idea for the client half: with no alias the import resolves to a stub that renders
-  // nothing, so the dialog and its German strings stay out of the bundle.
+  // The rest of it hangs off two facades, which resolve to the production implementation
+  // unless a build opts in here. Aliasing the fake login *in* rather than stubbing it out
+  // means an alias that stops matching leaves production untouched, and it keeps everything
+  // under `fake/` out of the graph on its own: nothing imports it, so nothing pulls it in.
   turbopack: {
     resolveAlias: fakeLogin
-      ? {}
-      : {
-          "@/components/auth/fake-sign-in-dialog":
-            "./src/components/auth/fake-sign-in-dialog.stub.tsx",
-        },
+      ? {
+          "@/components/auth/sign-in-interstitial":
+            "./src/components/auth/fake/sign-in-interstitial.tsx",
+          "@/lib/auth/sign-in-policy": "./src/lib/auth/fake/sign-in-policy.ts",
+        }
+      : {},
   },
   // Proxies Firebase's OAuth sign-in helper through our own domain so signInWithRedirect
   // doesn't rely on a cross-origin iframe to *.firebaseapp.com — required since
