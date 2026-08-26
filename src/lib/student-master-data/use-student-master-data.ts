@@ -6,14 +6,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
+import { subscribeWithRecovery } from "@/lib/firebase/live-query";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { studentMasterDataSchema, type StudentMasterData } from "@/lib/schemas/student-master-data";
 import type { Season } from "@/lib/schemas/season";
 import { activeSeasonOf } from "@/lib/seasons/season-state";
 import { useSeasons } from "@/lib/seasons/use-seasons";
-import { recordIdFor } from "./registration";
 
 type StudentMasterDataState = {
   /** The season the student registers for, or null while a teacher has activated none (US-4). */
@@ -25,19 +25,17 @@ type StudentMasterDataState = {
 };
 
 /**
- * The student's own registration, read live through the client SDK (see firestore.rules). The
- * record's id is derived from the season and the student rather than searched for, so this is a
- * single-document read no index has to support.
+ * The student's own registration, read live through the client SDK (see firestore.rules).
+ *
+ * A query rather than a read of the derived id, even though the id is known: rules deny a read
+ * of a document that does not exist, because there is no `resource` to check ownership against
+ * — and not having registered yet is where every student starts. A query is evaluated per
+ * document returned, so the same rule answers "none of them" instead of "no permission".
  */
 export function useStudentMasterData(userId: string): StudentMasterDataState {
   const { seasons, loading: seasonsLoading, error: seasonsError } = useSeasons();
-  // Keyed by the season it was read for, so a season change reads as "not loaded yet" without
-  // an effect having to reset anything.
-  const [loaded, setLoaded] = useState<{
-    seasonId: string;
-    record: StudentMasterData | null;
-    error: string | null;
-  } | null>(null);
+  const [records, setRecords] = useState<StudentMasterData[] | null>(null);
+  const [recordError, setRecordError] = useState<string | null>(null);
 
   // Two active seasons is a data defect the student cannot act on, so it is reported rather
   // than thrown — a throw here would take the page down with it.
@@ -51,35 +49,34 @@ export function useStudentMasterData(userId: string): StudentMasterDataState {
 
   const seasonId = active.season?.id ?? null;
 
-  useEffect(() => {
-    if (seasonId === null) return;
-
-    return onSnapshot(
-      doc(db, COLLECTIONS.studentMasterData, recordIdFor(seasonId, userId)),
-      (snapshot) => {
-        const parsed = studentMasterDataSchema.safeParse({ id: snapshot.id, ...snapshot.data() });
-        if (snapshot.exists() && !parsed.success) {
-          console.error(`${snapshot.id} does not match the schema`, parsed.error);
-        }
-        setLoaded({
-          seasonId,
-          record: snapshot.exists() && parsed.success ? parsed.data : null,
-          error: null,
-        });
-      },
-      (caught) => {
-        console.error("Failed to read the student's master data:", caught);
-        setLoaded({ seasonId, record: null, error: caught.message });
-      },
-    );
-  }, [seasonId, userId]);
-
-  const settled = loaded !== null && loaded.seasonId === seasonId;
+  useEffect(
+    () =>
+      subscribeWithRecovery<StudentMasterData>({
+        label: COLLECTIONS.studentMasterData,
+        buildQuery: () =>
+          query(collection(db, COLLECTIONS.studentMasterData), where("userId", "==", userId)),
+        parse: (id, data) => {
+          const parsed = studentMasterDataSchema.safeParse({ id, ...data });
+          if (!parsed.success) {
+            console.error(
+              `${COLLECTIONS.studentMasterData}/${id} does not match the schema`,
+              parsed.error,
+            );
+            return null;
+          }
+          return parsed.data;
+        },
+        onData: setRecords,
+        onError: setRecordError,
+      }),
+    [userId],
+  );
 
   return {
     season: active.season,
-    record: settled ? loaded.record : null,
-    loading: seasonsLoading || (seasonId !== null && !settled),
-    error: seasonsError ?? active.error ?? (settled ? loaded.error : null),
+    // A student keeps one record per season they have registered for; this is the current one.
+    record: records?.find((candidate) => candidate.seasonId === seasonId) ?? null,
+    loading: seasonsLoading || records === null,
+    error: seasonsError ?? active.error ?? recordError,
   };
 }

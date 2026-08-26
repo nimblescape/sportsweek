@@ -26,6 +26,8 @@ afterAll(async () => await testEnv.cleanup());
 const TEACHER_UPN = "lehrperson@htldornbirn.at";
 const STUDENT_UPN = "schuelerin@student.htldornbirn.at";
 const OTHER_STUDENT_UPN = "schueler@student.htldornbirn.at";
+/** Signed in, but has not registered yet — which is where every student starts. */
+const NEWCOMER_UPN = "neu@student.htldornbirn.at";
 
 const signInAs = (upn: string) =>
   testEnv.authenticatedContext(`uid-of-${upn}`, { email: upn }).firestore();
@@ -51,6 +53,7 @@ beforeEach(async () => {
     await db.collection("users").doc(TEACHER_UPN).set({ role: "teacher" });
     await db.collection("users").doc(STUDENT_UPN).set({ role: "student" });
     await db.collection("users").doc(OTHER_STUDENT_UPN).set({ role: "student" });
+    await db.collection("users").doc(NEWCOMER_UPN).set({ role: "student" });
   });
 
   await seed("studentMasterData", OWN_RECORD, {
@@ -86,6 +89,19 @@ describe("/studentMasterData", () => {
   it("lets a student query for their own record, which is what the form subscribes to", async () => {
     await assertSucceeds(
       student().collection("studentMasterData").where("userId", "==", STUDENT_UPN).get(),
+    );
+  });
+
+  /**
+   * Where every student starts. A `get` of the id the form could derive is denied instead —
+   * there is no `resource` on a document that does not exist, so ownership cannot be checked —
+   * which is why the form queries rather than reading that id.
+   */
+  it("answers a student who has no record yet with an empty result, not a refusal", async () => {
+    const newcomer = signInAs(NEWCOMER_UPN);
+
+    await assertSucceeds(
+      newcomer.collection("studentMasterData").where("userId", "==", NEWCOMER_UPN).get(),
     );
   });
 
