@@ -37,7 +37,7 @@ export const allDragId = (groupId: string) => `all:${groupId}`;
  * width it saves.
  */
 const AREAS = "grid gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto]";
-const AREA = "border-border bg-muted/40 flex min-w-0 flex-col rounded-lg border p-3";
+const AREA = "border-border bg-muted/40 flex min-h-0 min-w-0 flex-col rounded-lg border p-3";
 
 function AreaTitle({ children, aside }: { children: string; aside?: ReactNode }) {
   return (
@@ -135,9 +135,12 @@ export function AssignmentCard({
               >
                 Schüler:innen
               </AreaTitle>
-              {/* Grows into whatever height the tallest area gives the row, so the box never
-                  ends short of its own bottom edge. */}
-              <ul className="max-h-96 min-h-0 flex-1 overflow-y-auto">
+              {/* A wrapping row rather than one name per line: a card holds a class or two, and
+                  down a column that is a great deal of scrolling for very little text.
+
+                  `flex-1` starts it from nothing, so the names never decide how tall the card
+                  is — it takes the height the other two areas set, and scrolls inside it. */}
+              <ul className="flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-y-auto">
                 {shown.length > 0 && (
                   <Row
                     dragId={allDragId(group.id)}
@@ -224,25 +227,30 @@ function Row({
 
   return (
     <li ref={setNodeRef} className={cn(isDragging && "opacity-80")}>
-      <div className={cn("flex items-center rounded-md", picked && "bg-accent")}>
+      <div
+        className={cn(
+          "border-border bg-background flex items-center rounded-md border",
+          picked && "border-ring bg-accent",
+        )}
+      >
         <button
           type="button"
           aria-label={`${label ?? name} verschieben`}
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-l-md py-1 pl-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
           {...attributes}
           onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined}
         >
-          <GripVertical aria-hidden className="size-4" />
+          <GripVertical aria-hidden className="size-3.5" />
         </button>
 
-        {/* Picked is shown by colouring the row, so there is no box to tick (US-12). */}
+        {/* Picked is shown by colouring the tag, so there is no box to tick (US-12). */}
         <button
           type="button"
           aria-label={label}
           aria-pressed={picked}
           onPointerDown={handlePointerDown}
           onClick={handleClick}
-          className="focus-visible:ring-ring/50 flex-1 touch-none rounded-md px-1 py-2 text-left text-sm outline-none focus-visible:ring-3"
+          className="focus-visible:ring-ring/50 touch-none rounded-r-md py-1 pr-2 pl-0.5 text-left text-sm whitespace-nowrap outline-none focus-visible:ring-3"
         >
           {name}
         </button>
