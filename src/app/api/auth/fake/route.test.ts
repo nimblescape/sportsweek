@@ -21,7 +21,7 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const { GET, POST } = await import("@/app/api/auth/fake/route");
+const { GET, POST } = await import("@/app/api/auth/fake/route.fake");
 
 function postRequest(body: unknown) {
   return new Request("https://example.com/api/auth/fake", {

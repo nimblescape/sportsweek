@@ -1,6 +1,6 @@
 {
-    "projects": {
-        "default": "htld-sportsweek",
-        "staging": "htld-sportsweek-staging"
-    }
+  "projects": {
+    "default": "htld-sportsweek",
+    "staging": "htld-sportsweek-staging"
+  }
 }

@@ -19,7 +19,7 @@ import {
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FakeSignInDialog } from "@/components/auth/fake-sign-in-dialog";
+import { FakeSignInDialog, FAKE_SIGN_IN_LABEL } from "@/components/auth/fake-sign-in-dialog";
 import { ROUTES, homeFor } from "@/lib/routes";
 import { userRoleSchema } from "@/lib/schemas/user";
 import type { AuthMode } from "@/lib/auth/auth-mode";
@@ -122,7 +122,9 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">Sportwochen-Verwaltung</p>
           <Button className="mt-8 h-10 w-full" onClick={handleSignIn} disabled={checking}>
-            {mode === "fake" ? "Anmelden (Testmodus)" : "Anmelden über Office 365"}
+            {mode === "fake" && FAKE_SIGN_IN_LABEL
+              ? FAKE_SIGN_IN_LABEL
+              : "Anmelden über Office 365"}
           </Button>
           {/* Always occupies its height, so the card doesn't resize when the spinner appears. */}
           <div data-slot="sign-in-status" className="mt-4 flex h-5 items-center justify-center">

@@ -22,6 +22,9 @@ import { userRoleSchema, userSchema, type UserRole } from "@/lib/schemas/user";
 const NO_UPN = "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden.";
 const SIGN_IN_FAILED = "Test-Anmeldung fehlgeschlagen.";
 
+/** Lives here rather than on the card so the stub can drop it from a production bundle. */
+export const FAKE_SIGN_IN_LABEL = "Anmelden (Testmodus)";
+
 const knownUsersSchema = z.array(
   z.object({
     upn: z.string(),
