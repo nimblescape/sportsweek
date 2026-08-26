@@ -46,7 +46,15 @@ vi.mock("next/image", () => ({
 
 const { SignInCard } = await import("@/components/auth/sign-in-card");
 
-const signedInUser = { getIdToken: vi.fn().mockResolvedValue("id-token") };
+/** `signInProvider` is how the card tells a real sign-in from an impersonated one. */
+function userSignedInVia(provider: string) {
+  return {
+    getIdToken: vi.fn().mockResolvedValue("id-token"),
+    getIdTokenResult: vi.fn().mockResolvedValue({ token: "id-token", signInProvider: provider }),
+  };
+}
+
+const signedInUser = userSignedInVia("microsoft.com");
 
 function respondWith(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({
@@ -264,20 +272,38 @@ describe("SignInCard", () => {
       });
     });
 
-    it("says on the button that this is not the real sign-in", async () => {
+    // Impersonating is reached through the real provider, not instead of it.
+    it("still offers the real sign-in as the way in", async () => {
       render(<SignInCard mode="fake" />);
 
-      expect(await screen.findByRole("button", { name: /Testmodus/i })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /Office 365/i })).not.toBeInTheDocument();
+      await userEvent.click(await screen.findByRole("button", { name: /Office 365/i }));
+
+      expect(signInWithRedirect).toHaveBeenCalled();
     });
 
-    it("opens the test-login dialog instead of handing off to Entra ID", async () => {
+    it("offers to impersonate once the real sign-in has produced a session", async () => {
+      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+        callback(userSignedInVia("microsoft.com"));
+        return () => {};
+      });
+
       render(<SignInCard mode="fake" />);
 
-      await userEvent.click(await screen.findByRole("button", { name: /Testmodus/i }));
-
       expect(await screen.findByRole("dialog")).toBeInTheDocument();
-      expect(signInWithRedirect).not.toHaveBeenCalled();
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    // Without this the impersonated session would reopen the dialog it just came from.
+    it("goes into the app instead of asking again once impersonating", async () => {
+      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+        callback(userSignedInVia("custom"));
+        return () => {};
+      });
+
+      render(<SignInCard mode="fake" />);
+
+      await waitFor(() => expect(push).toHaveBeenCalledWith("/app"));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     // The dialog closes the moment it has signed in, and the session still has to be created
@@ -294,7 +320,7 @@ describe("SignInCard", () => {
       render(<SignInCard mode="fake" />);
       await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
 
-      await act(async () => notify(signedInUser));
+      await act(async () => notify(userSignedInVia("custom")));
 
       expect(screen.getByRole("status")).toBeInTheDocument();
       expect(screen.getByRole("button")).toBeDisabled();

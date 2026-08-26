@@ -21,9 +21,7 @@ import { userRoleSchema, userSchema, type UserRole } from "@/lib/schemas/user";
 
 const NO_UPN = "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden.";
 const SIGN_IN_FAILED = "Test-Anmeldung fehlgeschlagen.";
-
-/** Lives here rather than on the card so the stub can drop it from a production bundle. */
-export const FAKE_SIGN_IN_LABEL = "Anmelden (Testmodus)";
+const NOT_ALLOWED = "Dafür ist eine Anmeldung als Lehrperson über Office 365 nötig.";
 
 const knownUsersSchema = z.array(
   z.object({
@@ -50,12 +48,20 @@ const SELECT_CLASS =
   "border-input focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-lg border bg-transparent px-3 text-sm outline-none focus-visible:ring-3";
 
 /**
- * Stands in for the Entra ID sign-in while developing (see `resolveAuthMode`). The name and
- * role compile into the UPN the tenant would issue, the server hands back a custom token,
- * and signing in with it puts the app on the same path as a real login — so the app can be
- * tried out as several teachers and students without tenant accounts.
+ * Impersonation, reached only after a real Entra ID sign-in (see the route's Entra gate).
+ * The name and role compile into the UPN the tenant would issue, the server hands back a
+ * custom token, and signing in with it puts the app on the same path as a real login — so
+ * the app can be tried as several teachers and students without tenant accounts.
  */
-export function FakeSignInDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function FakeSignInDialog({
+  open,
+  onCancel,
+  onImpersonated,
+}: {
+  open: boolean;
+  onCancel: () => void;
+  onImpersonated: () => void;
+}) {
   const [known, setKnown] = React.useState<KnownUser[]>([]);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const knownId = React.useId();
@@ -78,12 +84,19 @@ export function FakeSignInDialog({ open, onClose }: { open: boolean; onClose: ()
     let cancelled = false;
 
     fetch("/api/auth/fake")
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => {
+        if (response.status === 403) throw new Error(NOT_ALLOWED);
+        return response.ok ? response.json() : null;
+      })
       .then((body) => {
         const parsed = knownUsersSchema.safeParse(body?.users);
         if (!cancelled && parsed.success) setKnown(parsed.data);
       })
-      .catch(() => undefined);
+      .catch((error) => {
+        if (!cancelled && error instanceof Error && error.message === NOT_ALLOWED) {
+          setSubmitError(NOT_ALLOWED);
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -123,7 +136,7 @@ export function FakeSignInDialog({ open, onClose }: { open: boolean; onClose: ()
       // The sign-in card's auth-state listener takes it from here: it trades the ID token
       // for the session cookie and navigates.
       await signInWithCustomToken(auth, minted.customToken);
-      onClose();
+      onImpersonated();
     } catch (error) {
       setSubmitError(error instanceof ApiRequestError ? error.message : SIGN_IN_FAILED);
     }
@@ -133,8 +146,8 @@ export function FakeSignInDialog({ open, onClose }: { open: boolean; onClose: ()
     <Dialog
       open={open}
       title="Test-Anmeldung"
-      description="Meldet ohne Entra ID an. Nur in der Entwicklung verfügbar."
-      onClose={onClose}
+      description="Als anderer Benutzer fortfahren, ohne dessen Entra-ID-Konto zu brauchen."
+      onClose={onCancel}
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <div className="flex flex-col gap-1.5">
@@ -201,8 +214,8 @@ export function FakeSignInDialog({ open, onClose }: { open: boolean; onClose: ()
         ) : null}
 
         <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Abbrechen
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Als ich selbst fortfahren
           </Button>
           <Button type="submit" disabled={isSubmitting}>
             Anmelden

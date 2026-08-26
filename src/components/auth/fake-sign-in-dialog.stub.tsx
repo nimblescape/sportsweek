@@ -10,8 +10,6 @@
  * or strings reach the bundle. next.config.ts aliases the import here — see `fakeLogin`.
  * The sign-in card never renders it in that case, so returning null is unreachable anyway.
  */
-export const FAKE_SIGN_IN_LABEL = null;
-
 export function FakeSignInDialog(): null {
   return null;
 }

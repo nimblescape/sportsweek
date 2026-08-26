@@ -19,7 +19,7 @@ import {
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FakeSignInDialog, FAKE_SIGN_IN_LABEL } from "@/components/auth/fake-sign-in-dialog";
+import { FakeSignInDialog } from "@/components/auth/fake-sign-in-dialog";
 import { ROUTES, homeFor } from "@/lib/routes";
 import { userRoleSchema } from "@/lib/schemas/user";
 import type { AuthMode } from "@/lib/auth/auth-mode";
@@ -30,12 +30,13 @@ const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut."
 // Sign-in itself only starts when the user clicks the button — same window, no popup.
 // onAuthStateChanged reliably reports the signed-in user once Firebase resolves the
 // redirect (relies on the /__/auth/* proxy in next.config.ts — see redirect-best-practices).
-// It is also what finishes the fake login, which only has to put a user on `auth`.
+// It is also what finishes an impersonation, which only has to put a user on `auth`.
 export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  const [fakeDialogOpen, setFakeDialogOpen] = useState(false);
+  // Set together: the dialog is open, and this is where closing it without impersonating goes.
+  const [continueAs, setContinueAs] = useState<string | null>(null);
   // True until Firebase's first auth-state callback fires, which only happens once any
   // pending redirect has been resolved — avoids flashing the button during that window.
   const [checking, setChecking] = useState(true);
@@ -64,11 +65,11 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
 
       try {
         await redirectSettled;
-        const idToken = await user.getIdToken();
+        const { token, signInProvider } = await user.getIdTokenResult();
         const response = await fetch("/api/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken, msAccessToken: graphAccessToken }),
+          body: JSON.stringify({ idToken: token, msAccessToken: graphAccessToken }),
         });
 
         // The UPN domain isn't eligible (US-3) — leave no half-authenticated client state behind.
@@ -86,10 +87,18 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
 
         const body = await response.json().catch(() => null);
         const role = userRoleSchema.safeParse(body?.role);
+        const destination =
+          searchParams.get("next") ?? (role.success ? homeFor(role.data) : ROUTES.appRoot);
 
-        router.push(
-          searchParams.get("next") ?? (role.success ? homeFor(role.data) : ROUTES.appRoot),
-        );
+        // Only a real sign-in unlocks the dialog, and only a real sign-in should be offered
+        // it: an impersonated session arriving here came *from* the dialog.
+        if (mode === "fake" && signInProvider === "microsoft.com") {
+          setChecking(false);
+          setContinueAs(destination);
+          return;
+        }
+
+        router.push(destination);
         router.refresh();
       } catch {
         setChecking(false);
@@ -98,14 +107,10 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
     });
 
     return () => unsubscribe();
-  }, [router, searchParams]);
+  }, [router, searchParams, mode]);
 
   async function handleSignIn() {
     setError(null);
-    if (mode === "fake") {
-      setFakeDialogOpen(true);
-      return;
-    }
     await signInWithRedirect(auth, createMicrosoftAuthProvider());
   }
 
@@ -126,9 +131,7 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">Sportwochen-Verwaltung</p>
           <Button className="mt-8 h-10 w-full" onClick={handleSignIn} disabled={checking}>
-            {mode === "fake" && FAKE_SIGN_IN_LABEL
-              ? FAKE_SIGN_IN_LABEL
-              : "Anmelden über Office 365"}
+            Anmelden über Office 365
           </Button>
           {/* Always occupies its height, so the card doesn't resize when the spinner appears. */}
           <div data-slot="sign-in-status" className="mt-4 flex h-5 items-center justify-center">
@@ -146,7 +149,17 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
           ) : null}
         </CardContent>
       </Card>
-      {fakeDialogOpen ? <FakeSignInDialog open onClose={() => setFakeDialogOpen(false)} /> : null}
+      {continueAs ? (
+        <FakeSignInDialog
+          open
+          onCancel={() => {
+            setContinueAs(null);
+            router.push(continueAs);
+            router.refresh();
+          }}
+          onImpersonated={() => setContinueAs(null)}
+        />
+      ) : null}
     </div>
   );
 }
