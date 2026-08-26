@@ -12,6 +12,10 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["firestore-tests/**/*.test.ts"],
+    // Several tests here deliberately put a burst of transactions in contention, and the
+    // Admin SDK answers that by retrying with backoff — seconds of wall clock is the
+    // behaviour under test, not a hang. Vitest's 5s default left no margin at all.
+    testTimeout: 30_000,
   },
   resolve: {
     alias: {
