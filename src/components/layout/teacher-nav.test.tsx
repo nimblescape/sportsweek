@@ -37,8 +37,23 @@ describe("TeacherNav", () => {
       .concat(screen.getAllByRole("button"))
       .map((element) => element.textContent);
 
-    expect(labels).toEqual(expect.arrayContaining(["Bericht", "Zuteilung", "Stammdaten"]));
+    expect(labels).toEqual(
+      expect.arrayContaining(["Bericht", "Zuteilung", "Statistik", "Stammdaten"]),
+    );
     expect(labels.indexOf("Bericht")).toBeLessThan(labels.indexOf("Zuteilung"));
+    expect(labels.indexOf("Zuteilung")).toBeLessThan(labels.indexOf("Statistik"));
+    expect(labels.indexOf("Statistik")).toBeLessThan(labels.indexOf("Stammdaten"));
+  });
+
+  it("gives every top-level item an icon to be recognised by once the labels are gone", () => {
+    render(<TeacherNav />);
+
+    for (const label of ["Bericht", "Zuteilung", "Statistik"]) {
+      expect(screen.getByRole("link", { name: label }).querySelector("svg")).toBeInTheDocument();
+    }
+    expect(
+      screen.getByRole("button", { name: /stammdaten/i }).querySelector("svg"),
+    ).toBeInTheDocument();
   });
 
   it("keeps the master data sub-items collapsed outside that section", () => {
@@ -103,5 +118,82 @@ describe("TeacherNav", () => {
     render(<TeacherNav />);
 
     expect(screen.getByRole("link", { name: "Klassen" })).toHaveAttribute("aria-current", "page");
+  });
+});
+
+describe("TeacherNav — collapsing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    pathname.mockReturnValue("/app/report");
+  });
+
+  const toggle = () => screen.getByRole("button", { name: /navigation (ein|aus)klappen/i });
+
+  it("starts open, and says which way its control goes", () => {
+    render(<TeacherNav />);
+
+    expect(toggle()).toHaveAccessibleName("Navigation einklappen");
+    expect(toggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("collapses and opens again", async () => {
+    render(<TeacherNav />);
+
+    await userEvent.click(toggle());
+    expect(toggle()).toHaveAccessibleName("Navigation ausklappen");
+    expect(toggle()).toHaveAttribute("aria-expanded", "false");
+
+    await userEvent.click(toggle());
+    expect(toggle()).toHaveAccessibleName("Navigation einklappen");
+  });
+
+  it("keeps every destination reachable by name while collapsed", async () => {
+    render(<TeacherNav />);
+
+    await userEvent.click(toggle());
+
+    for (const label of ["Bericht", "Zuteilung", "Statistik"]) {
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it("folds the sub-items away with the bar, since there is no width left to read them in", async () => {
+    pathname.mockReturnValue("/app/master-data/classes");
+    render(<TeacherNav />);
+
+    await userEvent.click(toggle());
+
+    expect(screen.queryByRole("link", { name: "Klassen" })).not.toBeInTheDocument();
+  });
+
+  // The bar is collapsed because the teacher wants the width, so going somewhere must not take
+  // that decision back — only asking for something the rail has no room for may.
+  it("stays collapsed when a destination is chosen", async () => {
+    render(<TeacherNav />);
+
+    await userEvent.click(toggle());
+    await userEvent.click(screen.getByRole("link", { name: "Statistik" }));
+
+    expect(toggle()).toHaveAccessibleName("Navigation ausklappen");
+  });
+
+  it("opens the bar when the sub-items are asked for, there being no width to read them in", async () => {
+    render(<TeacherNav />);
+
+    await userEvent.click(toggle());
+    await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
+
+    expect(toggle()).toHaveAccessibleName("Navigation einklappen");
+    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
+  });
+
+  it("shows the section the way it was left once the bar is opened again", async () => {
+    render(<TeacherNav />);
+
+    await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
+    await userEvent.click(toggle());
+    await userEvent.click(toggle());
+
+    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
   });
 });

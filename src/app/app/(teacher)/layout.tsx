@@ -13,7 +13,8 @@ export default async function TeacherLayout({ children }: { children: ReactNode 
 
   return (
     <div className="flex flex-1 flex-col md:flex-row">
-      <aside className="border-border shrink-0 border-b md:w-56 md:border-r md:border-b-0">
+      {/* The width lives on the nav, which is what decides whether it is collapsed. */}
+      <aside className="border-border shrink-0 border-b md:border-r md:border-b-0">
         <TeacherNav />
       </aside>
       <div className="flex flex-1 flex-col">{children}</div>
