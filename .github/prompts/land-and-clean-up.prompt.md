@@ -40,16 +40,22 @@ gh pr view --json number,title,state
 ```
 
 If there is no pull request, open one against `main` with `gh pr create --base main`, writing the
-body to a file and passing `--body-file` so `gh` never prompts.
+body to a file and passing `--body-file` so `gh` never prompts. If one is already open and the
+commit just made changes what it does, bring the body up to date with `gh pr edit --body-file`:
+the squash message is written from it, so a stale body outlives the pull request.
 
 ## 4. Merge it
 
 Auto-merge is disabled on this repository, so `gh pr merge --auto` fails. Wait for the checks
-instead:
+instead — redirected, because bare `--watch` draws into the alternate screen buffer, which a
+terminal without a TTY never leaves:
 
 ```bash
-gh pr checks <n> --watch
+gh pr checks <n> --watch --interval 20 > /tmp/checks.txt 2>&1; cat /tmp/checks.txt
 ```
+
+Redirecting costs nothing: `gh` prints plain lines when its output is not a terminal, and still
+blocks until every check has settled.
 
 `main` requires branches to be up to date, so a pull request opened before another merge reports
 `mergeStateStatus: BEHIND`. Rebase onto `origin/main` and force-push with `--force-with-lease`,
