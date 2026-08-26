@@ -27,7 +27,6 @@ export default async function StudentMasterDataPage() {
     // Capped rather than stretched: the form is one column of short fields, and a line of
     // inputs the full width of a desktop screen is a long way from its own label.
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 md:p-6">
-      <h1 className="font-heading text-lg font-semibold">Meine Daten</h1>
       <StudentMasterDataView userId={userId} studentName={studentName} />
     </div>
   );

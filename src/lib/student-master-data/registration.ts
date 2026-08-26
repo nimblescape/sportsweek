@@ -24,7 +24,8 @@ export const REGISTRATION_NOT_OPEN_HINT = "Es ist noch keine Sportveranstaltung 
 
 /** What an unsaved registration looks like, before the student has answered anything. */
 export const EMPTY_REGISTRATION: StudentMasterDataInput = {
-  isAttendingSportsWeek: true,
+  // Taking part is the answer the student gives, not one the form assumes on their behalf.
+  isAttendingSportsWeek: false,
   class: "",
   program: null,
   skillLevel: null,
