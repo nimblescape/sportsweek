@@ -24,8 +24,8 @@ export default async function StudentMasterDataPage() {
     : (user.email ?? "");
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="font-heading text-xl">Meine Stammdaten</h1>
+    <div className="flex flex-col gap-4 p-4 md:p-6">
+      <h1 className="font-heading text-lg font-semibold">Meine Daten</h1>
       <StudentMasterDataView userId={userId} studentName={studentName} />
     </div>
   );
