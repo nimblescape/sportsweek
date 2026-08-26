@@ -32,13 +32,11 @@ export const allDragId = (groupId: string) => `all:${groupId}`;
 
 /**
  * Each area gets a surface of its own, so three columns of content read as three areas rather
- * than as one crowded block.
- *
- * Plain flex utilities rather than a grid with an arbitrary template: the arbitrary class went
- * missing from the development stylesheet, which left the areas stacked while the built one had
- * them side by side. Nothing here needs a value Tailwind has to be told about.
+ * than as one crowded block. Side by side from the small breakpoint up — the card is what the
+ * teacher works across, so keeping it one column any longer than necessary costs more than the
+ * width it saves.
  */
-const AREAS = "flex flex-col gap-3 sm:flex-row";
+const AREAS = "grid gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto]";
 const AREA = "border-border bg-muted/40 min-w-0 rounded-lg border p-3";
 
 function AreaTitle({ children, aside }: { children: string; aside?: ReactNode }) {
@@ -117,7 +115,7 @@ export function AssignmentCard({
 
         {expanded && (
           <div className={AREAS}>
-            <section className={cn(AREA, "sm:w-60 sm:shrink-0")}>
+            <section className={AREA}>
               <AreaTitle>Filter</AreaTitle>
               <FilterTagList
                 label={group.title}
@@ -127,7 +125,7 @@ export function AssignmentCard({
               />
             </section>
 
-            <section className={cn(AREA, "sm:flex-1")}>
+            <section className={AREA}>
               <AreaTitle
                 aside={
                   <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
@@ -163,7 +161,7 @@ export function AssignmentCard({
 
             {/* Deliberately fed the whole card rather than `shown`: the figures describe the
                 card, not the filter someone happens to have typed into it. */}
-            <section className={cn(AREA, "overflow-x-auto sm:shrink-0")}>
+            <section className={AREA}>
               <AreaTitle>Statistik</AreaTitle>
               <div className="flex flex-col gap-3">
                 <GenderTable counts={group} />
