@@ -24,7 +24,8 @@ export const REGISTRATION_NOT_OPEN_HINT = "Es ist noch keine Sportveranstaltung 
 
 /** What an unsaved registration looks like, before the student has answered anything. */
 export const EMPTY_REGISTRATION: StudentMasterDataInput = {
-  // Taking part is the answer the student gives, not one the form assumes on their behalf.
+  // Taking part and borrowing equipment are answers the student gives, not ones the form
+  // assumes on their behalf — so both start on "no".
   isAttendingSportsWeek: false,
   class: "",
   program: null,
@@ -39,7 +40,7 @@ export const EMPTY_REGISTRATION: StudentMasterDataInput = {
   emergencyContact: EMPTY_EMERGENCY_CONTACT,
   healthNotes: null,
   hasMedication: null,
-  equipmentRentalNeeded: null,
+  equipmentRentalNeeded: false,
   rentedEquipment: [],
   shoeSize: null,
   heightCm: null,
