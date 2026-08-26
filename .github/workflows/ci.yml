@@ -13,6 +13,11 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
+# Enough for checkout, and nothing more. Artifact upload authenticates with the runtime
+# token rather than this one, so it needs no scope here.
+permissions:
+  contents: read
+
 jobs:
   lint-and-unit:
     runs-on: ubuntu-latest
