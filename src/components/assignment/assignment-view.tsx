@@ -109,9 +109,8 @@ export function AssignmentView() {
               />
 
               <TransferLists
-                // Remounts on an event change, so the right list's filter and the selection
-                // start clean rather than carrying the previous event's over.
-                key={selectedEvent?.id ?? "none"}
+                // Deliberately not keyed by the event: picking one says which students the
+                // right list holds, not how either list is filtered.
                 eventName={selectedEvent?.name ?? null}
                 unassigned={attending.filter((student) => student.eventId === null)}
                 assigned={attending.filter((student) => student.eventId === selectedEvent?.id)}

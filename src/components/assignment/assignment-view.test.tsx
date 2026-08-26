@@ -184,4 +184,28 @@ describe("AssignmentView", () => {
 
     expect(screen.getByText(/noch keine Events/)).toBeInTheDocument();
   });
+
+  /** Picking an event narrows the right list; it says nothing about how the lists are filtered. */
+  it("keeps the filter tags when another event is picked", async () => {
+    render(<AssignmentView />);
+
+    await userEvent.click(screen.getByRole("radio", { name: "Montafon" }));
+    await userEvent.click(left().getByRole("button", { name: "Klasse: 5BHIF" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Gardasee" }));
+
+    expect(left().getByRole("button", { name: "Klasse: 5BHIF" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("keeps the typed name filter when another event is picked", async () => {
+    render(<AssignmentView />);
+
+    await userEvent.click(screen.getByRole("radio", { name: "Montafon" }));
+    await userEvent.type(left().getByRole("textbox", { name: "Nicht zugeteilt: Name" }), "mus");
+    await userEvent.click(screen.getByRole("radio", { name: "Gardasee" }));
+
+    expect(left().getByRole("textbox", { name: "Nicht zugeteilt: Name" })).toHaveValue("mus");
+  });
 });
