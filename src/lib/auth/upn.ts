@@ -27,8 +27,9 @@ export function roleFromUpn(upn: string): UserRole | null {
 
 /** `firstname.lastname`, hyphens allowed inside either part — no digits, no other separators. */
 const NAME_PART = "[a-z]+(?:-[a-z]+)*";
-const anyDomainOf = (...domains: string[]) =>
-  `(?:${domains.map((domain) => domain.replace(/\./g, "\\.")).join("|")})`;
+/** Everything the regex grammar gives meaning to, so a domain can only ever match itself. */
+const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const anyDomainOf = (...domains: string[]) => `(?:${domains.map(escapeForRegExp).join("|")})`;
 const SCHOOL_UPN = new RegExp(
   `^${NAME_PART}\\.${NAME_PART}@${anyDomainOf(TEACHER_DOMAIN, STUDENT_DOMAIN)}$`,
 );
