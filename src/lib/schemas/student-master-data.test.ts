@@ -4,8 +4,10 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { MAX_EQUIPMENT_ITEMS } from "@/lib/schemas/master-data";
 import {
   emergencyContactSchema,
+  studentMasterDataInputSchema,
   studentMasterDataLockedFields,
   studentMasterDataSchema,
 } from "@/lib/schemas/student-master-data";
@@ -139,6 +141,14 @@ describe("studentMasterDataSchema", () => {
     expect(studentMasterDataSchema.safeParse(twice).success).toBe(false);
   });
 
+  it("rejects renting more items than a program can require", () => {
+    const tooMany = Array.from({ length: MAX_EQUIPMENT_ITEMS + 1 }, (_, index) => `Teil ${index}`);
+
+    expect(
+      studentMasterDataSchema.safeParse({ ...validRecord, rentedEquipment: tooMany }).success,
+    ).toBe(false);
+  });
+
   it("treats a record stored before the field existed as renting nothing", () => {
     const withoutField = { ...validRecord, rentedEquipment: undefined };
 
@@ -153,6 +163,138 @@ describe("studentMasterDataLockedFields", () => {
       "seasonId",
       "userId",
     ]);
+  });
+});
+
+describe("studentMasterDataInputSchema", () => {
+  const attending = {
+    isAttendingSportsWeek: true,
+    class: "3AHME",
+    program: "Ski",
+    skillLevel: "Anfänger",
+    busPickupPoint: "HTL Dornbirn",
+    foodOption: "Vegetarisch",
+    foodOtherText: null,
+    seasonPassOption: "Keine",
+    dateOfBirth: "2008-05-04",
+    gender: "female",
+    phoneNumber: "+436601234567",
+    emergencyContact: validContact,
+    healthNotes: null,
+    hasMedication: false,
+    equipmentRentalNeeded: false,
+    rentedEquipment: [],
+    shoeSize: null,
+    heightCm: null,
+    weightKg: null,
+  };
+
+  const parse = (input: Record<string, unknown>) => studentMasterDataInputSchema.safeParse(input);
+  const pathsOf = (input: Record<string, unknown>) =>
+    parse(input).error?.issues.map((issue) => issue.path.join(".")) ?? [];
+
+  it("accepts a complete registration", () => {
+    expect(parse(attending).success).toBe(true);
+  });
+
+  it.each(["id", "userId", "seasonId", "eventId"])(
+    "refuses to take %s from the student, since the server owns it",
+    (field) => {
+      expect(parse({ ...attending, [field]: "smuggled" }).success).toBe(false);
+    },
+  );
+
+  it.each([
+    "program",
+    "skillLevel",
+    "busPickupPoint",
+    "foodOption",
+    "seasonPassOption",
+    "dateOfBirth",
+    "gender",
+    "phoneNumber",
+    "emergencyContact",
+    "hasMedication",
+  ])("requires %s from a student who is attending", (field) => {
+    expect(pathsOf({ ...attending, [field]: null })).toContain(field);
+  });
+
+  it("requires the class even from a student who is not attending", () => {
+    expect(parse({ ...attending, isAttendingSportsWeek: false, class: "" }).success).toBe(false);
+  });
+
+  /**
+   * Answering "no" only hides the other fields, it does not clear them (US-11) — so a half-filled
+   * registration has to survive being saved, or switching back to "yes" would find it emptied.
+   */
+  it("asks nothing beyond the class of a student who is not attending", () => {
+    const empty = {
+      ...attending,
+      isAttendingSportsWeek: false,
+      program: null,
+      skillLevel: null,
+      busPickupPoint: null,
+      foodOption: null,
+      seasonPassOption: null,
+      dateOfBirth: null,
+      gender: null,
+      phoneNumber: null,
+      emergencyContact: null,
+      hasMedication: null,
+    };
+
+    expect(parse(empty).success).toBe(true);
+  });
+
+  it("keeps the values a student entered before answering 'no'", () => {
+    expect(parse({ ...attending, isAttendingSportsWeek: false }).success).toBe(true);
+  });
+
+  it("requires free text when the food option is 'other'", () => {
+    expect(pathsOf({ ...attending, foodOption: "other" })).toContain("foodOtherText");
+  });
+
+  it.each(["shoeSize", "heightCm", "weightKg"])("requires %s once equipment is rented", (field) => {
+    const renting = {
+      ...attending,
+      equipmentRentalNeeded: true,
+      rentedEquipment: ["Helm"],
+      shoeSize: "42",
+      heightCm: 175,
+      weightKg: 65,
+      [field]: null,
+    };
+
+    expect(pathsOf(renting)).toContain(field);
+  });
+
+  it("requires at least one item once equipment is rented", () => {
+    const renting = {
+      ...attending,
+      equipmentRentalNeeded: true,
+      shoeSize: "42",
+      heightCm: 175,
+      weightKg: 65,
+    };
+
+    expect(pathsOf(renting)).toContain("rentedEquipment");
+  });
+
+  it("accepts a rental with its measurements", () => {
+    const renting = {
+      ...attending,
+      equipmentRentalNeeded: true,
+      rentedEquipment: ["Helm", "Ski"],
+      shoeSize: "42",
+      heightCm: 175,
+      weightKg: 65,
+    };
+
+    expect(parse(renting).success).toBe(true);
+  });
+
+  it("leaves the rental fields alone while nothing is rented", () => {
+    expect(parse({ ...attending, equipmentRentalNeeded: null }).success).toBe(true);
   });
 });
 

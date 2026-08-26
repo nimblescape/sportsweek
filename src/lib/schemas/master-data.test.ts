@@ -10,6 +10,7 @@ import {
   FOOD_OPTION_OTHER,
   FOOD_OPTION_OTHER_LABEL,
   foodOptionSchema,
+  MAX_EQUIPMENT_ITEMS,
   programSchema,
   requiredEquipmentSchema,
   seasonPassOptionSchema,
@@ -65,6 +66,18 @@ describe("requiredEquipmentSchema", () => {
 
   it("rejects a duplicate within the same program, ignoring case and surrounding space", () => {
     expect(requiredEquipmentSchema.safeParse(["Helm", " helm "]).success).toBe(false);
+  });
+
+  it("accepts as many entries as there is equipment to hand out", () => {
+    const full = Array.from({ length: MAX_EQUIPMENT_ITEMS }, (_, index) => `Teil ${index}`);
+
+    expect(requiredEquipmentSchema.safeParse(full).success).toBe(true);
+  });
+
+  it("rejects a list longer than that, which no equipment room could serve", () => {
+    const tooMany = Array.from({ length: MAX_EQUIPMENT_ITEMS + 1 }, (_, index) => `Teil ${index}`);
+
+    expect(requiredEquipmentSchema.safeParse(tooMany).success).toBe(false);
   });
 });
 
