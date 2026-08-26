@@ -29,6 +29,16 @@ export const INJECTED_VARIABLES = [
   "AUTH_MODE",
 ] as const;
 
+/**
+ * Variables no deployment ever sets, and which are therefore deliberately absent from the list
+ * above: a build only picks one up when the environment file it selected declares it.
+ *
+ * That absence is the safeguard. Listing FIREBASE_SERVICE_ACCOUNT_ID as injected once put a
+ * laptop's account into a production build, because a value in the ambient environment wins
+ * over the files and a production build reads no file that names it.
+ */
+export const LOCAL_ONLY_VARIABLES = ["FIREBASE_SERVICE_ACCOUNT_ID"] as const;
+
 export function envFromApphostingYaml(parsed: unknown): Record<string, string> {
   const entries = (parsed as { env?: EnvEntry[] } | null)?.env;
   if (!Array.isArray(entries)) return {};

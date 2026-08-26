@@ -10,6 +10,7 @@ import { parse } from "yaml";
 import {
   envFromApphostingYaml,
   INJECTED_VARIABLES,
+  LOCAL_ONLY_VARIABLES,
   preferProcessEnv,
   requireFirebaseProject,
 } from "@/lib/apphosting-env";
@@ -156,12 +157,21 @@ describe("the apphosting yaml files", () => {
     expect(naming).toEqual(["development"]);
   });
 
-  // A deployment signs with the credential its metadata server hands it, and next.config.ts
-  // inlines what these files declare -- with a laptop's .env winning over them. Declaring it
-  // anywhere here put one machine's account into every build, production included.
-  it("leaves FIREBASE_SERVICE_ACCOUNT_ID out of every file, as a property of the machine", () => {
-    for (const file of [base, ...Object.values(environments)]) {
-      expect(file).not.toHaveProperty("FIREBASE_SERVICE_ACCOUNT_ID");
+  // A deployment signs with the credential its metadata server hands it, and App Hosting's
+  // compute account may sign as itself and as nothing else -- so naming an account in a
+  // deployed environment's file would break its fake login rather than enable it.
+  it.each([["staging"], ["production"]] as const)("names no signing account in %s", (name) => {
+    for (const variable of LOCAL_ONLY_VARIABLES) {
+      expect(environments[name]).not.toHaveProperty(variable);
+    }
+  });
+
+  // Kept out of INJECTED_VARIABLES on purpose: a value in the surrounding environment beats
+  // the files, so listing it once put a laptop's account into a production build.
+  it("never lets a local-only variable be picked up from the environment", () => {
+    for (const variable of LOCAL_ONLY_VARIABLES) {
+      expect(INJECTED_VARIABLES).not.toContain(variable);
+      expect(preferProcessEnv({}, { [variable]: "someone-elses-account" })).toEqual({});
     }
   });
 
@@ -170,9 +180,9 @@ describe("the apphosting yaml files", () => {
   // would be read locally and silently missing on a deployment.
   it("declares every variable it uses in INJECTED_VARIABLES", () => {
     const inYaml = new Set([base, ...Object.values(environments)].flatMap(Object.keys));
+    const known = [...INJECTED_VARIABLES, ...LOCAL_ONLY_VARIABLES];
 
-    expect([...inYaml].sort()).toEqual(expect.arrayContaining([]));
-    for (const variable of inYaml) expect(INJECTED_VARIABLES).toContain(variable);
+    for (const variable of inYaml) expect(known).toContain(variable);
   });
 
   // Not `AUTH_MODE: entra`: saying nothing is what makes Entra ID the answer, so the file
