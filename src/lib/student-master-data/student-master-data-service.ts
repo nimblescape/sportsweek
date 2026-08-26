@@ -16,6 +16,7 @@ import {
   type StudentMasterDataInput,
 } from "@/lib/schemas/student-master-data";
 import { activeSeasonOf } from "@/lib/seasons/season-state";
+import { isRegistrationIncomplete } from "./completeness";
 import { recordIdFor, REGISTRATION_NOT_OPEN_HINT } from "./registration";
 
 /**
@@ -81,7 +82,15 @@ export async function saveStudentMasterData(
     ? ((stored.data()?.eventId as string) ?? null)
     : null;
 
-  const data = { userId, seasonId: season.id, eventId, ...fields };
+  const data = {
+    userId,
+    seasonId: season.id,
+    eventId,
+    // Recomputed here rather than trusted from the client: it is what the report marks a
+    // student by (US-13), so it has to follow the answers actually stored.
+    isIncomplete: isRegistrationIncomplete(fields),
+    ...fields,
+  };
   const record = studentMasterDataSchema.parse({ id, ...data });
 
   const batch = adminDb.batch().set(reference, data);

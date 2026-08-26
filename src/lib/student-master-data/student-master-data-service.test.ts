@@ -137,13 +137,49 @@ describe("saveStudentMasterData", () => {
     expect(firestore.count("studentMasterData")).toBe(0);
   });
 
-  it("stores nothing when the input does not hold together", async () => {
+  it("stores nothing when an answer is malformed", async () => {
     seedSeason("s1", { isActive: true });
 
     await expect(
-      saveStudentMasterData(STUDENT, { ...attending, program: null }),
+      saveStudentMasterData(STUDENT, { ...attending, phoneNumber: "06601234567" }),
     ).rejects.toBeInstanceOf(ServiceError);
     expect(firestore.count("studentMasterData")).toBe(0);
+  });
+
+  /** A registration is filled in over time, so an unanswered question is not a failed save. */
+  it("stores a registration the student has not finished", async () => {
+    seedSeason("s1", { isActive: true });
+
+    const record = await saveStudentMasterData(STUDENT, { ...attending, program: null });
+
+    expect(record.program).toBeNull();
+  });
+
+  it("marks a registration that is still missing answers (US-13)", async () => {
+    seedSeason("s1", { isActive: true });
+
+    const record = await saveStudentMasterData(STUDENT, { ...attending, gender: null });
+
+    expect(record.isIncomplete).toBe(true);
+    expect(firestore.get("studentMasterData", RECORD_ID)).toMatchObject({ isIncomplete: true });
+  });
+
+  it("clears the mark once nothing is missing", async () => {
+    seedSeason("s1", { isActive: true });
+
+    const record = await saveStudentMasterData(STUDENT, attending);
+
+    expect(record.isIncomplete).toBe(false);
+  });
+
+  /** The client cannot be the judge of it: the report marks students by this (US-13). */
+  it("works the mark out itself rather than taking it from the client", async () => {
+    seedSeason("s1", { isActive: true });
+    const claimed = { ...attending, gender: null, isIncomplete: false };
+
+    await expect(
+      saveStudentMasterData(STUDENT, claimed as StudentMasterDataInput),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
   it("reports which field was wrong, so the form can point at it", async () => {

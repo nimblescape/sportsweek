@@ -28,6 +28,7 @@ import {
   scopeRentalToProgram,
   toRegistrationInput,
 } from "@/lib/student-master-data/registration";
+import { missingAnswers } from "@/lib/student-master-data/completeness";
 import { EquipmentChecklist } from "./equipment-checklist";
 import { Field, RadioField, ReadOnlyField, SelectField, YES_NO } from "./fields";
 
@@ -58,6 +59,8 @@ const RELATIONSHIPS = [
   { value: "father", label: "Vater" },
   { value: "other", label: "Sonstiges" },
 ] as const;
+
+const MISSING_ANSWER = "Pflichtfeld.";
 
 /**
  * Empty means "not answered", which is a different thing from the empty string a text input
@@ -100,6 +103,7 @@ export function StudentMasterDataForm({
   lists,
 }: StudentMasterDataFormProps) {
   const [saved, setSaved] = React.useState(false);
+  const [saveAttempted, setSaveAttempted] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   const equipmentOf = React.useCallback(
@@ -127,34 +131,46 @@ export function StudentMasterDataForm({
     control,
     register,
     handleSubmit,
-    formState: { errors, isDirty, isSubmitting, isValid },
+    formState: { errors, isDirty, isSubmitting },
     reset,
   } = useForm<StudentMasterDataInput>({
-    // Validated as the student answers, so the save button and the marks on the fields are two
-    // views of the same result — a greyed-out button always has a visible reason next to it.
+    // Checked as the student answers, so a malformed phone number is marked where it was typed
+    // rather than held back until they try to save.
     mode: "onChange",
     resolver,
     defaultValues: record ? toRegistrationInput(record) : EMPTY_REGISTRATION,
   });
 
-  const [isAttending, programName, needsRental, foodOption, relationship] = useWatch({
-    control,
-    name: [
-      "isAttendingSportsWeek",
-      "program",
-      "equipmentRentalNeeded",
-      "foodOption",
-      "emergencyContact.relationship",
-    ],
-  });
+  const values = useWatch({ control });
+  const [isAttending, programName, needsRental, foodOption, relationship] = [
+    values.isAttendingSportsWeek,
+    values.program ?? null,
+    values.equipmentRentalNeeded,
+    values.foodOption,
+    values.emergencyContact?.relationship,
+  ];
 
   const equipment = equipmentOf(programName);
+  // Told, not enforced: a registration is filled in over time and saved as often as the student
+  // likes, so what is left to answer is a note to them rather than a locked button (US-11).
+  const missing = missingAnswers(scopeRentalToProgram(values as StudentMasterDataInput, equipment));
+  const missingPaths = new Set(missing.map((answer) => answer.path));
 
-  // The resolver already scoped these, so what arrives here is what the server should be told.
+  /**
+   * The mark under a field that has not been answered yet. Held back until the first save, so a
+   * form the student has only just opened is not already covered in red — and derived from the
+   * answers rather than set on the fields, so it clears itself as they are filled in.
+   */
+  function hint(path: string): string | undefined {
+    return saveAttempted && missingPaths.has(path) ? MISSING_ANSWER : undefined;
+  }
+
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
     setSaved(false);
+    setSaveAttempted(true);
     try {
+      // The resolver already scoped these, so what arrives here is what the server is told.
       await apiRequest("/api/my-master-data", { method: "PUT", body: values });
       reset(values);
       setSaved(true);
@@ -176,7 +192,7 @@ export function StudentMasterDataForm({
           label="Klasse"
           options={lists.classes}
           placeholder="Klasse wählen"
-          error={errors.class?.message}
+          error={errors.class?.message ?? hint("class")}
         />
         <RadioField
           control={control}
@@ -189,7 +205,7 @@ export function StudentMasterDataForm({
       {isAttending ? (
         <>
           <Section title="Persönliches">
-            <Field label="Geburtsdatum" error={errors.dateOfBirth?.message}>
+            <Field label="Geburtsdatum" error={errors.dateOfBirth?.message ?? hint("dateOfBirth")}>
               {(id) => (
                 <Input id={id} type="date" {...register("dateOfBirth", { setValueAs: orNull })} />
               )}
@@ -199,9 +215,9 @@ export function StudentMasterDataForm({
               name="gender"
               label="Geschlecht"
               options={GENDERS}
-              error={errors.gender?.message}
+              error={errors.gender?.message ?? hint("gender")}
             />
-            <Field label="Telefonnummer" error={errors.phoneNumber?.message}>
+            <Field label="Telefonnummer" error={errors.phoneNumber?.message ?? hint("phoneNumber")}>
               {(id) => (
                 <Input
                   id={id}
@@ -214,7 +230,12 @@ export function StudentMasterDataForm({
           </Section>
 
           <Section title="Notfallkontakt">
-            <Field label="Vorname" error={errors.emergencyContact?.firstName?.message}>
+            <Field
+              label="Vorname"
+              error={
+                errors.emergencyContact?.firstName?.message ?? hint("emergencyContact.firstName")
+              }
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -222,7 +243,12 @@ export function StudentMasterDataForm({
                 />
               )}
             </Field>
-            <Field label="Nachname" error={errors.emergencyContact?.lastName?.message}>
+            <Field
+              label="Nachname"
+              error={
+                errors.emergencyContact?.lastName?.message ?? hint("emergencyContact.lastName")
+              }
+            >
               {(id) => (
                 <Input id={id} {...register("emergencyContact.lastName", { setValueAs: orNull })} />
               )}
@@ -232,12 +258,18 @@ export function StudentMasterDataForm({
               name="emergencyContact.relationship"
               label="Beziehung"
               options={RELATIONSHIPS}
-              error={errors.emergencyContact?.relationship?.message}
+              error={
+                errors.emergencyContact?.relationship?.message ??
+                hint("emergencyContact.relationship")
+              }
             />
             {relationship === "other" ? (
               <Field
                 label="Welche Beziehung?"
-                error={errors.emergencyContact?.relationshipOtherText?.message}
+                error={
+                  errors.emergencyContact?.relationshipOtherText?.message ??
+                  hint("emergencyContact.relationshipOtherText")
+                }
               >
                 {(id) => (
                   <Input
@@ -249,7 +281,10 @@ export function StudentMasterDataForm({
             ) : null}
             <Field
               label="Telefonnummer des Notfallkontakts"
-              error={errors.emergencyContact?.phoneNumber?.message}
+              error={
+                errors.emergencyContact?.phoneNumber?.message ??
+                hint("emergencyContact.phoneNumber")
+              }
             >
               {(id) => (
                 <Input
@@ -269,7 +304,7 @@ export function StudentMasterDataForm({
               label="Für welches Programm meldest du dich an?"
               options={lists.programs.map((entry) => entry.name)}
               placeholder="Programm wählen"
-              error={errors.program?.message}
+              error={errors.program?.message ?? hint("program")}
             />
             {equipment.length > 0 ? (
               <div className="flex flex-col gap-2">
@@ -280,7 +315,7 @@ export function StudentMasterDataForm({
                     name="equipmentRentalNeeded"
                     label="Musst du etwas ausleihen?"
                     options={YES_NO}
-                    error={errors.equipmentRentalNeeded?.message}
+                    error={errors.equipmentRentalNeeded?.message ?? hint("equipmentRentalNeeded")}
                     inline
                   />
                 </div>
@@ -293,7 +328,7 @@ export function StudentMasterDataForm({
                       selectable={needsRental === true}
                       value={field.value ?? []}
                       onChange={field.onChange}
-                      error={errors.rentedEquipment?.message}
+                      error={errors.rentedEquipment?.message ?? hint("rentedEquipment")}
                     />
                   )}
                 />
@@ -301,7 +336,7 @@ export function StudentMasterDataForm({
             ) : null}
             {equipment.length > 0 && needsRental === true ? (
               <>
-                <Field label="Schuhgröße" error={errors.shoeSize?.message}>
+                <Field label="Schuhgröße" error={errors.shoeSize?.message ?? hint("shoeSize")}>
                   {(id) => (
                     <Input
                       id={id}
@@ -310,7 +345,10 @@ export function StudentMasterDataForm({
                     />
                   )}
                 </Field>
-                <Field label="Körpergröße [cm]" error={errors.heightCm?.message}>
+                <Field
+                  label="Körpergröße [cm]"
+                  error={errors.heightCm?.message ?? hint("heightCm")}
+                >
                   {(id) => (
                     <Input
                       id={id}
@@ -319,7 +357,7 @@ export function StudentMasterDataForm({
                     />
                   )}
                 </Field>
-                <Field label="Gewicht [kg]" error={errors.weightKg?.message}>
+                <Field label="Gewicht [kg]" error={errors.weightKg?.message ?? hint("weightKg")}>
                   {(id) => (
                     <Input
                       id={id}
@@ -339,7 +377,7 @@ export function StudentMasterDataForm({
               label="Leistungsstufe"
               options={lists.skillLevels}
               placeholder="Leistungsstufe wählen"
-              error={errors.skillLevel?.message}
+              error={errors.skillLevel?.message ?? hint("skillLevel")}
             />
             <SelectField
               control={control}
@@ -347,7 +385,7 @@ export function StudentMasterDataForm({
               label="Saisonkarte"
               options={lists.seasonPassOptions}
               placeholder="Saisonkarte wählen"
-              error={errors.seasonPassOption?.message}
+              error={errors.seasonPassOption?.message ?? hint("seasonPassOption")}
             />
             <SelectField
               control={control}
@@ -355,7 +393,7 @@ export function StudentMasterDataForm({
               label="Zustiegsstelle"
               options={lists.busPickupPoints}
               placeholder="Zustiegsstelle wählen"
-              error={errors.busPickupPoint?.message}
+              error={errors.busPickupPoint?.message ?? hint("busPickupPoint")}
             />
           </Section>
 
@@ -369,10 +407,13 @@ export function StudentMasterDataForm({
                 option === FOOD_OPTION_OTHER ? FOOD_OPTION_OTHER_LABEL : option
               }
               placeholder="Verpflegung wählen"
-              error={errors.foodOption?.message}
+              error={errors.foodOption?.message ?? hint("foodOption")}
             />
             {foodOption === FOOD_OPTION_OTHER ? (
-              <Field label="Welche Unverträglichkeit?" error={errors.foodOtherText?.message}>
+              <Field
+                label="Welche Unverträglichkeit?"
+                error={errors.foodOtherText?.message ?? hint("foodOtherText")}
+              >
                 {(id) => <Input id={id} {...register("foodOtherText", { setValueAs: orNull })} />}
               </Field>
             ) : null}
@@ -387,9 +428,9 @@ export function StudentMasterDataForm({
             <RadioField
               control={control}
               name="hasMedication"
-              label="Nimmst du dafür Medikamente mit?"
+              label="Nimmst du Medikamente mit?"
               options={YES_NO}
-              error={errors.hasMedication?.message}
+              error={errors.hasMedication?.message ?? hint("hasMedication")}
             />
           </Section>
         </>
@@ -407,8 +448,8 @@ export function StudentMasterDataForm({
       ) : null}
 
       <div className="flex justify-end">
-        {/* Nothing to save until an answer changes, and nothing savable while one is missing. */}
-        <Button type="submit" disabled={!isDirty || !isValid || isSubmitting}>
+        {/* Enabled as soon as an answer changes: an incomplete registration is still worth keeping. */}
+        <Button type="submit" disabled={!isDirty || isSubmitting}>
           Speichern
         </Button>
       </div>

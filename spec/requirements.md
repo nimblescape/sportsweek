@@ -214,13 +214,16 @@ As a student, I can edit my master data so that I can provide the information ne
 **Acceptance criteria:**
 
 - A student can view and edit the master data for their own user record.
+- A registration is filled in over time, so it can be saved at any point, however little of it has been answered. Saving is never refused for a question the student has not got to yet; only a malformed answer — a phone number that is not one, a date that is not one — is rejected, and then on the field itself.
+- After a save, every answer that is still outstanding is marked on its own field with the German hint "Pflichtfeld.", which disappears as soon as that answer is given. Nothing is marked before the first save, so a form the student has only just opened does not greet them in red.
+- The record carries a flag stating whether answers are still outstanding. It is worked out by the server on every save, never sent by the client, and is not shown to the student — it exists for the teacher's report (see US-13).
 - If no season is active, or the teacher has not set up any class yet (see US-6), the student sees a German notification saying that no sports event has been released yet ("Es ist noch keine Sportveranstaltung freigeschalten.") and the master data dialog is not shown. Both are pieces of the same setup that only a teacher can provide, and neither leaves the student anything to do, so they read the same: a class is asked of every student whether they attend or not, so a list without one cannot be filled in.
 - The master data a student edits is bound to the currently active season (see US-4).
 - Last name and first name are taken from the user record (see US-1) and are shown but not editable as part of this master data.
 - The following master data fields are available:
   - Season: the active season the student is registering for (read-only)
   - Are you attending the sports week?: yes / no
-  - Class: one of the classes maintained by a teacher (see US-6); always shown and required, regardless of the answer above
+  - Class: one of the classes maintained by a teacher (see US-6); always shown, and the one answer still expected of a student who is not attending
   - Date of birth
   - Gender: male / female
   - Phone number (must be in international format, e.g. +43...)
@@ -272,6 +275,7 @@ As a teacher, I can view a report listing all students so that I have their cont
 **Acceptance criteria:**
 
 - A report page exists, listing all students registered for the active season (see US-4).
+- A student whose registration is still missing answers (see US-11) is marked as such on their master line, so a teacher can see at a glance whom they still have to chase. The mark reads the flag stored on the record rather than re-deriving it per row.
 - The report is a master-detail list rather than a table: each student is one master line showing the first name and last name followed by the email address in parentheses (see US-1), followed by that student's detail lines.
 - Every data field activated in the fields tag list adds exactly one detail line, indented below the master line of the student it belongs to, showing the field's label and that student's value for it. With no field activated, each student is reduced to its master line.
 - The report has two independent tag lists: a filter tag list that determines which students are shown, and a fields tag list that determines which detail lines are shown below each master line.

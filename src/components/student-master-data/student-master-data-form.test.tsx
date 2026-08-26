@@ -35,6 +35,7 @@ const storedRecord: StudentMasterData = {
   userId: "jane@student.htldornbirn.at",
   seasonId: "s1",
   eventId: null,
+  isIncomplete: false,
   isAttendingSportsWeek: true,
   class: "3AHME",
   program: "Ski",
@@ -175,8 +176,8 @@ describe("StudentMasterDataForm", () => {
       await waitFor(() => expect(save()).toBeDisabled());
     });
 
-    /** Offering a save that the server would only refuse is a button that lies. */
-    it("stays out of reach while an answer is still missing", async () => {
+    /** An incomplete registration is still worth keeping, so nothing about it locks the save. */
+    it("stays within reach while an answer is still missing", async () => {
       renderForm({
         ...storedRecord,
         emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
@@ -184,27 +185,43 @@ describe("StudentMasterDataForm", () => {
 
       await changeSomething();
 
-      expect(save()).toBeDisabled();
+      expect(save()).toBeEnabled();
     });
 
-    it("comes back as soon as the missing answer is given", async () => {
+    it("marks what is still missing once the student has saved", async () => {
       renderForm({
         ...storedRecord,
         emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
       });
 
-      await userEvent.type(screen.getByLabelText("Vorname"), "Maria");
+      await changeSomething();
+      await userEvent.click(save());
 
-      await waitFor(() => expect(save()).toBeEnabled());
+      await waitFor(() => expect(apiRequest).toHaveBeenCalled());
+      expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
     });
 
-    it("marks the answer the student has just emptied, and locks the save with it", async () => {
-      renderForm();
+    it("says nothing about missing answers before the first save", () => {
+      renderForm({
+        ...storedRecord,
+        emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
+      });
 
-      await userEvent.clear(screen.getByLabelText("Vorname"));
+      expect(screen.queryByText("Pflichtfeld.")).not.toBeInTheDocument();
+    });
 
-      expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
-      expect(save()).toBeDisabled();
+    it("takes the mark away as soon as the answer is given", async () => {
+      renderForm({
+        ...storedRecord,
+        emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
+      });
+
+      await changeSomething();
+      await userEvent.click(save());
+      await screen.findByText("Pflichtfeld.");
+      await userEvent.type(screen.getByLabelText("Vorname"), "Maria");
+
+      await waitFor(() => expect(screen.queryByText("Pflichtfeld.")).not.toBeInTheDocument());
     });
   });
 

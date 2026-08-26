@@ -103,6 +103,10 @@ entity "StudentMasterData" as studentMasterData {
   FK userId : string
   FK seasonId : string  ' genuine FK — the only real reference among the "selected value" fields (US-11)
   --
+  isIncomplete : boolean  ' whether answers are still outstanding (US-11); recomputed by the server
+                          ' on every save and never sent by the client. Denormalised so the report
+                          ' can mark those students without re-deriving it per row (US-13); the
+                          ' student's own view never shows it
   isAttendingSportsWeek : boolean  ' "Are you attending the sports week?"; all fields below
                                    ' are shown/required only if this is true (US-11),
                                    ' EXCEPT .class, which is always shown/required regardless

@@ -107,14 +107,22 @@ describe("PUT /api/my-master-data", () => {
     expect(saveStudentMasterData).not.toHaveBeenCalled();
   });
 
-  it("returns the shared validation envelope for an incomplete registration", async () => {
-    const response = await PUT(putRequest({ ...body, program: null }));
+  it("returns the shared validation envelope for a malformed answer", async () => {
+    const response = await PUT(putRequest({ ...body, phoneNumber: "06601234567" }));
 
     expect(response.status).toBe(400);
     const payload = await response.json();
     expect(payload.error.code).toBe("VALIDATION_ERROR");
     expect(payload.error.details).toBeDefined();
     expect(saveStudentMasterData).not.toHaveBeenCalled();
+  });
+
+  /** A registration is filled in over time, so an unanswered question still gets saved. */
+  it("takes a registration the student has not finished", async () => {
+    const response = await PUT(putRequest({ ...body, program: null }));
+
+    expect(response.status).toBe(200);
+    expect(saveStudentMasterData).toHaveBeenCalled();
   });
 
   it("refuses a body that names the season or the student itself", async () => {

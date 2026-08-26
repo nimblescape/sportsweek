@@ -25,6 +25,7 @@ const validRecord = {
   userId: "jane.doe@student.htldornbirn.at",
   seasonId: "season-1",
   eventId: null,
+  isIncomplete: false,
   isAttendingSportsWeek: true,
   class: "3AHME",
   program: "Ski",
@@ -55,10 +56,22 @@ describe("studentMasterDataSchema", () => {
     expect(studentMasterDataSchema.safeParse({ ...validRecord, seasonId: "" }).success).toBe(false);
   });
 
-  it("requires the class even when the student is not attending", () => {
-    const notAttending = { ...validRecord, isAttendingSportsWeek: false, class: "" };
+  it("stores a registration whose class has not been picked yet", () => {
+    const started = { ...validRecord, isAttendingSportsWeek: false, class: null };
 
-    expect(studentMasterDataSchema.safeParse(notAttending).success).toBe(false);
+    expect(studentMasterDataSchema.parse(started).class).toBeNull();
+  });
+
+  it("marks a record the student has not finished, for the report to pick up (US-13)", () => {
+    expect(studentMasterDataSchema.parse({ ...validRecord, isIncomplete: true }).isIncomplete).toBe(
+      true,
+    );
+  });
+
+  it("treats a record stored before that flag existed as unfinished", () => {
+    expect(
+      studentMasterDataSchema.parse({ ...validRecord, isIncomplete: undefined }).isIncomplete,
+    ).toBe(true);
   });
 
   it("keeps the record unassigned with a null eventId", () => {
@@ -92,10 +105,10 @@ describe("studentMasterDataSchema", () => {
     ).toBe(false);
   });
 
-  it("requires free text when the food option is 'other'", () => {
+  it("stores the food option 'other' before the free text has been written", () => {
     const missingText = { ...validRecord, foodOption: "other", foodOtherText: null };
 
-    expect(studentMasterDataSchema.safeParse(missingText).success).toBe(false);
+    expect(studentMasterDataSchema.safeParse(missingText).success).toBe(true);
   });
 
   it("accepts the food option 'other' together with free text", () => {
@@ -166,6 +179,7 @@ describe("studentMasterDataLockedFields", () => {
   it("locks the fields students must never write, so firestore.rules can deny them", () => {
     expect(Object.keys(studentMasterDataLockedFields.shape).sort()).toEqual([
       "eventId",
+      "isIncomplete",
       "seasonId",
       "userId",
     ]);
@@ -196,63 +210,28 @@ describe("studentMasterDataInputSchema", () => {
   };
 
   const parse = (input: Record<string, unknown>) => studentMasterDataInputSchema.safeParse(input);
-  const pathsOf = (input: Record<string, unknown>) =>
-    parse(input).error?.issues.map((issue) => issue.path.join(".")) ?? [];
 
   it("accepts a complete registration", () => {
     expect(parse(attending).success).toBe(true);
   });
 
-  it.each(["id", "userId", "seasonId", "eventId"])(
+  it.each(["id", "userId", "seasonId", "eventId", "isIncomplete"])(
     "refuses to take %s from the student, since the server owns it",
     (field) => {
       expect(parse({ ...attending, [field]: "smuggled" }).success).toBe(false);
     },
   );
 
-  it.each([
-    "program",
-    "skillLevel",
-    "busPickupPoint",
-    "foodOption",
-    "seasonPassOption",
-    "dateOfBirth",
-    "gender",
-    "phoneNumber",
-    "hasMedication",
-  ])("requires %s from a student who is attending", (field) => {
-    expect(pathsOf({ ...attending, [field]: null })).toContain(field);
-  });
-
-  it.each(["firstName", "lastName", "relationship", "phoneNumber"])(
-    "requires the emergency contact's %s from a student who is attending",
-    (field) => {
-      const contact = { ...attending, emergencyContact: { ...validContact, [field]: null } };
-
-      expect(pathsOf(contact)).toContain(`emergencyContact.${field}`);
-    },
-  );
-
-  it("requires free text when the relationship is 'other'", () => {
-    const contact = { ...validContact, relationship: "other", relationshipOtherText: null };
-
-    expect(pathsOf({ ...attending, emergencyContact: contact })).toContain(
-      "emergencyContact.relationshipOtherText",
-    );
-  });
-
-  it("requires the class even from a student who is not attending", () => {
-    expect(parse({ ...attending, isAttendingSportsWeek: false, class: "" }).success).toBe(false);
-  });
-
   /**
-   * Answering "no" only hides the other fields, it does not clear them (US-11) — so a half-filled
-   * registration has to survive being saved, or switching back to "yes" would find it emptied.
+   * Every answer is optional here on purpose: a registration is filled in over time and saved
+   * as often as the student likes, so the schema rejects what is malformed, never what is
+   * merely unanswered. Which answers are still needed is `completeness.ts`, which tells the
+   * student instead of blocking them (US-11).
    */
-  it("asks nothing beyond the class of a student who is not attending", () => {
+  it("accepts a registration that has barely been started", () => {
     const empty = {
       ...attending,
-      isAttendingSportsWeek: false,
+      class: null,
       program: null,
       skillLevel: null,
       busPickupPoint: null,
@@ -274,48 +253,25 @@ describe("studentMasterDataInputSchema", () => {
     expect(parse(empty).success).toBe(true);
   });
 
-  it("keeps a half-filled emergency contact of a student who is not attending", () => {
-    const halfFilled = {
-      ...attending,
-      isAttendingSportsWeek: false,
-      emergencyContact: { ...validContact, lastName: null, phoneNumber: null },
-    };
+  it("accepts the food option 'other' before the free text has been written", () => {
+    expect(parse({ ...attending, foodOption: "other" }).success).toBe(true);
+  });
 
-    expect(parse(halfFilled).success).toBe(true);
+  it("accepts a rental before its measurements have been given", () => {
+    expect(parse({ ...attending, equipmentRentalNeeded: true }).success).toBe(true);
   });
 
   it("keeps the values a student entered before answering 'no'", () => {
     expect(parse({ ...attending, isAttendingSportsWeek: false }).success).toBe(true);
   });
 
-  it("requires free text when the food option is 'other'", () => {
-    expect(pathsOf({ ...attending, foodOption: "other" })).toContain("foodOtherText");
-  });
-
-  it.each(["shoeSize", "heightCm", "weightKg"])("requires %s once equipment is rented", (field) => {
-    const renting = {
-      ...attending,
-      equipmentRentalNeeded: true,
-      rentedEquipment: ["Helm"],
-      shoeSize: "42",
-      heightCm: 175,
-      weightKg: 65,
-      [field]: null,
-    };
-
-    expect(pathsOf(renting)).toContain(field);
-  });
-
-  it("requires at least one item once equipment is rented", () => {
-    const renting = {
-      ...attending,
-      equipmentRentalNeeded: true,
-      shoeSize: "42",
-      heightCm: 175,
-      weightKg: 65,
-    };
-
-    expect(pathsOf(renting)).toContain("rentedEquipment");
+  it.each([
+    ["phoneNumber", "06601234567"],
+    ["dateOfBirth", "04.05.2008"],
+    ["gender", "diverse"],
+    ["heightCm", -1],
+  ])("still rejects a malformed %s", (field, value) => {
+    expect(parse({ ...attending, [field]: value }).success).toBe(false);
   });
 
   it("accepts a rental with its measurements", () => {
