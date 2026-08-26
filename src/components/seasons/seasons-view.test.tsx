@@ -265,3 +265,33 @@ describe("SeasonsView — deleting", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Hat noch Schülerdaten.");
   });
 });
+
+describe("SeasonsView — while a write is in flight", () => {
+  it("locks the row that is being written to", async () => {
+    stubFetch(() => new Promise(() => {}));
+    renderView([active, archived, inactive, noStudentData]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Saison Winter 2024 löschen" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Saison Winter 2024 bearbeiten" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("link", { name: "Events der Saison Winter 2024" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("releases the row once the write is answered", async () => {
+    stubFetch(noContent);
+    renderView([active, archived, inactive, noStudentData]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Saison Winter 2024 löschen" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Saison Winter 2024 bearbeiten" }),
+      ).not.toBeDisabled(),
+    );
+  });
+});

@@ -88,6 +88,7 @@ export function SeasonList({
       <SortableList
         items={seasons}
         onReorder={onReorder}
+        busyId={busySeasonId}
         className="[&>li]:border-border [&>li]:border-b [&>li:last-child]:border-b-0"
         renderItem={(season) => {
           const state = seasonState(season);
@@ -122,7 +123,15 @@ export function SeasonList({
                   <Link
                     href={`/app/master-data/seasons/${season.id}`}
                     aria-label={`Events der Saison ${season.name}`}
-                    className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                    // A link has no disabled state of its own, so being busy has to be spelled
+                    // out for the pointer, the keyboard and assistive technology separately.
+                    aria-disabled={busy || undefined}
+                    tabIndex={busy ? -1 : undefined}
+                    onClick={busy ? (clicked) => clicked.preventDefault() : undefined}
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                      busy && "pointer-events-none opacity-50",
+                    )}
                   >
                     <CalendarDays aria-hidden className="size-3.5" />
                   </Link>

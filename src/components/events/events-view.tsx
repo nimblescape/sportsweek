@@ -19,6 +19,7 @@ import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
+import { useRowAction } from "@/lib/api/use-row-action";
 import { eventSchema, type Event } from "@/lib/schemas/season";
 import { useEvents } from "@/lib/events/use-events";
 import { useSeasons } from "@/lib/seasons/use-seasons";
@@ -33,6 +34,7 @@ export function EventsView({ seasonId }: { seasonId: string }) {
   const { events, loading, error } = useEvents(seasonId);
   const { seasons } = useSeasons();
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
+  const { busyId, run } = useRowAction();
 
   const season = seasons.find((candidate) => candidate.id === seasonId) ?? null;
 
@@ -62,6 +64,7 @@ export function EventsView({ seasonId }: { seasonId: string }) {
         loading={loading}
         error={error}
         readOnly={season?.isArchived ?? false}
+        busyEventId={busyId}
         onEdit={(event) => setDialog({ kind: "form", event })}
         onDelete={(event) => setDialog({ kind: "delete", event })}
         onReorder={(order) =>
@@ -73,12 +76,19 @@ export function EventsView({ seasonId }: { seasonId: string }) {
         <EventFormDialog
           seasonId={seasonId}
           event={dialog.event}
+          onSubmit={(event, request) => run(event.id, request)}
           onClose={() => setDialog({ kind: "none" })}
         />
       ) : null}
 
       {dialog.kind === "delete" ? (
-        <DeleteEventDialog event={dialog.event} onClose={() => setDialog({ kind: "none" })} />
+        <DeleteEventDialog
+          event={dialog.event}
+          onDelete={(event) =>
+            run(event.id, () => apiRequest(`/api/events/${event.id}`, { method: "DELETE" }))
+          }
+          onClose={() => setDialog({ kind: "none" })}
+        />
       ) : null}
     </div>
   );
@@ -89,6 +99,8 @@ type EventListProps = {
   loading: boolean;
   error: string | null;
   readOnly: boolean;
+  /** The row a write is running on; its controls are held until the write is answered. */
+  busyEventId: string | null;
   onEdit: (event: Event) => void;
   onDelete: (event: Event) => void;
   onReorder: (orderedIds: string[]) => void | Promise<void>;
@@ -99,6 +111,7 @@ function EventList({
   loading,
   error,
   readOnly,
+  busyEventId,
   onEdit,
   onDelete,
   onReorder,
@@ -140,6 +153,7 @@ function EventList({
         onReorder={onReorder}
         // An archived season is read-only, so its order is frozen along with everything else.
         disabled={readOnly}
+        busyId={busyEventId}
         className="[&>li]:border-border [&>li]:border-b [&>li:last-child]:border-b-0"
         renderItem={(event) => (
           <div className="flex items-center justify-between gap-4 py-3 pr-4 pl-2">
@@ -151,6 +165,7 @@ function EventList({
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    disabled={event.id === busyEventId}
                     aria-label={`Event ${event.name} bearbeiten`}
                     onClick={() => onEdit(event)}
                   >
@@ -161,6 +176,7 @@ function EventList({
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    disabled={event.id === busyEventId}
                     aria-label={`Event ${event.name} löschen`}
                     onClick={() => onDelete(event)}
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
@@ -180,10 +196,13 @@ function EventList({
 function EventFormDialog({
   seasonId,
   event,
+  onSubmit: runOnRow,
   onClose,
 }: {
   seasonId: string;
   event: Event | null;
+  /** Renaming holds the row it started from; a new event has no row yet. */
+  onSubmit: (event: Event, request: () => Promise<unknown>) => Promise<unknown>;
   onClose: () => void;
 }) {
   const isEdit = event !== null;
@@ -205,7 +224,9 @@ function EventFormDialog({
     setSubmitError(null);
     try {
       if (isEdit) {
-        await apiRequest(`/api/events/${event.id}`, { method: "PATCH", body: values });
+        await runOnRow(event, () =>
+          apiRequest(`/api/events/${event.id}`, { method: "PATCH", body: values }),
+        );
       } else {
         await apiRequest("/api/events", { method: "POST", body: { seasonId, name: values.name } });
       }
@@ -260,7 +281,15 @@ function EventFormDialog({
   );
 }
 
-function DeleteEventDialog({ event, onClose }: { event: Event; onClose: () => void }) {
+function DeleteEventDialog({
+  event,
+  onDelete,
+  onClose,
+}: {
+  event: Event;
+  onDelete: (event: Event) => Promise<unknown>;
+  onClose: () => void;
+}) {
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
@@ -268,7 +297,7 @@ function DeleteEventDialog({ event, onClose }: { event: Event; onClose: () => vo
     setDeleting(true);
     setError(null);
     try {
-      await apiRequest(`/api/events/${event.id}`, { method: "DELETE" });
+      await onDelete(event);
       onClose();
     } catch (caught) {
       setError(

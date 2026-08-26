@@ -285,6 +285,53 @@ describe("SeasonList — row actions", () => {
   });
 });
 
+// Everything on a row acts on the same season, so while one control is waiting for its round
+// trip the rest must not offer a second action against a season the first one is removing.
+describe("SeasonList — while a row is busy", () => {
+  const busy = { busySeasonId: "s1" };
+
+  it.each([
+    ["Saison Wintersportwoche 2026 deaktivieren"],
+    ["Saison Wintersportwoche 2026 bearbeiten"],
+    ["Saison Wintersportwoche 2026 löschen"],
+    ["Saison Wintersportwoche 2026 archivieren"],
+  ])("locks the %s button", (accessibleName) => {
+    renderList(busy);
+
+    expect(screen.getByRole("button", { name: accessibleName })).toBeDisabled();
+  });
+
+  it("locks the events link, which a disabled button would not cover", async () => {
+    renderList(busy);
+    const link = screen.getByRole("link", { name: "Events der Saison Wintersportwoche 2026" });
+
+    expect(link).toHaveAttribute("aria-disabled", "true");
+    expect(link).toHaveAttribute("tabindex", "-1");
+
+    await userEvent.click(link);
+    expect(window.location.pathname).not.toBe("/app/master-data/seasons/s1");
+  });
+
+  it("locks the drag handle, so the row cannot be reordered mid-write", () => {
+    renderList(busy);
+
+    expect(
+      screen.getByRole("button", { name: "Wintersportwoche 2026 verschieben" }),
+    ).toBeDisabled();
+  });
+
+  it("leaves every other row alone", () => {
+    renderList(busy);
+
+    expect(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2027 bearbeiten" }),
+    ).not.toBeDisabled();
+    expect(
+      screen.getByRole("link", { name: "Events der Saison Wintersportwoche 2027" }),
+    ).not.toHaveAttribute("aria-disabled", "true");
+  });
+});
+
 describe("SeasonList — tooltips", () => {
   it.each([
     ["Saison Wintersportwoche 2027 bearbeiten", "Bearbeiten"],
