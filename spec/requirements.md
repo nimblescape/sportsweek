@@ -58,6 +58,7 @@ As a user, I log in with my Microsoft Entra ID credentials so that I can access 
 - A user record is created on the user's first login if none exists yet.
 - There is a 1:1 relationship between the Entra ID user and the user record stored in the database.
 - The user record's ID is the Entra ID user principal name (UPN).
+- Production always signs users in this way; only the test environment substitutes a fake login for the identity provider (see US-16).
 
 ### US-2: Role model
 
@@ -270,15 +271,17 @@ As a teacher, I can view a report listing all students so that I have their cont
 **Acceptance criteria:**
 
 - A report page exists, listing all students registered for the active season (see US-4).
-- For each student, the report always shows the first name and last name (see US-1).
-- The report has two independent tag lists: a filter tag list that determines which students are shown, and a columns tag list that determines which additional fields are shown for each student.
+- The report is a master-detail list rather than a table: each student is one master line showing the first name and last name (see US-1), followed by that student's detail lines.
+- Every data field activated in the fields tag list adds exactly one detail line, indented below the master line of the student it belongs to, showing the field's label and that student's value for it. With no field activated, each student is reduced to its master line.
+- The report has two independent tag lists: a filter tag list that determines which students are shown, and a fields tag list that determines which detail lines are shown below each master line.
 - The filter tag list works the same way as in the assignment dialog (see US-12): a free-text filter for the name with a clear button, and a wrapping tag row (with a first "all" tag) for class, gender, program, and skill level, each following the same within-category-OR / across-category-AND combination rules. In addition, since this report (unlike the assignment dialog) also lists students who answered "no", the tag row has an extra attendance category with the tags "attending" and "not attending" (see US-11), following the same selection rules as the other categories.
-- The columns tag list lets the teacher select which additional fields, beyond first name and last name, are shown for each student: attending status (yes/no, see US-11), class (see US-6), gender (see US-11), date of birth (see US-11), contact data (email address, see US-1; phone number and emergency contact — name, relationship, and phone number — see US-11), program (see US-5), skill level (see US-7), body measurements (weight, height, shoe size, see US-11), needed rental equipment (see US-11), bus pickup point (see US-8), season pass (see US-10), food/diet option (including its free text if "other" is selected, see US-9), and health/medication (health notes and whether medication is carried, see US-11).
+- The fields tag list lets the teacher activate the data fields shown as detail lines, beyond the first name and last name already on the master line: attending status (yes/no, see US-11), class (see US-6), gender (see US-11), date of birth (see US-11), contact data (email address, see US-1; phone number and emergency contact — name, relationship, and phone number — see US-11), program (see US-5), skill level (see US-7), body measurements (weight, height, shoe size, see US-11), needed rental equipment (see US-11), bus pickup point (see US-8), season pass (see US-10), food/diet option (including its free text if "other" is selected, see US-9), and health/medication (health notes and whether medication is carried, see US-11).
+- A tag that stands for a group of fields — contact data, body measurements, health/medication — activates every field in that group at once, and each of those fields then gets its own detail line.
 - A dropdown next to the filter tag list shows all saved filters by name, shared among all teachers (not private to the teacher who saved it); selecting one applies its saved filter tag list selection to the report. This is a custom dropdown/listbox component (e.g. a popover-based combobox), not a native HTML `<select>` element, since a native `<select>` cannot render the per-item rename/delete icons described below.
 - Next to the dropdown, a Save button lets the teacher save the current filter tag list selection under a name, entered inline (e.g. in a small popover) without leaving the report page.
 - In the dropdown, each saved filter has a rename and a delete icon, so the teacher can rename or delete it inline, directly in the dropdown, without a separate management page. On pointer-based devices (desktop) the icons appear on hover; on touch devices (tablet, mobile), where there is no hover state, the icons are always visible instead, so the feature stays usable on every supported screen size (see General).
 - Renaming a saved filter edits its name in place; deleting one requires a lightweight inline confirmation before it is removed.
-- A print button on the report page opens the report as HTML in a popup window, which the teacher can then print (e.g. to PDF or any format supported by the installed printers).
+- A print button on the report page opens the report as HTML in a popup window, keeping the master-detail structure, which the teacher can then print (e.g. to PDF or any format supported by the installed printers).
 
 ## Navigation
 
@@ -303,3 +306,25 @@ As a student, I only see my master data when I log in, so that I can go straight
 - When a student logs in, only the student master data (see US-11) is shown.
 - The student's page has the same header row as the teacher dashboard (see US-14): the application title "Sportsweek" on the left, and a logout button on the right.
 - A student's view has no left-side navigation zone (see US-14); the header is followed directly by the master data content.
+
+## Test Environment
+
+### US-16: Fake login in the test environment
+
+As a teacher trying the application out, I can continue as any teacher or student after signing in, so that the application can be exercised with a whole class of people without an Entra ID account for each of them.
+
+**Acceptance criteria:**
+
+- The fake login replaces the identity provider and nothing else. The chosen identity is signed in through the same session endpoint as a real login, so provisioning (US-1), the role derived from the UPN domain (US-3), the session cookie, and every authorization check downstream stay on the code paths production uses.
+- The fake login is opt-in per deployment, and the production project refuses it whatever the configuration says.
+- A deployment that does not opt in has no fake login to disable: the modules and the endpoint behind it are not part of the build at all, so a configuration mistake cannot turn it on after the fact.
+- The test environment is a separate Firebase project from production, because the fake login creates real authentication accounts and real user records, and neither belongs anywhere near real people's data.
+- The test environment has its own sign-in screen, marked "Testumgebung" and stating that the data is invented, so that the two environments cannot be mistaken for one another.
+- Signing in still begins with a real Entra ID sign-in (US-1). Only a teacher who has been through it is offered the choice of who to continue as, and the endpoint that mints the chosen identity refuses every other caller. While the fake login is off, that endpoint answers as if it did not exist rather than admitting that it does.
+- Whether the caller came through Entra ID is decided by the sign-in provider that Firebase records during the token exchange, which a caller cannot assert for themselves. Without that distinction, one invented identity could authorize inventing the next.
+- The proof of the real Entra ID sign-in is kept separately from the session cookie that continuing as someone else replaces, so switching identity does not give up the right to switch again.
+- A student who signs in through Entra ID is refused with "Diese Umgebung steht nur Lehrpersonen offen.", while an impersonated student is admitted — that case is what the environment exists for.
+- The choice is made in a dialog that asks for a first name, a last name, and a role, or lets one of the users already present be picked instead. Cancelling continues as the signed-in teacher.
+- The UPN is derived from the name and the role rather than typed: `firstname.lastname` at the teacher or the student domain of US-3, with German umlauts spelled out ("Müller" becomes `mueller`, never `muller`) and remaining diacritics dropped. It is shown as it is derived and cannot be edited.
+- A name from which no valid school address can be formed is refused, on the client and on the server alike, with "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden." — the fake tenant may only issue UPNs the real one could have issued.
+- Choosing a role chooses the domain; the role itself still follows from that domain (US-3). A user record that already exists keeps the role it was created with, exactly as after a real login.
