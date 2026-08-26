@@ -106,6 +106,8 @@ export function AssignmentView() {
               rows={classOverview(students, classes.items, columns)}
               programs={programNames}
               skillLevels={skillLevelNames}
+              columns={columns}
+              filterGroups={groups}
             />
 
             {events.length === 0 ? (

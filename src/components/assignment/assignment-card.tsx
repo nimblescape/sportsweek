@@ -13,7 +13,6 @@ import {
   type MouseEvent,
   type PointerEvent,
   type PointerEventHandler,
-  type ReactNode,
 } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronRight, GripVertical } from "lucide-react";
@@ -27,6 +26,7 @@ import {
 import { filterStudents, type FilterGroup, type StudentFilter } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { cn } from "@/lib/utils";
+import { AREA, AREAS, AreaTitle } from "./card-areas";
 import { GenderTable } from "./gender-table";
 import { SkillMatrix } from "./skill-matrix";
 
@@ -34,26 +34,6 @@ import { SkillMatrix } from "./skill-matrix";
 const ALL_LABEL = "Alle";
 const ALL_NAME = "Alle auswählen";
 export const allDragId = (groupId: string) => `all:${groupId}`;
-
-/**
- * Each area gets a surface of its own, so three columns of content read as three areas rather
- * than as one crowded block. Side by side from the small breakpoint up — the card is what the
- * teacher works across, so keeping it one column any longer than necessary costs more than the
- * width it saves.
- */
-const AREAS = "grid gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto]";
-const AREA = "border-border bg-muted/40 flex min-h-0 min-w-0 flex-col rounded-lg border p-3";
-
-function AreaTitle({ children, aside }: { children: string; aside?: ReactNode }) {
-  return (
-    <div className="mb-2 flex items-baseline justify-between gap-3">
-      <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-        {children}
-      </h3>
-      {aside}
-    </div>
-  );
-}
 
 type AssignmentCardProps = {
   group: AssignmentGroup;

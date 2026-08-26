@@ -1,0 +1,27 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
+import type { ReactNode } from "react";
+
+/**
+ * Each area gets a surface of its own, so three columns of content read as three areas rather
+ * than as one crowded block. Side by side from the small breakpoint up — the card is what the
+ * teacher works across, so keeping it one column any longer than necessary costs more than the
+ * width it saves.
+ */
+export const AREAS = "grid gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto]";
+export const AREA = "border-border bg-muted/40 flex min-h-0 min-w-0 flex-col rounded-lg border p-3";
+
+/** The aside sits at the far end of the title line — a tally on one area, a toggle on another. */
+export function AreaTitle({ children, aside }: { children: string; aside?: ReactNode }) {
+  return (
+    <div className="mb-2 flex items-baseline justify-between gap-3">
+      <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+        {children}
+      </h3>
+      {aside}
+    </div>
+  );
+}

@@ -24,6 +24,9 @@ export type ClassRow = AttendingCounts & {
   attendanceRate: number;
 };
 
+/** One card of the class overview: the registrations of a class, and the figures describing them. */
+export type ClassGroup = ClassRow & { students: RosterStudent[] };
+
 /** The card a student who has no week yet belongs to; it is one of the cards, not a state. */
 export const UNASSIGNED_GROUP = "unassigned";
 export const UNASSIGNED_GROUP_TITLE = "Nicht zugeteilt";
@@ -86,6 +89,25 @@ export function attendingCounts(
 }
 
 /**
+ * What a set of registrations says about itself: how many there are, how many are coming, and
+ * everything `attendingCounts` derives. Separate from the row so a card can ask the same of the
+ * part its filter leaves and get an answer counted the same way.
+ */
+export function classFigures(
+  registered: readonly RosterStudent[],
+  columns: readonly SkillColumn[],
+): Omit<ClassRow, "class"> {
+  const attending = registered.filter((student) => student.isAttending).length;
+
+  return {
+    total: registered.length,
+    attending,
+    attendanceRate: registered.length === 0 ? 0 : attending / registered.length,
+    ...attendingCounts(registered, columns),
+  };
+}
+
+/**
  * One row per maintained class (US-6), including a class nobody registered for — the rows are
  * the list, not what happens to be stored, so the table reads the same from one day to the next.
  */
@@ -93,18 +115,10 @@ export function classOverview(
   students: readonly RosterStudent[],
   classes: readonly { name: string }[],
   columns: readonly SkillColumn[],
-): ClassRow[] {
+): ClassGroup[] {
   return classes.map(({ name }) => {
     const registered = students.filter((student) => student.class === name);
-    const attending = registered.filter((student) => student.isAttending).length;
-
-    return {
-      class: name,
-      total: registered.length,
-      attending,
-      attendanceRate: registered.length === 0 ? 0 : attending / registered.length,
-      ...attendingCounts(registered, columns),
-    };
+    return { class: name, students: registered, ...classFigures(registered, columns) };
   });
 }
 
