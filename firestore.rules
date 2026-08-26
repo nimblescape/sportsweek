@@ -55,7 +55,9 @@ service cloud.firestore {
 
     /**
      * A student's own registration (US-11). Ownership is the record's `userId`, which holds the
-     * UPN, so the same check serves a direct read and the query the form subscribes to.
+     * UPN, so the same check serves a direct read and the query the form subscribes to. The
+     * record carries the emergency contact and the rented equipment in its own fields, so there
+     * is no child document whose ownership would have to be worked out separately.
      *
      * Writes are closed for the reason the collections below are: a save carries invariants
      * rules cannot run a query for — it belongs to *the* active season, answering "no" gives up
@@ -63,20 +65,6 @@ service cloud.firestore {
      */
     match /studentMasterData/{recordId} {
       allow read: if isSignedIn() && resource.data.userId == upn();
-      allow write: if false;
-    }
-
-    /**
-     * The child records of one registration. They carry no owner of their own, so ownership is
-     * read from the record they hang off rather than duplicated onto each of them — a copy is
-     * one more thing that can disagree with the original.
-     */
-    match /{collection}/{childId} {
-      allow read: if isSignedIn()
-        && collection in ['emergencyContacts', 'equipmentRentalItems']
-        && exists(/databases/$(database)/documents/studentMasterData/$(resource.data.studentMasterDataId))
-        && get(/databases/$(database)/documents/studentMasterData/$(resource.data.studentMasterDataId)).data.userId == upn();
-
       allow write: if false;
     }
 

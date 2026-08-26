@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   documentIdSchema,
   genderSchema,
+  hasUniqueNames,
   isoDateSchema,
   optionalText,
   phoneNumberSchema,
@@ -18,29 +19,34 @@ import { FOOD_OPTION_OTHER } from "./master-data";
 export const relationshipSchema = z.enum(["mother", "father", "other"]);
 export type Relationship = z.infer<typeof relationshipSchema>;
 
-const emergencyContactFields = z.object({
-  id: documentIdSchema,
-  studentMasterDataId: documentIdSchema,
-  firstName: requiredText(100),
-  lastName: requiredText(100),
-  relationship: relationshipSchema,
-  relationshipOtherText: optionalText(200),
-  phoneNumber: phoneNumberSchema,
-});
-
-export const emergencyContactSchema = emergencyContactFields.refine(
-  (contact) =>
-    contact.relationship !== "other" || (contact.relationshipOtherText?.trim().length ?? 0) > 0,
-  { message: "Bitte die Beziehung angeben.", path: ["relationshipOtherText"] },
-);
+/**
+ * Carried on the record rather than in a record of its own: a student has exactly one, it has
+ * no identity outside the registration, and nothing else refers to it (US-11).
+ */
+export const emergencyContactSchema = z
+  .object({
+    firstName: requiredText(100),
+    lastName: requiredText(100),
+    relationship: relationshipSchema,
+    relationshipOtherText: optionalText(200),
+    phoneNumber: phoneNumberSchema,
+  })
+  .refine(
+    (contact) =>
+      contact.relationship !== "other" || (contact.relationshipOtherText?.trim().length ?? 0) > 0,
+    { message: "Bitte die Beziehung angeben.", path: ["relationshipOtherText"] },
+  );
 export type EmergencyContact = z.infer<typeof emergencyContactSchema>;
 
-export const equipmentRentalItemSchema = z.object({
-  id: documentIdSchema,
-  studentMasterDataId: documentIdSchema,
-  itemName: snapshotValueSchema,
-});
-export type EquipmentRentalItem = z.infer<typeof equipmentRentalItemSchema>;
+/**
+ * The entries of the selected program's required equipment the student rents (US-5, US-11),
+ * snapshotted by name like every other list value. On the record for the same reason as the
+ * contact, and because a rental has no meaning without the registration it belongs to.
+ */
+export const rentedEquipmentSchema = z
+  .array(snapshotValueSchema)
+  .max(50, "Höchstens 50 Einträge.")
+  .refine(hasUniqueNames, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
 
 const studentMasterDataFields = z.object({
   id: documentIdSchema,
@@ -61,9 +67,12 @@ const studentMasterDataFields = z.object({
   dateOfBirth: isoDateSchema.nullable(),
   gender: genderSchema.nullable(),
   phoneNumber: phoneNumberSchema.nullable(),
+  emergencyContact: emergencyContactSchema.nullable(),
   healthNotes: optionalText(2000),
   hasMedication: z.boolean().nullable(),
   equipmentRentalNeeded: z.boolean().nullable(),
+  // Defaulted, because records written before the field existed simply rent nothing.
+  rentedEquipment: rentedEquipmentSchema.default([]),
   shoeSize: requiredText(10).nullable(),
   heightCm: z.number().int().positive().max(300).nullable(),
   weightKg: z.number().positive().max(400).nullable(),

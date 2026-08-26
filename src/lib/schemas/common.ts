@@ -39,3 +39,9 @@ export const genderSchema = z.enum(["male", "female"]);
 export type Gender = z.infer<typeof genderSchema>;
 
 export const isoDateSchema = z.iso.date();
+
+/** The comparison unique names use everywhere: trimmed and case-folded, accents preserved. */
+export function hasUniqueNames(names: readonly string[]): boolean {
+  const normalized = names.map((name) => name.trim().toLocaleLowerCase("de-AT"));
+  return new Set(normalized).size === normalized.length;
+}

@@ -97,16 +97,14 @@ describe("assertNotInUse — categories matched through a master data field", ()
 describe("assertEquipmentNotInUse", () => {
   it("blocks an entry a student of a non-archived season rented", async () => {
     seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Ski" });
-    firestore.seed("equipmentRentalItems", "e1", { studentMasterDataId: "r1", itemName: "Helm" });
+    seedRecord("r1", "open", { class: "3AHIT", program: "Ski", rentedEquipment: ["Helm"] });
 
     await expect(assertEquipmentNotInUse(["Helm"])).rejects.toBeInstanceOf(ServiceError);
   });
 
   it("allows an entry only rented by students of archived seasons", async () => {
     seedSeason("done", true);
-    seedRecord("r1", "done", { class: "3AHIT", program: "Ski" });
-    firestore.seed("equipmentRentalItems", "e1", { studentMasterDataId: "r1", itemName: "Helm" });
+    seedRecord("r1", "done", { class: "3AHIT", program: "Ski", rentedEquipment: ["Helm"] });
 
     await expect(assertEquipmentNotInUse(["Helm"])).resolves.toBeUndefined();
   });
@@ -120,8 +118,7 @@ describe("assertEquipmentNotInUse", () => {
 
   it("rejects as soon as any one of the names is rented", async () => {
     seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Ski" });
-    firestore.seed("equipmentRentalItems", "e1", { studentMasterDataId: "r1", itemName: "Helm" });
+    seedRecord("r1", "open", { class: "3AHIT", program: "Ski", rentedEquipment: ["Helm"] });
 
     await expect(assertEquipmentNotInUse(["Stöcke", " helm "])).rejects.toMatchObject({
       code: "CONFLICT",
@@ -183,12 +180,12 @@ describe("usageReport", () => {
 
   it("names the rented entries of a program, spelled the way the program stores them", async () => {
     seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Snowboard" });
-    firestore.seed("programs", "ski", { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] });
-    firestore.seed("equipmentRentalItems", "rent1", {
-      studentMasterDataId: "r1",
-      itemName: " helm ",
+    seedRecord("r1", "open", {
+      class: "3AHIT",
+      program: "Snowboard",
+      rentedEquipment: [" helm "],
     });
+    firestore.seed("programs", "ski", { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] });
 
     // Renaming the program is still fine — only removing the entry along with it is not.
     await expect(usageReport(MASTER_DATA_CATEGORIES.programs)).resolves.toEqual({
@@ -210,12 +207,8 @@ describe("usageReport", () => {
 
   it("leaves a program whose equipment is only rented in archived seasons alone", async () => {
     seedSeason("done", true);
-    seedRecord("r1", "done", { class: "3AHIT", program: "Ski" });
+    seedRecord("r1", "done", { class: "3AHIT", program: "Ski", rentedEquipment: ["Helm"] });
     firestore.seed("programs", "ski", { name: "Ski", requiredEquipment: ["Helm"] });
-    firestore.seed("equipmentRentalItems", "rent1", {
-      studentMasterDataId: "r1",
-      itemName: "Helm",
-    });
 
     await expect(usageReport(MASTER_DATA_CATEGORIES.programs)).resolves.toEqual({
       blockedIds: [],
@@ -225,13 +218,9 @@ describe("usageReport", () => {
 
   it("does not hold one program back for another program's rented equipment", async () => {
     seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Snowboard" });
+    seedRecord("r1", "open", { class: "3AHIT", program: "Snowboard", rentedEquipment: ["Helm"] });
     firestore.seed("programs", "ski", { name: "Ski", requiredEquipment: ["Stöcke"] });
     firestore.seed("programs", "board", { name: "Snowboard", requiredEquipment: ["Helm"] });
-    firestore.seed("equipmentRentalItems", "rent1", {
-      studentMasterDataId: "r1",
-      itemName: "Helm",
-    });
 
     const report = await usageReport(MASTER_DATA_CATEGORIES.programs);
 

@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { z } from "zod";
-import { documentIdSchema, requiredText } from "./common";
+import { documentIdSchema, hasUniqueNames, requiredText } from "./common";
 import { positionSchema } from "./position";
 
 /** Every teacher-maintained list (US-5 to US-10) shares this shape. */
@@ -30,10 +30,7 @@ export const seasonPassOptionSchema = namedListItemSchema;
 export const requiredEquipmentSchema = z
   .array(requiredText(120))
   .max(50, "Höchstens 50 Einträge.")
-  .refine((names) => {
-    const normalized = names.map((name) => name.trim().toLocaleLowerCase("de-AT"));
-    return new Set(normalized).size === normalized.length;
-  }, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
+  .refine(hasUniqueNames, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
 
 export const programSchema = namedListItemSchema.extend({
   requiredEquipment: requiredEquipmentSchema.default([]),

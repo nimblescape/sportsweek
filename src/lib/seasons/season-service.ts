@@ -159,11 +159,6 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
   });
 }
 
-async function referencesOf(collection: string, field: string, value: string) {
-  const snapshot = await adminDb.collection(collection).where(field, "==", value).get();
-  return snapshot.docs.map((doc) => doc.ref);
-}
-
 /**
  * Firestore has no cascading delete, so removal is explicit (US-4). Dependants go first and
  * the season itself last: if the run fails midway the season is still there, so simply calling
@@ -208,12 +203,8 @@ export async function deleteSeason(id: string): Promise<void> {
     }
   }
 
-  for (const record of masterDataSnapshot.docs) {
-    doomed.push(
-      ...(await referencesOf(COLLECTIONS.emergencyContacts, "studentMasterDataId", record.id)),
-      ...(await referencesOf(COLLECTIONS.equipmentRentalItems, "studentMasterDataId", record.id)),
-    );
-  }
+  // A master data record carries its emergency contact and rentals in its own fields, so
+  // deleting it takes them along — there is nothing hanging off it to clean up separately.
   doomed.push(...masterDataSnapshot.docs.map((record) => record.ref));
 
   const operations: BatchOperation[] = doomed.map((target) => (batch) => batch.delete(target));

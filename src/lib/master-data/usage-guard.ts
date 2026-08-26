@@ -52,25 +52,18 @@ export async function namesInUse(category: MasterDataCategory): Promise<Set<stri
 }
 
 /**
- * Required equipment is chosen per student, so it is the rental rows that mark an entry as used
- * — never the program that requires it (US-5).
+ * Required equipment is chosen per student, so it is the rental selections that mark an entry as
+ * used — never the program that requires it (US-5). They are a field of the master data record,
+ * so the records already read above are the whole answer.
  */
 export async function equipmentNamesInUse(): Promise<Set<string>> {
   const records = await openRecords();
 
-  const rentals = await Promise.all(
-    records.map((record) =>
-      adminDb
-        .collection(COLLECTIONS.equipmentRentalItems)
-        .where("studentMasterDataId", "==", record.id)
-        .get(),
-    ),
-  );
-
   return new Set(
-    rentals.flatMap((snapshot) =>
-      normalizedNames(snapshot.docs.map((rental) => rental.data()?.itemName)),
-    ),
+    records.flatMap((record) => {
+      const rented = record.data()?.rentedEquipment;
+      return Array.isArray(rented) ? normalizedNames(rented) : [];
+    }),
   );
 }
 

@@ -6,10 +6,17 @@
 import { describe, expect, it } from "vitest";
 import {
   emergencyContactSchema,
-  equipmentRentalItemSchema,
   studentMasterDataLockedFields,
   studentMasterDataSchema,
 } from "@/lib/schemas/student-master-data";
+
+const validContact = {
+  firstName: "Maria",
+  lastName: "Doe",
+  relationship: "mother",
+  relationshipOtherText: null,
+  phoneNumber: "+436501234567",
+};
 
 const validRecord = {
   id: "smd-1",
@@ -27,9 +34,11 @@ const validRecord = {
   dateOfBirth: "2008-05-04",
   gender: "female",
   phoneNumber: "+436601234567",
+  emergencyContact: validContact,
   healthNotes: null,
   hasMedication: false,
   equipmentRentalNeeded: false,
+  rentedEquipment: [],
   shoeSize: null,
   heightCm: null,
   weightKg: null,
@@ -92,6 +101,49 @@ describe("studentMasterDataSchema", () => {
 
     expect(studentMasterDataSchema.safeParse(withText).success).toBe(true);
   });
+
+  it("carries the emergency contact on the record itself", () => {
+    expect(studentMasterDataSchema.parse(validRecord).emergencyContact).toEqual(validContact);
+  });
+
+  it("rejects an emergency contact the contact schema would reject", () => {
+    const nationalNumber = { ...validContact, phoneNumber: "06501234567" };
+
+    expect(
+      studentMasterDataSchema.safeParse({ ...validRecord, emergencyContact: nationalNumber })
+        .success,
+    ).toBe(false);
+  });
+
+  it("leaves the emergency contact null while the student has not given one", () => {
+    const withoutContact = { ...validRecord, emergencyContact: null };
+
+    expect(studentMasterDataSchema.parse(withoutContact).emergencyContact).toBeNull();
+  });
+
+  it("carries the rented equipment as names on the record itself", () => {
+    const renting = { ...validRecord, equipmentRentalNeeded: true, rentedEquipment: ["Helm"] };
+
+    expect(studentMasterDataSchema.parse(renting).rentedEquipment).toEqual(["Helm"]);
+  });
+
+  it("stores a rented item as a snapshot rather than a reference", () => {
+    const withReference = { ...validRecord, rentedEquipment: [{ path: "programs/ski" }] };
+
+    expect(studentMasterDataSchema.safeParse(withReference).success).toBe(false);
+  });
+
+  it("rejects renting the same item twice", () => {
+    const twice = { ...validRecord, rentedEquipment: ["Helm", " helm "] };
+
+    expect(studentMasterDataSchema.safeParse(twice).success).toBe(false);
+  });
+
+  it("treats a record stored before the field existed as renting nothing", () => {
+    const withoutField = { ...validRecord, rentedEquipment: undefined };
+
+    expect(studentMasterDataSchema.parse(withoutField).rentedEquipment).toEqual([]);
+  });
 });
 
 describe("studentMasterDataLockedFields", () => {
@@ -105,16 +157,6 @@ describe("studentMasterDataLockedFields", () => {
 });
 
 describe("emergencyContactSchema", () => {
-  const validContact = {
-    id: "ec-1",
-    studentMasterDataId: "smd-1",
-    firstName: "Maria",
-    lastName: "Doe",
-    relationship: "mother",
-    relationshipOtherText: null,
-    phoneNumber: "+436501234567",
-  };
-
   it("parses a valid contact", () => {
     expect(emergencyContactSchema.parse(validContact)).toEqual(validContact);
   });
@@ -136,18 +178,10 @@ describe("emergencyContactSchema", () => {
       emergencyContactSchema.safeParse({ ...validContact, phoneNumber: "06501234567" }).success,
     ).toBe(false);
   });
-});
 
-describe("equipmentRentalItemSchema", () => {
-  const validItem = { id: "eri-1", studentMasterDataId: "smd-1", itemName: "Helm" };
+  it("carries no id of its own, since it lives on the record it belongs to", () => {
+    const withId = { ...validContact, id: "ec-1", studentMasterDataId: "smd-1" };
 
-  it("parses a valid selection", () => {
-    expect(equipmentRentalItemSchema.parse(validItem)).toEqual(validItem);
-  });
-
-  it("stores the item name as a snapshot rather than a reference", () => {
-    const withReference = { ...validItem, itemName: { path: "requiredEquipmentItems/helm" } };
-
-    expect(equipmentRentalItemSchema.safeParse(withReference).success).toBe(false);
+    expect(emergencyContactSchema.parse(withId)).toEqual(validContact);
   });
 });

@@ -53,11 +53,13 @@ function seedUsedIn(seasonId: string, isArchived: boolean, fields: Record<string
   });
 }
 
+/** Rentals are a field of the record, so this adds to the list the seeded record already carries. */
 function seedRental(seasonId: string, itemName: string) {
-  firestore.seed("equipmentRentalItems", `rent-${itemName}`, {
-    studentMasterDataId: `r-${seasonId}`,
-    itemName,
-  });
+  const id = `r-${seasonId}`;
+  const record = firestore.get("studentMasterData", id) ?? {};
+  const rented = Array.isArray(record.rentedEquipment) ? record.rentedEquipment : [];
+
+  firestore.seed("studentMasterData", id, { ...record, rentedEquipment: [...rented, itemName] });
 }
 
 describe("createMasterDataItem", () => {
