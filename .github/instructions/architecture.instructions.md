@@ -60,6 +60,32 @@ Cloud Functions
 └── Auth Blocking Functions
 ```
 
+## Shared state
+
+There is no client-side store, and there should not be one. State falls into three kinds, each
+with one home:
+
+| Kind                                                      | Where it lives                                                   |
+| --------------------------------------------------------- | ---------------------------------------------------------------- |
+| Server data (seasons, master data, a record)              | Firestore, subscribed to with `onSnapshot` through a `use*` hook |
+| Something the whole tree may need (is a write in flight?) | A React context provider mounted where that tree begins          |
+| One view's own concern (which dialog is open)             | `useState` in that component                                     |
+
+- **Server state is subscribed to, never mirrored.** A hook such as `useSeasons` or
+  `useStudentMasterData` reads live from Firestore; the write goes to a Route Handler and the
+  subscription brings the result back. Copying that data into a store would create a second
+  answer to a question Firestore is already answering.
+- **Cross-cutting UI state goes in a context, scoped as narrowly as it can be.** `BusyProvider`
+  sits in `AppShell` because the header spinner and every list underneath it need the same
+  answer; a hook (`useBusy`, `useHold`) is the only way in, so no consumer touches the raw
+  value. A context that only two neighbouring components need is a prop instead.
+- **Derive rather than store.** `allSelected` is computed from the ticked boxes, `missing` from
+  the current answers, a season's state from its two flags. A derived value cannot disagree
+  with what it is derived from; a stored copy can, and eventually will (see
+  [single-source-of-truth.instructions.md](single-source-of-truth.instructions.md)).
+- **No module-level mutable singletons.** They survive across requests on the server and across
+  navigations in the browser, which makes them a cache nobody declared.
+
 ## Rules
 
 - Never call the Firebase Admin SDK or use service credentials from the browser — only from Route Handlers, Server Actions, or Cloud Functions.

@@ -25,13 +25,17 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 - End-to-end: Playwright, under `e2e/` at the repo root, named `*.spec.ts`.
 - Firestore Security Rules: `@firebase/rules-unit-testing` against the Firebase emulator, under `firestore-tests/`, named `*.rules.test.ts`.
 
-## First-Time Setup
+## Running Them
 
-No test runner is configured yet. Before writing the first test, set up:
+```bash
+npm test              # Vitest, once
+npm run test:watch    # Vitest, watching
+npm run test:rules    # Security Rules, against the Firestore emulator
+npm run test:e2e      # Playwright
+```
 
-- `npm install -D vitest @vitejs/plugin-react @testing-library/react @testing-library/jest-dom jsdom` — add a `test` script (`"test": "vitest run"`) to `package.json`.
-- `npm install -D @playwright/test && npx playwright install` for e2e — add a `test:e2e` script (`"test:e2e": "playwright test"`).
-- `npm install -D @firebase/rules-unit-testing` for Security Rules tests, run against `firebase emulators:exec`.
+All three runners are configured; nothing needs installing. `test:rules` starts and stops the
+emulator itself through `firebase emulators:exec`.
 
 ## What to Test Where
 

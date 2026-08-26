@@ -1,5 +1,5 @@
 ---
-description: "Firestore Security Rules patterns for this app's role model (teacher/student) — role lookup, ownership checks, and field-level locking for student records."
+description: "How Firestore Security Rules are used in this app — reads gated per collection, every client write closed, and why the invariants live in Route Handlers instead."
 applyTo: "firestore.rules, **/firestore.rules"
 ---
 
@@ -9,75 +9,78 @@ Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
 Licensed under the MIT License. See LICENSE in the repository root for details.
 -->
 
-# Firestore Security Rules — Role Model
+# Firestore Security Rules
 
-## Role Storage
+What the roles _mean_ is a requirement, not a convention: US-2 and US-3 in
+[spec/requirements.md](../../spec/requirements.md) own that, and this file does not repeat it.
+What follows is the shape the rules take, and why.
 
-- Each `/users/{uid}` document has a single `role` field: `role: "teacher" | "student"`. There is no admin role and no array of roles — a user has exactly one role.
-- Roles are hierarchical: a teacher has all the rights of a student, so `isTeacher()` implies student-level access too; there's no separate "teacher AND student" combination to check for.
-- The role is assigned once, at account creation, based on the Entra ID UPN domain (`htldornbirn.at` → teacher, `student.htldornbirn.at` → student). It is never writable by any client, at any role — not even by a teacher. Deny every `update` that touches `role`, full stop. Correcting a wrong role requires direct database access (e.g. by IT staff), not an app code path.
+## The decision: rules gate reads, handlers own writes
 
-## Helper Functions
+Every collection denies client writes. That is the design, not unfinished work.
 
-```
-function isSignedIn() {
-  return request.auth != null;
-}
+Rules can `get()` a document at a path they can name, but they cannot run a query — and every
+invariant this app has needs one:
 
-function getRole(uid) {
-  return get(/databases/$(database)/documents/users/$(uid)).data.role;
-}
+- is this name already taken? (seasons, events, each master data list)
+- is at most one season active?
+- is this master data item still selected by a record of a non-archived season?
+- does deleting this season take its events and student records with it?
+- does this registration belong to _the_ active season, and does that season's
+  `hasStudentData` mirror still agree?
 
-function isTeacher() {
-  return isSignedIn() && getRole(request.auth.uid) == 'teacher';
-}
+None of those are expressible here, so they are enforced in transactions in Route Handlers,
+which use the Admin SDK and bypass rules entirely. A second, unchecked way in would make every
+one of those guarantees worthless, so `allow write: if false` **is** the guarantee.
 
-function isStudent() {
-  return isSignedIn() && getRole(request.auth.uid) == 'student';
-}
+Permitting a client write is therefore a design change, not a tweak. If a new collection really
+does carry no invariant beyond ownership, say so in the rule's own comment.
 
-function isSelf(uid) {
-  return isSignedIn() && request.auth.uid == uid;
-}
-```
+## Identity is the UPN, never the uid
 
-`get()` calls count as a document read and add latency — call `getRole()` once per rule (e.g. via `let`) instead of once per helper if a rule needs several role checks.
-
-## Access Pattern for Student-Owned Records (Template)
-
-This is a template, not a fixed field list — before applying it to a real collection, derive `lockedFields` from that collection's actual Zod schema instead of guessing or reusing another collection's fields:
-
-1. Find the collection's schema, typically `lib/schemas/<collection>.ts` (e.g. `studentRecordSchema`).
-2. Determine which schema fields are pre-populated / server-managed and must stay off-limits to students (e.g. `enrollmentDate`, `assignedTeacherId`, `gradeLevel`). If the schema doesn't already mark this, look for (or ask the user to define) a companion list/subset, e.g. `studentRecordSchema.pick({ enrollmentDate: true, assignedTeacherId: true })`, and treat its keys as the denylist.
-3. Mirror exactly those keys into the rule's `lockedFields` array — Firestore rules can't import the Zod schema at runtime, so the list must be kept manually in sync. Add a comment in both the schema file and the rule pointing at each other so future field additions update both places.
-4. Every field not in `lockedFields` is editable by the student by default — when a new field is added to the schema, explicitly decide whether it belongs in `lockedFields` before shipping, since it's open to student edits otherwise.
+`/users` is keyed by the Entra UPN (see `provisionUser`), so an ownership check reads the
+token's e-mail, lowercased to match the stored id. `request.auth.uid` identifies the Firebase
+account — a different key, and not a lookup key here.
 
 ```
-match /studentRecords/{studentId} {
-  allow read: if isTeacher() || isSelf(studentId);
-
-  allow create: if isTeacher();
-
-  allow update: if isTeacher()
-    || (isSelf(studentId) && noLockedFieldsChanged());
-
-  allow delete: if isTeacher();
-
-  function noLockedFieldsChanged() {
-    // Keep in sync with the server-managed fields of `studentRecordSchema` in lib/schemas/student-record.ts
-    let lockedFields = [/* derived from that schema, not hardcoded here */];
-    return !request.resource.data.diff(resource.data).affectedKeys().hasAny(lockedFields);
-  }
+function upn() {
+  return isSignedIn() && request.auth.token.email != null
+    ? request.auth.token.email.lower()
+    : '';
 }
 ```
 
-- This is a **denylist**: a student update is rejected only if it touches a `lockedFields` key; any other field change is allowed. Since new fields default to editable, treat every schema change as a checkpoint to update `lockedFields` — don't rely on remembering to do it later.
-- The teacher branch intentionally allows all fields; only the student branch is field-restricted.
-- Apply the same `isTeacher() || isSelf(...)` + schema-derived-denylist shape to any other collection where students own most fields but a few must stay locked — re-deriving `lockedFields` from that collection's own schema each time, never copy-pasting another collection's field list.
+The role claim is checked before the record, so the common case costs no document read; the
+fallback covers the first login, where the session cookie predates the claim.
 
-## Rules
+## Least privilege: grant a read when a view needs it, not before
 
-- Every `allow write`/`allow update` must be reachable by at least one role — don't rely on rules that are unreachable due to earlier broader `allow` statements.
-- Write `create` and `update` rules separately when the allowed fields or roles differ between the two (e.g. only the teacher can `create`, but the owning student can `update` a subset of fields).
-- Validate field types and required keys on `create` (`request.resource.data.keys().hasOnly([...])`, `is string`, `is timestamp`, etc.) — don't only check role/ownership.
-- Before deploying, audit new rules with the `firebase-security-rules-auditor` skill for privilege escalation and create-vs-update gaps.
+A read no view performs is surface for nothing. Teacher reads of `studentMasterData` are not
+granted, for instance, because US-11 does not need them — the tickets that do (the assignment
+dialog, the report) decide then whether to read live from the client or through a
+teacher-guarded handler.
+
+Bookkeeping collections stay invisible to every client at every role: `reservedNames` would let
+one free a claimed name, `seedState` would let one resurrect a default a teacher deleted.
+
+## Server-owned fields live in the schema, not in the rule
+
+Fields a client must never set — `userId`, `seasonId`, `eventId`, `isIncomplete` — are kept off
+the endpoint's input schema (`SERVER_OWNED` in `lib/schemas/student-master-data.ts`), which is
+strict, so a request naming one is refused outright. There is no field-level rule condition,
+because no client write reaches the rules at all.
+
+## The trap: `resource` is null for a document that does not exist
+
+An ownership rule such as `resource.data.userId == upn()` denies a `get` of a document that was
+never created — there is no `resource` to test. Since "not registered yet" is where every
+student starts, read such a record with a **query** instead: rules are evaluated per returned
+document, so an empty result comes back as empty rather than as a refusal.
+
+## Testing
+
+Every change to allow/deny logic needs a case in `firestore-tests/*.rules.test.ts` proving both
+an allowed and a denied path, run with `npm run test:rules` against the emulator. Cover the
+missing-document case above whenever a rule reads `resource`.
+
+Audit new rules with the `firebase-security-rules-auditor` skill before deploying.
