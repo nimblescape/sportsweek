@@ -1,5 +1,5 @@
 ---
-description: "Single source of truth — constants instead of repeated literals, types and schemas derived rather than restated, and a module that owns any answer more than one caller needs."
+description: "Single source of truth — which literals earn a constant and which stay readable, types and schemas derived rather than restated, and a module that owns any answer more than one caller needs."
 applyTo: "**/*"
 ---
 
@@ -14,10 +14,14 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 Every fact the system relies on is written down once. A second copy is not redundancy — it is
 a copy that will disagree with the first, at a time nobody is looking.
 
-## Constants, not literals
+## Which literals earn a constant
 
-A string that names something — a collection, a route, a status code, a field, a limit — is
-declared once and imported. It is never typed out at the point of use.
+Not every string in the code is a fact the system relies on. Three kinds are.
+
+An **identifier** is a string the program matches on rather than shows: a collection name, a
+document field, a stored status value, a custom claim, a cookie name, an error code. Nothing
+about it is legible on its own — `"customerOrders"` is right only because the same spelling was
+used when the document was written, and a misspelling fails silently instead of loudly.
 
 ```ts
 // no
@@ -27,13 +31,31 @@ const doc = await db.collection("customerOrders").doc(id).get();
 const doc = await db.collection(COLLECTIONS.customerOrders).doc(id).get();
 ```
 
-The same holds for text the interface shows in more than one place, and for numbers that bound
-more than one thing. Where two lists must agree on a limit, they share one constant, so they
-cannot drift into contradicting each other.
+A **constraint** is a bound the behaviour depends on: a maximum length, a page size, a retry
+count, a timeout. Where two places have to agree on one — a schema and the form that feeds it,
+two lists that may not outgrow each other — they share the constant, so they cannot drift into
+contradicting each other.
+
+**Text the program shows** earns one as soon as a second caller needs the same sentence, and an
+error message almost always does: the wording a server refuses with is the wording a client
+renders and a test asserts on. Three copies of a sentence are three sentences, and a rewording
+will only ever find two of them.
 
 Keep a stored value apart from the label shown for it. One constant for what is written to the
 database, another for what the user reads — so display text can never become a stored value,
 and a rewording never becomes a data migration.
+
+## Paths are written where they are read
+
+A route or a link target is none of the three, and reads better spelled out.
+`href="/app/master-data/programs"` says where it goes; `href={ROUTES.masterData.programs}` says
+only that somebody decided, and leaves the reader to go and find out where. Nor is a path a
+name the code invented: the router ties it to a file on disk, so moving the page is what changes
+it, and that is a change with tooling behind it.
+
+A path earns a constant when something other than the spelling asks for one — a prefix a guard
+tests, a list a navigation is built from, a destination chosen by role. The constant then exists
+for the decision, and the pages it names still spell their own links out.
 
 ## Derive, do not restate
 

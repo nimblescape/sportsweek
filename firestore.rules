@@ -39,7 +39,6 @@ service cloud.firestore {
       return upn() != '' && upn() == uid;
     }
 
-    // See .github/instructions/firestore-security-rules.instructions.md before adding collections below.
     match /users/{uid} {
       allow read: if isSelf(uid) || isTeacher();
 
@@ -86,6 +85,9 @@ service cloud.firestore {
      * the cascade on delete (US-4) are all out of reach. They are enforced in transactions
      * in the Route Handlers, which use the Admin SDK and bypass these rules — leaving a
      * second, unchecked way in would make those guarantees worthless.
+     *
+     * The names below are a copy: this language cannot import application code. They are owned
+     * by COLLECTIONS in src/lib/schemas/collections.ts and have to be kept in step by hand.
      */
     match /{collection}/{itemId} {
       allow read: if isSignedIn() && collection in [

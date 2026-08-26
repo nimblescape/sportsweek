@@ -16,7 +16,7 @@ const noticeLines = [
  * Prose files are only stamped when this repo authored them. Everything else that happens
  * to be Markdown — README, generated docs, upstream notes — stays untouched.
  */
-const DOC_PREFIXES = [".github/instructions/"];
+const DOC_PREFIXES = [".github/instructions/", ".github/prompts/"];
 const DOC_FILE_NAMES = new Set(["AGENTS.md", "CLAUDE.md", "spec/requirements.md"]);
 
 /** Third-party sources that keep their own copyright. */

@@ -10,7 +10,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MASTER_DATA_SECTIONS, ROUTES } from "@/lib/routes";
+import { MASTER_DATA_SECTIONS } from "@/lib/master-data/categories";
+import { ROUTES } from "@/lib/routes";
 
 const TOP_LEVEL = [
   { href: ROUTES.report, label: "Bericht" },

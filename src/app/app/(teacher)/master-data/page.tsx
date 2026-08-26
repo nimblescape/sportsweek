@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { redirect } from "next/navigation";
-import { MASTER_DATA_SECTIONS } from "@/lib/routes";
+import { MASTER_DATA_SECTIONS } from "@/lib/master-data/categories";
 
 // The section itself has no view; it opens on its first category.
 export default function MasterDataIndexPage() {
