@@ -110,7 +110,7 @@ export async function createMasterDataItem(
   // A new item goes to the end of the teacher's order (see Ordering). Read outside the
   // transaction: two simultaneous creates would tie, which the name tiebreak absorbs and the
   // next reorder renumbers away.
-  const position = (await adminDb.collection(category.collection).get()).size;
+  const position = (await adminDb.collection(category.collection).count().get()).data().count;
 
   // The reservation is what makes the name unique; it shares the transaction with the record,
   // so a rejected name leaves nothing behind (US-5 to US-10).

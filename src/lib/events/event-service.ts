@@ -51,8 +51,12 @@ export async function createEvent(input: { seasonId: string; name: string }): Pr
 
   // A new event goes to the end of its season's order (see Ordering).
   const position = (
-    await adminDb.collection(COLLECTIONS.events).where("seasonId", "==", input.seasonId).get()
-  ).size;
+    await adminDb
+      .collection(COLLECTIONS.events)
+      .where("seasonId", "==", input.seasonId)
+      .count()
+      .get()
+  ).data().count;
 
   // Scoped to the season, so two seasons may both hold a "Montafon".
   return adminDb.runTransaction(async (transaction) => {

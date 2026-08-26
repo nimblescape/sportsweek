@@ -34,7 +34,7 @@ export async function createSeason(input: { name: string }): Promise<Season> {
   const name = parseName(input.name);
 
   // A new season goes to the end of the teacher's order (see Ordering).
-  const position = (await adminDb.collection(COLLECTIONS.seasons).get()).size;
+  const position = (await adminDb.collection(COLLECTIONS.seasons).count().get()).data().count;
 
   // The reservation is what makes the name unique; it shares the transaction with the
   // record, so a rejected name leaves nothing behind (US-4).

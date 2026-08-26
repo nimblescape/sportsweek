@@ -118,6 +118,18 @@ describe("createMasterDataItem — ordering", () => {
     expect(firestore.get("classOptions", item.id)).toMatchObject({ position: 2 });
   });
 
+  // A class list runs to hundreds of entries, and the position is one number.
+  it("counts the existing items rather than downloading them", async () => {
+    seedItem("classOptions", "c1", "3AHIT");
+    seedItem("classOptions", "c2", "4BHIT");
+    firestore.queryDocumentsRead = 0;
+
+    const item = await createMasterDataItem("classes", { name: "5CHIT" });
+
+    expect(firestore.get("classOptions", item.id)).toMatchObject({ position: 2 });
+    expect(firestore.queryDocumentsRead).toBe(0);
+  });
+
   it("counts only its own category", async () => {
     seedItem("classOptions", "c1", "3AHIT");
 

@@ -55,6 +55,18 @@ describe("createSeason", () => {
     expect(season.id).toBeTruthy();
   });
 
+  // The position is one number, so it must not cost a download of every season.
+  it("counts the existing seasons rather than downloading them", async () => {
+    seedSeason("s1", { position: 0 });
+    seedSeason("s2", { position: 1 });
+    firestore.queryDocumentsRead = 0;
+
+    const season = await createSeason({ name: "Wintersportwoche 2026" });
+
+    expect(firestore.get("seasons", season.id)).toMatchObject({ position: 2 });
+    expect(firestore.queryDocumentsRead).toBe(0);
+  });
+
   it("trims the name", async () => {
     const season = await createSeason({ name: "  Sommersportwoche  " });
 
