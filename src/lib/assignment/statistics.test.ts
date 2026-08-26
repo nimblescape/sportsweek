@@ -144,6 +144,26 @@ describe("eventOverview", () => {
     ]);
   });
 
+  /**
+   * The gender and skill figures only count answers that were given, so a half-filled
+   * registration could otherwise be assigned without moving a single number.
+   */
+  it("counts the students assigned to the event, answered or not", () => {
+    const roster = [
+      student({ eventId: "event1", gender: null, program: null, skillLevel: null }),
+      student({ eventId: "event1" }),
+      student({ eventId: null }),
+    ];
+
+    expect(eventOverview(roster, EVENTS, COLUMNS).map((row) => row.assigned)).toEqual([2, 0]);
+  });
+
+  it("leaves a student who is not attending out of the count as well", () => {
+    const roster = [student({ eventId: "event1", isAttending: false })];
+
+    expect(eventOverview(roster, EVENTS, COLUMNS)[0].assigned).toBe(0);
+  });
+
   it("counts an unassigned student nowhere", () => {
     const rows = eventOverview([student({ eventId: null })], EVENTS, COLUMNS);
 

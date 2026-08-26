@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 
 type StatCardProps = {
   title: string;
+  /** Shown after the title, so the headline figure moves even when no other one does. */
+  count: number;
   /** Given only where the card is a choice, as the weeks are and the classes are not (US-12). */
   selection?: { selected: boolean; onSelect: () => void };
   children: ReactNode;
@@ -22,8 +24,9 @@ type StatCardProps = {
  * the card is closed and down when it is open. Every card folds on its own, so a teacher can
  * keep the one they are working on open and the rest out of the way.
  */
-export function StatCard({ title, selection, children }: StatCardProps) {
+export function StatCard({ title, count, selection, children }: StatCardProps) {
   const [expanded, setExpanded] = useState(true);
+  const heading = `${title}: ${count}`;
 
   return (
     <Card
@@ -57,17 +60,19 @@ export function StatCard({ title, selection, children }: StatCardProps) {
           </button>
 
           {selection ? (
-            // A control of its own, so the card can be picked without a pointer.
+            // A control of its own, so the card can be picked without a pointer. Named after the
+            // card rather than after its heading, so a changing figure is not a changing name.
             <button
               type="button"
+              aria-label={title}
               aria-pressed={selection.selected}
               onClick={selection.onSelect}
               className="focus-visible:ring-ring/50 rounded-md text-left outline-none focus-visible:ring-3"
             >
-              {title}
+              {heading}
             </button>
           ) : (
-            title
+            heading
           )}
         </CardTitle>
       </CardHeader>

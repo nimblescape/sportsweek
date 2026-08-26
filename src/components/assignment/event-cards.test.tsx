@@ -66,10 +66,11 @@ describe("EventCards", () => {
     ]);
   });
 
-  it("titles each card with its event", () => {
-    setup();
+  it("titles each card with its event and how many it holds", () => {
+    setup([student(), student()]);
 
-    expect(within(card("Montafon")).getByText("Montafon")).toBeInTheDocument();
+    expect(within(card("Montafon")).getByText("Montafon: 2")).toBeInTheDocument();
+    expect(within(card("Gardasee")).getByText("Gardasee: 0")).toBeInTheDocument();
   });
 
   it("says how many of each gender the event holds, under the title", () => {
@@ -131,7 +132,7 @@ describe("EventCards", () => {
   it("selects the event when its card is clicked", async () => {
     const onSelect = setup();
 
-    await userEvent.click(screen.getByText("Gardasee"));
+    await userEvent.click(screen.getByText("Gardasee: 0"));
 
     expect(onSelect).toHaveBeenCalledWith("event2");
   });
@@ -186,7 +187,7 @@ describe("EventCards — collapsing", () => {
     expect(toggle("Montafon").querySelector("svg")?.getAttribute("class")).not.toContain(
       "rotate-90",
     );
-    expect(within(card("Montafon")).getByText("Montafon")).toBeInTheDocument();
+    expect(within(card("Montafon")).getByText("Montafon: 0")).toBeInTheDocument();
     expect(within(card("Montafon")).queryByRole("table")).not.toBeInTheDocument();
     expect(within(card("Montafon")).queryByText(/Männlich/)).not.toBeInTheDocument();
   });

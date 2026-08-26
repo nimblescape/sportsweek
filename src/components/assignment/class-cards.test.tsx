@@ -121,7 +121,7 @@ describe("ClassCards", () => {
 
     await userEvent.click(within(card("5AHIF")).getByRole("button", { name: "Details zu 5AHIF" }));
 
-    expect(within(card("5AHIF")).getByText("5AHIF")).toBeInTheDocument();
+    expect(within(card("5AHIF")).getByText("5AHIF: 0")).toBeInTheDocument();
     expect(within(card("5AHIF")).queryByRole("table")).not.toBeInTheDocument();
     expect(within(card("5BHIF")).getByRole("table")).toBeInTheDocument();
   });

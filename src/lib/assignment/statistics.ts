@@ -24,7 +24,13 @@ export type ClassRow = AttendingCounts & {
   attendanceRate: number;
 };
 
-export type EventRow = AttendingCounts & { id: string; name: string };
+export type EventRow = AttendingCounts & {
+  id: string;
+  name: string;
+  /** Students assigned to this event. The gender and skill figures only count the answers that
+   * were given, so without this an assignment could land without moving a single number. */
+  assigned: number;
+};
 
 /** A pair of names, kept apart by a separator neither of them can contain. */
 export const skillColumnKey = (program: string | null, skillLevel: string | null) =>
@@ -102,12 +108,9 @@ export function eventOverview(
   events: readonly { id: string; name: string }[],
   columns: readonly SkillColumn[],
 ): EventRow[] {
-  return events.map(({ id, name }) => ({
-    id,
-    name,
-    ...countAttending(
-      students.filter((student) => student.eventId === id),
-      columns,
-    ),
-  }));
+  return events.map(({ id, name }) => {
+    const assigned = students.filter((student) => student.eventId === id && student.isAttending);
+
+    return { id, name, assigned: assigned.length, ...countAttending(assigned, columns) };
+  });
 }

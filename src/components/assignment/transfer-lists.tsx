@@ -249,7 +249,7 @@ function StudentList({
       aria-label={label}
       className={cn("transition-shadow", isOver && "ring-ring ring-2")}
     >
-      <CardContent className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <CardContent className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <div>
           {/* The count is what the filter leaves, not what the list holds (US-12). */}
           {/* As tall as the name field beside it, so the two read as one line. */}

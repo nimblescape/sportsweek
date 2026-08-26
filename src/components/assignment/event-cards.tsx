@@ -32,6 +32,7 @@ export function EventCards({ rows, programs, skillLevels, selectedId, onSelect }
         <StatCard
           key={row.id}
           title={row.name}
+          count={row.assigned}
           selection={{ selected: row.id === selectedId, onSelect: () => onSelect(row.id) }}
         >
           <p className="text-muted-foreground text-sm">

@@ -29,7 +29,7 @@ export function ClassCards({
   return (
     <div className="flex flex-col gap-3">
       {rows.map((row) => (
-        <StatCard key={row.class} title={row.class}>
+        <StatCard key={row.class} title={row.class} count={row.total}>
           <p className="text-muted-foreground text-sm">
             Angemeldet: {row.total} · Nimmt teil: {row.attending} · Anteil:{" "}
             {asPercent(row.attendanceRate)} · Männlich: {row.male} · Weiblich: {row.female}
