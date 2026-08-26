@@ -117,12 +117,11 @@ describe("AssignmentView", () => {
     expect(screen.getByText("Es ist keine Saison aktiv.")).toBeInTheDocument();
   });
 
-  it("counts every registration of the season by class, attending or not", () => {
+  /** Hidden while the board is being worked on; the cards keep their own tests. */
+  it("shows no class cards for now", () => {
     render(<AssignmentView />);
 
-    expect(card("5AHIF").getByText(/^Angemeldet: 3/)).toHaveTextContent(
-      "Angemeldet: 3 · Nimmt teil: 2 · Anteil: 67 %",
-    );
+    expect(screen.queryByRole("group", { name: "5AHIF" })).not.toBeInTheDocument();
   });
 
   it("puts every attending student in the card of the week they belong to", () => {

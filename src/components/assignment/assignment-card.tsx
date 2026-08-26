@@ -31,11 +31,13 @@ export const allDragId = (groupId: string) => `all:${groupId}`;
 
 /**
  * Each area gets a surface of its own, so three columns of content read as three areas rather
- * than as one crowded block. Side by side from the small breakpoint up — the card is what the
- * teacher works across, so keeping it one column any longer than necessary costs more than the
- * width it saves.
+ * than as one crowded block.
+ *
+ * Plain flex utilities rather than a grid with an arbitrary template: the arbitrary class went
+ * missing from the development stylesheet, which left the areas stacked while the built one had
+ * them side by side. Nothing here needs a value Tailwind has to be told about.
  */
-const AREAS = "grid gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto]";
+const AREAS = "flex flex-col gap-3 sm:flex-row";
 const AREA = "border-border bg-muted/40 min-w-0 rounded-lg border p-3";
 
 function AreaTitle({ children }: { children: string }) {
@@ -110,7 +112,7 @@ export function AssignmentCard({
 
         {expanded && (
           <div className={AREAS}>
-            <section className={AREA}>
+            <section className={cn(AREA, "sm:w-60 sm:shrink-0")}>
               <AreaTitle>Filter</AreaTitle>
               <FilterTagList
                 label={group.title}
@@ -120,7 +122,7 @@ export function AssignmentCard({
               />
             </section>
 
-            <section className={AREA}>
+            <section className={cn(AREA, "sm:flex-1")}>
               <AreaTitle>Schüler</AreaTitle>
               <ul className="max-h-72 overflow-y-auto">
                 {shown.length > 0 && (
@@ -148,7 +150,7 @@ export function AssignmentCard({
 
             {/* Deliberately fed the whole card rather than `shown`: the figures describe the
                 card, not the filter someone happens to have typed into it. */}
-            <section className={AREA}>
+            <section className={cn(AREA, "overflow-x-auto sm:shrink-0")}>
               <AreaTitle>Statistik</AreaTitle>
               <div className="flex flex-col gap-3">
                 <GenderTable counts={group} />
