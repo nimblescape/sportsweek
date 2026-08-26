@@ -37,7 +37,7 @@ export const allDragId = (groupId: string) => `all:${groupId}`;
  * width it saves.
  */
 const AREAS = "grid gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto]";
-const AREA = "border-border bg-muted/40 min-w-0 rounded-lg border p-3";
+const AREA = "border-border bg-muted/40 flex min-w-0 flex-col rounded-lg border p-3";
 
 function AreaTitle({ children, aside }: { children: string; aside?: ReactNode }) {
   return (
@@ -135,7 +135,9 @@ export function AssignmentCard({
               >
                 Schüler:innen
               </AreaTitle>
-              <ul className="max-h-72 overflow-y-auto">
+              {/* Grows into whatever height the tallest area gives the row, so the box never
+                  ends short of its own bottom edge. */}
+              <ul className="max-h-96 min-h-0 flex-1 overflow-y-auto">
                 {shown.length > 0 && (
                   <Row
                     dragId={allDragId(group.id)}
