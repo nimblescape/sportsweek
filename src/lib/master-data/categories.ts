@@ -102,6 +102,18 @@ export const MASTER_DATA_CATEGORIES = {
 export type MasterDataCategoryKey = keyof typeof MASTER_DATA_CATEGORIES;
 
 /**
+ * The master data menu, in the order it is shown (US-4 to US-10). Seasons lead and are not a
+ * category, so they are the one entry named here rather than derived.
+ */
+export const MASTER_DATA_SECTIONS = [
+  { href: "/app/master-data/seasons", label: "Saisonen" },
+  ...Object.entries(MASTER_DATA_CATEGORIES).map(([key, category]) => ({
+    href: `/app/master-data/${key}`,
+    label: category.labels.title,
+  })),
+];
+
+/**
  * Lives here rather than next to the server-side guard because the list view shows the same
  * sentence on the controls it disables, and must not pull the Admin SDK in to do so.
  */

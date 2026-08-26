@@ -3,7 +3,11 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-/** Single source of truth for collection names — never build a path from a string literal. */
+/**
+ * Single source of truth for collection names — never build a path from a string literal.
+ * firestore.rules spells the readable ones out a second time, because a rules file cannot
+ * import this one; a name added or renamed here has to be carried over there by hand.
+ */
 export const COLLECTIONS = {
   users: "users",
   seasons: "seasons",

@@ -18,8 +18,8 @@ export type SessionUser = {
 
 /**
  * Verifies the Firebase session cookie and reads the role from custom claims.
- * Custom claims are a cached mirror of `/users/{uid}.role` (see firestore-security-rules.instructions.md) —
- * re-sync them whenever the record changes, and re-check Firestore directly for anything security-critical.
+ * The claim is a cached mirror of `/users/{uid}.role`: re-sync it whenever the record changes,
+ * and fall back to the record for anything security-critical, as `firestore.rules` does.
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();

@@ -5,23 +5,15 @@
  */
 import { describe, expect, it } from "vitest";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { MASTER_DATA_SECTIONS } from "@/lib/routes";
 import {
   MASTER_DATA_CATEGORIES,
+  MASTER_DATA_SECTIONS,
   masterDataCategorySchema,
   type MasterDataCategory,
   type MasterDataCategoryKey,
 } from "./categories";
 
 describe("MASTER_DATA_CATEGORIES", () => {
-  it("covers every teacher-maintained section except seasons", () => {
-    const sectionKeys = MASTER_DATA_SECTIONS.map((section) => section.href.split("/").pop()).filter(
-      (key) => key !== "seasons",
-    );
-
-    expect(Object.keys(MASTER_DATA_CATEGORIES)).toEqual(expect.arrayContaining(sectionKeys));
-  });
-
   it("points every category at a known collection", () => {
     const known = new Set<string>(Object.values(COLLECTIONS));
 
@@ -68,6 +60,25 @@ describe("MASTER_DATA_CATEGORIES", () => {
       expect(category.labels.title).not.toBe("");
       expect(category.labels.singular).not.toBe("");
       expect(category.labels.add).toMatch(/^Neue/);
+    }
+  });
+});
+
+describe("MASTER_DATA_SECTIONS", () => {
+  it("leads with seasons and adds nothing beyond the categories", () => {
+    expect(MASTER_DATA_SECTIONS[0]).toEqual({
+      href: "/app/master-data/seasons",
+      label: "Saisonen",
+    });
+    expect(MASTER_DATA_SECTIONS).toHaveLength(Object.keys(MASTER_DATA_CATEGORIES).length + 1);
+  });
+
+  it("links each category under its own key, labelled with the title it already carries", () => {
+    for (const [key, category] of Object.entries(MASTER_DATA_CATEGORIES)) {
+      expect(MASTER_DATA_SECTIONS).toContainEqual({
+        href: `/app/master-data/${key}`,
+        label: category.labels.title,
+      });
     }
   });
 });
