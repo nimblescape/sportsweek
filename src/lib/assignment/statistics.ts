@@ -27,12 +27,12 @@ export type ClassRow = AttendingCounts & {
 export type EventRow = AttendingCounts & { id: string; name: string };
 
 /** A pair of names, kept apart by a separator neither of them can contain. */
-const columnKeyOf = (program: string | null, skillLevel: string | null) =>
+export const skillColumnKey = (program: string | null, skillLevel: string | null) =>
   `${program}\u0000${skillLevel}`;
 
 /**
- * The columns both overview tables carry, taken from the maintained lists rather than named
- * here, so a program or a skill level a teacher adds shows up without a code change (US-12).
+ * The columns of the class table, taken from the maintained lists rather than named here, so a
+ * program or a skill level a teacher adds shows up without a code change (US-12).
  */
 export function skillColumns(
   programs: readonly { name: string }[],
@@ -40,7 +40,7 @@ export function skillColumns(
 ): SkillColumn[] {
   return programs.flatMap((program) =>
     skillLevels.map((skillLevel) => ({
-      key: columnKeyOf(program.name, skillLevel.name),
+      key: skillColumnKey(program.name, skillLevel.name),
       program: program.name,
       skillLevel: skillLevel.name,
     })),
@@ -61,7 +61,7 @@ function countAttending(
 
   const skillLevels: Record<string, number> = {};
   for (const student of attending) {
-    const key = columnKeyOf(student.program, student.skillLevel);
+    const key = skillColumnKey(student.program, student.skillLevel);
     if (!known.has(key)) continue;
     skillLevels[key] = (skillLevels[key] ?? 0) + 1;
   }

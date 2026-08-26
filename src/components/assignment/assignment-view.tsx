@@ -16,7 +16,7 @@ import { activeSeasonOf, NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-stat
 import { useSeasons } from "@/lib/seasons/use-seasons";
 import { useRoster } from "@/lib/students/use-roster";
 import { ClassOverviewTable } from "./class-overview-table";
-import { EventOverviewTable } from "./event-overview-table";
+import { EventCards } from "./event-cards";
 import { TransferLists } from "./transfer-lists";
 
 /**
@@ -57,6 +57,11 @@ export function AssignmentView() {
   const columns = useMemo(
     () => skillColumns(programs, skillLevels.items),
     [programs, skillLevels.items],
+  );
+  const programNames = useMemo(() => programs.map((program) => program.name), [programs]);
+  const skillLevelNames = useMemo(
+    () => skillLevels.items.map((item) => item.name),
+    [skillLevels.items],
   );
   const groups = useMemo(
     () => filterGroups({ classes: classes.items, programs, skillLevels: skillLevels.items }),
@@ -101,9 +106,10 @@ export function AssignmentView() {
             </p>
           ) : (
             <>
-              <EventOverviewTable
+              <EventCards
                 rows={eventOverview(attending, events, columns)}
-                columns={columns}
+                programs={programNames}
+                skillLevels={skillLevelNames}
                 selectedId={selectedEventId}
                 onSelect={setSelectedEventId}
               />
