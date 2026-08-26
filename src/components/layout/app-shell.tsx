@@ -13,7 +13,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <BusyProvider>
       <div className="flex min-h-dvh flex-col">
-        <header className="border-border bg-background relative sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-4 border-b px-4 md:px-6">
+        {/* `sticky` already positions the header, which is what the spinner centres against. */}
+        <header className="border-border bg-background sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-4 border-b px-4 md:px-6">
           <span className="font-heading text-xl font-semibold tracking-tight">Sportsweek</span>
           <HeaderSpinner />
           <SignOutButton />
