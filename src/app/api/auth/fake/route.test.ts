@@ -5,6 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
+import { PRODUCTION_PROJECT_ID } from "@/lib/auth/auth-mode";
 
 const getUserByEmail = vi.fn();
 const createUser = vi.fn();
@@ -34,6 +35,7 @@ describe("/api/auth/fake", () => {
     vi.clearAllMocks();
     firestore.reset();
     vi.stubEnv("AUTH_MODE", "fake");
+    vi.stubEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID", "htld-sportsweek-staging");
     getUserByEmail.mockRejectedValue({ code: "auth/user-not-found" });
     createUser.mockImplementation(({ email }: { email: string }) => ({ uid: `uid-${email}` }));
     createCustomToken.mockResolvedValue("custom-token");
@@ -44,7 +46,10 @@ describe("/api/auth/fake", () => {
   describe("when the fake login is not enabled", () => {
     it.each([
       ["no one asked for it", () => vi.stubEnv("AUTH_MODE", "entra")],
-      ["the build is a production one", () => vi.stubEnv("NODE_ENV", "production")],
+      [
+        "the project holds real data",
+        () => vi.stubEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID", PRODUCTION_PROJECT_ID),
+      ],
     ])("answers as if the endpoint did not exist because %s", async (_case, disable) => {
       disable();
 

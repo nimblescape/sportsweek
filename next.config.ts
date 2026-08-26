@@ -8,16 +8,29 @@ import { parse } from "yaml";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+type EnvEntry = { variable: string; value?: string };
+
 // Public Firebase/Entra values live only in apphosting.yaml — reading them here makes
 // them available to `next dev`/`next build` without duplicating them into a .env file.
-const apphosting = parse(
-  readFileSync(fileURLToPath(new URL("./apphosting.yaml", import.meta.url)), "utf8"),
-);
-const env: Record<string, string> = Object.fromEntries(
-  (apphosting.env ?? [])
-    .filter((entry: { value?: string }) => entry.value !== undefined)
-    .map((entry: { variable: string; value: string }) => [entry.variable, entry.value]),
-);
+function readEnv(fileName: string): Record<string, string> {
+  const apphosting = parse(
+    readFileSync(fileURLToPath(new URL(`./${fileName}`, import.meta.url)), "utf8"),
+  );
+  return Object.fromEntries(
+    (apphosting.env ?? [])
+      .filter((entry: EnvEntry) => entry.value !== undefined)
+      .map((entry: EnvEntry) => [entry.variable, entry.value]),
+  );
+}
+
+// App Hosting layers apphosting.<environment>.yaml over apphosting.yaml for a backend tagged
+// with that environment name. APP_HOSTING_ENV reproduces that locally, so `npm run dev:staging`
+// points at staging without editing the production config.
+const environment = process.env.APP_HOSTING_ENV;
+const env: Record<string, string> = {
+  ...readEnv("apphosting.yaml"),
+  ...(environment ? readEnv(`apphosting.${environment}.yaml`) : {}),
+};
 
 const nextConfig: NextConfig = {
   env,
@@ -29,7 +42,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/__/auth/:path*",
-        destination: "https://htld-sportsweek.firebaseapp.com/__/auth/:path*",
+        destination: `https://${env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com/__/auth/:path*`,
       },
     ];
   },

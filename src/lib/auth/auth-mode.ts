@@ -8,25 +8,29 @@ import { z } from "zod";
 export const authModeSchema = z.enum(["entra", "fake"]);
 export type AuthMode = z.infer<typeof authModeSchema>;
 
+/** The one project holding real people's data, and so the one that may never fake a login. */
+export const PRODUCTION_PROJECT_ID = "htld-sportsweek";
+
 /**
- * Picks the sign-in implementation for this process (`AUTH_MODE`).
+ * Picks the sign-in implementation for this deployment (`AUTH_MODE`).
  *
- * The fake login forges an identity from a form, so it is opt-in and local-only. Two
- * independent things have to fail before it could ever serve real users: `.env` is
- * gitignored, so the flag cannot travel with the code, and a production build refuses the
- * mode outright. Deliberately not a `NEXT_PUBLIC_` variable — it is read on the server and
- * handed to the client as a prop, so it is never inlined into the browser bundle.
+ * The fake login forges an identity from a form and provisions it for real, so it is opt-in
+ * and confined to staging. Three things have to fail before it could serve real users:
+ * `apphosting.yaml` pins the mode for production, `.env` is gitignored so a local override
+ * cannot travel with the code, and the production project is refused here regardless.
+ * Deliberately not a `NEXT_PUBLIC_` variable — it is read on the server and handed to the
+ * client as a prop, so it never reaches the browser bundle.
  */
 export function resolveAuthMode(
   configured: string | undefined,
-  nodeEnv: string | undefined,
+  projectId: string | undefined,
 ): AuthMode {
-  if (nodeEnv === "production") return "entra";
+  if (!projectId || projectId === PRODUCTION_PROJECT_ID) return "entra";
 
   const parsed = authModeSchema.safeParse(configured);
   return parsed.success ? parsed.data : "entra";
 }
 
 export function currentAuthMode(): AuthMode {
-  return resolveAuthMode(process.env.AUTH_MODE, process.env.NODE_ENV);
+  return resolveAuthMode(process.env.AUTH_MODE, process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
 }

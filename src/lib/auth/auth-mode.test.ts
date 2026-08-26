@@ -4,27 +4,33 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { resolveAuthMode } from "@/lib/auth/auth-mode";
+import { PRODUCTION_PROJECT_ID, resolveAuthMode } from "@/lib/auth/auth-mode";
+
+const STAGING = "htld-sportsweek-staging";
 
 describe("resolveAuthMode", () => {
   it("uses Entra ID when nothing is configured", () => {
-    expect(resolveAuthMode(undefined, "development")).toBe("entra");
+    expect(resolveAuthMode(undefined, STAGING)).toBe("entra");
   });
 
-  it("enables the fake login when a developer opts in", () => {
-    expect(resolveAuthMode("fake", "development")).toBe("fake");
+  it("enables the fake login when a non-production project opts in", () => {
+    expect(resolveAuthMode("fake", STAGING)).toBe("fake");
   });
 
   it.each([["entra"], ["FAKE"], ["fake "], [""], ["true"], ["1"]])(
     "falls back to Entra ID for %o",
     (configured) => {
-      expect(resolveAuthMode(configured, "development")).toBe("entra");
+      expect(resolveAuthMode(configured, STAGING)).toBe("entra");
     },
   );
 
-  // The fake login mints a session for any name typed into a form. `.env` is gitignored, so
-  // the flag should never reach a deployment in the first place — this is the second lock.
-  it("refuses the fake login in a production build, however it was configured", () => {
-    expect(resolveAuthMode("fake", "production")).toBe("entra");
+  // The fake login writes real records into whichever project it points at, so the one project
+  // holding real people's data refuses it outright — a stray `fake` in the config is not enough.
+  it("refuses the fake login in the production project", () => {
+    expect(resolveAuthMode("fake", PRODUCTION_PROJECT_ID)).toBe("entra");
+  });
+
+  it("refuses the fake login when the project is unknown", () => {
+    expect(resolveAuthMode("fake", undefined)).toBe("entra");
   });
 });
