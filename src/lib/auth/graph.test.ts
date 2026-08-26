@@ -56,8 +56,15 @@ describe("fetchEntraName", () => {
   });
 
   it.each([
-    ["only a given name", { givenName: "Erika" }],
-    ["only a surname", { surname: "Mustermann" }],
+    ["only a given name", { givenName: "Erika" }, { firstName: "Erika" }],
+    ["only a surname", { surname: "Mustermann" }, { lastName: "Mustermann" }],
+  ])("returns what Graph holds when it holds %s", async (_case, body, expected) => {
+    respondWith(200, body);
+
+    expect(await fetchEntraName("token")).toEqual(expected);
+  });
+
+  it.each([
     ["blank values", { givenName: "  ", surname: "  " }],
     ["nothing at all", {}],
   ])("returns null when Graph provides %s", async (_case, body) => {

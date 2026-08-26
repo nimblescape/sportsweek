@@ -216,8 +216,8 @@ describe("/api/auth/fake", () => {
       });
     });
 
-    // provisionUser splits a display name on whitespace, which mangles a multi-word name —
-    // carrying the parts as claims keeps the record exactly as it was typed.
+    // The UPN provisionUser otherwise falls back to spells umlauts out and loses the spaces,
+    // so carrying the parts as claims keeps the record exactly as it was typed.
     it("passes the typed names through as token claims", async () => {
       await POST(postRequest({ firstName: "Anna Maria", lastName: "van Berg", role: "teacher" }));
 
