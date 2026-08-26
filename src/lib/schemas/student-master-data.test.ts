@@ -117,10 +117,16 @@ describe("studentMasterDataSchema", () => {
     ).toBe(false);
   });
 
-  it("leaves the emergency contact null while the student has not given one", () => {
-    const withoutContact = { ...validRecord, emergencyContact: null };
+  it("leaves the emergency contact empty while the student has not given one", () => {
+    const withoutContact = { ...validRecord, emergencyContact: undefined };
 
-    expect(studentMasterDataSchema.parse(withoutContact).emergencyContact).toBeNull();
+    expect(studentMasterDataSchema.parse(withoutContact).emergencyContact).toEqual({
+      firstName: null,
+      lastName: null,
+      relationship: null,
+      relationshipOtherText: null,
+      phoneNumber: null,
+    });
   });
 
   it("carries the rented equipment as names on the record itself", () => {
@@ -213,10 +219,26 @@ describe("studentMasterDataInputSchema", () => {
     "dateOfBirth",
     "gender",
     "phoneNumber",
-    "emergencyContact",
     "hasMedication",
   ])("requires %s from a student who is attending", (field) => {
     expect(pathsOf({ ...attending, [field]: null })).toContain(field);
+  });
+
+  it.each(["firstName", "lastName", "relationship", "phoneNumber"])(
+    "requires the emergency contact's %s from a student who is attending",
+    (field) => {
+      const contact = { ...attending, emergencyContact: { ...validContact, [field]: null } };
+
+      expect(pathsOf(contact)).toContain(`emergencyContact.${field}`);
+    },
+  );
+
+  it("requires free text when the relationship is 'other'", () => {
+    const contact = { ...validContact, relationship: "other", relationshipOtherText: null };
+
+    expect(pathsOf({ ...attending, emergencyContact: contact })).toContain(
+      "emergencyContact.relationshipOtherText",
+    );
   });
 
   it("requires the class even from a student who is not attending", () => {
@@ -239,11 +261,27 @@ describe("studentMasterDataInputSchema", () => {
       dateOfBirth: null,
       gender: null,
       phoneNumber: null,
-      emergencyContact: null,
+      emergencyContact: {
+        firstName: null,
+        lastName: null,
+        relationship: null,
+        relationshipOtherText: null,
+        phoneNumber: null,
+      },
       hasMedication: null,
     };
 
     expect(parse(empty).success).toBe(true);
+  });
+
+  it("keeps a half-filled emergency contact of a student who is not attending", () => {
+    const halfFilled = {
+      ...attending,
+      isAttendingSportsWeek: false,
+      emergencyContact: { ...validContact, lastName: null, phoneNumber: null },
+    };
+
+    expect(parse(halfFilled).success).toBe(true);
   });
 
   it("keeps the values a student entered before answering 'no'", () => {
@@ -309,10 +347,11 @@ describe("emergencyContactSchema", () => {
     ).toBe(false);
   });
 
-  it("requires free text when the relationship is 'other'", () => {
-    const missingText = { ...validContact, relationship: "other", relationshipOtherText: null };
+  /** When each field becomes required is the input schema's call, not the stored shape's. */
+  it("stores a contact the student has only started filling in", () => {
+    const halfFilled = { ...validContact, lastName: null, phoneNumber: null };
 
-    expect(emergencyContactSchema.safeParse(missingText).success).toBe(false);
+    expect(emergencyContactSchema.parse(halfFilled)).toEqual(halfFilled);
   });
 
   it("requires an international phone number", () => {

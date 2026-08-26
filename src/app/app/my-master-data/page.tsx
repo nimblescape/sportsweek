@@ -3,13 +3,30 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
+import { adminDb } from "@/lib/firebase/admin";
 import { requireStudent } from "@/lib/auth/guards";
-import { SectionPlaceholder } from "@/components/layout/section-placeholder";
+import { COLLECTIONS } from "@/lib/schemas/collections";
+import { userSchema } from "@/lib/schemas/user";
+import { StudentMasterDataView } from "@/components/student-master-data/student-master-data-view";
 
-// Only the shared header sits above this page — no left-side navigation (US-15).
-// Replaced by the master data form in #31 to #35.
+/**
+ * Only the shared header sits above this page — no left-side navigation (US-15). The name comes
+ * from the user record rather than the form, which shows it without letting it be edited (US-11).
+ */
 export default async function StudentMasterDataPage() {
-  await requireStudent();
+  const user = await requireStudent();
+  const userId = (user.email ?? "").toLowerCase();
 
-  return <SectionPlaceholder title="Meine Stammdaten" />;
+  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(userId).get();
+  const stored = userSchema.safeParse({ id: snapshot.id, ...snapshot.data() });
+  const studentName = stored.success
+    ? `${stored.data.firstName} ${stored.data.lastName}`
+    : (user.email ?? "");
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="font-heading text-xl">Meine Stammdaten</h1>
+      <StudentMasterDataView userId={userId} studentName={studentName} />
+    </div>
+  );
 }

@@ -14,13 +14,17 @@ vi.mock("@/lib/firebase/admin", () => ({
 }));
 
 const { saveStudentMasterData } = await import("./student-master-data-service");
-const { NO_ACTIVE_SEASON_HINT, recordIdFor } = await import("./registration");
+const { REGISTRATION_NOT_OPEN_HINT, recordIdFor } = await import("./registration");
 const { ServiceError } = await import("@/lib/service-error");
 
 const STUDENT = "jane.doe@student.htldornbirn.at";
 const RECORD_ID = recordIdFor("s1", STUDENT);
 
-beforeEach(() => firestore.reset());
+beforeEach(() => {
+  firestore.reset();
+  // Registering needs a class to pick from as much as it needs a season (US-6, US-11).
+  firestore.seed("classOptions", "c1", { name: "3AHME", position: 0 });
+});
 
 function seedSeason(id: string, fields: Record<string, unknown> = {}) {
   firestore.seed("seasons", id, {
@@ -116,7 +120,19 @@ describe("saveStudentMasterData", () => {
 
     await expect(saveStudentMasterData(STUDENT, attending)).rejects.toMatchObject({
       code: "CONFLICT",
-      message: NO_ACTIVE_SEASON_HINT,
+      message: REGISTRATION_NOT_OPEN_HINT,
+    });
+    expect(firestore.count("studentMasterData")).toBe(0);
+  });
+
+  /** The class is asked of every student, attending or not, so a list without one is unusable. */
+  it("refuses to save while the teacher has set up no class to pick from", async () => {
+    firestore.reset();
+    seedSeason("s1", { isActive: true });
+
+    await expect(saveStudentMasterData(STUDENT, attending)).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: REGISTRATION_NOT_OPEN_HINT,
     });
     expect(firestore.count("studentMasterData")).toBe(0);
   });

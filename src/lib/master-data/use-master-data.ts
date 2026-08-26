@@ -54,6 +54,44 @@ export function useMasterData(key: MasterDataCategoryKey) {
   return { items, loading, error };
 }
 
+/**
+ * The programs, each with the equipment it requires (US-5). Separate from `useMasterData`
+ * because that one parses every category as a plain named item, which drops the list — and the
+ * student's rental checkboxes are exactly that list (US-11).
+ */
+export function usePrograms() {
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const category = categoryOf("programs");
+
+    return subscribeWithRecovery<Program>({
+      label: category.collection,
+      buildQuery: () => query(collection(db, category.collection)),
+      parse: (id, data) => {
+        const parsed = programSchema.safeParse({ id, ...data });
+        if (!parsed.success) {
+          console.error(`${category.collection}/${id} does not match the schema`, parsed.error);
+          return null;
+        }
+        return parsed.data;
+      },
+      onData: (received) => {
+        setPrograms([...received].sort(byPosition));
+        setLoading(false);
+      },
+      onError: (message) => {
+        setError(message);
+        if (message !== null) setLoading(false);
+      },
+    });
+  }, []);
+
+  return { programs, loading, error };
+}
+
 /** One program, including the equipment list it carries (US-5). */
 export function useProgram(programId: string) {
   const [program, setProgram] = useState<Program | null>(null);

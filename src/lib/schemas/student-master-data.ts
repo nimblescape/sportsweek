@@ -22,21 +22,27 @@ export type Relationship = z.infer<typeof relationshipSchema>;
 /**
  * Carried on the record rather than in a record of its own: a student has exactly one, it has
  * no identity outside the registration, and nothing else refers to it (US-11).
+ *
+ * Its fields are individually optional for the same reason the record's are: answering "no"
+ * hides them without clearing them, so a half-filled contact has to survive being saved.
+ * Which of them are required, and when, is decided in `studentMasterDataInputSchema`.
  */
-export const emergencyContactSchema = z
-  .object({
-    firstName: requiredText(100),
-    lastName: requiredText(100),
-    relationship: relationshipSchema,
-    relationshipOtherText: optionalText(200),
-    phoneNumber: phoneNumberSchema,
-  })
-  .refine(
-    (contact) =>
-      contact.relationship !== "other" || (contact.relationshipOtherText?.trim().length ?? 0) > 0,
-    { message: "Bitte die Beziehung angeben.", path: ["relationshipOtherText"] },
-  );
+export const emergencyContactSchema = z.object({
+  firstName: requiredText(100).nullable(),
+  lastName: requiredText(100).nullable(),
+  relationship: relationshipSchema.nullable(),
+  relationshipOtherText: optionalText(200),
+  phoneNumber: phoneNumberSchema.nullable(),
+});
 export type EmergencyContact = z.infer<typeof emergencyContactSchema>;
+
+export const EMPTY_EMERGENCY_CONTACT: EmergencyContact = {
+  firstName: null,
+  lastName: null,
+  relationship: null,
+  relationshipOtherText: null,
+  phoneNumber: null,
+};
 
 /**
  * The entries of the selected program's required equipment the student rents (US-5, US-11),
@@ -67,7 +73,8 @@ const studentMasterDataFields = z.object({
   dateOfBirth: isoDateSchema.nullable(),
   gender: genderSchema.nullable(),
   phoneNumber: phoneNumberSchema.nullable(),
-  emergencyContact: emergencyContactSchema.nullable(),
+  // Defaulted like the rented equipment: records written before the field existed carry none.
+  emergencyContact: emergencyContactSchema.default(EMPTY_EMERGENCY_CONTACT),
   healthNotes: optionalText(2000),
   hasMedication: z.boolean().nullable(),
   equipmentRentalNeeded: z.boolean().nullable(),
@@ -100,8 +107,14 @@ const REQUIRED_WHEN_ATTENDING = [
   "dateOfBirth",
   "gender",
   "phoneNumber",
-  "emergencyContact",
   "hasMedication",
+] as const;
+
+const CONTACT_REQUIRED_WHEN_ATTENDING = [
+  "firstName",
+  "lastName",
+  "relationship",
+  "phoneNumber",
 ] as const;
 
 const MISSING = "Pflichtfeld.";
@@ -117,6 +130,9 @@ const MISSING = "Pflichtfeld.";
  */
 export const studentMasterDataInputSchema = studentMasterDataFields
   .omit({ id: true, ...SERVER_OWNED })
+  // Required rather than defaulted here: the default exists for records written before the
+  // field did, and a save always sends the whole registration anyway.
+  .extend({ rentedEquipment: rentedEquipmentSchema, emergencyContact: emergencyContactSchema })
   .strict()
   .superRefine((input, context) => {
     if (!input.isAttendingSportsWeek) return;
@@ -125,6 +141,24 @@ export const studentMasterDataInputSchema = studentMasterDataFields
       if (input[field] === null) {
         context.addIssue({ code: "custom", message: MISSING, path: [field] });
       }
+    }
+
+    for (const field of CONTACT_REQUIRED_WHEN_ATTENDING) {
+      if (input.emergencyContact[field] === null) {
+        context.addIssue({ code: "custom", message: MISSING, path: ["emergencyContact", field] });
+      }
+    }
+
+    const contact = input.emergencyContact;
+    if (
+      contact.relationship === "other" &&
+      (contact.relationshipOtherText?.trim().length ?? 0) === 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Bitte die Beziehung angeben.",
+        path: ["emergencyContact", "relationshipOtherText"],
+      });
     }
 
     if (input.foodOption === FOOD_OPTION_OTHER && (input.foodOtherText?.trim().length ?? 0) === 0) {

@@ -25,7 +25,8 @@ vi.mock("firebase/firestore", () => ({
 vi.mock("firebase/auth", () => ({ onAuthStateChanged }));
 vi.mock("@/lib/firebase/client", () => ({ auth: {}, db: {} }));
 
-const { useMasterData, useUsageReport } = await import("@/lib/master-data/use-master-data");
+const { useMasterData, usePrograms, useUsageReport } =
+  await import("@/lib/master-data/use-master-data");
 
 function docOf(id: string, data: unknown) {
   return { id, data: () => data };
@@ -113,6 +114,43 @@ describe("useMasterData", () => {
     signIn();
 
     expect(where).not.toHaveBeenCalled();
+  });
+});
+
+describe("usePrograms", () => {
+  it("keeps the equipment list the named-list parse drops, since students rent from it", async () => {
+    const { result } = renderHook(() => usePrograms());
+    signIn();
+
+    emit([docOf("p1", { name: "Ski", position: 0, requiredEquipment: ["Helm", "Ski"] })]);
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.programs).toEqual([
+      { id: "p1", name: "Ski", position: 0, requiredEquipment: ["Helm", "Ski"] },
+    ]);
+  });
+
+  it("treats a program stored before the field existed as requiring nothing", async () => {
+    const { result } = renderHook(() => usePrograms());
+    signIn();
+
+    emit([docOf("p1", { name: "Alternativ", position: 0 })]);
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.programs[0]?.requiredEquipment).toEqual([]);
+  });
+
+  it("shows them in the order the teacher set", async () => {
+    const { result } = renderHook(() => usePrograms());
+    signIn();
+
+    emit([
+      docOf("p2", { name: "Snowboard", position: 1, requiredEquipment: [] }),
+      docOf("p1", { name: "Ski", position: 0, requiredEquipment: [] }),
+    ]);
+
+    await waitFor(() => expect(result.current.programs).toHaveLength(2));
+    expect(result.current.programs.map((program) => program.name)).toEqual(["Ski", "Snowboard"]);
   });
 });
 

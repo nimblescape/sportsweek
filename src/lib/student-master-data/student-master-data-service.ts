@@ -16,14 +16,16 @@ import {
   type StudentMasterDataInput,
 } from "@/lib/schemas/student-master-data";
 import { activeSeasonOf } from "@/lib/seasons/season-state";
-import { NO_ACTIVE_SEASON_HINT, recordIdFor } from "./registration";
+import { recordIdFor, REGISTRATION_NOT_OPEN_HINT } from "./registration";
 
 /**
- * Which season a registration belongs to is the server's to decide, never the client's: US-11
- * binds it to *the* active one, and a record pointing anywhere else would be invisible to the
- * assignment dialog and the report, which only ever look at that season (US-12, US-13).
+ * Registering needs two things a teacher sets up, and neither is one the student can do without:
+ * the season the record belongs to (US-4) and a class to pick from, which is the one field asked
+ * of every student whether they attend or not (US-6, US-11). A half-finished setup is refused
+ * with the same answer as no season at all — from where the student stands they are the same
+ * thing, and the client shows exactly this message rather than a form it cannot fill in.
  */
-async function requireActiveSeason(): Promise<Season> {
+async function requireOpenRegistration(): Promise<Season> {
   const snapshot = await adminDb
     .collection(COLLECTIONS.seasons)
     .where("isActive", "==", true)
@@ -33,8 +35,10 @@ async function requireActiveSeason(): Promise<Season> {
     snapshot.docs.map((season) => seasonSchema.parse({ id: season.id, ...season.data() })),
   );
 
-  if (!active) {
-    throw new ServiceError(ErrorCode.Conflict, NO_ACTIVE_SEASON_HINT);
+  const classes = await adminDb.collection(COLLECTIONS.classOptions).limit(1).get();
+
+  if (!active || classes.empty) {
+    throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
   }
   return active;
 }
@@ -65,7 +69,7 @@ export async function saveStudentMasterData(
   input: StudentMasterDataInput,
 ): Promise<StudentMasterData> {
   const fields = parseInput(input);
-  const season = await requireActiveSeason();
+  const season = await requireOpenRegistration();
 
   const id = recordIdFor(season.id, userId);
   const reference = adminDb.collection(COLLECTIONS.studentMasterData).doc(id);

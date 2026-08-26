@@ -18,7 +18,7 @@ vi.mock("@/lib/student-master-data/student-master-data-service", () => ({
 
 const { PUT } = await import("./route");
 const { ServiceError } = await import("@/lib/service-error");
-const { NO_ACTIVE_SEASON_HINT } = await import("@/lib/student-master-data/registration");
+const { REGISTRATION_NOT_OPEN_HINT } = await import("@/lib/student-master-data/registration");
 
 const STUDENT = "jane.doe@student.htldornbirn.at";
 
@@ -124,14 +124,16 @@ describe("PUT /api/my-master-data", () => {
     expect(saveStudentMasterData).not.toHaveBeenCalled();
   });
 
-  it("passes the service's own answer through when no season is active", async () => {
-    saveStudentMasterData.mockRejectedValue(new ServiceError("CONFLICT", NO_ACTIVE_SEASON_HINT));
+  it("passes the service's own answer through when registering is not open", async () => {
+    saveStudentMasterData.mockRejectedValue(
+      new ServiceError("CONFLICT", REGISTRATION_NOT_OPEN_HINT),
+    );
 
     const response = await PUT(putRequest(body));
 
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({
-      error: { code: "CONFLICT", message: NO_ACTIVE_SEASON_HINT },
+      error: { code: "CONFLICT", message: REGISTRATION_NOT_OPEN_HINT },
     });
   });
 
