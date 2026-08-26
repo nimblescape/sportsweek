@@ -58,6 +58,10 @@ export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
         return;
       }
 
+      // A sign-in that happened in this page rather than by redirect leaves the card idle
+      // while the session is still being created — the fake login's dialog closes first.
+      setChecking(true);
+
       try {
         await redirectSettled;
         const idToken = await user.getIdToken();
