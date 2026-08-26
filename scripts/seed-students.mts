@@ -12,12 +12,8 @@
  * production entry to disable. This invents people and deletes real ones, so the environments it
  * can reach are a closed list rather than whatever a variable happens to hold.
  */
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, type Firestore, type WriteBatch } from "firebase-admin/firestore";
-import { parse } from "yaml";
-import { envFromApphostingYaml } from "@/lib/apphosting-env";
 import { buildUpn } from "@/lib/auth/fake/upn-builder";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Gender } from "@/lib/schemas/common";
@@ -27,18 +23,29 @@ import {
   programSchema,
   type Program,
 } from "@/lib/schemas/master-data";
-import { seasonSchema } from "@/lib/schemas/season";
+import { seasonSchema, type Season } from "@/lib/schemas/season";
 import {
   studentMasterDataSchema,
   type StudentMasterDataInput,
 } from "@/lib/schemas/student-master-data";
 import { userRoleSchema, userSchema } from "@/lib/schemas/user";
 import { activeSeasonOf } from "@/lib/seasons/season-state";
+import { reservationKey, scopeOf } from "@/lib/firebase/reservation-key";
 import { isRegistrationIncomplete } from "@/lib/student-master-data/completeness";
 import { EMPTY_REGISTRATION, recordIdFor } from "@/lib/student-master-data/registration";
+import { apphostingValue, fail } from "./environment.mjs";
 
 /** Where invented students are allowed. Production is absent by construction, not by a check. */
 const SEEDABLE_ENVIRONMENTS = ["development", "staging"] as const;
+
+/**
+ * What a purged environment gets so there is somewhere to put students. None of a season, its
+ * events or the classes are among the master data defaults the app seeds itself — US-6 starts
+ * the class list empty — so a fresh project has none until a teacher types them in.
+ */
+const DEFAULT_SEASON_NAME = "2026/2027";
+const DEFAULT_CLASS_NAMES = ["2aWI", "2bWI", "2cWI"] as const;
+const DEFAULT_EVENT_NAMES = ["Woche 1", "Woche 2", "Woche 3"] as const;
 
 /** The shape of the sports week as it is wanted in a test environment. */
 const STUDENTS_PER_CLASS = { min: 20, max: 25 };
@@ -100,11 +107,6 @@ const FOOD_INTOLERANCES = ["Nussallergie", "Laktoseintoleranz", "Glutenfrei", "K
 const MOBILE_PREFIXES = ["650", "660", "664", "676", "677", "699"];
 
 const BATCH_LIMIT = 500;
-
-function fail(...lines: string[]): never {
-  for (const line of lines) console.error(line);
-  process.exit(1);
-}
 
 /** Seeded on purpose — see RANDOM_SEED. mulberry32, which is short enough to read. */
 function createRandom(seed: number): () => number {
@@ -303,16 +305,81 @@ async function purgeStudents(db: Firestore): Promise<{ records: number; users: n
   return { records: records.size, users: users.size };
 }
 
-function projectIdOf(environment: string): string {
-  const file = `apphosting.${environment}.yaml`;
-  const values = envFromApphostingYaml(
-    parse(readFileSync(fileURLToPath(new URL(`../${file}`, import.meta.url)), "utf8")),
+/**
+ * Writes a record and the reservation that claims its name in one commit, which is what the
+ * services do — a record whose name nobody reserved would let a teacher create it a second time.
+ * The reservation is `create`d rather than `set`, so a name already taken fails the whole commit
+ * instead of quietly stealing it.
+ */
+async function createNamed(
+  db: Firestore,
+  collection: string,
+  name: string,
+  fields: Record<string, unknown>,
+  parentId?: string,
+): Promise<string> {
+  const scope = scopeOf(collection, parentId);
+  const reference = db.collection(collection).doc();
+  const batch = db.batch();
+
+  batch.set(reference, { name, ...fields });
+  batch.create(db.collection(COLLECTIONS.reservedNames).doc(reservationKey(scope, name)), {
+    scope,
+    name,
+    ownerId: reference.id,
+  });
+  await batch.commit();
+
+  return reference.id;
+}
+
+/** Activating an existing one rather than adding a second: the name may only be claimed once. */
+async function ensureActiveSeason(db: Firestore): Promise<Season> {
+  const seasons = (await db.collection(COLLECTIONS.seasons).get()).docs.map((doc) =>
+    seasonSchema.parse({ id: doc.id, ...doc.data() }),
   );
 
-  return (
-    values.NEXT_PUBLIC_FIREBASE_PROJECT_ID ??
-    fail(`${file} names no NEXT_PUBLIC_FIREBASE_PROJECT_ID.`)
+  const active = activeSeasonOf(seasons);
+  if (active) return active;
+
+  const existing = seasons.find(
+    (season) => season.name === DEFAULT_SEASON_NAME && !season.isArchived,
   );
+  if (existing) {
+    await db.collection(COLLECTIONS.seasons).doc(existing.id).update({ isActive: true });
+    return { ...existing, isActive: true };
+  }
+
+  const fields = {
+    isActive: true,
+    isArchived: false,
+    hasStudentData: false,
+    position: seasons.length,
+  };
+  const id = await createNamed(db, COLLECTIONS.seasons, DEFAULT_SEASON_NAME, fields);
+
+  return { id, name: DEFAULT_SEASON_NAME, ...fields };
+}
+
+async function ensureClasses(db: Firestore): Promise<string[]> {
+  const existing = await readNames(db, COLLECTIONS.classOptions);
+  if (existing.length > 0) return existing;
+
+  for (const [position, name] of DEFAULT_CLASS_NAMES.entries()) {
+    await createNamed(db, COLLECTIONS.classOptions, name, { position });
+  }
+
+  return [...DEFAULT_CLASS_NAMES];
+}
+
+/** Event names are unique only within their own season, hence the season id as the scope. */
+async function ensureEvents(db: Firestore, seasonId: string): Promise<void> {
+  const existing = await db.collection(COLLECTIONS.events).where("seasonId", "==", seasonId).get();
+  if (!existing.empty) return;
+
+  for (const [position, name] of DEFAULT_EVENT_NAMES.entries()) {
+    await createNamed(db, COLLECTIONS.events, name, { seasonId, position }, seasonId);
+  }
 }
 
 async function main(): Promise<void> {
@@ -325,20 +392,11 @@ async function main(): Promise<void> {
     );
   }
 
-  const projectId = projectIdOf(environment);
+  const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
 
   // Its own app rather than @/lib/firebase/admin: that one addresses whichever project the
   // ambient environment names, and this must address the one just named and nothing else.
   const db = getFirestore(initializeApp({ projectId }));
-
-  const seasons = (await db.collection(COLLECTIONS.seasons).get()).docs.map((doc) =>
-    seasonSchema.parse({ id: doc.id, ...doc.data() }),
-  );
-  const season = activeSeasonOf(seasons);
-  if (!season) fail(`No season is active in ${projectId}. Activate one and run this again.`);
-
-  const classNames = await readNames(db, COLLECTIONS.classOptions);
-  if (classNames.length === 0) fail(`No classes exist in ${projectId}. Add some and try again.`);
 
   const programs = (await db.collection(COLLECTIONS.programs).orderBy("position").get()).docs.map(
     (doc) => programSchema.parse({ id: doc.id, ...doc.data() }),
@@ -367,6 +425,11 @@ async function main(): Promise<void> {
     foodOptions: await readNames(db, COLLECTIONS.foodOptions),
     seasonPassOptions: await readNames(db, COLLECTIONS.seasonPassOptions),
   };
+
+  // After the checks above: a project this script cannot fill is left exactly as it was found.
+  const season = await ensureActiveSeason(db);
+  const classNames = await ensureClasses(db);
+  await ensureEvents(db, season.id);
 
   const purged = await purgeStudents(db);
   console.log(
