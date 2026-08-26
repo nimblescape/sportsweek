@@ -29,6 +29,10 @@ import { useSeasons } from "@/lib/seasons/use-seasons";
 const formSchema = z.object({ name: eventSchema.shape.name });
 type FormValues = z.infer<typeof formSchema>;
 
+/** What deleting an event costs beyond the event itself — said on the control and again in the dialog. */
+const UNASSIGNS_STUDENTS_HINT =
+  "Schüler:innen, die diesem Event zugeteilt sind, verlieren ihre Zuteilung.";
+
 type OpenDialog =
   { kind: "none" } | { kind: "form"; event: Event | null } | { kind: "delete"; event: Event };
 
@@ -182,7 +186,7 @@ function EventList({
                     <Pencil aria-hidden />
                   </Button>
                 </Tooltip>
-                <Tooltip label="Löschen">
+                <Tooltip label={`Löschen. ${UNASSIGNS_STUDENTS_HINT}`}>
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -328,8 +332,8 @@ function DeleteEventDialog({
       }
     >
       <p className="text-sm">
-        Das Event <strong>{event.name}</strong> wird gelöscht. Schüler:innen, die diesem Event
-        zugeteilt sind, verlieren ihre Zuteilung. Ihre Stammdaten bleiben erhalten.
+        Das Event <strong>{event.name}</strong> wird gelöscht. {UNASSIGNS_STUDENTS_HINT} Ihre
+        Stammdaten bleiben erhalten.
       </p>
       {error ? (
         <p role="alert" className="text-destructive mt-2 text-sm">

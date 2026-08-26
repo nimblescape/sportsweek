@@ -125,12 +125,19 @@ export function useProgram(programId: string) {
 }
 
 export type UsageReport = {
+  /** False only once the handler has answered; until then nothing may be edited or deleted. */
+  loading: boolean;
   blockedIds: Set<string>;
   /** Per item id, the entries of its equipment list a student still rents, spelled as stored. */
   blockedEquipment: Record<string, string[]>;
 };
 
-const NOTHING_BLOCKED: UsageReport = { blockedIds: new Set(), blockedEquipment: {} };
+const CHECKING: UsageReport = { loading: true, blockedIds: new Set(), blockedEquipment: {} };
+const NOTHING_BLOCKED: UsageReport = {
+  loading: false,
+  blockedIds: new Set(),
+  blockedEquipment: {},
+};
 
 /**
  * What the in-use guard blocks (US-5 to US-10). The answer is a cross-collection question — is
@@ -139,7 +146,7 @@ const NOTHING_BLOCKED: UsageReport = { blockedIds: new Set(), blockedEquipment: 
  * when a student edits their master data, which cannot happen from this view.
  */
 export function useUsageReport(key: MasterDataCategoryKey): UsageReport {
-  const [report, setReport] = useState<UsageReport>(NOTHING_BLOCKED);
+  const [report, setReport] = useState<UsageReport>(CHECKING);
 
   useEffect(() => {
     let active = true;
@@ -147,12 +154,11 @@ export function useUsageReport(key: MasterDataCategoryKey): UsageReport {
     async function load() {
       try {
         const response = await fetch(`/api/master-data/${key}`);
-        if (!response.ok) return;
-
-        const body = await response.json();
+        const body = response.ok ? await response.json() : null;
         if (!active) return;
 
         setReport({
+          loading: false,
           blockedIds: new Set(Array.isArray(body?.blockedIds) ? body.blockedIds : []),
           blockedEquipment:
             body?.blockedEquipment && typeof body.blockedEquipment === "object"
@@ -160,8 +166,10 @@ export function useUsageReport(key: MasterDataCategoryKey): UsageReport {
               : {},
         });
       } catch (error) {
-        // A missing answer only costs the disabled state; the server re-checks on every write.
+        // A missing answer only costs the disabled state; the server re-checks on every write,
+        // so staying locked would withhold the list over a question nobody can answer.
         console.error(`Failed to read ${key} usage:`, error);
+        if (active) setReport(NOTHING_BLOCKED);
       }
     }
 

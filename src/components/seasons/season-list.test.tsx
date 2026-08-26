@@ -393,4 +393,37 @@ describe("SeasonList — tooltips", () => {
       true,
     );
   });
+
+  it("explains on hover why the active season cannot be archived", async () => {
+    renderList();
+    const hint =
+      "Eine aktive Saison muss zuerst deaktiviert werden, damit sie archiviert werden kann.";
+    const before = screen.getAllByText(hint).length;
+
+    await userEvent.hover(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2026 archivieren" })
+        .parentElement!,
+    );
+
+    await waitFor(() => expect(screen.getAllByText(hint)).toHaveLength(before + 1));
+    expect(screen.getAllByText(hint).some((node) => !node.className.includes("sr-only"))).toBe(
+      true,
+    );
+  });
+
+  it("explains on hover why a season without student data cannot be archived", async () => {
+    renderList();
+    const hint = "Eine Saison ohne Schüler:innendaten kann nicht archiviert werden.";
+    const before = screen.getAllByText(hint).length;
+
+    await userEvent.hover(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2024 archivieren" })
+        .parentElement!,
+    );
+
+    await waitFor(() => expect(screen.getAllByText(hint)).toHaveLength(before + 1));
+    expect(screen.getAllByText(hint).some((node) => !node.className.includes("sr-only"))).toBe(
+      true,
+    );
+  });
 });

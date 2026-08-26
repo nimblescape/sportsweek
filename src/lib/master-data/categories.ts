@@ -118,13 +118,21 @@ export const MASTER_DATA_SECTIONS = [
  * sentence on the controls it disables, and must not pull the Admin SDK in to do so.
  */
 export const IN_USE_HINT =
-  "Dieser Eintrag wird in einer nicht archivierten Saison noch verwendet. " +
-  "Archiviere diese Saison, um ihn zu bearbeiten oder zu löschen.";
+  "Dieser Eintrag wird in den Schüler:innendaten einer nicht archivierten Saison noch " +
+  "verwendet. Archiviere diese Saison, um ihn zu bearbeiten oder zu löschen.";
 
 /** Deleting a program takes its equipment with it, so a rented item holds the program back too. */
 export const CHILD_IN_USE_HINT =
-  "Ausrüstung dieses Programms wird in einer nicht archivierten Saison noch verwendet. " +
-  "Archiviere diese Saison, um das Programm zu löschen.";
+  "Ausrüstung dieses Programms wird in den Schüler:innendaten einer nicht archivierten Saison " +
+  "noch verwendet. Archiviere diese Saison, um das Programm zu löschen.";
+
+/**
+ * Shown while the answer is still on its way. The controls stay disabled until it arrives, so
+ * this is the only reason a teacher can be given for them — and the alternative, enabling them
+ * and withdrawing them a moment later, offers something the list already knows it may refuse.
+ */
+export const USAGE_PENDING_HINT =
+  "Es wird noch geprüft, ob dieser Eintrag in Schüler:innendaten verwendet wird.";
 
 /** Labels for the equipment list a program carries, which is a field rather than a category. */
 export const EQUIPMENT_LABELS = {

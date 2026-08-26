@@ -157,7 +157,7 @@ describe("usePrograms", () => {
 describe("useUsageReport", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  const nothingBlocked = { blockedIds: new Set(), blockedEquipment: {} };
+  const nothingBlocked = { blockedIds: new Set(), blockedEquipment: {}, loading: false };
 
   function stubFetch(implementation: (...args: unknown[]) => unknown) {
     const fetchMock = vi.fn(implementation);
@@ -183,6 +183,22 @@ describe("useUsageReport", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/master-data/food-options"));
   });
 
+  it("reports itself unanswered until the handler replies, so nothing is offered and taken back", () => {
+    stubFetch(respond({ blockedIds: [], blockedEquipment: {} }));
+
+    const { result } = renderHook(() => useUsageReport("classes"));
+
+    expect(result.current.loading).toBe(true);
+  });
+
+  it("is answered once the handler replies", async () => {
+    stubFetch(respond({ blockedIds: [], blockedEquipment: {} }));
+
+    const { result } = renderHook(() => useUsageReport("classes"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+  });
+
   it("keeps what is in use apart from the entries an item's own list holds", async () => {
     stubFetch(respond({ blockedIds: ["p1"], blockedEquipment: { p2: ["Helm"] } }));
 
@@ -192,6 +208,7 @@ describe("useUsageReport", () => {
       expect(result.current).toEqual({
         blockedIds: new Set(["p1"]),
         blockedEquipment: { p2: ["Helm"] },
+        loading: false,
       }),
     );
   });
@@ -211,5 +228,14 @@ describe("useUsageReport", () => {
     const { result } = renderHook(() => useUsageReport("classes"));
 
     await waitFor(() => expect(result.current).toEqual(nothingBlocked));
+  });
+
+  it("does not leave the list locked when the request fails, since the server re-checks anyway", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    stubFetch(() => Promise.reject(new Error("offline")));
+
+    const { result } = renderHook(() => useUsageReport("classes"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
   });
 });

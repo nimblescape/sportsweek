@@ -22,7 +22,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { namedListItemSchema } from "@/lib/schemas/master-data";
-import { IN_USE_HINT } from "@/lib/master-data/categories";
+import { IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
 
 const formSchema = z.object({ name: namedListItemSchema.shape.name });
 type FormValues = z.infer<typeof formSchema>;
@@ -50,6 +50,11 @@ type CrudListProps = {
   error: string | null;
   /** In use itself: neither editable nor deletable. */
   blockedIds?: Set<string>;
+  /**
+   * The in-use answer is still on its way. Every row is held closed until it lands, because the
+   * opposite order offers controls the answer may withdraw a moment later.
+   */
+  usagePending?: boolean;
   /** Deletable no longer, but still renameable — its own list holds something in use. */
   undeletableIds?: Set<string>;
   undeletableHint?: string;
@@ -80,6 +85,7 @@ export function CrudList({
   loading,
   error,
   blockedIds = new Set(),
+  usagePending = false,
   undeletableIds = new Set(),
   undeletableHint = IN_USE_HINT,
   fixedItems = [],
@@ -123,6 +129,7 @@ export function CrudList({
             loading={loading}
             error={error}
             blockedIds={blockedIds}
+            usagePending={usagePending}
             undeletableIds={undeletableIds}
             undeletableHint={undeletableHint}
             fixedItems={fixedItems}
@@ -161,7 +168,10 @@ export function CrudList({
 }
 
 type ItemListProps = Required<
-  Pick<CrudListProps, "labels" | "items" | "loading" | "blockedIds" | "undeletableIds">
+  Pick<
+    CrudListProps,
+    "labels" | "items" | "loading" | "blockedIds" | "usagePending" | "undeletableIds"
+  >
 > & {
   error: string | null;
   undeletableHint: string;
@@ -180,6 +190,7 @@ function ItemList({
   loading,
   error,
   blockedIds,
+  usagePending,
   undeletableIds,
   undeletableHint,
   fixedItems,
@@ -221,9 +232,10 @@ function ItemList({
         busyId={busyId}
         renderItem={(item) => {
           const busy = item.id === busyId;
-          const blocked = blockedIds.has(item.id);
-          const undeletable = blocked || undeletableIds.has(item.id);
-          const deleteHint = blocked ? IN_USE_HINT : undeletableHint;
+          const locked = usagePending || blockedIds.has(item.id);
+          const undeletable = locked || undeletableIds.has(item.id);
+          const lockedHint = usagePending ? USAGE_PENDING_HINT : IN_USE_HINT;
+          const deleteHint = locked ? lockedHint : undeletableHint;
           const hintId = `${item.id}-in-use-hint`;
 
           return (
@@ -235,14 +247,14 @@ function ItemList({
 
                 {/* Wrapped in a span because a disabled button emits no pointer events, and the
                     reason it is disabled is exactly what needs explaining here. */}
-                <Tooltip label={blocked ? IN_USE_HINT : "Bearbeiten"}>
+                <Tooltip label={locked ? lockedHint : "Bearbeiten"}>
                   <span className="inline-flex">
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      disabled={blocked || busy}
+                      disabled={locked || busy}
                       aria-label={`${singular} ${item.name} bearbeiten`}
-                      aria-describedby={blocked ? hintId : undefined}
+                      aria-describedby={locked ? hintId : undefined}
                       onClick={() => onEdit(item)}
                     >
                       <Pencil aria-hidden />

@@ -50,7 +50,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   useMasterData.mockReturnValue({ items: programs, loading: false, error: null });
   useProgram.mockReturnValue({ program: ski, loading: false, error: null });
-  useUsageReport.mockReturnValue({ blockedIds: new Set<string>(), blockedEquipment: {} });
+  useUsageReport.mockReturnValue({
+    blockedIds: new Set<string>(),
+    blockedEquipment: {},
+    loading: false,
+  });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -73,7 +77,11 @@ describe("ProgramsView", () => {
   });
 
   it("keeps the equipment list reachable for a program the in-use guard blocks", () => {
-    useUsageReport.mockReturnValue({ blockedIds: new Set(["ski"]), blockedEquipment: {} });
+    useUsageReport.mockReturnValue({
+      blockedIds: new Set(["ski"]),
+      blockedEquipment: {},
+      loading: false,
+    });
     render(<ProgramsView />);
 
     expect(screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski" })).toBeInTheDocument();
@@ -189,6 +197,7 @@ describe("ProgramEquipmentView", () => {
     useUsageReport.mockReturnValue({
       blockedIds: new Set<string>(),
       blockedEquipment: { ski: ["Helm"] },
+      loading: false,
     });
 
     render(<ProgramEquipmentView programId="ski" />);
@@ -206,6 +215,7 @@ describe("ProgramEquipmentView", () => {
     useUsageReport.mockReturnValue({
       blockedIds: new Set<string>(),
       blockedEquipment: { board: ["Helm"] },
+      loading: false,
     });
 
     render(<ProgramEquipmentView programId="ski" />);

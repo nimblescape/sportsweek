@@ -41,6 +41,7 @@ export function MasterDataView({
       loading={loading}
       error={error}
       blockedIds={report.blockedIds}
+      usagePending={report.loading}
       undeletableIds={new Set(Object.keys(report.blockedEquipment))}
       undeletableHint={CHILD_IN_USE_HINT}
       fixedItems={fixedItems}

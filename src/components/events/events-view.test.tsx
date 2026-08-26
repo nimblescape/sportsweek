@@ -248,16 +248,22 @@ describe("EventsView — archived season", () => {
 });
 
 describe("EventsView — tooltips", () => {
-  it.each([
-    ["Event Montafon bearbeiten", "Bearbeiten"],
-    ["Event Montafon löschen", "Löschen"],
-  ])("explains the %s icon on hover", async (accessibleName, tooltip) => {
+  it("explains the edit icon on hover", async () => {
     stubFetch(created);
     renderView();
 
-    await userEvent.hover(screen.getByRole("button", { name: accessibleName }));
+    await userEvent.hover(screen.getByRole("button", { name: "Event Montafon bearbeiten" }));
 
-    expect(await screen.findByText(tooltip)).toBeInTheDocument();
+    expect(await screen.findByText("Bearbeiten")).toBeInTheDocument();
+  });
+
+  it("warns on hover that deleting an event takes its assignments with it", async () => {
+    stubFetch(created);
+    renderView();
+
+    await userEvent.hover(screen.getByRole("button", { name: "Event Montafon löschen" }));
+
+    expect(await screen.findByText(/verlieren ihre Zuteilung/i)).toBeInTheDocument();
   });
 });
 
