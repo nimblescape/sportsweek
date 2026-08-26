@@ -143,6 +143,7 @@ As a teacher, I can maintain the list of programs so that students can register 
 - The program a student selects in their master data (US-11) is chosen from this maintained list.
 - Each program carries its required equipment as a list of names stored on the program itself, not as records of their own: an equipment item has no identity outside the program that requires it, and is never referenced from anywhere else. The default Ski program is pre-populated with ski, ski boots, poles, and helmet, and the default Snowboard program with board, boots, and helmet; the default Alternativ program has no pre-populated required equipment items.
 - A teacher can add, edit, and remove the required equipment items for each program.
+- A program requires at most ten equipment items, which is also the most a student can rent (US-11) — the school hands out a handful of items per program, and one limit for both keeps the two from contradicting each other.
 - The required equipment of a program is shown in an order the teacher sets by dragging (see Ordering); the list's order is the order the items are stored in.
 - Because the list lives on the program, the whole list is saved in one step: adding, renaming, or removing an item rewrites the program's equipment list as a single change, and either all of it is stored or none of it is.
 - Deleting a program deletes its required equipment list along with it, since the list has no existence apart from the program.
@@ -213,7 +214,7 @@ As a student, I can edit my master data so that I can provide the information ne
 **Acceptance criteria:**
 
 - A student can view and edit the master data for their own user record.
-- If no season is active, the student sees a German notification saying that no sports event has been released yet ("Es ist noch keine Sportveranstaltung freigeschalten.") and the master data dialog is not shown.
+- If no season is active, or the teacher has not set up any class yet (see US-6), the student sees a German notification saying that no sports event has been released yet ("Es ist noch keine Sportveranstaltung freigeschalten.") and the master data dialog is not shown. Both are pieces of the same setup that only a teacher can provide, and neither leaves the student anything to do, so they read the same: a class is asked of every student whether they attend or not, so a list without one cannot be filled in.
 - The master data a student edits is bound to the currently active season (see US-4).
 - Last name and first name are taken from the user record (see US-1) and are shown but not editable as part of this master data.
 - The following master data fields are available:
