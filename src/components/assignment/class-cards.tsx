@@ -5,9 +5,12 @@
  */
 "use client";
 
+import { useState } from "react";
+import { ChevronRight } from "lucide-react";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import type { ClassRow } from "@/lib/assignment/statistics";
+import { cn } from "@/lib/utils";
 import { SkillMatrix } from "./skill-matrix";
-import { StatCard } from "./stat-card";
 
 /** Whole per cent: the figure answers "roughly how many of them are coming", not to a decimal. */
 const asPercent = (share: number) => `${Math.round(share * 100)} %`;
@@ -29,15 +32,53 @@ export function ClassCards({
   return (
     <div className="flex flex-col gap-3">
       {rows.map((row) => (
-        <StatCard key={row.class} title={row.class} count={row.total}>
-          <p className="text-muted-foreground text-sm">
-            Angemeldet: {row.total} · Nimmt teil: {row.attending} · Anteil:{" "}
-            {asPercent(row.attendanceRate)} · Männlich: {row.male} · Weiblich: {row.female}
-          </p>
-
-          <SkillMatrix counts={row.skillLevels} programs={programs} skillLevels={skillLevels} />
-        </StatCard>
+        <ClassCard key={row.class} row={row} programs={programs} skillLevels={skillLevels} />
       ))}
     </div>
+  );
+}
+
+function ClassCard({
+  row,
+  programs,
+  skillLevels,
+}: {
+  row: ClassRow;
+  programs: readonly string[];
+  skillLevels: readonly string[];
+}) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <Card size="sm" role="group" aria-label={row.class}>
+      <CardContent className="flex flex-col gap-3">
+        <CardTitle className="flex items-center gap-1.5">
+          <button
+            type="button"
+            aria-label={`Details zu ${row.class}`}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-md p-0.5 transition-colors outline-none focus-visible:ring-3"
+          >
+            <ChevronRight
+              aria-hidden
+              className={cn("size-4 transition-transform", expanded && "rotate-90")}
+            />
+          </button>
+          {`${row.class}: ${row.total}`}
+        </CardTitle>
+
+        {expanded && (
+          <>
+            <p className="text-muted-foreground text-sm">
+              Angemeldet: {row.total} · Nimmt teil: {row.attending} · Anteil:{" "}
+              {asPercent(row.attendanceRate)} · Männlich: {row.male} · Weiblich: {row.female}
+            </p>
+
+            <SkillMatrix counts={row.skillLevels} programs={programs} skillLevels={skillLevels} />
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
-import { classOverview, eventOverview, skillColumns } from "./statistics";
+import { assignmentGroups, classOverview, skillColumns, UNASSIGNED_GROUP } from "./statistics";
 
 let seed = 0;
 
@@ -119,76 +119,76 @@ describe("classOverview", () => {
   });
 });
 
-describe("eventOverview", () => {
+describe("assignmentGroups", () => {
   const EVENTS = [
     { id: "event1", name: "Montafon" },
     { id: "event2", name: "Gardasee" },
   ];
 
-  it("keeps one row per event of the season, in the order the teacher put them in", () => {
-    expect(eventOverview([], EVENTS, COLUMNS).map((row) => row.name)).toEqual([
+  const groups = (roster: RosterStudent[]) => assignmentGroups(roster, EVENTS, COLUMNS);
+
+  it("puts the students with no week yet first, then one card per week, in the teacher's order", () => {
+    expect(groups([]).map((group) => group.title)).toEqual([
+      "Nicht zugeteilt",
       "Montafon",
       "Gardasee",
     ]);
   });
 
-  it("counts a student under the event they are assigned to, and under no other", () => {
-    const roster = [
-      student({ eventId: "event1", gender: "male" }),
-      student({ eventId: "event2", gender: "female" }),
-    ];
+  it("names the unassigned card by an id of its own, so it can be dropped on", () => {
+    expect(groups([])[0].id).toBe(UNASSIGNED_GROUP);
+    expect(
+      groups([])
+        .slice(1)
+        .map((group) => group.id),
+    ).toEqual(["event1", "event2"]);
+  });
 
-    expect(eventOverview(roster, EVENTS, COLUMNS).map((row) => [row.male, row.female])).toEqual([
-      [1, 0],
-      [0, 1],
-    ]);
+  it("holds each student in exactly one card", () => {
+    const roster = [student({ eventId: null }), student({ eventId: "event2" })];
+
+    expect(groups(roster).map((group) => group.students.length)).toEqual([1, 0, 1]);
   });
 
   /**
    * The gender and skill figures only count answers that were given, so a half-filled
-   * registration could otherwise be assigned without moving a single number.
+   * registration could otherwise be moved without changing a single number.
    */
-  it("counts the students assigned to the event, answered or not", () => {
+  it("holds a student whose answers are still missing", () => {
+    const roster = [student({ eventId: "event1", gender: null, program: null, skillLevel: null })];
+
+    expect(groups(roster)[1].students).toHaveLength(1);
+    expect(groups(roster)[1]).toMatchObject({ male: 0, female: 0 });
+  });
+
+  /** They cannot be assigned at all (US-11), so a stale assignment must not put them anywhere. */
+  it("leaves a student who is not attending out of every card", () => {
     const roster = [
-      student({ eventId: "event1", gender: null, program: null, skillLevel: null }),
-      student({ eventId: "event1" }),
-      student({ eventId: null }),
+      student({ eventId: "event1", isAttending: false }),
+      student({ eventId: null, isAttending: false }),
     ];
 
-    expect(eventOverview(roster, EVENTS, COLUMNS).map((row) => row.assigned)).toEqual([2, 0]);
+    expect(groups(roster).map((group) => group.students.length)).toEqual([0, 0, 0]);
   });
 
-  it("leaves a student who is not attending out of the count as well", () => {
-    const roster = [student({ eventId: "event1", isAttending: false })];
+  it("counts the genders of the students it holds", () => {
+    const roster = [
+      student({ eventId: "event1", gender: "male" }),
+      student({ eventId: "event1", gender: "female" }),
+      student({ eventId: "event2", gender: "female" }),
+    ];
 
-    expect(eventOverview(roster, EVENTS, COLUMNS)[0].assigned).toBe(0);
+    expect(groups(roster)[1]).toMatchObject({ male: 1, female: 1 });
+    expect(groups(roster)[2]).toMatchObject({ male: 0, female: 1 });
   });
 
-  it("counts an unassigned student nowhere", () => {
-    const rows = eventOverview([student({ eventId: null })], EVENTS, COLUMNS);
-
-    expect(rows.map((row) => row.male + row.female)).toEqual([0, 0]);
-  });
-
-  /** They cannot be assigned in the first place (US-11), so a stale assignment must not count. */
-  it("counts a student who is not attending nowhere, even if an event is still on their record", () => {
-    const rows = eventOverview(
-      [student({ eventId: "event1", isAttending: false })],
-      EVENTS,
-      COLUMNS,
-    );
-
-    expect(rows[0]).toMatchObject({ male: 0, female: 0 });
-    expect(rows[0].skillLevels).toEqual({});
-  });
-
-  it("counts skill levels per program, as the class table does", () => {
+  it("counts skill levels per program, as the class cards do", () => {
     const roster = [
       student({ eventId: "event1", program: "Ski", skillLevel: "Keine Vorkenntnisse" }),
       student({ eventId: "event1", program: "Ski", skillLevel: "Keine Vorkenntnisse" }),
     ];
 
-    expect(eventOverview(roster, EVENTS, COLUMNS)[0].skillLevels).toEqual({
+    expect(groups(roster)[1].skillLevels).toEqual({
       [columnKey("Ski", "Keine Vorkenntnisse")]: 2,
     });
   });

@@ -6,7 +6,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { classOverview, eventOverview, skillColumns } from "@/lib/assignment/statistics";
+import { assignmentGroups, classOverview, skillColumns } from "@/lib/assignment/statistics";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useEvents } from "@/lib/events/use-events";
@@ -16,20 +16,19 @@ import { activeSeasonOf, NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-stat
 import { useSeasons } from "@/lib/seasons/use-seasons";
 import { useRoster } from "@/lib/students/use-roster";
 import { BusyRegion } from "@/components/ui/busy-region";
+import { AssignmentBoard } from "./assignment-board";
 import { ClassCards } from "./class-cards";
-import { EventCards } from "./event-cards";
-import { TransferLists } from "./transfer-lists";
 
 /**
- * The assignment dialog of US-12, scoped to the active season: who registered, how the classes
- * and events stand, and the two lists a teacher moves students between.
+ * The assignment dialog of US-12, scoped to the active season: how the classes stand, and a
+ * board of cards — one per week, plus the students who have no week yet — a teacher drags
+ * students between.
  *
- * The tables are computed from the same live roster the lists are drawn from, so an assignment
- * shows up in the figures as soon as the subscription brings the record back.
+ * Every figure is computed from the same live roster the cards are drawn from, so an assignment
+ * shows up as soon as the subscription brings the record back.
  */
 export function AssignmentView() {
   const { seasons, loading: seasonsLoading, error: seasonsError } = useSeasons();
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Two active seasons is a data defect a teacher cannot act on here, so it is reported rather
@@ -71,18 +70,11 @@ export function AssignmentView() {
   );
 
   const error = seasonsError ?? active.error ?? rosterError;
-  // The first week to begin with, and the same one again if the chosen week is deleted: there is
-  // always a week being worked on, so the lists below always have something to show.
-  const selectedEvent = events.find((event) => event.id === selectedEventId) ?? events[0] ?? null;
-
-  // Only a student who is coming can be assigned to an event (US-11), so the lists never show
-  // the others — the class table above is the one place they are counted.
-  const attending = students.filter((student) => student.isAttending);
 
   /**
    * The write and the refresh are separate paths, so the whole view is held until the answer
-   * comes back: the cards and both lists count the same records, and a second drag against the
-   * figures this one is still changing would be acting on what is no longer true.
+   * comes back: every card counts the same records, and a second drag against figures this one
+   * is still changing would be acting on what is no longer true.
    */
   async function assign(recordIds: string[], eventId: string | null) {
     setSaving(true);
@@ -121,26 +113,13 @@ export function AssignmentView() {
                 Für diese Saison gibt es noch keine Events.
               </p>
             ) : (
-              <>
-                <EventCards
-                  rows={eventOverview(attending, events, columns)}
-                  programs={programNames}
-                  skillLevels={skillLevelNames}
-                  selectedId={selectedEvent?.id ?? null}
-                  onSelect={setSelectedEventId}
-                />
-
-                <TransferLists
-                  // Deliberately not keyed by the event: picking one says which students the
-                  // lower list holds, not how either list is filtered.
-                  eventName={selectedEvent?.name ?? ""}
-                  unassigned={attending.filter((student) => student.eventId === null)}
-                  assigned={attending.filter((student) => student.eventId === selectedEvent?.id)}
-                  groups={groups}
-                  onAssign={(recordIds) => assign(recordIds, selectedEvent?.id ?? null)}
-                  onUnassign={(recordIds) => assign(recordIds, null)}
-                />
-              </>
+              <AssignmentBoard
+                groups={assignmentGroups(students, events, columns)}
+                programs={programNames}
+                skillLevels={skillLevelNames}
+                filterGroups={groups}
+                onMove={assign}
+              />
             )}
           </div>
         </BusyRegion>

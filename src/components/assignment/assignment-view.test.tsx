@@ -7,7 +7,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
-import { stubTransferLayout } from "@/test/stub-transfer-layout";
+import { stubBoardLayout } from "@/test/stub-board-layout";
 
 const useSeasons = vi.fn();
 const useEvents = vi.fn();
@@ -15,6 +15,7 @@ const useRoster = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
 const apiRequest = vi.fn();
+const useBusyWhile = vi.fn();
 
 vi.mock("@/lib/seasons/use-seasons", () => ({ useSeasons: () => useSeasons() }));
 vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
@@ -27,7 +28,7 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
   apiRequest: (...args: unknown[]) => apiRequest(...args),
 }));
-vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
+vi.mock("@/lib/api/busy", () => ({ useBusyWhile: (busy: boolean) => useBusyWhile(busy) }));
 
 const { AssignmentView } = await import("./assignment-view");
 
@@ -72,7 +73,7 @@ const listOf = (...names: string[]) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  stubTransferLayout();
+  stubBoardLayout();
   useSeasons.mockReturnValue({ seasons: [season], loading: false, error: null });
   useEvents.mockReturnValue({
     events: [
@@ -96,20 +97,14 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks());
 
-const left = () => within(screen.getByRole("group", { name: "Nicht zugeteilt" }));
-const right = () => within(screen.getByRole("group", { name: "Zugeteilt: Montafon" }));
+const card = (name: string) => within(screen.getByRole("group", { name }));
 
-async function dragToWeek(name: string) {
-  screen.getByRole("button", { name: `${name} verschieben` }).focus();
+async function drag(from: string, row: string, direction: "{ArrowDown}" | "{ArrowUp}") {
+  card(from)
+    .getByRole("button", { name: `${row} verschieben` })
+    .focus();
   await userEvent.keyboard("{ }");
-  await userEvent.keyboard("{ArrowDown}");
-  await userEvent.keyboard("{ }");
-}
-
-async function dragOutOfWeek(name: string) {
-  screen.getByRole("button", { name: `${name} verschieben` }).focus();
-  await userEvent.keyboard("{ }");
-  await userEvent.keyboard("{ArrowUp}");
+  await userEvent.keyboard(direction);
   await userEvent.keyboard("{ }");
 }
 
@@ -125,55 +120,30 @@ describe("AssignmentView", () => {
   it("counts every registration of the season by class, attending or not", () => {
     render(<AssignmentView />);
 
-    expect(
-      within(screen.getByRole("group", { name: "5AHIF" })).getByText(/^Angemeldet: 3/),
-    ).toHaveTextContent("Angemeldet: 3 · Nimmt teil: 2 · Anteil: 67 %");
-  });
-
-  it("starts on the first week, so there is always one being worked on", () => {
-    render(<AssignmentView />);
-
-    expect(screen.getByRole("button", { name: "Montafon" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    expect(card("5AHIF").getByText(/^Angemeldet: 3/)).toHaveTextContent(
+      "Angemeldet: 3 · Nimmt teil: 2 · Anteil: 67 %",
     );
-    expect(screen.getByRole("group", { name: "Zugeteilt: Montafon" })).toBeInTheDocument();
   });
 
-  it("splits the attending students by the event that was picked", async () => {
+  it("puts every attending student in the card of the week they belong to", () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
-
-    expect(left().getByRole("button", { name: "Muster Anna" })).toBeInTheDocument();
-    expect(right().getByRole("button", { name: "Berger Bene" })).toBeInTheDocument();
+    expect(
+      card("Nicht zugeteilt").getByRole("button", { name: "Muster Anna" }),
+    ).toBeInTheDocument();
+    expect(card("Montafon").getByRole("button", { name: "Berger Bene" })).toBeInTheDocument();
   });
 
-  it("keeps a student who is not attending out of both lists", async () => {
+  it("keeps a student who is not attending out of every card", () => {
     render(<AssignmentView />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
 
     expect(screen.queryByRole("button", { name: "Cerny Clara" })).not.toBeInTheDocument();
   });
 
-  it("shows an event's students only under that event", async () => {
+  it("assigns a student dragged onto a week", async () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Gardasee" }));
-
-    expect(
-      within(screen.getByRole("group", { name: "Zugeteilt: Gardasee" })).queryByRole("button", {
-        name: "Berger Bene",
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("assigns a student dragged onto the picked week", async () => {
-    render(<AssignmentView />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
-    await dragToWeek("Muster Anna");
+    await drag("Nicht zugeteilt", "Muster Anna", "{ArrowDown}");
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/assignments", {
@@ -183,11 +153,10 @@ describe("AssignmentView", () => {
     );
   });
 
-  it("unassigns without naming an event, which is what makes a move a two-step one", async () => {
+  it("takes the week away from a student dragged back onto the unassigned card", async () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
-    await dragOutOfWeek("Berger Bene");
+    await drag("Montafon", "Berger Bene", "{ArrowUp}");
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/assignments", {
@@ -195,6 +164,21 @@ describe("AssignmentView", () => {
         body: { recordIds: ["record-Berger"], eventId: null },
       }),
     );
+  });
+
+  it("holds the whole view and lights the shared spinner while the move is saved", async () => {
+    let settle = () => {};
+    apiRequest.mockReturnValue(
+      new Promise<null>((resolve) => {
+        settle = () => resolve(null);
+      }),
+    );
+
+    render(<AssignmentView />);
+    await drag("Nicht zugeteilt", "Muster Anna", "{ArrowDown}");
+
+    await waitFor(() => expect(useBusyWhile).toHaveBeenCalledWith(true));
+    settle();
   });
 
   it("tells the teacher when a season has no events to assign to yet", () => {
@@ -205,27 +189,15 @@ describe("AssignmentView", () => {
     expect(screen.getByText(/noch keine Events/)).toBeInTheDocument();
   });
 
-  /** Picking an event narrows the right list; it says nothing about how the lists are filtered. */
-  it("keeps the filter tags when another event is picked", async () => {
+  it("keeps a card's filter when another card is filtered", async () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
-    await userEvent.click(left().getByRole("button", { name: "Klasse: 5BHIF" }));
-    await userEvent.click(screen.getByRole("button", { name: "Gardasee" }));
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
+    await userEvent.click(card("Montafon").getByRole("button", { name: "Klasse: 5AHIF" }));
 
-    expect(left().getByRole("button", { name: "Klasse: 5BHIF" })).toHaveAttribute(
+    expect(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-  });
-
-  it("keeps the typed name filter when another event is picked", async () => {
-    render(<AssignmentView />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
-    await userEvent.type(left().getByRole("textbox", { name: "Nicht zugeteilt: Name" }), "mus");
-    await userEvent.click(screen.getByRole("button", { name: "Gardasee" }));
-
-    expect(left().getByRole("textbox", { name: "Nicht zugeteilt: Name" })).toHaveValue("mus");
   });
 });

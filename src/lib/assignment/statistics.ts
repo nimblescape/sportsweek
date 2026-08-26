@@ -8,7 +8,7 @@ import type { RosterStudent } from "@/lib/students/roster";
 /** One skill level of one program (US-5, US-7); both tables carry the same set of them. */
 export type SkillColumn = { key: string; program: string; skillLevel: string };
 
-type AttendingCounts = {
+export type AttendingCounts = {
   male: number;
   female: number;
   /** Keyed by `SkillColumn.key`, and only where something was counted. */
@@ -24,12 +24,15 @@ export type ClassRow = AttendingCounts & {
   attendanceRate: number;
 };
 
-export type EventRow = AttendingCounts & {
+/** The card a student who has no week yet belongs to; it is one of the cards, not a state. */
+export const UNASSIGNED_GROUP = "unassigned";
+export const UNASSIGNED_GROUP_TITLE = "Nicht zugeteilt";
+
+/** One card of the board: the students it holds, and the figures describing them (US-12). */
+export type AssignmentGroup = AttendingCounts & {
   id: string;
-  name: string;
-  /** Students assigned to this event. The gender and skill figures only count the answers that
-   * were given, so without this an assignment could land without moving a single number. */
-  assigned: number;
+  title: string;
+  students: RosterStudent[];
 };
 
 /** A pair of names, kept apart by a separator neither of them can contain. */
@@ -58,7 +61,7 @@ export function skillColumns(
  * common: only a student who is coming can be assigned to an event, so every figure here
  * describes attending students alone (US-12).
  */
-function countAttending(
+export function attendingCounts(
   students: readonly RosterStudent[],
   columns: readonly SkillColumn[],
 ): AttendingCounts {
@@ -97,20 +100,32 @@ export function classOverview(
       total: registered.length,
       attending,
       attendanceRate: registered.length === 0 ? 0 : attending / registered.length,
-      ...countAttending(registered, columns),
+      ...attendingCounts(registered, columns),
     };
   });
 }
 
-/** One row per event of the season, counting the students assigned to it and nobody else (US-12). */
-export function eventOverview(
+/**
+ * The cards a teacher drags between: the students with no week yet, then one card per week of
+ * the season, in the order the teacher put the weeks in (US-12).
+ *
+ * A student who answered "no" appears in none of them — only someone who is coming can be
+ * assigned — which is why the class cards above are the one place they are counted.
+ */
+export function assignmentGroups(
   students: readonly RosterStudent[],
   events: readonly { id: string; name: string }[],
   columns: readonly SkillColumn[],
-): EventRow[] {
-  return events.map(({ id, name }) => {
-    const assigned = students.filter((student) => student.eventId === id && student.isAttending);
+): AssignmentGroup[] {
+  const attending = students.filter((student) => student.isAttending);
 
-    return { id, name, assigned: assigned.length, ...countAttending(assigned, columns) };
-  });
+  const group = (id: string, title: string, eventId: string | null): AssignmentGroup => {
+    const own = attending.filter((student) => student.eventId === eventId);
+    return { id, title, students: own, ...attendingCounts(own, columns) };
+  };
+
+  return [
+    group(UNASSIGNED_GROUP, UNASSIGNED_GROUP_TITLE, null),
+    ...events.map((event) => group(event.id, event.name, event.id)),
+  ];
 }
