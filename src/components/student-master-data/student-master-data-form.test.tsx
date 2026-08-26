@@ -131,13 +131,41 @@ describe("StudentMasterDataForm", () => {
     expect(sentBody()).toMatchObject({ class: "4AHME", program: "Ski" });
   });
 
-  it("confirms a save, so the student knows the answer arrived", async () => {
+  it("confirms a save, and says the registration is complete when it is", async () => {
     renderForm();
 
     await changeSomething();
     await userEvent.click(save());
 
-    expect(await screen.findByRole("status")).toHaveTextContent("gespeichert");
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("gespeichert");
+    expect(status).toHaveTextContent("Deine Anmeldung ist vollständig.");
+  });
+
+  it("names what is still missing in the same breath as the confirmation", async () => {
+    renderForm({
+      ...storedRecord,
+      emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
+    });
+
+    await changeSomething();
+    await userEvent.click(save());
+
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("gespeichert");
+    expect(status).toHaveTextContent("Vorname des Notfallkontakts");
+  });
+
+  /** By then it is no longer true: what is on screen is not what was saved. */
+  it("takes the confirmation away as soon as the student edits again", async () => {
+    renderForm();
+
+    await changeSomething();
+    await userEvent.click(save());
+    await screen.findByRole("status");
+    await pick("Klasse", "3AHME");
+
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
   });
 
   it("shows what the server said when a save is refused", async () => {

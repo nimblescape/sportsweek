@@ -441,10 +441,22 @@ export function StudentMasterDataForm({
           {submitError}
         </p>
       ) : null}
-      {saved ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          Deine Daten wurden gespeichert.
-        </p>
+
+      {/* One block for both halves of the answer: what happened, and where the student stands.
+          It goes as soon as they edit again, because by then it is no longer true. */}
+      {saved && !isDirty ? (
+        <Card role="status">
+          <CardContent className="flex flex-col gap-1">
+            <p className="text-sm font-medium">Deine Daten wurden gespeichert.</p>
+            <p className="text-muted-foreground text-sm">
+              {missing.length === 0
+                ? "Deine Anmeldung ist vollständig."
+                : `Deine Anmeldung ist noch nicht vollständig. Es fehlen noch: ${missing
+                    .map((answer) => answer.label)
+                    .join(", ")}.`}
+            </p>
+          </CardContent>
+        </Card>
       ) : null}
 
       <div className="flex justify-end">
