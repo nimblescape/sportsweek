@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { parse } from "yaml";
 import {
@@ -204,6 +204,23 @@ describe("the apphosting yaml files", () => {
     expect(resolveAuthMode(merged.AUTH_MODE, merged.NEXT_PUBLIC_FIREBASE_PROJECT_ID)).toBe(
       expected,
     );
+  });
+
+  // Renaming an environment file leaves the scripts naming the old one, and the failure is an
+  // ENOENT from inside next.config.ts rather than anything that says which script was wrong.
+  it("has a file for every environment package.json offers a script for", () => {
+    const scripts: Record<string, string> = JSON.parse(
+      readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+    ).scripts;
+
+    const named = Object.values(scripts).flatMap((command) =>
+      [...command.matchAll(/APP_HOSTING_ENV=(\w+)/g)].map((match) => match[1]),
+    );
+
+    expect(named.length).toBeGreaterThan(0);
+    for (const environment of named) {
+      expect(existsSync(resolve(process.cwd(), `apphosting.${environment}.yaml`))).toBe(true);
+    }
   });
 });
 

@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "APP_HOSTING_ENV=dev npm run dev:server",
+    "dev": "APP_HOSTING_ENV=development npm run dev:server",
     "dev:staging": "APP_HOSTING_ENV=staging npm run dev:server",
     "dev:production": "APP_HOSTING_ENV=production npm run dev:server",
     "dev:server": "next dev --experimental-https --experimental-https-key ./.certs/localhost-key.pem --experimental-https-cert ./.certs/localhost.pem",
