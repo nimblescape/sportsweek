@@ -23,7 +23,7 @@ import {
 import { GripVertical } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { BusyRegion } from "@/components/ui/busy-region";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import {
   EMPTY_FILTER,
   filterStudents,
@@ -232,7 +232,7 @@ function StudentList({
   onToggleAll,
 }: StudentListProps) {
   const { setNodeRef, isOver } = useDroppable({ id: listId });
-  const allPicked = students.length > 0 && students.every((student) => picked.includes(student.id));
+  const allPicked = students.every((student) => picked.includes(student.id));
 
   return (
     <Card
@@ -242,22 +242,23 @@ function StudentList({
       aria-label={label}
       className={cn("transition-shadow", isOver && "ring-ring ring-2")}
     >
-      <CardHeader>
-        {/* The count is what the filter leaves, not what the list holds (US-12). */}
-        <CardTitle>{`${title}: ${students.length}`}</CardTitle>
-      </CardHeader>
-
       <CardContent className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
         <div>
+          {/* The count is what the filter leaves, not what the list holds (US-12). */}
+          {/* As tall as the name field beside it, so the two read as one line. */}
+          <CardTitle className="mb-2 flex h-8 items-center">{`${title}: ${students.length}`}</CardTitle>
+
           <ul className="max-h-72 overflow-y-auto">
-            <li>
-              <Row
-                name={ALL_LABEL}
-                label={ALL_NAME}
-                picked={allPicked}
-                onToggle={() => onToggleAll(students, allPicked)}
-              />
-            </li>
+            {students.length > 0 && (
+              <li>
+                <Row
+                  name={ALL_LABEL}
+                  label={ALL_NAME}
+                  picked={allPicked}
+                  onToggle={() => onToggleAll(students, allPicked)}
+                />
+              </li>
+            )}
             {students.map((student) => (
               <StudentRow
                 key={student.id}
@@ -293,15 +294,27 @@ function StudentRow({
     data: { list: listId },
   });
 
+  /**
+   * The whole row is what a pointer drags; the handle is what a keyboard drags. Splitting the
+   * two keeps the row's own click free to pick the student — a drag only starts once the pointer
+   * has moved, and the click that follows one is swallowed by the sensor.
+   */
+  const startPointerDrag = listeners?.onPointerDown as React.PointerEventHandler | undefined;
+
   return (
     <li ref={setNodeRef} className={cn(isDragging && "opacity-80")}>
-      <Row name={name} picked={picked} onToggle={() => onToggle(student.id)}>
+      <Row
+        name={name}
+        picked={picked}
+        onToggle={() => onToggle(student.id)}
+        onPointerDown={startPointerDrag}
+      >
         <button
           type="button"
           aria-label={`${name} verschieben`}
           className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
           {...attributes}
-          {...listeners}
+          onKeyDown={listeners?.onKeyDown as React.KeyboardEventHandler | undefined}
         >
           <GripVertical aria-hidden className="size-4" />
         </button>
@@ -316,12 +329,14 @@ function Row({
   label,
   picked,
   onToggle,
+  onPointerDown,
   children,
 }: {
   name: string;
   label?: string;
   picked: boolean;
   onToggle: () => void;
+  onPointerDown?: React.PointerEventHandler;
   children?: React.ReactNode;
 }) {
   return (
@@ -332,7 +347,8 @@ function Row({
         aria-label={label}
         aria-pressed={picked}
         onClick={onToggle}
-        className="focus-visible:ring-ring/50 flex-1 rounded-md px-1 py-2 text-left text-sm outline-none focus-visible:ring-3"
+        onPointerDown={onPointerDown}
+        className="focus-visible:ring-ring/50 flex-1 touch-none rounded-md px-1 py-2 text-left text-sm outline-none focus-visible:ring-3"
       >
         {name}
       </button>

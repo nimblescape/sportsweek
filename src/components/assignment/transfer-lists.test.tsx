@@ -218,4 +218,17 @@ describe("TransferLists", () => {
     expect(screen.queryByRole("button", { name: "Auswahl zuteilen" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Zuteilung aufheben" })).not.toBeInTheDocument();
   });
+
+  it("offers no 'Alle' while the filter leaves nobody to pick", async () => {
+    setup({ assigned: [] });
+
+    expect(lower().queryByRole("button", { name: "Alle auswählen" })).not.toBeInTheDocument();
+    expect(lower().getByText("Montafon: 0")).toBeInTheDocument();
+
+    await userEvent.click(upper().getByRole("button", { name: "Geschlecht: weiblich" }));
+    await userEvent.click(upper().getByRole("button", { name: "Klasse: 5BHIF" }));
+
+    expect(upper().getByText("Nicht zugeteilt: 0")).toBeInTheDocument();
+    expect(upper().queryByRole("button", { name: "Alle auswählen" })).not.toBeInTheDocument();
+  });
 });
