@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { Card } from "@/components/ui/card";
@@ -20,6 +20,7 @@ import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
+import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { eventSchema, type Event } from "@/lib/schemas/season";
 import { useEvents } from "@/lib/events/use-events";
@@ -36,6 +37,8 @@ export function EventsView({ seasonId }: { seasonId: string }) {
   const { seasons } = useSeasons();
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
   const { busyId, pending, run } = useRowAction();
+
+  useBusyWhile(loading);
 
   const season = seasons.find((candidate) => candidate.id === seasonId) ?? null;
 
@@ -130,15 +133,8 @@ function EventList({
   onDelete,
   onReorder,
 }: EventListProps) {
-  if (loading) {
-    return (
-      <Card className="items-center">
-        <div role="status" aria-label="Events werden geladen" className="text-muted-foreground">
-          <LoaderCircle aria-hidden className="size-5 animate-spin" />
-        </div>
-      </Card>
-    );
-  }
+  // The header spinner says the app is working; a second one on the list would say it twice.
+  if (loading) return null;
 
   if (error) {
     return (

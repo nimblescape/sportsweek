@@ -6,7 +6,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { BusyProvider } from "@/lib/api/busy";
+import { BusyProvider, useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { HeaderSpinner } from "./header-spinner";
 
@@ -60,6 +60,32 @@ describe("HeaderSpinner", () => {
     await waitFor(() => expect(spinner()).toBeInTheDocument());
 
     write.resolve();
+
+    await waitFor(() => expect(spinner()).not.toBeInTheDocument());
+  });
+
+  /** A list still loading from its subscription is a wait like any other (see useBusyWhile). */
+  it("answers for a view that is still loading, not only for writes", async () => {
+    function Loading({ loading }: { loading: boolean }) {
+      useBusyWhile(loading);
+      return null;
+    }
+
+    const { rerender } = render(
+      <BusyProvider>
+        <HeaderSpinner />
+        <Loading loading />
+      </BusyProvider>,
+    );
+
+    await waitFor(() => expect(spinner()).toBeInTheDocument());
+
+    rerender(
+      <BusyProvider>
+        <HeaderSpinner />
+        <Loading loading={false} />
+      </BusyProvider>,
+    );
 
     await waitFor(() => expect(spinner()).not.toBeInTheDocument());
   });

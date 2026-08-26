@@ -13,6 +13,7 @@ import { DeleteSeasonDialog } from "@/components/seasons/delete-season-dialog";
 import { SeasonFormDialog } from "@/components/seasons/season-form-dialog";
 import { SeasonList } from "@/components/seasons/season-list";
 import { apiRequest, ApiRequestError, type RequestOptions } from "@/lib/api/client";
+import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { applyVisibleOrder } from "@/lib/schemas/position";
 import type { Season } from "@/lib/schemas/season";
@@ -29,6 +30,8 @@ export function SeasonsView() {
   const { busyId, pending, run } = useRowAction();
   const [actionError, setActionError] = React.useState<string | null>(null);
   const toggleId = React.useId();
+
+  useBusyWhile(loading);
 
   const listed = visibleSeasons(seasons, showArchived);
 

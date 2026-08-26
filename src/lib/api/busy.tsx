@@ -45,3 +45,16 @@ export function useBusy(): boolean {
 export function useHold(): () => () => void {
   return React.useContext(BusyContext)?.hold ?? NO_HOLD;
 }
+
+/**
+ * Reports a wait the caller does not run itself — a list still loading from its subscription.
+ * The same spinner answers for it, so a view has none of its own to place.
+ */
+export function useBusyWhile(active: boolean): void {
+  const hold = useHold();
+
+  React.useEffect(() => {
+    if (!active) return;
+    return hold();
+  }, [active, hold]);
+}

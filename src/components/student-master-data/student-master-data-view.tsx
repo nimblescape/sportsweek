@@ -6,6 +6,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { useBusyWhile } from "@/lib/api/busy";
 import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
 import { REGISTRATION_NOT_OPEN_HINT } from "@/lib/student-master-data/registration";
 import { useStudentMasterData } from "@/lib/student-master-data/use-student-master-data";
@@ -30,9 +31,10 @@ export function StudentMasterDataView({ userId, studentName }: StudentMasterData
   const seasonPassOptions = useMasterData("season-pass-options");
   const programs = usePrograms();
 
-  if (loading || classes.loading) {
-    return <p className="text-muted-foreground text-sm">Wird geladen …</p>;
-  }
+  // Answered by the one spinner in the header, so this view places none of its own.
+  useBusyWhile(loading || classes.loading);
+
+  if (loading || classes.loading) return null;
 
   if (error) {
     return (

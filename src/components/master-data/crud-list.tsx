@@ -9,7 +9,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LoaderCircle, Lock, Pencil, Plus, Trash2 } from "lucide-react";
+import { Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { Card } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
+import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { namedListItemSchema } from "@/lib/schemas/master-data";
 import { IN_USE_HINT } from "@/lib/master-data/categories";
@@ -91,6 +92,8 @@ export function CrudList({
 }: CrudListProps) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
   const { busyId, pending, run } = useRowAction();
+
+  useBusyWhile(loading);
 
   const closeDialog = () => setDialog({ kind: "none" });
 
@@ -189,15 +192,8 @@ function ItemList({
 }: ItemListProps) {
   const { title, singular, empty } = labels;
 
-  if (loading) {
-    return (
-      <Card className="items-center">
-        <div role="status" aria-label={`${title} werden geladen`} className="text-muted-foreground">
-          <LoaderCircle aria-hidden className="size-5 animate-spin" />
-        </div>
-      </Card>
-    );
-  }
+  // The header spinner says the app is working; a second one on the list would say it twice.
+  if (loading) return null;
 
   if (error) {
     return (
