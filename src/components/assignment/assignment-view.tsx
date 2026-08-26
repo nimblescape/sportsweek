@@ -15,7 +15,7 @@ import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
 import { activeSeasonOf, NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
 import { useSeasons } from "@/lib/seasons/use-seasons";
 import { useRoster } from "@/lib/students/use-roster";
-import { ClassOverviewTable } from "./class-overview-table";
+import { ClassCards } from "./class-cards";
 import { EventCards } from "./event-cards";
 import { TransferLists } from "./transfer-lists";
 
@@ -95,9 +95,10 @@ export function AssignmentView() {
         </p>
       ) : (
         <>
-          <ClassOverviewTable
+          <ClassCards
             rows={classOverview(students, classes.items, columns)}
-            columns={columns}
+            programs={programNames}
+            skillLevels={skillLevelNames}
           />
 
           {events.length === 0 ? (

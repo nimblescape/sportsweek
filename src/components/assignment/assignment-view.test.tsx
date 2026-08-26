@@ -5,8 +5,9 @@
  */
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
+import { stubTransferLayout } from "@/test/stub-transfer-layout";
 
 const useSeasons = vi.fn();
 const useEvents = vi.fn();
@@ -71,6 +72,7 @@ const listOf = (...names: string[]) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  stubTransferLayout();
   useSeasons.mockReturnValue({ seasons: [season], loading: false, error: null });
   useEvents.mockReturnValue({
     events: [
@@ -92,8 +94,24 @@ beforeEach(() => {
   apiRequest.mockResolvedValue(null);
 });
 
-const left = () => within(screen.getByRole("region", { name: "Nicht zugeteilt" }));
-const right = () => within(screen.getByRole("region", { name: "Zugeteilt: Montafon" }));
+afterEach(() => vi.restoreAllMocks());
+
+const left = () => within(screen.getByRole("group", { name: "Nicht zugeteilt" }));
+const right = () => within(screen.getByRole("group", { name: "Zugeteilt: Montafon" }));
+
+async function dragToWeek(name: string) {
+  screen.getByRole("button", { name: `${name} verschieben` }).focus();
+  await userEvent.keyboard("{ }");
+  await userEvent.keyboard("{ArrowDown}");
+  await userEvent.keyboard("{ }");
+}
+
+async function dragOutOfWeek(name: string) {
+  screen.getByRole("button", { name: `${name} verschieben` }).focus();
+  await userEvent.keyboard("{ }");
+  await userEvent.keyboard("{ArrowUp}");
+  await userEvent.keyboard("{ }");
+}
 
 describe("AssignmentView", () => {
   it("says so while no season is active, since there is nothing to assign", () => {
@@ -107,52 +125,51 @@ describe("AssignmentView", () => {
   it("counts every registration of the season by class, attending or not", () => {
     render(<AssignmentView />);
 
-    const row = within(screen.getByRole("row", { name: /^5AHIF/ }))
-      .getAllByRole("cell")
-      .map((cell) => cell.textContent);
-
-    expect(row.slice(0, 4)).toEqual(["5AHIF", "3", "2", "67 %"]);
+    expect(
+      within(screen.getByRole("group", { name: "5AHIF" })).getByText(/^Angemeldet: 3/),
+    ).toHaveTextContent("Angemeldet: 3 · Nimmt teil: 2 · Anteil: 67 %");
   });
 
   it("waits for an event to be picked before offering the lists", () => {
     render(<AssignmentView />);
 
-    expect(screen.queryByRole("region", { name: "Nicht zugeteilt" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Nicht zugeteilt" })).not.toBeInTheDocument();
   });
 
   it("splits the attending students by the event that was picked", async () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("radio", { name: "Montafon" }));
+    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
 
-    expect(left().getByRole("checkbox", { name: "Muster Anna" })).toBeInTheDocument();
-    expect(right().getByRole("checkbox", { name: "Berger Bene" })).toBeInTheDocument();
+    expect(left().getByRole("button", { name: "Muster Anna" })).toBeInTheDocument();
+    expect(right().getByRole("button", { name: "Berger Bene" })).toBeInTheDocument();
   });
 
   it("keeps a student who is not attending out of both lists", async () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("radio", { name: "Montafon" }));
+    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
 
-    expect(screen.queryByRole("checkbox", { name: "Cerny Clara" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cerny Clara" })).not.toBeInTheDocument();
   });
 
   it("shows an event's students only under that event", async () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("radio", { name: "Gardasee" }));
+    await userEvent.click(screen.getByRole("button", { name: "Gardasee" }));
 
     expect(
-      within(screen.getByRole("region", { name: "Zugeteilt: Gardasee" })).getByText("0 angezeigt"),
-    ).toBeInTheDocument();
+      within(screen.getByRole("group", { name: "Zugeteilt: Gardasee" })).queryByRole("button", {
+        name: "Berger Bene",
+      }),
+    ).not.toBeInTheDocument();
   });
 
-  it("assigns the selection to the picked event", async () => {
+  it("assigns a student dragged onto the picked week", async () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("radio", { name: "Montafon" }));
-    await userEvent.click(left().getByRole("checkbox", { name: "Muster Anna" }));
-    await userEvent.click(screen.getByRole("button", { name: "Auswahl zuteilen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
+    await dragToWeek("Muster Anna");
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/assignments", {
@@ -165,9 +182,8 @@ describe("AssignmentView", () => {
   it("unassigns without naming an event, which is what makes a move a two-step one", async () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("radio", { name: "Montafon" }));
-    await userEvent.click(right().getByRole("checkbox", { name: "Berger Bene" }));
-    await userEvent.click(screen.getByRole("button", { name: "Zuteilung aufheben" }));
+    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
+    await dragOutOfWeek("Berger Bene");
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/assignments", {
@@ -189,9 +205,9 @@ describe("AssignmentView", () => {
   it("keeps the filter tags when another event is picked", async () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("radio", { name: "Montafon" }));
+    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
     await userEvent.click(left().getByRole("button", { name: "Klasse: 5BHIF" }));
-    await userEvent.click(screen.getByRole("radio", { name: "Gardasee" }));
+    await userEvent.click(screen.getByRole("button", { name: "Gardasee" }));
 
     expect(left().getByRole("button", { name: "Klasse: 5BHIF" })).toHaveAttribute(
       "aria-pressed",
@@ -202,9 +218,9 @@ describe("AssignmentView", () => {
   it("keeps the typed name filter when another event is picked", async () => {
     render(<AssignmentView />);
 
-    await userEvent.click(screen.getByRole("radio", { name: "Montafon" }));
+    await userEvent.click(screen.getByRole("button", { name: "Montafon" }));
     await userEvent.type(left().getByRole("textbox", { name: "Nicht zugeteilt: Name" }), "mus");
-    await userEvent.click(screen.getByRole("radio", { name: "Gardasee" }));
+    await userEvent.click(screen.getByRole("button", { name: "Gardasee" }));
 
     expect(left().getByRole("textbox", { name: "Nicht zugeteilt: Name" })).toHaveValue("mus");
   });

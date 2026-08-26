@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { filterGroups } from "@/lib/filters/student-filter";
@@ -64,10 +64,8 @@ function setup({
   );
 }
 
-const left = () => within(screen.getByRole("region", { name: "Nicht zugeteilt" }));
-const right = () => within(screen.getByRole("region", { name: "Zugeteilt: Montafon" }));
-const assignButton = () => screen.getByRole("button", { name: "Auswahl zuteilen" });
-const unassignButton = () => screen.getByRole("button", { name: "Zuteilung aufheben" });
+const upper = () => within(screen.getByRole("group", { name: "Nicht zugeteilt" }));
+const lower = () => within(screen.getByRole("group", { name: "Zugeteilt: Montafon" }));
 
 beforeEach(() => {
   onAssign.mockReset().mockResolvedValue(undefined);
@@ -75,130 +73,150 @@ beforeEach(() => {
 });
 
 describe("TransferLists", () => {
-  it("asks for an event first, since the right list is one event's students", () => {
+  it("asks for a week first, since the lower list is one week's students", () => {
     setup({ eventName: null });
 
-    expect(screen.getByText(/Event/)).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Nicht zugeteilt" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Woche/)).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Nicht zugeteilt" })).not.toBeInTheDocument();
+  });
+
+  it("puts the unassigned students above the week's own", () => {
+    setup();
+
+    const labels = screen
+      .getAllByRole("group")
+      .map((group) => group.getAttribute("aria-label") ?? "")
+      .filter((label) => !label.endsWith("Filter"));
+
+    expect(labels).toEqual(["Nicht zugeteilt", "Zugeteilt: Montafon"]);
   });
 
   it("lists the students it was given on each side", () => {
     setup();
 
-    expect(left().getByRole("checkbox", { name: "Berger Bene" })).toBeInTheDocument();
-    expect(right().getByRole("checkbox", { name: "Cerny Clara" })).toBeInTheDocument();
+    expect(upper().getByRole("button", { name: "Berger Bene" })).toBeInTheDocument();
+    expect(lower().getByRole("button", { name: "Cerny Clara" })).toBeInTheDocument();
   });
 
-  it("counts what is shown below each list", () => {
+  it("counts what the filter leaves in each title", () => {
     setup();
 
-    expect(left().getByText("2 angezeigt")).toBeInTheDocument();
-    expect(right().getByText("1 angezeigt")).toBeInTheDocument();
+    expect(upper().getByText("2")).toBeInTheDocument();
+    expect(lower().getByText("1")).toBeInTheDocument();
+  });
+
+  it("titles the lower list with the week itself, the card above having said the rest", () => {
+    setup();
+
+    expect(lower().getByText("Montafon")).toBeInTheDocument();
+    expect(lower().queryByText(/^Zugeteilt/)).not.toBeInTheDocument();
   });
 
   it("counts what the filter leaves, not what the list holds", async () => {
     setup();
 
-    await userEvent.click(left().getByRole("button", { name: "Klasse: 5BHIF" }));
+    await userEvent.click(upper().getByRole("button", { name: "Klasse: 5BHIF" }));
 
-    expect(left().getByText("1 angezeigt")).toBeInTheDocument();
-    expect(left().queryByRole("checkbox", { name: "Muster Anna" })).not.toBeInTheDocument();
+    expect(upper().getByText("1")).toBeInTheDocument();
+    expect(upper().queryByRole("button", { name: "Muster Anna" })).not.toBeInTheDocument();
   });
 
   it("filters each list on its own", async () => {
     setup();
 
-    await userEvent.click(left().getByRole("button", { name: "Klasse: 5BHIF" }));
+    await userEvent.click(upper().getByRole("button", { name: "Klasse: 5BHIF" }));
 
-    expect(right().getByText("1 angezeigt")).toBeInTheDocument();
-    expect(right().getByRole("checkbox", { name: "Cerny Clara" })).toBeInTheDocument();
+    expect(lower().getByRole("button", { name: "Cerny Clara" })).toBeInTheDocument();
   });
 
-  it("moves the whole selection to the event in one action", async () => {
+  it("offers no box to tick — a picked student is a coloured row", async () => {
     setup();
 
-    await userEvent.click(left().getByRole("checkbox", { name: "Berger Bene" }));
-    await userEvent.click(left().getByRole("checkbox", { name: "Muster Anna" }));
-    await userEvent.click(assignButton());
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
 
-    expect(onAssign).toHaveBeenCalledWith(["record-Berger", "record-Muster"]);
+    await userEvent.click(upper().getByRole("button", { name: "Berger Bene" }));
+
+    const picked = upper().getByRole("button", { name: "Berger Bene" });
+    expect(picked).toHaveAttribute("aria-pressed", "true");
+    expect(picked.parentElement?.className).toContain("bg-accent");
   });
 
-  it("moves a selection back out of the event", async () => {
+  it("picks a student and lets go of them again", async () => {
     setup();
 
-    await userEvent.click(right().getByRole("checkbox", { name: "Cerny Clara" }));
-    await userEvent.click(unassignButton());
+    await userEvent.click(upper().getByRole("button", { name: "Berger Bene" }));
+    await userEvent.click(upper().getByRole("button", { name: "Berger Bene" }));
 
-    expect(onUnassign).toHaveBeenCalledWith(["record-Cerny"]);
-  });
-
-  it("forgets the selection once it has been moved", async () => {
-    setup();
-
-    await userEvent.click(left().getByRole("checkbox", { name: "Berger Bene" }));
-    await userEvent.click(assignButton());
-
-    await waitFor(() =>
-      expect(left().getByRole("checkbox", { name: "Berger Bene" })).not.toBeChecked(),
+    expect(upper().getByRole("button", { name: "Berger Bene" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
     );
-    expect(assignButton()).toBeDisabled();
   });
 
-  it("has nothing to move while nothing is selected", () => {
+  it("keeps a student picked when the filter stops showing them", async () => {
     setup();
 
-    expect(assignButton()).toBeDisabled();
-    expect(unassignButton()).toBeDisabled();
+    await userEvent.click(upper().getByRole("button", { name: "Muster Anna" }));
+    await userEvent.click(upper().getByRole("button", { name: "Klasse: 5BHIF" }));
+    expect(upper().queryByRole("button", { name: "Muster Anna" })).not.toBeInTheDocument();
+
+    await userEvent.click(upper().getByRole("button", { name: "Klasse: 5BHIF" }));
+    expect(upper().getByRole("button", { name: "Muster Anna" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
-  it("moves only what is selected on the side the button points away from", async () => {
+  it("picks everyone the filter leaves, through the list's first entry", async () => {
     setup();
 
-    await userEvent.click(right().getByRole("checkbox", { name: "Cerny Clara" }));
+    await userEvent.click(upper().getByRole("button", { name: "Alle auswählen" }));
 
-    expect(assignButton()).toBeDisabled();
-    expect(unassignButton()).toBeEnabled();
+    for (const name of ["Berger Bene", "Muster Anna"]) {
+      expect(upper().getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+    }
   });
 
-  it("keeps a rejected move on screen and says why", async () => {
-    onAssign.mockRejectedValue(
-      new Error("Wer nicht teilnimmt, kann keinem Event zugeteilt werden."),
-    );
+  it("picks nobody the filter hides", async () => {
     setup();
 
-    await userEvent.click(left().getByRole("checkbox", { name: "Berger Bene" }));
-    await userEvent.click(assignButton());
+    await userEvent.click(upper().getByRole("button", { name: "Klasse: 5BHIF" }));
+    await userEvent.click(upper().getByRole("button", { name: "Alle auswählen" }));
+    await userEvent.click(upper().getByRole("button", { name: "Klasse: 5BHIF" }));
 
-    expect(
-      await screen.findByText("Wer nicht teilnimmt, kann keinem Event zugeteilt werden."),
-    ).toBeInTheDocument();
+    expect(upper().getByRole("button", { name: "Muster Anna" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
-  it("drops a student from the selection once they are no longer in the list", async () => {
-    const { rerender } = render(
-      <TransferLists
-        eventName="Montafon"
-        unassigned={[BENE]}
-        assigned={[]}
-        groups={GROUPS}
-        onAssign={onAssign}
-        onUnassign={onUnassign}
-      />,
-    );
+  it("lets go of everyone again when they are all picked", async () => {
+    setup();
 
-    await userEvent.click(screen.getByRole("checkbox", { name: "Berger Bene" }));
-    rerender(
-      <TransferLists
-        eventName="Montafon"
-        unassigned={[]}
-        assigned={[{ ...BENE, eventId: "event1" }]}
-        groups={GROUPS}
-        onAssign={onAssign}
-        onUnassign={onUnassign}
-      />,
-    );
+    await userEvent.click(upper().getByRole("button", { name: "Alle auswählen" }));
+    await userEvent.click(upper().getByRole("button", { name: "Alle auswählen" }));
 
-    expect(assignButton()).toBeDisabled();
+    expect(upper().getByRole("button", { name: "Berger Bene" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("marks its own 'Alle' only, so one list does not pick for the other", async () => {
+    setup();
+
+    await userEvent.click(upper().getByRole("button", { name: "Alle auswählen" }));
+
+    expect(lower().getByRole("button", { name: "Alle auswählen" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("offers no move buttons, since dragging is the only way across", () => {
+    setup();
+
+    expect(screen.queryByRole("button", { name: "Auswahl zuteilen" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Zuteilung aufheben" })).not.toBeInTheDocument();
   });
 });

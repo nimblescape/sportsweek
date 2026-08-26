@@ -139,7 +139,8 @@ describe("EventCards", () => {
   it("can be selected from the keyboard, so the dialog needs no pointer", async () => {
     const onSelect = setup();
 
-    await userEvent.click(screen.getByRole("radio", { name: "Montafon" }));
+    screen.getByRole("button", { name: "Montafon" }).focus();
+    await userEvent.keyboard("{Enter}");
 
     expect(onSelect).toHaveBeenCalledWith("event1");
   });
@@ -154,8 +155,14 @@ describe("EventCards", () => {
   it("marks exactly one event as the selected one", () => {
     setup([], "event2");
 
-    expect(screen.getByRole("radio", { name: "Gardasee" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Montafon" })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Gardasee" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Montafon" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 });
 

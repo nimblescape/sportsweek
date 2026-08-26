@@ -8,15 +8,20 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { filterGroups } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
+import { stubTransferLayout } from "@/test/stub-transfer-layout";
 import { TransferLists } from "./transfer-lists";
 
 const GROUPS = filterGroups({
-  classes: [{ name: "5AHIF" }],
+  classes: [{ name: "5AHIF" }, { name: "5BHIF" }],
   programs: [{ name: "Ski" }],
   skillLevels: [{ name: "Profi" }],
 });
 
-function student(firstName: string, lastName: string): RosterStudent {
+function student(
+  firstName: string,
+  lastName: string,
+  overrides: Partial<RosterStudent> = {},
+): RosterStudent {
   return {
     id: `record-${lastName}`,
     userId: `${lastName}@student.htldornbirn.at`,
@@ -28,40 +33,21 @@ function student(firstName: string, lastName: string): RosterStudent {
     skillLevel: "Profi",
     isAttending: true,
     eventId: null,
+    ...overrides,
   };
 }
 
 const ANNA = student("Anna", "Muster");
-const BENE = student("Bene", "Berger");
-const CLARA = student("Clara", "Cerny");
+const BENE = student("Bene", "Berger", { class: "5BHIF" });
+const CLARA = student("Clara", "Cerny", { eventId: "event1" });
 
 const onAssign = vi.fn();
 const onUnassign = vi.fn();
 
 /**
- * Lays the two lists out side by side for the duration of a test: jsdom reports a zero rect for
- * everything, which leaves drag-and-drop unable to tell one list from the other.
+ * Stacks the two lists for the duration of a test: jsdom reports a zero rect for everything,
+ * which leaves drag-and-drop unable to tell the upper list from the lower one.
  */
-function stubListLayout() {
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
-    this: HTMLElement,
-  ) {
-    const label = this.closest("section")?.getAttribute("aria-label") ?? "";
-    const left = label.startsWith("Zugeteilt") ? 300 : 0;
-    return {
-      x: left,
-      y: 0,
-      left,
-      right: left + 200,
-      top: 0,
-      bottom: 100,
-      width: 200,
-      height: 100,
-      toJSON: () => ({}),
-    } as DOMRect;
-  });
-}
-
 function setup(unassigned: RosterStudent[] = [BENE, ANNA], assigned: RosterStudent[] = [CLARA]) {
   render(
     <TransferLists
@@ -75,11 +61,10 @@ function setup(unassigned: RosterStudent[] = [BENE, ANNA], assigned: RosterStude
   );
 }
 
-const left = () => within(screen.getByRole("region", { name: "Nicht zugeteilt" }));
-const right = () => within(screen.getByRole("region", { name: "Zugeteilt: Montafon" }));
+const upper = () => within(screen.getByRole("group", { name: "Nicht zugeteilt" }));
 const handleOf = (name: string) => screen.getByRole("button", { name: `${name} verschieben` });
 
-async function drag(name: string, direction: "{ArrowRight}" | "{ArrowLeft}", drop = "{ }") {
+async function drag(name: string, direction: "{ArrowDown}" | "{ArrowUp}", drop = "{ }") {
   handleOf(name).focus();
   await userEvent.keyboard("{ }");
   await userEvent.keyboard(direction);
@@ -89,41 +74,50 @@ async function drag(name: string, direction: "{ArrowRight}" | "{ArrowLeft}", dro
 beforeEach(() => {
   onAssign.mockReset().mockResolvedValue(undefined);
   onUnassign.mockReset().mockResolvedValue(undefined);
-  stubListLayout();
+  stubTransferLayout();
 });
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("TransferLists — drag and drop", () => {
-  it("gives every student a grip handle, so a drag is never started by accident", () => {
+  it("gives every student a grip handle, and 'Alle' none, since it is nobody", () => {
     setup();
 
-    expect(left().getAllByRole("button", { name: /verschieben/ })).toHaveLength(2);
-    expect(right().getAllByRole("button", { name: /verschieben/ })).toHaveLength(1);
+    expect(upper().getAllByRole("button", { name: /verschieben/ })).toHaveLength(2);
+    expect(upper().getByRole("button", { name: "Alle auswählen" })).toBeInTheDocument();
   });
 
-  it("assigns a student dragged onto the event", async () => {
+  it("assigns a student dragged down onto the week", async () => {
     setup();
 
-    await drag("Berger Bene", "{ArrowRight}");
+    await drag("Berger Bene", "{ArrowDown}");
 
     await waitFor(() => expect(onAssign).toHaveBeenCalledWith(["record-Berger"]));
   });
 
-  it("unassigns a student dragged back out of the event", async () => {
+  it("unassigns a student dragged back up out of the week", async () => {
     setup();
 
-    await drag("Cerny Clara", "{ArrowLeft}");
+    await drag("Cerny Clara", "{ArrowUp}");
 
     await waitFor(() => expect(onUnassign).toHaveBeenCalledWith(["record-Cerny"]));
   });
 
-  it("takes the whole selection along, exactly as the move button does", async () => {
+  it("takes the whole selection along", async () => {
     setup();
 
-    await userEvent.click(left().getByRole("checkbox", { name: "Berger Bene" }));
-    await userEvent.click(left().getByRole("checkbox", { name: "Muster Anna" }));
-    await drag("Berger Bene", "{ArrowRight}");
+    await userEvent.click(upper().getByRole("button", { name: "Alle auswählen" }));
+    await drag("Berger Bene", "{ArrowDown}");
+
+    await waitFor(() => expect(onAssign).toHaveBeenCalledWith(["record-Berger", "record-Muster"]));
+  });
+
+  it("takes a picked student the filter hides along too, since filtering never lets go", async () => {
+    setup();
+
+    await userEvent.click(upper().getByRole("button", { name: "Alle auswählen" }));
+    await userEvent.click(upper().getByRole("button", { name: "Klasse: 5BHIF" }));
+    await drag("Berger Bene", "{ArrowDown}");
 
     await waitFor(() => expect(onAssign).toHaveBeenCalledWith(["record-Berger", "record-Muster"]));
   });
@@ -131,8 +125,8 @@ describe("TransferLists — drag and drop", () => {
   it("takes only the dragged student when they are not part of the selection", async () => {
     setup();
 
-    await userEvent.click(left().getByRole("checkbox", { name: "Muster Anna" }));
-    await drag("Berger Bene", "{ArrowRight}");
+    await userEvent.click(upper().getByRole("button", { name: "Muster Anna" }));
+    await drag("Berger Bene", "{ArrowDown}");
 
     await waitFor(() => expect(onAssign).toHaveBeenCalledWith(["record-Berger"]));
   });
@@ -140,7 +134,7 @@ describe("TransferLists — drag and drop", () => {
   it("leaves both lists alone when the drag is cancelled", async () => {
     setup();
 
-    await drag("Berger Bene", "{ArrowRight}", "{Escape}");
+    await drag("Berger Bene", "{ArrowDown}", "{Escape}");
 
     expect(onAssign).not.toHaveBeenCalled();
     expect(onUnassign).not.toHaveBeenCalled();
@@ -149,7 +143,7 @@ describe("TransferLists — drag and drop", () => {
   it("does nothing when a student is dropped back on the list they came from", async () => {
     setup();
 
-    await drag("Berger Bene", "{ArrowLeft}");
+    await drag("Berger Bene", "{ArrowUp}");
 
     expect(onAssign).not.toHaveBeenCalled();
     expect(onUnassign).not.toHaveBeenCalled();
@@ -160,12 +154,38 @@ describe("TransferLists — drag and drop", () => {
 
     handleOf("Berger Bene").focus();
     await userEvent.keyboard("{ }");
-    await userEvent.keyboard("{ArrowRight}");
+    await userEvent.keyboard("{ArrowDown}");
 
     await waitFor(() =>
-      expect(screen.getByRole("region", { name: "Zugeteilt: Montafon" }).className).toContain(
+      expect(screen.getByRole("group", { name: "Zugeteilt: Montafon" }).className).toContain(
         "ring",
       ),
+    );
+  });
+
+  it("keeps a rejected move on screen and says why", async () => {
+    onAssign.mockRejectedValue(
+      new Error("Wer nicht teilnimmt, kann keinem Event zugeteilt werden."),
+    );
+    setup();
+
+    await drag("Berger Bene", "{ArrowDown}");
+
+    expect(
+      await screen.findByText("Wer nicht teilnimmt, kann keinem Event zugeteilt werden."),
+    ).toBeInTheDocument();
+  });
+
+  it("lets go of the students it moved, and of nobody else", async () => {
+    setup();
+
+    await userEvent.click(upper().getByRole("button", { name: "Muster Anna" }));
+    await drag("Berger Bene", "{ArrowDown}");
+
+    await waitFor(() => expect(onAssign).toHaveBeenCalled());
+    expect(upper().getByRole("button", { name: "Muster Anna" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
   });
 });

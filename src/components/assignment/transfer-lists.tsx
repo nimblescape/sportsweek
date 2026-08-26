@@ -20,10 +20,10 @@ import {
   type DragEndEvent,
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
-import { ArrowLeft, ArrowRight, GripVertical } from "lucide-react";
+import { GripVertical } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
-import { Button } from "@/components/ui/button";
 import { BusyRegion } from "@/components/ui/busy-region";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   EMPTY_FILTER,
   filterStudents,
@@ -33,11 +33,17 @@ import {
 import type { RosterStudent } from "@/lib/students/roster";
 import { cn } from "@/lib/utils";
 
-/** The two drop targets, and the side a dragged student came from. */
+/** The two drop targets, and the list a dragged student came from. */
 const LISTS = { unassigned: "unassigned", assigned: "assigned" } as const;
 type ListId = (typeof LISTS)[keyof typeof LISTS];
 
 const UNASSIGNED_LABEL = "Nicht zugeteilt";
+
+/** Selects everyone the filter currently leaves; not a student, so it never travels itself. */
+const ALL_LABEL = "Alle";
+
+/** The filter's first tag reads "Alle" too, so this one says what it does instead. */
+const ALL_NAME = "Alle auswählen";
 
 /**
  * A drop counts only where the pointer actually is, so releasing between the lists cancels
@@ -48,26 +54,26 @@ const dropTarget: CollisionDetection = (args) =>
   args.pointerCoordinates === null ? closestCenter(args) : pointerWithin(args);
 
 /**
- * One arrow key crosses to the other list rather than nudging by a few pixels, which would take
- * a dozen presses to get anywhere. Moving by button stays the shorter way round (US-12); this is
- * what keeps the handle from being a control only a pointer can use (see Drag and Drop).
+ * The lists sit one above the other, so one arrow key crosses to the other rather than nudging
+ * by a few pixels. Dragging is the only way a student changes list (US-12), which makes this the
+ * gesture that keeps the dialog usable without a pointer.
  */
 const crossToOtherList: KeyboardCoordinateGetter = (event, { context, currentCoordinates }) => {
-  if (event.code !== "ArrowLeft" && event.code !== "ArrowRight") return undefined;
+  if (event.code !== "ArrowUp" && event.code !== "ArrowDown") return undefined;
 
   const target = context.droppableRects.get(
-    event.code === "ArrowRight" ? LISTS.assigned : LISTS.unassigned,
+    event.code === "ArrowDown" ? LISTS.assigned : LISTS.unassigned,
   );
   if (!target || !context.collisionRect) return undefined;
 
   return {
-    x: currentCoordinates.x + (target.left - context.collisionRect.left),
-    y: currentCoordinates.y,
+    x: currentCoordinates.x,
+    y: currentCoordinates.y + (target.top - context.collisionRect.top),
   };
 };
 
 type TransferListsProps = {
-  /** Null while no event is selected, which is the state the dialog starts in. */
+  /** Null while no week is selected, which is the state the dialog starts in. */
   eventName: string | null;
   unassigned: readonly RosterStudent[];
   assigned: readonly RosterStudent[];
@@ -77,11 +83,11 @@ type TransferListsProps = {
 };
 
 /**
- * The two lists a teacher moves students between (US-12): everyone attending who has no event
- * yet on the left, the selected event's students on the right.
+ * The two lists a teacher moves students between (US-12): everyone attending who has no week
+ * yet on top, the selected week's students below.
  *
- * There is no move from one event to another, by design — a student goes back to the left list
- * first. Which event the right list stands for is chosen above, so a direct move would have to
+ * There is no move from one week to another, by design — a student goes back to the upper list
+ * first. Which week the lower list stands for is chosen above, so a direct move would have to
  * ask for a second one here.
  */
 export function TransferLists({
@@ -106,27 +112,20 @@ export function TransferLists({
 
   if (eventName === null) {
     return (
-      <p className="text-muted-foreground text-sm">Wähle oben ein Event, um Schüler zuzuteilen.</p>
+      <p className="text-muted-foreground text-sm">Wähle oben eine Woche, um Schüler zuzuteilen.</p>
     );
   }
 
   const shownUnassigned = filterStudents(unassigned, unassignedFilter);
   const shownAssigned = filterStudents(assigned, assignedFilter);
 
-  // The selection is what is both ticked and on screen, worked out rather than kept: a student
-  // the filter hides, or one the last move took to the other side, is no longer part of it.
-  const selectionIn = (students: readonly RosterStudent[]) =>
-    students.filter((student) => picked.includes(student.id)).map((student) => student.id);
-
-  const toAssign = selectionIn(shownUnassigned);
-  const toUnassign = selectionIn(shownAssigned);
-
   async function move(recordIds: string[], transfer: (ids: string[]) => Promise<void>) {
     setMoving(true);
     setError(null);
     try {
       await transfer(recordIds);
-      setPicked([]);
+      // Only what moved: a student picked in the other list is still picked there.
+      setPicked((current) => current.filter((id) => !recordIds.includes(id)));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Das hat leider nicht geklappt.");
     } finally {
@@ -139,15 +138,24 @@ export function TransferLists({
       current.includes(recordId) ? current.filter((id) => id !== recordId) : [...current, recordId],
     );
 
+  const toggleAll = (students: readonly RosterStudent[], allPicked: boolean) =>
+    setPicked((current) => {
+      const shown = students.map((student) => student.id);
+      return allPicked
+        ? current.filter((id) => !shown.includes(id))
+        : [...current, ...shown.filter((id) => !current.includes(id))];
+    });
+
   function handleDragEnd({ active, over }: DragEndEvent) {
     const from = active.data.current?.list as ListId | undefined;
     // No target, or the list it started in: a cancelled drag changes nothing.
     if (!over || from === undefined || over.id === from) return;
 
     const recordId = String(active.id);
-    // A student who is part of the selection takes it along, exactly as the move button does;
-    // one who is not travels alone.
-    const selection = from === LISTS.unassigned ? toAssign : toUnassign;
+    const source = from === LISTS.unassigned ? unassigned : assigned;
+    // A student who is part of the selection takes it along, filtered out of sight or not; one
+    // who is not travels alone.
+    const selection = source.filter((student) => picked.includes(student.id)).map((s) => s.id);
     const moved = selection.includes(recordId) ? selection : [recordId];
 
     void move(moved, over.id === LISTS.assigned ? onAssign : onUnassign);
@@ -163,7 +171,7 @@ export function TransferLists({
 
       <BusyRegion busy={moving}>
         <DndContext sensors={sensors} collisionDetection={dropTarget} onDragEnd={handleDragEnd}>
-          <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-start">
+          <div className="flex flex-col gap-3">
             <StudentList
               listId={LISTS.unassigned}
               label={UNASSIGNED_LABEL}
@@ -173,39 +181,22 @@ export function TransferLists({
               onFilterChange={setUnassignedFilter}
               picked={picked}
               onToggle={togglePicked}
+              onToggleAll={toggleAll}
             />
-
-            <div className="flex justify-center gap-2 md:flex-col md:pt-28">
-              <Button
-                type="button"
-                size="icon"
-                aria-label="Auswahl zuteilen"
-                disabled={toAssign.length === 0}
-                onClick={() => void move(toAssign, onAssign)}
-              >
-                <ArrowRight aria-hidden className="max-md:rotate-90" />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                aria-label="Zuteilung aufheben"
-                disabled={toUnassign.length === 0}
-                onClick={() => void move(toUnassign, onUnassign)}
-              >
-                <ArrowLeft aria-hidden className="max-md:rotate-90" />
-              </Button>
-            </div>
 
             <StudentList
               listId={LISTS.assigned}
+              // The card above already carries the week's name, so the title says only which
+              // week this is; the accessible name still says what the list holds.
               label={`Zugeteilt: ${eventName}`}
+              title={eventName}
               students={shownAssigned}
               groups={groups}
               filter={assignedFilter}
               onFilterChange={setAssignedFilter}
               picked={picked}
               onToggle={togglePicked}
+              onToggleAll={toggleAll}
             />
           </div>
         </DndContext>
@@ -217,53 +208,76 @@ export function TransferLists({
 type StudentListProps = {
   listId: ListId;
   label: string;
+  /** What the card shows; the label is what it is called, which may say more. */
+  title?: string;
   students: readonly RosterStudent[];
   groups: readonly FilterGroup[];
   filter: StudentFilter;
   onFilterChange: (next: StudentFilter) => void;
   picked: readonly string[];
   onToggle: (recordId: string) => void;
+  onToggleAll: (students: readonly RosterStudent[], allPicked: boolean) => void;
 };
 
 function StudentList({
   listId,
   label,
+  title = label,
   students,
   groups,
   filter,
   onFilterChange,
   picked,
   onToggle,
+  onToggleAll,
 }: StudentListProps) {
   const { setNodeRef, isOver } = useDroppable({ id: listId });
+  const allPicked = students.length > 0 && students.every((student) => picked.includes(student.id));
 
   return (
-    <section
+    <Card
       ref={setNodeRef}
+      size="sm"
+      role="group"
       aria-label={label}
-      className={cn(
-        "border-border rounded-lg border p-3 shadow-sm",
-        isOver && "border-ring ring-ring/50 ring-3",
-      )}
+      className={cn("transition-shadow", isOver && "ring-ring ring-2")}
     >
-      <h3 className="font-heading mb-2 text-sm font-semibold">{label}</h3>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-3">
+          {title}
+          {/* What the filter leaves, not what the list holds (US-12). */}
+          <span className="text-muted-foreground text-sm font-normal tabular-nums">
+            {students.length}
+          </span>
+        </CardTitle>
+      </CardHeader>
 
-      <FilterTagList label={label} groups={groups} value={filter} onChange={onFilterChange} />
+      <CardContent className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        <div>
+          <ul className="max-h-72 overflow-y-auto">
+            <li>
+              <Row
+                name={ALL_LABEL}
+                label={ALL_NAME}
+                picked={allPicked}
+                onToggle={() => onToggleAll(students, allPicked)}
+              />
+            </li>
+            {students.map((student) => (
+              <StudentRow
+                key={student.id}
+                student={student}
+                listId={listId}
+                picked={picked.includes(student.id)}
+                onToggle={onToggle}
+              />
+            ))}
+          </ul>
+        </div>
 
-      <ul className="divide-border mt-3 max-h-72 divide-y overflow-y-auto">
-        {students.map((student) => (
-          <StudentRow
-            key={student.id}
-            student={student}
-            listId={listId}
-            picked={picked.includes(student.id)}
-            onToggle={onToggle}
-          />
-        ))}
-      </ul>
-
-      <p className="text-muted-foreground mt-2 text-xs">{students.length} angezeigt</p>
-    </section>
+        <FilterTagList label={label} groups={groups} value={filter} onChange={onFilterChange} />
+      </CardContent>
+    </Card>
   );
 }
 
@@ -285,25 +299,48 @@ function StudentRow({
   });
 
   return (
-    <li ref={setNodeRef} className={cn("flex items-center", isDragging && "bg-muted opacity-80")}>
+    <li ref={setNodeRef} className={cn(isDragging && "opacity-80")}>
+      <Row name={name} picked={picked} onToggle={() => onToggle(student.id)}>
+        <button
+          type="button"
+          aria-label={`${name} verschieben`}
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical aria-hidden className="size-4" />
+        </button>
+      </Row>
+    </li>
+  );
+}
+
+/** Picked is shown by colouring the row, so there is no box to tick (US-12). */
+function Row({
+  name,
+  label,
+  picked,
+  onToggle,
+  children,
+}: {
+  name: string;
+  label?: string;
+  picked: boolean;
+  onToggle: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={cn("flex items-center rounded-md", picked && "bg-accent")}>
+      {children ?? <span aria-hidden className="size-6 shrink-0" />}
       <button
         type="button"
-        aria-label={`${name} verschieben`}
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
-        {...attributes}
-        {...listeners}
+        aria-label={label}
+        aria-pressed={picked}
+        onClick={onToggle}
+        className="focus-visible:ring-ring/50 flex-1 rounded-md px-1 py-2 text-left text-sm outline-none focus-visible:ring-3"
       >
-        <GripVertical aria-hidden className="size-4" />
-      </button>
-      <label className="flex flex-1 cursor-pointer items-center gap-2 px-1 py-2 text-sm">
-        <input
-          type="checkbox"
-          className="accent-primary size-4"
-          checked={picked}
-          onChange={() => onToggle(student.id)}
-        />
         {name}
-      </label>
-    </li>
+      </button>
+    </div>
   );
 }
