@@ -5,10 +5,10 @@
 
 name: Promotion
 
-# Only fires for pull requests into main, so it never appears on a PR into staging.
+# Only fires for pull requests into production, so it never appears on a feature PR into main.
 on:
   pull_request:
-    branches: [main]
+    branches: [production]
 
 # The check reads the branch name out of the event payload and nothing else: no checkout,
 # no API call, so the token needs no scope at all.
@@ -18,25 +18,25 @@ jobs:
   promotion-source:
     runs-on: ubuntu-latest
     steps:
-      - name: Only staging may be promoted to main
+      - name: Only main may be promoted to production
         # Via the environment rather than an expression inside the script: a branch name is
         # attacker-controlled text and would otherwise be pasted straight into the shell.
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           case "$HEAD_REF" in
-            staging)
-              echo "Promoting staging to main."
+            main)
+              echo "Promoting main to production."
               ;;
             hotfix/*)
               # The one way past the queue, named so it is visible in the log rather than
-              # done by disabling this check. Back-merge main into staging afterwards, or
-              # the two branches drift apart.
-              echo "Hotfix '$HEAD_REF' going straight to main."
+              # done by disabling this check. Land the same fix on main as well, or the trunk
+              # keeps the defect and every later promotion has to merge around it.
+              echo "Hotfix '$HEAD_REF' going straight to production."
               ;;
             *)
-              echo "::error::'$HEAD_REF' cannot merge into main. Changes reach production by"
-              echo "::error::merging into staging first, then opening staging -> main."
+              echo "::error::'$HEAD_REF' cannot merge into production. Changes reach production"
+              echo "::error::by merging into main first, then opening main -> production."
               exit 1
               ;;
           esac
