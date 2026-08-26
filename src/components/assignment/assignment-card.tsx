@@ -29,6 +29,17 @@ const ALL_LABEL = "Alle";
 const ALL_NAME = "Alle auswählen";
 export const allDragId = (groupId: string) => `all:${groupId}`;
 
+/** A rule between the areas, turning with them when the card stops being three columns wide. */
+const DIVIDER = "border-border max-lg:border-t max-lg:pt-4 lg:border-l lg:pl-4";
+
+function AreaTitle({ children }: { children: string }) {
+  return (
+    <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+      {children}
+    </h3>
+  );
+}
+
 type AssignmentCardProps = {
   group: AssignmentGroup;
   programs: readonly string[];
@@ -74,68 +85,75 @@ export function AssignmentCard({
       aria-label={group.title}
       className={cn("transition-shadow", isOver && "ring-ring ring-2")}
     >
-      <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto]">
-        <div className="lg:col-span-3">
-          <CardTitle className="flex items-center gap-1.5">
-            <button
-              type="button"
-              aria-label={`Details zu ${group.title}`}
-              aria-expanded={expanded}
-              onClick={() => setExpanded((open) => !open)}
-              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-md p-0.5 transition-colors outline-none focus-visible:ring-3"
-            >
-              <ChevronRight
-                aria-hidden
-                className={cn("size-4 transition-transform", expanded && "rotate-90")}
-              />
-            </button>
-            {`${group.title}: ${group.students.length}`}
-          </CardTitle>
-        </div>
+      <CardContent className="flex flex-col gap-4">
+        <CardTitle className="flex items-center gap-1.5">
+          <button
+            type="button"
+            aria-label={`Details zu ${group.title}`}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-md p-0.5 transition-colors outline-none focus-visible:ring-3"
+          >
+            <ChevronRight
+              aria-hidden
+              className={cn("size-4 transition-transform", expanded && "rotate-90")}
+            />
+          </button>
+          {`${group.title}: ${group.students.length}`}
+        </CardTitle>
 
         {expanded && (
-          <>
-            <FilterTagList
-              label={group.title}
-              groups={filterGroups}
-              value={filter}
-              onChange={onFilterChange}
-            />
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto]">
+            <section>
+              <AreaTitle>Filter</AreaTitle>
+              <FilterTagList
+                label={group.title}
+                groups={filterGroups}
+                value={filter}
+                onChange={onFilterChange}
+              />
+            </section>
 
-            <ul className="max-h-72 overflow-y-auto">
-              {shown.length > 0 && (
-                <Row
-                  dragId={allDragId(group.id)}
-                  data={{ group: group.id, all: true }}
-                  name={ALL_LABEL}
-                  label={ALL_NAME}
-                  picked={allPicked}
-                  onToggle={() => onToggleAll(shown, allPicked)}
-                />
-              )}
-              {shown.map((student) => (
-                <Row
-                  key={student.id}
-                  dragId={student.id}
-                  data={{ group: group.id }}
-                  name={`${student.lastName} ${student.firstName}`}
-                  picked={picked.includes(student.id)}
-                  onToggle={() => onToggle(student.id)}
-                />
-              ))}
-            </ul>
+            <section className={DIVIDER}>
+              <AreaTitle>Schüler</AreaTitle>
+              <ul className="max-h-72 overflow-y-auto">
+                {shown.length > 0 && (
+                  <Row
+                    dragId={allDragId(group.id)}
+                    data={{ group: group.id, all: true }}
+                    name={ALL_LABEL}
+                    label={ALL_NAME}
+                    picked={allPicked}
+                    onToggle={() => onToggleAll(shown, allPicked)}
+                  />
+                )}
+                {shown.map((student) => (
+                  <Row
+                    key={student.id}
+                    dragId={student.id}
+                    data={{ group: group.id }}
+                    name={`${student.lastName} ${student.firstName}`}
+                    picked={picked.includes(student.id)}
+                    onToggle={() => onToggle(student.id)}
+                  />
+                ))}
+              </ul>
+            </section>
 
             {/* Deliberately fed the whole card rather than `shown`: the figures describe the
                 card, not the filter someone happens to have typed into it. */}
-            <div className="flex flex-col gap-3">
-              <GenderTable counts={group} />
-              <SkillMatrix
-                counts={group.skillLevels}
-                programs={programs}
-                skillLevels={skillLevels}
-              />
-            </div>
-          </>
+            <section className={DIVIDER}>
+              <AreaTitle>Statistik</AreaTitle>
+              <div className="flex flex-col gap-3">
+                <GenderTable counts={group} />
+                <SkillMatrix
+                  counts={group.skillLevels}
+                  programs={programs}
+                  skillLevels={skillLevels}
+                />
+              </div>
+            </section>
+          </div>
         )}
       </CardContent>
     </Card>

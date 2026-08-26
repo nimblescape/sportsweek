@@ -115,6 +115,16 @@ describe("AssignmentBoard", () => {
     expect(card("Montafon").getByText("Montafon: 1")).toBeInTheDocument();
   });
 
+  it("divides a card into its three areas, each headed and ruled off from the last", () => {
+    setup();
+
+    const areas = card("Montafon").getAllByRole("heading", { level: 3 });
+
+    expect(areas.map((heading) => heading.textContent)).toEqual(["Filter", "Schüler", "Statistik"]);
+    expect(areas[1].parentElement?.className).toContain("border");
+    expect(areas[2].parentElement?.className).toContain("border");
+  });
+
   it("filters each card on its own, and only what it lists", async () => {
     setup();
 
