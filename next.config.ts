@@ -8,30 +8,28 @@ import { parse } from "yaml";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveAuthMode } from "./src/lib/auth/auth-mode";
-
-type EnvEntry = { variable: string; value?: string };
+import { envFromApphostingYaml, preferProcessEnv } from "./src/lib/apphosting-env";
 
 // Public Firebase/Entra values live only in apphosting.yaml — reading them here makes
 // them available to `next dev`/`next build` without duplicating them into a .env file.
 function readEnv(fileName: string): Record<string, string> {
-  const apphosting = parse(
-    readFileSync(fileURLToPath(new URL(`./${fileName}`, import.meta.url)), "utf8"),
-  );
-  return Object.fromEntries(
-    (apphosting.env ?? [])
-      .filter((entry: EnvEntry) => entry.value !== undefined)
-      .map((entry: EnvEntry) => [entry.variable, entry.value]),
+  return envFromApphostingYaml(
+    parse(readFileSync(fileURLToPath(new URL(`./${fileName}`, import.meta.url)), "utf8")),
   );
 }
 
 // App Hosting layers apphosting.<environment>.yaml over apphosting.yaml for a backend tagged
-// with that environment name. APP_HOSTING_ENV reproduces that locally, so `npm run dev:staging`
-// points at staging without editing the production config.
+// with that environment name, and injects the result. APP_HOSTING_ENV reproduces that for a
+// local build, so `npm run dev:staging` points at staging without editing the production
+// config — but on App Hosting the injected values are the ones that count.
 const environment = process.env.APP_HOSTING_ENV;
-const env: Record<string, string> = {
-  ...readEnv("apphosting.yaml"),
-  ...(environment ? readEnv(`apphosting.${environment}.yaml`) : {}),
-};
+const env = preferProcessEnv(
+  {
+    ...readEnv("apphosting.yaml"),
+    ...(environment ? readEnv(`apphosting.${environment}.yaml`) : {}),
+  },
+  process.env,
+);
 
 // Whether the fake login is part of this build at all, rather than merely disabled in it.
 // `route.fake.ts` only counts as a Route Handler while `fake.ts` is a page extension, so
