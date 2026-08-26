@@ -8,14 +8,15 @@ name: Deploy Security Rules
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, staging]
     paths:
       - "firestore.rules"
       - "storage.rules"
+      - "firestore.indexes.json"
       - ".github/workflows/deploy-rules.yml"
 
 concurrency:
-  group: deploy-rules-main
+  group: deploy-rules-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -27,6 +28,10 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Rules reach staging by the same route the code does: the branch decides the project,
+    # so nothing can be released to production that has not passed through staging first.
+    env:
+      PROJECT: ${{ github.ref_name == 'main' && 'htld-sportsweek' || 'htld-sportsweek-staging' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -36,7 +41,13 @@ jobs:
       - run: npm ci
       - uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_RULES_DEPLOY_SERVICE_ACCOUNT }}
-      - name: Deploy firestore.rules and storage.rules
-        run: npx firebase-tools deploy --only firestore:rules,storage --project htld-sportsweek --non-interactive
+          workload_identity_provider: >-
+            ${{ github.ref_name == 'main' && vars.GCP_WORKLOAD_IDENTITY_PROVIDER
+            || vars.GCP_WORKLOAD_IDENTITY_PROVIDER_STAGING }}
+          service_account: >-
+            ${{ github.ref_name == 'main' && vars.GCP_RULES_DEPLOY_SERVICE_ACCOUNT
+            || vars.GCP_RULES_DEPLOY_SERVICE_ACCOUNT_STAGING }}
+      - name: Deploy rules and indexes to ${{ env.PROJECT }}
+        run: >-
+          npx firebase-tools deploy --only firestore:rules,firestore:indexes,storage
+          --project ${{ env.PROJECT }} --non-interactive
