@@ -7,10 +7,16 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parse } from "yaml";
-import { envFromApphostingYaml, preferProcessEnv } from "@/lib/apphosting-env";
 import {
-  FAKE_LOGIN_PROJECT_ID,
+  envFromApphostingYaml,
+  INJECTED_VARIABLES,
+  preferProcessEnv,
+  requireFirebaseProject,
+} from "@/lib/apphosting-env";
+import {
+  DEVELOPMENT_PROJECT_ID,
   PRODUCTION_PROJECT_ID,
+  STAGING_PROJECT_ID,
   resolveAuthMode,
 } from "@/lib/auth/auth-mode";
 
@@ -73,6 +79,19 @@ describe("preferProcessEnv", () => {
     });
   });
 
+  // On App Hosting nothing selects an environment file: the merged result is injected and
+  // APP_HOSTING_ENV is unset, so only the base is read — and the base names no project. The
+  // variables the app is configured with therefore have to be known independently of any file.
+  it("carries an injected variable that no file read here declared", () => {
+    expect(preferProcessEnv({}, { NEXT_PUBLIC_FIREBASE_PROJECT_ID: "htld-sportsweek" })).toEqual({
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: "htld-sportsweek",
+    });
+  });
+
+  it("leaves out a variable neither the files nor the environment set", () => {
+    expect(preferProcessEnv({}, {})).toEqual({});
+  });
+
   it("treats an explicitly empty value as set", () => {
     expect(preferProcessEnv({ AUTH_MODE: "entra" }, { AUTH_MODE: "" })).toEqual({ AUTH_MODE: "" });
   });
@@ -80,56 +99,121 @@ describe("preferProcessEnv", () => {
 
 /**
  * App Hosting layers apphosting.<environment>.yaml over apphosting.yaml and injects the
- * result, so the base is not a neutral file: it is what a deployed backend falls back to. It
- * holds the local development values, which point at the project the fake login is allowed
- * in — so anything a deployed environment forgets to restate, it inherits from there.
+ * result, so the base is not a neutral file: it is what a deployed backend falls back to.
+ * It therefore holds only what every environment shares, and nothing an environment could
+ * be handed by forgetting to ask.
  */
 describe("the apphosting yaml files", () => {
   const base = readEnv("apphosting.yaml");
-  const production = readEnv("apphosting.production.yaml");
-  const staging = readEnv("apphosting.staging.yaml");
+  const environments = {
+    development: readEnv("apphosting.development.yaml"),
+    staging: readEnv("apphosting.staging.yaml"),
+    production: readEnv("apphosting.production.yaml"),
+  };
 
-  const firebaseVariables = Object.keys(base).filter((name) =>
-    name.startsWith("NEXT_PUBLIC_FIREBASE_"),
-  );
+  const firebaseVariablesOf = (env: Record<string, string>) =>
+    Object.keys(env)
+      .filter((name) => name.startsWith("NEXT_PUBLIC_FIREBASE_"))
+      .sort();
 
   it("has something to check, so an empty read cannot pass the rest", () => {
-    expect(firebaseVariables.length).toBeGreaterThan(0);
+    expect(firebaseVariablesOf(environments.production).length).toBeGreaterThan(0);
+  });
+
+  // Nothing environment-specific in the base means nothing to inherit by accident: an
+  // environment that fails to name its project gets none, rather than somebody else's.
+  it("keeps every Firebase value out of the base", () => {
+    expect(firebaseVariablesOf(base)).toEqual([]);
+  });
+
+  it("declares the same Firebase values in every environment, so none is half-configured", () => {
+    const [reference, ...rest] = Object.values(environments).map(firebaseVariablesOf);
+
+    for (const declared of rest) expect(declared).toEqual(reference);
   });
 
   it.each([
-    ["production", () => production],
-    ["staging", () => staging],
-  ])("restates every Firebase value in %s rather than inheriting one", (_name, file) => {
-    expect(Object.keys(file())).toEqual(expect.arrayContaining(firebaseVariables));
+    ["development", DEVELOPMENT_PROJECT_ID],
+    ["staging", STAGING_PROJECT_ID],
+    ["production", PRODUCTION_PROJECT_ID],
+  ] as const)("points %s at %s", (name, projectId) => {
+    expect(environments[name].NEXT_PUBLIC_FIREBASE_PROJECT_ID).toBe(projectId);
   });
 
-  it("points local development at the one project the fake login is allowed in", () => {
-    expect(base.NEXT_PUBLIC_FIREBASE_PROJECT_ID).toBe(FAKE_LOGIN_PROJECT_ID);
+  // The base is inherited by every backend, so the fake login may not be spelled there.
+  it("never spells out an AUTH_MODE in the base", () => {
+    expect(base).not.toHaveProperty("AUTH_MODE");
   });
 
-  it("points production at the production project", () => {
-    expect(production.NEXT_PUBLIC_FIREBASE_PROJECT_ID).toBe(PRODUCTION_PROJECT_ID);
+  // resolveAuthMode pins production and staging, so an AUTH_MODE in either file would be a
+  // second answer to a question already settled — read by nobody, and wrong the moment the
+  // pinned one changes. Development is the only environment that gets to say.
+  it("names AUTH_MODE in exactly one environment, the one that is asked", () => {
+    const naming = Object.entries(environments)
+      .filter(([, file]) => "AUTH_MODE" in file)
+      .map(([name]) => name);
+
+    expect(naming).toEqual(["development"]);
+  });
+
+  // A deployment signs with the credential its metadata server hands it, and next.config.ts
+  // inlines what these files declare -- with a laptop's .env winning over them. Declaring it
+  // anywhere here put one machine's account into every build, production included.
+  it("leaves FIREBASE_SERVICE_ACCOUNT_ID out of every file, as a property of the machine", () => {
+    for (const file of [base, ...Object.values(environments)]) {
+      expect(file).not.toHaveProperty("FIREBASE_SERVICE_ACCOUNT_ID");
+    }
+  });
+
+  // The names the app is configured with are held in code, because App Hosting injects values
+  // without saying which file produced them. A variable added to a yaml and not to that list
+  // would be read locally and silently missing on a deployment.
+  it("declares every variable it uses in INJECTED_VARIABLES", () => {
+    const inYaml = new Set([base, ...Object.values(environments)].flatMap(Object.keys));
+
+    expect([...inYaml].sort()).toEqual(expect.arrayContaining([]));
+    for (const variable of inYaml) expect(INJECTED_VARIABLES).toContain(variable);
   });
 
   // Not `AUTH_MODE: entra`: saying nothing is what makes Entra ID the answer, so the file
   // cannot drift into claiming something else, and a new environment file is safe empty.
   it("leaves AUTH_MODE unset in production, where absence means Entra ID", () => {
-    expect(production).not.toHaveProperty("AUTH_MODE");
+    expect(environments.production).not.toHaveProperty("AUTH_MODE");
   });
 
-  // What the two files above actually add up to. Production inherits `fake` from the base and
-  // is served Entra ID regardless, because the project decides the mode and not the string —
-  // so no file has to remember to switch the fake login off.
+  // What the files above add up to once resolveAuthMode has the last word. Only development
+  // is decided by a file; the other two are decided by which project they name.
   it.each([
-    ["production", () => production, "entra"],
-    ["staging", () => staging, "fake"],
-    ["local", () => ({}) as Record<string, string>, "fake"],
+    ["development", () => environments.development, "fake"],
+    ["staging", () => environments.staging, "fake"],
+    ["production", () => environments.production, "entra"],
+    ["no environment file at all", () => ({}) as Record<string, string>, "entra"],
   ])("resolves %s to the %s sign-in once merged over the base", (_name, file, expected) => {
     const merged = { ...base, ...file() };
 
     expect(resolveAuthMode(merged.AUTH_MODE, merged.NEXT_PUBLIC_FIREBASE_PROJECT_ID)).toBe(
       expected,
     );
+  });
+});
+
+/**
+ * With no project in the base, a build that selects no environment has no project either.
+ * Saying so is the point: Next would otherwise build an app addressing `undefined`, and the
+ * first sign of it would be a broken deployment rather than a failed build.
+ */
+describe("requireFirebaseProject", () => {
+  it("passes the environment through once a project is named", () => {
+    const env = { NEXT_PUBLIC_FIREBASE_PROJECT_ID: "htld-sportsweek" };
+
+    expect(requireFirebaseProject(env, "production")).toBe(env);
+  });
+
+  it.each([[{}], [{ NEXT_PUBLIC_FIREBASE_PROJECT_ID: "" }]])("refuses %o", (env) => {
+    expect(() => requireFirebaseProject(env, "production")).toThrow(/apphosting\.production/);
+  });
+
+  it("names APP_HOSTING_ENV when no environment was selected at all", () => {
+    expect(() => requireFirebaseProject({}, undefined)).toThrow(/APP_HOSTING_ENV/);
   });
 });

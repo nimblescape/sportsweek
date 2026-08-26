@@ -2,55 +2,21 @@
 # Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 
-# Local development, and the base every deployed backend layers its own file over.
+# What every environment shares, and nothing else.
 #
 # App Hosting always reads this file and merges apphosting.<environment>.yaml on top, choosing
 # that file by the backend's Environment name. There is no way to keep a base out of a
-# deployment, so what stands here is what an environment gets when it says nothing -- which is
-# why apphosting.production.yaml and apphosting.staging.yaml restate every value below rather
-# than inherit one. apphosting-env.test.ts fails the build if one of them stops doing so.
+# deployment, so anything standing here is handed to an environment whether it asked or not --
+# which is why nothing environment-specific does. A backend with no Environment name gets no
+# Firebase project at all and the build stops, rather than quietly borrowing another
+# environment's. See requireFirebaseProject in src/lib/apphosting-env.ts.
 #
-# `npm run dev` reads this file and nothing else, so local work runs against the staging
-# project: the fake login provisions real Auth accounts and real user records, and none of
-# those belong anywhere near production data.
 # See https://firebase.google.com/docs/app-hosting/multiple-environments.
 runConfig:
   minInstances: 0
   maxInstances: 1
 
 env:
-  # Public in the same sense as the production key -- it identifies the project, it does not
-  # grant access. Restrict it to this project's own origins in the Cloud console.
-  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: AIzaSyABbpPwfzqZHYmxYEkHkCkFcDTd0G0tXmc
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: sportsweek-staging.htldornbirn.org
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: htld-sportsweek-staging
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: htld-sportsweek-staging.firebasestorage.app
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: "124249657490"
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: "1:124249657490:web:172cf58935cb8af74c164b"
-    availability:
-      - BUILD
-      - RUNTIME
   # The one Entra ID tenant every environment signs in against, so it is genuinely shared
   # rather than a default waiting to be overridden.
   - variable: NEXT_PUBLIC_ENTRA_ID_TENANT_ID
@@ -58,15 +24,12 @@ env:
     availability:
       - BUILD
       - RUNTIME
-  # Set to `entra` to rehearse the real Microsoft sign-in locally. This value is inherited by
-  # any backend that does not restate it, which is safe only because resolveAuthMode allows
-  # the fake login in one named project and refuses every other, production included.
-  - variable: AUTH_MODE
-    value: fake
-    availability:
-      - BUILD
-      - RUNTIME
+# AUTH_MODE is not here, and not in every environment file either: src/lib/auth/auth-mode.ts
+# is the single place the sign-in is decided. It pins production to Entra ID and staging to the
+# fake login by project, reads AUTH_MODE only for development, and answers Entra ID for any
+# project nobody named -- so an environment that says nothing gets the real sign-in.
+#
 # No service account keys are used anywhere: on App Hosting, firebase-admin uses Application
-# Default Credentials automatically via the backend's service account. Local dev uses
-# `gcloud auth application-default login` instead. The public values above are read straight
-# from this file by next.config.ts, so no .env file is needed.
+# Default Credentials automatically via the backend's service account. Local development uses
+# `gcloud auth application-default login` instead. The public values in these files are read
+# straight from them by next.config.ts, so no .env file is needed.

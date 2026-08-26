@@ -50,6 +50,19 @@ jobs:
       - run: npm ci
       - run: npm run test:rules
 
+  # Asserts on the artifact rather than on the decision that produces it: every unit test
+  # still passes if a page extension or an import puts the fake login back into production.
+  production-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:production-build
+
   e2e:
     runs-on: ubuntu-latest
     steps:

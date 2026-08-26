@@ -9,10 +9,10 @@
 # sets APP_HOSTING_ENV=staging so next.config.ts merges it the same way locally.
 # See https://firebase.google.com/docs/app-hosting/multiple-environments.
 #
-# The base holds the local development values, which happen to name this same project. Every
-# NEXT_PUBLIC_FIREBASE_ value is restated here rather than inherited, so pointing local
-# development somewhere else later cannot silently move staging with it;
-# apphosting-env.test.ts fails the build if one goes missing.
+# No AUTH_MODE: this project is pinned to the fake login in src/lib/auth/auth-mode.ts, which
+# is where the sign-in is decided. Naming it here would be a second answer to a settled
+# question, read by nobody. Every NEXT_PUBLIC_FIREBASE_ value is restated rather than
+# inherited, and apphosting-env.test.ts fails the build if one goes missing.
 runConfig:
   minInstances: 0
   maxInstances: 1
@@ -47,13 +47,6 @@ env:
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: "1:124249657490:web:172cf58935cb8af74c164b"
-    availability:
-      - BUILD
-      - RUNTIME
-  # Set to `entra` to rehearse the real Microsoft sign-in here; the tenant is inherited from
-  # apphosting.yaml either way. This is the one project resolveAuthMode allows it in.
-  - variable: AUTH_MODE
-    value: fake
     availability:
       - BUILD
       - RUNTIME
