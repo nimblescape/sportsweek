@@ -99,12 +99,12 @@ beforeEach(() => {
 });
 
 describe("StudentMasterDataForm", () => {
-  it("shows the season and the name from the user record, both read-only (US-11)", () => {
+  it("shows the season and the name from the user record as text, not as fields (US-11)", () => {
     renderForm();
 
-    expect(screen.getByLabelText("Saison")).toHaveValue("Winter 2026");
-    expect(screen.getByLabelText("Name")).toHaveValue("Jane Doe");
-    expect(screen.getByLabelText("Name")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Saison")).toHaveTextContent("Winter 2026");
+    expect(screen.getByLabelText("Name")).toHaveTextContent("Jane Doe");
+    expect(screen.queryByRole("textbox", { name: "Name" })).not.toBeInTheDocument();
   });
 
   it("starts a student who has not registered yet on an empty form", () => {

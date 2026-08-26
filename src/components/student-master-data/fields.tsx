@@ -35,6 +35,26 @@ export function Field({ label, error, children }: FieldProps) {
   );
 }
 
+/**
+ * A value the student is shown but does not own — the season they are registering for and the
+ * name from their user record (US-11). Rendered as text rather than a disabled input: an input
+ * still looks like somewhere to type, and a caret in a field nothing can change is a small lie.
+ */
+export function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  const id = React.useId();
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span id={id} className="text-sm leading-none font-medium">
+        {label}
+      </span>
+      <p aria-labelledby={id} className="text-muted-foreground text-sm">
+        {value}
+      </p>
+    </div>
+  );
+}
+
 /** A group of choices needs its own label, which only a legend gives it. */
 export function ChoiceGroup({
   label,

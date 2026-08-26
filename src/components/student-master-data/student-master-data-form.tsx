@@ -29,7 +29,7 @@ import {
   toRegistrationInput,
 } from "@/lib/student-master-data/registration";
 import { EquipmentChecklist } from "./equipment-checklist";
-import { Field, RadioField, SelectField, YES_NO } from "./fields";
+import { Field, RadioField, ReadOnlyField, SelectField, YES_NO } from "./fields";
 
 export type MasterDataLists = {
   classes: readonly string[];
@@ -165,8 +165,8 @@ export function StudentMasterDataForm({
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
       <Section title="Anmeldung">
-        <Field label="Saison">{(id) => <Input id={id} value={seasonName} readOnly />}</Field>
-        <Field label="Name">{(id) => <Input id={id} value={studentName} readOnly />}</Field>
+        <ReadOnlyField label="Saison" value={seasonName} />
+        <ReadOnlyField label="Name" value={studentName} />
         <SelectField
           control={control}
           name="class"
