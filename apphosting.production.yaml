@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+
+# Overrides for production, layered over apphosting.yaml.
+#
+# App Hosting picks this file for any backend whose Environment name is `production`
+# (console > App Hosting > View dashboard > Settings > Environment). Without that name set,
+# the backend reads apphosting.yaml alone -- which holds the local development values, and
+# would point production at the staging project.
+# See https://firebase.google.com/docs/app-hosting/multiple-environments.
+#
+# Every NEXT_PUBLIC_FIREBASE_ value the base declares is restated here rather than inherited;
+# apphosting-env.test.ts fails the build if one goes missing.
+runConfig:
+  minInstances: 0
+  maxInstances: 3
+
+env:
+  # Not a secret, despite the name. A Firebase Web API key identifies the project, it does not
+  # grant access -- it is compiled into the client bundle and served to every visitor, so it is
+  # readable by anyone who opens the app regardless of this repository's visibility. Access is
+  # decided by Firestore Security Rules and by the sign-in providers, never by this value.
+  #
+  # It is nonetheless restricted in Google Cloud, so it cannot be lifted and reused elsewhere:
+  #   - API restrictions: limited to the Firebase/Google services this app actually calls.
+  #   - HTTP referrer restrictions: only this app's own origins (the custom domain, the App
+  #     Hosting backend, the two default Firebase domains, and localhost for `npm run dev`).
+  #     A request without a matching Referer is rejected as API_KEY_HTTP_REFERRER_BLOCKED.
+  #
+  # A Referer header can be forged, so that is a speed bump rather than a boundary. The actual
+  # control on the abuse path this closes -- creating accounts through the Identity Toolkit
+  # endpoints -- is that Microsoft/Entra ID is the only enabled sign-in provider. E-mail
+  # /password, anonymous and phone sign-in are all disabled, so accounts:signUp answers
+  # ADMIN_ONLY_OPERATION. Keep it that way: enabling another provider would open that path.
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyBWfiPscbz7JDxxvqOMw9p80DP6TRAdzQM
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: sportsweek.htldornbirn.org
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: htld-sportsweek
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: htld-sportsweek.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "431781920808"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:431781920808:web:00425cd8f18cb2d87b351d"
+    availability:
+      - BUILD
+      - RUNTIME
+# AUTH_MODE is deliberately absent. Entra ID is what an unset mode resolves to, so production
+# never has to assert it -- and resolveAuthMode allows the fake login in one named project
+# regardless, so inheriting `fake` from the base would change nothing here either.

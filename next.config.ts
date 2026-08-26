@@ -20,8 +20,9 @@ function readEnv(fileName: string): Record<string, string> {
 
 // App Hosting layers apphosting.<environment>.yaml over apphosting.yaml for a backend tagged
 // with that environment name, and injects the result. APP_HOSTING_ENV reproduces that for a
-// local build. `npm run dev` sets it to staging, so local work never reaches the production
-// database — but on App Hosting the injected values are the ones that count.
+// local build. Unset, the base alone applies -- which holds the local development values, so
+// `npm run dev` never reaches the production database. On App Hosting the injected values are
+// the ones that count.
 const environment = process.env.APP_HOSTING_ENV;
 const env = preferProcessEnv(
   {
@@ -33,7 +34,8 @@ const env = preferProcessEnv(
 
 // Whether the fake login is part of this build at all, rather than merely disabled in it.
 // `route.fake.ts` only counts as a Route Handler while `fake.ts` is a page extension, so
-// outside staging the file never enters the graph and no /api/auth/fake is emitted.
+// outside the one project it is allowed in the file never enters the graph and no
+// /api/auth/fake is emitted.
 const fakeLogin = resolveAuthMode(env.AUTH_MODE, env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) === "fake";
 
 const nextConfig: NextConfig = {

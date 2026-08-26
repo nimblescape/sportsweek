@@ -22,7 +22,7 @@ export function envFromApphostingYaml(parsed: unknown): Record<string, string> {
  * App Hosting merges `apphosting.<environment>.yaml` over the base itself and injects the
  * result, so a value already in the environment is the authoritative one — reading the files
  * here is only a stand-in for that when building locally. Getting this backwards silently
- * builds staging as production.
+ * builds a deployed environment with the base's local development values.
  *
  * Only variables the files declare are carried over: the result is inlined into the client
  * bundle, so the yaml is what decides which values are public.

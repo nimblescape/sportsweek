@@ -33,4 +33,14 @@ describe("resolveAuthMode", () => {
   it("refuses the fake login when the project is unknown", () => {
     expect(resolveAuthMode("fake", undefined)).toBe("entra");
   });
+
+  // An allow-list rather than a deny-list, so a project nobody thought about is safe by
+  // default. apphosting.yaml is the base every backend inherits, and it carries `fake` for
+  // local development — a new backend that forgot to override it would otherwise get it.
+  it.each([["htld-sportsweek-demo"], ["some-other-project"], ["htld-sportsweek-staging-2"]])(
+    "refuses the fake login in %o, which was never allowed it",
+    (projectId) => {
+      expect(resolveAuthMode("fake", projectId)).toBe("entra");
+    },
+  );
 });

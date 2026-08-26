@@ -5,13 +5,14 @@
 # Overrides for staging, layered over apphosting.yaml.
 #
 # App Hosting picks this file for any backend whose Environment name is `staging`
-# (console > App Hosting > View dashboard > Settings > Environment), falling back to
-# apphosting.yaml otherwise. `npm run dev` sets APP_HOSTING_ENV=staging so
-# next.config.ts merges it the same way locally.
+# (console > App Hosting > View dashboard > Settings > Environment). `npm run dev:staging`
+# sets APP_HOSTING_ENV=staging so next.config.ts merges it the same way locally.
 # See https://firebase.google.com/docs/app-hosting/multiple-environments.
 #
-# Staging is a separate Firebase project on purpose: the fake login provisions real Auth
-# accounts and real user records, and none of those belong anywhere near production data.
+# The base holds the local development values, which happen to name this same project. Every
+# NEXT_PUBLIC_FIREBASE_ value is restated here rather than inherited, so pointing local
+# development somewhere else later cannot silently move staging with it;
+# apphosting-env.test.ts fails the build if one goes missing.
 runConfig:
   minInstances: 0
   maxInstances: 1
@@ -50,8 +51,7 @@ env:
       - BUILD
       - RUNTIME
   # Set to `entra` to rehearse the real Microsoft sign-in here; the tenant is inherited from
-  # apphosting.yaml either way. resolveAuthMode refuses `fake` for the production project, so
-  # this value only ever takes effect where it is safe.
+  # apphosting.yaml either way. This is the one project resolveAuthMode allows it in.
   - variable: AUTH_MODE
     value: fake
     availability:
