@@ -10,6 +10,10 @@ on:
   pull_request:
     branches: [main]
 
+# The check reads the branch name out of the event payload and nothing else: no checkout,
+# no API call, so the token needs no scope at all.
+permissions: {}
+
 jobs:
   promotion-source:
     runs-on: ubuntu-latest
