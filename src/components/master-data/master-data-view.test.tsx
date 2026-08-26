@@ -102,7 +102,7 @@ describe("MasterDataView — reading the list", () => {
     render(<MasterDataView category="skill-levels" />);
 
     expect(useMasterData).toHaveBeenCalledWith("skill-levels");
-    expect(screen.getByRole("heading", { name: "Könnensstufen" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Leistungsstufen" })).toBeInTheDocument();
   });
 });
 
