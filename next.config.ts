@@ -20,8 +20,8 @@ function readEnv(fileName: string): Record<string, string> {
 
 // App Hosting layers apphosting.<environment>.yaml over apphosting.yaml for a backend tagged
 // with that environment name, and injects the result. APP_HOSTING_ENV reproduces that for a
-// local build, so `npm run dev:staging` points at staging without editing the production
-// config — but on App Hosting the injected values are the ones that count.
+// local build. `npm run dev` sets it to staging, so local work never reaches the production
+// database — but on App Hosting the injected values are the ones that count.
 const environment = process.env.APP_HOSTING_ENV;
 const env = preferProcessEnv(
   {
