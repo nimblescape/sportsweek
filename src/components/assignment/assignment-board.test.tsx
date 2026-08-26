@@ -115,7 +115,7 @@ describe("AssignmentBoard", () => {
     expect(card("Montafon").getByText("Montafon: 1")).toBeInTheDocument();
   });
 
-  it("divides a card into its three areas, each headed and ruled off from the last", () => {
+  it("divides a card into its three areas, each headed and on a surface of its own", () => {
     setup();
 
     const areas = card("Montafon").getAllByRole("heading", { level: 3 });
@@ -125,8 +125,29 @@ describe("AssignmentBoard", () => {
       "Schüler:innen",
       "Statistik",
     ]);
-    expect(areas[1].parentElement?.className).toContain("border");
-    expect(areas[2].parentElement?.className).toContain("border");
+    for (const heading of areas) {
+      expect(heading.closest("section")?.className).toContain("border");
+    }
+  });
+
+  it("says how many of the students it lists are picked", async () => {
+    setup();
+
+    expect(card("Nicht zugeteilt").getByText("0 von 2 ausgewählt")).toBeInTheDocument();
+
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Berger Bene" }));
+
+    expect(card("Nicht zugeteilt").getByText("1 von 2 ausgewählt")).toBeInTheDocument();
+  });
+
+  /** The tally follows the filter, though the selection behind it does not. */
+  it("counts only the students the filter leaves", async () => {
+    setup();
+
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Muster Anna" }));
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
+
+    expect(card("Nicht zugeteilt").getByText("0 von 1 ausgewählt")).toBeInTheDocument();
   });
 
   it("filters each card on its own, and only what it lists", async () => {

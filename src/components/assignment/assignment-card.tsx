@@ -12,6 +12,7 @@ import {
   type MouseEvent,
   type PointerEvent,
   type PointerEventHandler,
+  type ReactNode,
 } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronRight, GripVertical } from "lucide-react";
@@ -40,11 +41,14 @@ export const allDragId = (groupId: string) => `all:${groupId}`;
 const AREAS = "flex flex-col gap-3 sm:flex-row";
 const AREA = "border-border bg-muted/40 min-w-0 rounded-lg border p-3";
 
-function AreaTitle({ children }: { children: string }) {
+function AreaTitle({ children, aside }: { children: string; aside?: ReactNode }) {
   return (
-    <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
-      {children}
-    </h3>
+    <div className="mb-2 flex items-baseline justify-between gap-3">
+      <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+        {children}
+      </h3>
+      {aside}
+    </div>
   );
 }
 
@@ -84,6 +88,7 @@ export function AssignmentCard({
 
   const shown = filterStudents(group.students, filter);
   const allPicked = shown.every((student) => picked.includes(student.id));
+  const pickedShown = shown.filter((student) => picked.includes(student.id)).length;
 
   return (
     <Card
@@ -123,7 +128,15 @@ export function AssignmentCard({
             </section>
 
             <section className={cn(AREA, "sm:flex-1")}>
-              <AreaTitle>Schüler:innen</AreaTitle>
+              <AreaTitle
+                aside={
+                  <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                    {pickedShown} von {shown.length} ausgewählt
+                  </span>
+                }
+              >
+                Schüler:innen
+              </AreaTitle>
               <ul className="max-h-72 overflow-y-auto">
                 {shown.length > 0 && (
                   <Row
