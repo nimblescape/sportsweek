@@ -8,7 +8,11 @@ import { parse } from "yaml";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveAuthMode } from "./src/lib/auth/auth-mode";
-import { envFromApphostingYaml, preferProcessEnv } from "./src/lib/apphosting-env";
+import {
+  envFromApphostingYaml,
+  preferProcessEnv,
+  requireFirebaseProject,
+} from "./src/lib/apphosting-env";
 
 // Public Firebase/Entra values live only in apphosting.yaml — reading them here makes
 // them available to `next dev`/`next build` without duplicating them into a .env file.
@@ -20,20 +24,25 @@ function readEnv(fileName: string): Record<string, string> {
 
 // App Hosting layers apphosting.<environment>.yaml over apphosting.yaml for a backend tagged
 // with that environment name, and injects the result. APP_HOSTING_ENV reproduces that for a
-// local build. `npm run dev` sets it to staging, so local work never reaches the production
-// database — but on App Hosting the injected values are the ones that count.
+// local build; `npm run dev` sets it to `dev`, an environment name no backend carries. Unset,
+// the base alone applies, which names no AUTH_MODE and so resolves to Entra ID. On App Hosting
+// the injected values are the ones that count.
 const environment = process.env.APP_HOSTING_ENV;
-const env = preferProcessEnv(
-  {
-    ...readEnv("apphosting.yaml"),
-    ...(environment ? readEnv(`apphosting.${environment}.yaml`) : {}),
-  },
-  process.env,
+const env = requireFirebaseProject(
+  preferProcessEnv(
+    {
+      ...readEnv("apphosting.yaml"),
+      ...(environment ? readEnv(`apphosting.${environment}.yaml`) : {}),
+    },
+    process.env,
+  ),
+  environment,
 );
 
 // Whether the fake login is part of this build at all, rather than merely disabled in it.
 // `route.fake.ts` only counts as a Route Handler while `fake.ts` is a page extension, so
-// outside staging the file never enters the graph and no /api/auth/fake is emitted.
+// outside the one project it is allowed in the file never enters the graph and no
+// /api/auth/fake is emitted.
 const fakeLogin = resolveAuthMode(env.AUTH_MODE, env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) === "fake";
 
 const nextConfig: NextConfig = {

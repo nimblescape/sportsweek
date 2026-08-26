@@ -34,9 +34,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files. Nothing needs one: every value the app reads comes from an apphosting.*.yaml,
+# and one left lying around silently outranks them.
 .env*
-!.env*.example
 
 # firebase
 .firebase/

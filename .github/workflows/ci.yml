@@ -31,7 +31,11 @@ jobs:
       - run: npm run license:check
       - run: npm run format:check
       - run: npm run lint
+      # Route types follow pageExtensions, which follows the sign-in mode: generated for
+      # production they would omit /api/auth/fake, and the code that calls it fails to compile.
       - run: npx next typegen
+        env:
+          APP_HOSTING_ENV: development
       - run: npx tsc --noEmit
       - run: npm test
 
@@ -49,6 +53,19 @@ jobs:
           java-version: "21"
       - run: npm ci
       - run: npm run test:rules
+
+  # Asserts on the artifact rather than on the decision that produces it: every unit test
+  # still passes if a page extension or an import puts the fake login back into production.
+  production-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:production-build
 
   e2e:
     runs-on: ubuntu-latest
