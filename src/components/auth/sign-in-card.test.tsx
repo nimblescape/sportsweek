@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const onAuthStateChanged = vi.fn();
@@ -19,6 +20,7 @@ vi.mock("firebase/auth", () => ({
   signInWithRedirect,
   signOut,
   getRedirectResult,
+  signInWithCustomToken: vi.fn(),
   OAuthProvider: { credentialFromResult },
 }));
 
@@ -246,5 +248,31 @@ describe("SignInCard", () => {
     render(<SignInCard />);
 
     await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
+  });
+
+  describe("in fake auth mode", () => {
+    beforeEach(() => {
+      respondWith(200, { status: "ok" });
+      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+        callback(null);
+        return () => {};
+      });
+    });
+
+    it("says on the button that this is not the real sign-in", async () => {
+      render(<SignInCard mode="fake" />);
+
+      expect(await screen.findByRole("button", { name: /Testmodus/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Office 365/i })).not.toBeInTheDocument();
+    });
+
+    it("opens the test-login dialog instead of handing off to Entra ID", async () => {
+      render(<SignInCard mode="fake" />);
+
+      await userEvent.click(await screen.findByRole("button", { name: /Testmodus/i }));
+
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+      expect(signInWithRedirect).not.toHaveBeenCalled();
+    });
   });
 });

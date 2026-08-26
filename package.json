@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev --experimental-https --experimental-https-key ./.certs/localhost-key.pem --experimental-https-cert ./.certs/localhost.pem",
+    "dev:staging": "APP_HOSTING_ENV=staging npm run dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

@@ -19,8 +19,10 @@ import {
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FakeSignInDialog, FAKE_SIGN_IN_LABEL } from "@/components/auth/fake-sign-in-dialog";
 import { ROUTES, homeFor } from "@/lib/routes";
 import { userRoleSchema } from "@/lib/schemas/user";
+import type { AuthMode } from "@/lib/auth/auth-mode";
 
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
 const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.";
@@ -28,10 +30,12 @@ const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut."
 // Sign-in itself only starts when the user clicks the button — same window, no popup.
 // onAuthStateChanged reliably reports the signed-in user once Firebase resolves the
 // redirect (relies on the /__/auth/* proxy in next.config.ts — see redirect-best-practices).
-export function SignInCard() {
+// It is also what finishes the fake login, which only has to put a user on `auth`.
+export function SignInCard({ mode = "entra" }: { mode?: AuthMode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const [fakeDialogOpen, setFakeDialogOpen] = useState(false);
   // True until Firebase's first auth-state callback fires, which only happens once any
   // pending redirect has been resolved — avoids flashing the button during that window.
   const [checking, setChecking] = useState(true);
@@ -94,6 +98,10 @@ export function SignInCard() {
 
   async function handleSignIn() {
     setError(null);
+    if (mode === "fake") {
+      setFakeDialogOpen(true);
+      return;
+    }
     await signInWithRedirect(auth, createMicrosoftAuthProvider());
   }
 
@@ -114,7 +122,9 @@ export function SignInCard() {
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">Sportwochen-Verwaltung</p>
           <Button className="mt-8 h-10 w-full" onClick={handleSignIn} disabled={checking}>
-            Anmelden über Office 365
+            {mode === "fake" && FAKE_SIGN_IN_LABEL
+              ? FAKE_SIGN_IN_LABEL
+              : "Anmelden über Office 365"}
           </Button>
           {/* Always occupies its height, so the card doesn't resize when the spinner appears. */}
           <div data-slot="sign-in-status" className="mt-4 flex h-5 items-center justify-center">
@@ -132,6 +142,7 @@ export function SignInCard() {
           ) : null}
         </CardContent>
       </Card>
+      {fakeDialogOpen ? <FakeSignInDialog open onClose={() => setFakeDialogOpen(false)} /> : null}
     </div>
   );
 }
