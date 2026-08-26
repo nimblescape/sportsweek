@@ -207,14 +207,30 @@ describe("provisionUser", () => {
     expect(setCustomUserClaims).not.toHaveBeenCalled();
   });
 
-  it("falls back to the display name when given/family names are absent", async () => {
+  /**
+   * The display name is deliberately ignored: this tenant writes "Mustermann Erika", so
+   * splitting it stored the name the wrong way round. The UPN is `firstname.lastname`.
+   */
+  it("reads the name from the UPN when given/family names are absent", async () => {
     const result = await provisionUser({
       uid: "firebase-uid-1",
       email: "jane.doe@htldornbirn.at",
-      name: "Jane Doe",
+      name: "Doe Jane",
     });
 
     expect(result).toMatchObject({ ok: true, user: { firstName: "Jane", lastName: "Doe" } });
+  });
+
+  it("capitalises what the UPN spells in lower case", async () => {
+    const result = await provisionUser({
+      uid: "firebase-uid-1",
+      email: "anna.stauss-mueller@htldornbirn.at",
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      user: { firstName: "Anna", lastName: "Stauss-Mueller" },
+    });
   });
 
   it("still produces a valid record when Entra sends no name at all", async () => {
@@ -248,7 +264,7 @@ describe("provisionUser", () => {
     expect(fetchEntraName).toHaveBeenCalledWith("graph-token");
   });
 
-  it("falls back to the display name when Graph cannot supply a name", async () => {
+  it("falls back to the UPN when Graph cannot supply a name", async () => {
     fetchEntraName.mockResolvedValue(null);
 
     const result = await provisionUser(
@@ -262,7 +278,22 @@ describe("provisionUser", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      user: { firstName: "Mustermann", lastName: "Erika" },
+      user: { firstName: "Erika", lastName: "Mustermann" },
+    });
+  });
+
+  /** Graph is asked for each name by name, so a half-filled profile still gets one right. */
+  it("takes whichever half of the name Graph holds", async () => {
+    fetchEntraName.mockResolvedValue({ lastName: "Musterfrau" });
+
+    const result = await provisionUser(
+      { uid: "firebase-uid-1", email: "erika.mustermann@htldornbirn.at" },
+      "graph-token",
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      user: { firstName: "Erika", lastName: "Musterfrau" },
     });
   });
 

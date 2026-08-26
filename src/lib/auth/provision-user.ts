@@ -24,17 +24,36 @@ export type EntraClaims = {
 export type ProvisionOutcome =
   { ok: true; user: User } | { ok: false; reason: string; message?: string };
 
-function resolveName(claims: EntraClaims, fallback: string) {
+/** Capitalises a UPN segment: "stauss-mueller" becomes "Stauss-Mueller". */
+function titleCase(segment: string): string {
+  return segment.replace(/(^|[-'])(\p{Ll})/gu, (_, lead: string, letter: string) =>
+    lead.concat(letter.toLocaleUpperCase("de-AT")),
+  );
+}
+
+/**
+ * The name to fall back on when Graph could not supply one.
+ *
+ * `given_name` and `family_name` are used when Entra sends them, each for what it says it is.
+ * The display name is not used at all: its word order is the tenant's choice — this school
+ * writes "Stauss Hannes" — so splitting it is a coin toss, and it landed the wrong way up. The
+ * UPN's local part is `firstname.lastname` by the tenant's own convention (US-3, US-16), which
+ * makes it the better guess, umlauts spelled out and all.
+ */
+function resolveName(claims: EntraClaims, localPart: string) {
   const given = claims.given_name?.trim();
   const family = claims.family_name?.trim();
-  if (given && family) return { firstName: given, lastName: family };
 
-  const parts = claims.name?.trim().split(/\s+/).filter(Boolean) ?? [];
-  if (parts.length >= 2) {
-    return { firstName: parts.slice(0, -1).join(" "), lastName: parts[parts.length - 1] };
-  }
+  const [first, ...rest] = localPart.split(".").filter(Boolean);
+  const fromUpn =
+    first && rest.length > 0
+      ? { firstName: titleCase(first), lastName: rest.map(titleCase).join(" ") }
+      : { firstName: localPart, lastName: localPart };
 
-  return { firstName: given ?? parts[0] ?? fallback, lastName: family ?? fallback };
+  return {
+    firstName: given || fromUpn.firstName,
+    lastName: family || fromUpn.lastName,
+  };
 }
 
 /**
@@ -59,10 +78,13 @@ export async function provisionUser(
   if (refusal) return { ok: false, ...refusal };
 
   const localPart = upn.slice(0, upn.indexOf("@"));
-  // Graph is the only authoritative source for the name; the token claims carry a display
-  // name whose word order is tenant-specific and therefore unreliable to split.
+  // Graph is the authoritative source, field by field: its `givenName` is the first name and
+  // its `surname` the last one, so neither can be mistaken for the other. Whichever it cannot
+  // supply falls back below.
   const fromGraph = graphAccessToken ? await fetchEntraName(graphAccessToken) : null;
-  const { firstName, lastName } = fromGraph ?? resolveName(claims, localPart);
+  const fallback = resolveName(claims, localPart);
+  const firstName = fromGraph?.firstName ?? fallback.firstName;
+  const lastName = fromGraph?.lastName ?? fallback.lastName;
   const ref = adminDb.collection(COLLECTIONS.users).doc(upn);
   const snapshot = await ref.get();
 

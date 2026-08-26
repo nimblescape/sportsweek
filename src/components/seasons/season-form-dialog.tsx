@@ -13,9 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { apiRequest, ApiRequestError } from "@/lib/api/client";
+import { ApiRequestError } from "@/lib/api/client";
 import { seasonSchema, type Season } from "@/lib/schemas/season";
-
 const formSchema = z.object({ name: seasonSchema.shape.name });
 type FormValues = z.infer<typeof formSchema>;
 
@@ -23,11 +22,19 @@ type SeasonFormDialogProps = {
   open: boolean;
   /** `null` opens the dialog for a new season. */
   season: Season | null;
+  /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
+  onSubmit: (name: string, season: Season | null) => Promise<void>;
   onClose: () => void;
   onSaved: () => void;
 };
 
-export function SeasonFormDialog({ open, season, onClose, onSaved }: SeasonFormDialogProps) {
+export function SeasonFormDialog({
+  open,
+  season,
+  onSubmit: save,
+  onClose,
+  onSaved,
+}: SeasonFormDialogProps) {
   const isEdit = season !== null;
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const nameId = React.useId();
@@ -48,11 +55,7 @@ export function SeasonFormDialog({ open, season, onClose, onSaved }: SeasonFormD
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
     try {
-      if (isEdit) {
-        await apiRequest(`/api/seasons/${season.id}`, { method: "PATCH", body: values });
-      } else {
-        await apiRequest("/api/seasons", { method: "POST", body: values });
-      }
+      await save(values.name, season);
       onSaved();
     } catch (error) {
       // A duplicate name is a problem with the field, so it is reported there rather than

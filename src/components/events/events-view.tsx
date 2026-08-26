@@ -10,8 +10,9 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BusyRegion } from "@/components/ui/busy-region";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
+import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { eventSchema, type Event } from "@/lib/schemas/season";
 import { useEvents } from "@/lib/events/use-events";
@@ -34,7 +36,9 @@ export function EventsView({ seasonId }: { seasonId: string }) {
   const { events, loading, error } = useEvents(seasonId);
   const { seasons } = useSeasons();
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
-  const { busyId, run } = useRowAction();
+  const { busyId, pending, run } = useRowAction();
+
+  useBusyWhile(loading);
 
   const season = seasons.find((candidate) => candidate.id === seasonId) ?? null;
 
@@ -48,35 +52,48 @@ export function EventsView({ seasonId }: { seasonId: string }) {
         Alle Saisonen
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-lg font-semibold">Events – {season?.name ?? "Saison"}</h1>
-        {/* An archived season is read-only, so nothing new can be attached to it (US-4). */}
-        {season?.isArchived ? null : (
-          <Button onClick={() => setDialog({ kind: "form", event: null })}>
-            <Plus aria-hidden data-icon="inline-start" />
-            Neues Event
-          </Button>
-        )}
-      </div>
+      <BusyRegion busy={pending}>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="font-heading text-lg font-semibold">
+              Events – {season?.name ?? "Saison"}
+            </h1>
+            {/* An archived season is read-only, so nothing new can be attached to it (US-4). */}
+            {season?.isArchived ? null : (
+              <Button onClick={() => setDialog({ kind: "form", event: null })}>
+                <Plus aria-hidden data-icon="inline-start" />
+                Neues Event
+              </Button>
+            )}
+          </div>
 
-      <EventList
-        events={events}
-        loading={loading}
-        error={error}
-        readOnly={season?.isArchived ?? false}
-        busyEventId={busyId}
-        onEdit={(event) => setDialog({ kind: "form", event })}
-        onDelete={(event) => setDialog({ kind: "delete", event })}
-        onReorder={(order) =>
-          apiRequest("/api/events", { method: "PATCH", body: { seasonId, order } }).then(() => {})
-        }
-      />
+          <EventList
+            events={events}
+            loading={loading}
+            error={error}
+            readOnly={season?.isArchived ?? false}
+            busyEventId={busyId}
+            onEdit={(event) => setDialog({ kind: "form", event })}
+            onDelete={(event) => setDialog({ kind: "delete", event })}
+            onReorder={(order) =>
+              run(null, () =>
+                apiRequest("/api/events", { method: "PATCH", body: { seasonId, order } }),
+              ).then(() => {})
+            }
+          />
+        </div>
+      </BusyRegion>
 
       {dialog.kind === "form" ? (
         <EventFormDialog
-          seasonId={seasonId}
           event={dialog.event}
-          onSubmit={(event, request) => run(event.id, request)}
+          onSubmit={(name, event) =>
+            run(event?.id ?? null, () =>
+              event === null
+                ? apiRequest("/api/events", { method: "POST", body: { seasonId, name } })
+                : apiRequest(`/api/events/${event.id}`, { method: "PATCH", body: { name } }),
+            ).then(() => {})
+          }
           onClose={() => setDialog({ kind: "none" })}
         />
       ) : null}
@@ -116,15 +133,8 @@ function EventList({
   onDelete,
   onReorder,
 }: EventListProps) {
-  if (loading) {
-    return (
-      <Card className="items-center">
-        <div role="status" aria-label="Events werden geladen" className="text-muted-foreground">
-          <LoaderCircle aria-hidden className="size-5 animate-spin" />
-        </div>
-      </Card>
-    );
-  }
+  // The header spinner says the app is working; a second one on the list would say it twice.
+  if (loading) return null;
 
   if (error) {
     return (
@@ -194,15 +204,13 @@ function EventList({
 }
 
 function EventFormDialog({
-  seasonId,
   event,
-  onSubmit: runOnRow,
+  onSubmit: save,
   onClose,
 }: {
-  seasonId: string;
   event: Event | null;
-  /** Renaming holds the row it started from; a new event has no row yet. */
-  onSubmit: (event: Event, request: () => Promise<unknown>) => Promise<unknown>;
+  /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
+  onSubmit: (name: string, event: Event | null) => Promise<void>;
   onClose: () => void;
 }) {
   const isEdit = event !== null;
@@ -223,13 +231,7 @@ function EventFormDialog({
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
     try {
-      if (isEdit) {
-        await runOnRow(event, () =>
-          apiRequest(`/api/events/${event.id}`, { method: "PATCH", body: values }),
-        );
-      } else {
-        await apiRequest("/api/events", { method: "POST", body: { seasonId, name: values.name } });
-      }
+      await save(values.name, event);
       onClose();
     } catch (caught) {
       // A duplicate name belongs on the field, not in a detached alert (US-4).

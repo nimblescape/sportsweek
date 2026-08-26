@@ -14,9 +14,9 @@ export const COLLECTIONS = {
   busPickupPoints: "busPickupPoints",
   foodOptions: "foodOptions",
   seasonPassOptions: "seasonPassOptions",
+  // The emergency contact and the rented equipment are fields of this record rather than
+  // collections of their own: neither exists apart from it, and nothing else refers to them.
   studentMasterData: "studentMasterData",
-  emergencyContacts: "emergencyContacts",
-  equipmentRentalItems: "equipmentRentalItems",
   savedReportFilters: "savedReportFilters",
   /** Name reservations: the document id is the name, which is how uniqueness is enforced. */
   reservedNames: "reservedNames",

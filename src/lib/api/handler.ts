@@ -29,6 +29,30 @@ export async function requireTeacherOrResponse(): Promise<NextResponse | null> {
   return null;
 }
 
+type StudentOutcome = { ok: true; userId: string } | { ok: false; response: NextResponse };
+
+/**
+ * Roles are hierarchical everywhere else, but not here: a teacher keeps no master data of their
+ * own (US-15), so admitting one would create a record for a season they are not registered in.
+ * The address is what the record is keyed by, so a session without one cannot be served.
+ */
+export async function requireStudentOrResponse(): Promise<StudentOutcome> {
+  const user = await getUserWithRole();
+  if (!user || !user.email) {
+    return {
+      ok: false,
+      response: errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an."),
+    };
+  }
+  if (user.role !== "student") {
+    return {
+      ok: false,
+      response: errorResponse(ErrorCode.PermissionDenied, "Dafür fehlen dir die Rechte."),
+    };
+  }
+  return { ok: true, userId: user.email.toLowerCase() };
+}
+
 type ParseOutcome<T> = { ok: true; data: T } | { ok: false; response: NextResponse };
 
 export async function parseJsonBody<T>(

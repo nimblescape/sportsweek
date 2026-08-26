@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { z } from "zod";
-import { documentIdSchema, requiredText } from "./common";
+import { documentIdSchema, hasUniqueNames, requiredText } from "./common";
 import { positionSchema } from "./position";
 
 /** Every teacher-maintained list (US-5 to US-10) shares this shape. */
@@ -22,6 +22,13 @@ export const foodOptionSchema = namedListItemSchema;
 export const seasonPassOptionSchema = namedListItemSchema;
 
 /**
+ * How many entries either equipment list may hold. The school hands out a handful of items per
+ * program — skis, boots, poles, a helmet — and a student rents from exactly that list (US-11),
+ * so one number bounds both and they cannot drift into contradicting each other.
+ */
+export const MAX_EQUIPMENT_ITEMS = 10;
+
+/**
  * Required equipment lives on the program rather than in records of its own (US-5): an item has
  * no identity outside the program that requires it, and nothing references one. Holding the list
  * in a single field is also what makes uniqueness checkable without a query — the whole list is
@@ -29,11 +36,8 @@ export const seasonPassOptionSchema = namedListItemSchema;
  */
 export const requiredEquipmentSchema = z
   .array(requiredText(120))
-  .max(50, "Höchstens 50 Einträge.")
-  .refine((names) => {
-    const normalized = names.map((name) => name.trim().toLocaleLowerCase("de-AT"));
-    return new Set(normalized).size === normalized.length;
-  }, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
+  .max(MAX_EQUIPMENT_ITEMS, `Höchstens ${MAX_EQUIPMENT_ITEMS} Einträge.`)
+  .refine(hasUniqueNames, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
 
 export const programSchema = namedListItemSchema.extend({
   requiredEquipment: requiredEquipmentSchema.default([]),

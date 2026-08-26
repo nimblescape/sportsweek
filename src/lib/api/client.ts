@@ -20,7 +20,7 @@ export class ApiRequestError extends Error {
 }
 
 export type RequestOptions = {
-  method: "POST" | "PATCH" | "DELETE";
+  method: "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
 };
 

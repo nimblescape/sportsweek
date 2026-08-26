@@ -76,11 +76,13 @@ describe("MasterDataView — reading the list", () => {
     expect(screen.getByText("4BHIT")).toBeInTheDocument();
   });
 
-  it("shows a loading state while the subscription settles", () => {
+  /** The header spinner answers for the wait, so the list itself says nothing at all. */
+  it("shows nothing while the subscription settles, rather than an empty list", () => {
     useMasterData.mockReturnValue({ items: [], loading: true, error: null });
     renderView();
 
-    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByText(/noch keine Klasse/i)).not.toBeInTheDocument();
   });
 
   it("reports a failed subscription instead of pretending the list is empty", () => {

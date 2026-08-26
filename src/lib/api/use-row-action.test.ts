@@ -68,4 +68,58 @@ describe("useRowAction", () => {
       await expect(result.current.run("s1", () => Promise.resolve("done"))).resolves.toBe("done");
     });
   });
+
+  describe("pending", () => {
+    it("is false while nothing is being written", () => {
+      const { result } = renderHook(() => useRowAction());
+
+      expect(result.current.pending).toBe(false);
+    });
+
+    it("holds the list for a write that belongs to no row, such as adding one", async () => {
+      const write = deferred<void>();
+      const { result } = renderHook(() => useRowAction());
+
+      act(() => void result.current.run(null, () => write.promise));
+
+      await waitFor(() => expect(result.current.pending).toBe(true));
+      expect(result.current.busyId).toBeNull();
+    });
+
+    it("holds it for a row's write as well", async () => {
+      const write = deferred<void>();
+      const { result } = renderHook(() => useRowAction());
+
+      act(() => void result.current.run("s1", () => write.promise));
+
+      await waitFor(() => expect(result.current.pending).toBe(true));
+    });
+
+    it("releases it once the write is answered", async () => {
+      const write = deferred<void>();
+      const { result } = renderHook(() => useRowAction());
+
+      act(() => void result.current.run(null, () => write.promise));
+      await waitFor(() => expect(result.current.pending).toBe(true));
+
+      await act(async () => {
+        write.resolve();
+        await write.promise;
+      });
+
+      expect(result.current.pending).toBe(false);
+    });
+
+    it("releases it when the write failed, so the list stays usable", async () => {
+      const { result } = renderHook(() => useRowAction());
+
+      await act(async () => {
+        await expect(
+          result.current.run(null, () => Promise.reject(new Error("offline"))),
+        ).rejects.toThrow("offline");
+      });
+
+      expect(result.current.pending).toBe(false);
+    });
+  });
 });

@@ -84,10 +84,11 @@ describe("SeasonList", () => {
     expect(screen.getByText(/noch keine saison/i)).toBeInTheDocument();
   });
 
-  it("announces that it is still loading", () => {
+  /** The header spinner answers for the wait, so the list itself says nothing at all. */
+  it("shows nothing while it is still loading, rather than an empty list", () => {
     renderList({ seasons: [], loading: true });
 
-    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByText(/noch keine saison/i)).not.toBeInTheDocument();
   });
 

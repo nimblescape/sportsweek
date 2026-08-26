@@ -12,7 +12,6 @@ import {
   CalendarDays,
   CircleCheck,
   CircleSlash,
-  LoaderCircle,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -53,15 +52,8 @@ export function SeasonList({
   onReorder,
   busySeasonId = null,
 }: SeasonListProps) {
-  if (loading) {
-    return (
-      <Card className="items-center">
-        <div role="status" aria-label="Saisonen werden geladen" className="text-muted-foreground">
-          <LoaderCircle aria-hidden className="size-5 animate-spin" />
-        </div>
-      </Card>
-    );
-  }
+  // The header spinner says the app is working; a second one on the list would say it twice.
+  if (loading) return null;
 
   if (error) {
     return (

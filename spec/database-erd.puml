@@ -103,6 +103,10 @@ entity "StudentMasterData" as studentMasterData {
   FK userId : string
   FK seasonId : string  ' genuine FK — the only real reference among the "selected value" fields (US-11)
   --
+  isIncomplete : boolean  ' whether answers are still outstanding (US-11); recomputed by the server
+                          ' on every save and never sent by the client. Denormalised so the report
+                          ' can mark those students without re-deriving it per row (US-13); the
+                          ' student's own view never shows it
   isAttendingSportsWeek : boolean  ' "Are you attending the sports week?"; all fields below
                                    ' are shown/required only if this is true (US-11),
                                    ' EXCEPT .class, which is always shown/required regardless
@@ -123,30 +127,20 @@ entity "StudentMasterData" as studentMasterData {
   dateOfBirth : date
   gender : enum(male, female)
   phoneNumber : string  ' international format, e.g. +43...
+  emergencyContact : object <<nullable>>  ' firstName, lastName, relationship enum(mother, father,
+                        ' other), relationshipOtherText <<nullable>>, phoneNumber (US-11); carried
+                        ' on the record rather than in one of its own — a student has exactly one,
+                        ' it has no identity outside this registration, and nothing refers to it
   healthNotes : text
   hasMedication : boolean
   equipmentRentalNeeded : boolean
+  rentedEquipment : string[]  ' the entries of the selected program's requiredEquipment the student
+                              ' rents (US-11), copied by name at selection time — not foreign keys.
+                              ' A field for the same reason as the contact above, and rewritten
+                              ' whole with the rest of the record, so a save is one atomic change.
   shoeSize : string <<nullable>>
   heightCm : number <<nullable>>
   weightKg : number <<nullable>>
-}
-
-entity "EmergencyContact" as emergencyContact {
-  PK id : string
-  FK studentMasterDataId : string
-  --
-  firstName : string
-  lastName : string
-  relationship : enum(mother, father, other)
-  relationshipOtherText : string <<nullable>>
-  phoneNumber : string  ' international format, e.g. +43...
-}
-
-entity "EquipmentRentalItem" as equipmentRentalItem {
-  PK id : string
-  FK studentMasterDataId : string
-  --
-  itemName : string  ' copied from a Program.requiredEquipment entry at selection time, not a foreign key
 }
 
 entity "SavedReportFilter" as savedReportFilter {
@@ -173,6 +167,7 @@ event  |o--o{ studentMasterData : "assigned to (US-12); removing an event unassi
 
 ' Sports Week Master Data teacher-maintained lists (US-5 .. US-10)
 ' Program.requiredEquipment is an attribute, not an entity — there is no relationship to draw.
+' So are StudentMasterData.emergencyContact and .rentedEquipment.
 
 ' The dotted lines below are NOT foreign keys — they indicate that a StudentMasterData
 ' field is a plain-text copy of a list item's name at the time it was selected (US-11).
@@ -182,12 +177,10 @@ skillLevel        .down.> studentMasterData : "value copied to .skillLevel"
 busPickupPoint    .down.> studentMasterData : "value copied to .busPickupPoint"
 seasonPassOption  .down.> studentMasterData : "value copied to .seasonPassOption"
 foodOption        .down.> studentMasterData : "value copied to .foodOption"
-program           .down.> equipmentRentalItem : "a .requiredEquipment entry is copied to .itemName"
+program           .down.> studentMasterData : "a .requiredEquipment entry is copied to .rentedEquipment"
 
 ' Student edits own master data (US-11)
 user              ||--o{ studentMasterData : "owns (student)"
-studentMasterData ||--|| emergencyContact : "has"
-studentMasterData ||--o{ equipmentRentalItem : "requests"
 
 ' Teacher views student report (US-13)
 user              ||--o{ savedReportFilter : "saves (teacher)"

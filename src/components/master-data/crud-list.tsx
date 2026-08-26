@@ -9,8 +9,9 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LoaderCircle, Lock, Pencil, Plus, Trash2 } from "lucide-react";
+import { Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BusyRegion } from "@/components/ui/busy-region";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
+import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { namedListItemSchema } from "@/lib/schemas/master-data";
 import { IN_USE_HINT } from "@/lib/master-data/categories";
@@ -89,44 +91,50 @@ export function CrudList({
   deleteNote,
 }: CrudListProps) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
-  const { busyId, run } = useRowAction();
+  const { busyId, pending, run } = useRowAction();
+
+  useBusyWhile(loading);
 
   const closeDialog = () => setDialog({ kind: "none" });
 
-  // A write started from a row holds that row until it is answered. The list refreshes from a
-  // separate subscription, so until then the remaining controls would act on an item this write
-  // may already have removed. A new item has no row yet, so there is nothing to hold.
+  // A write started from a row holds that row until it is answered, and every write holds the
+  // list. The list refreshes from a separate subscription, so until then the other controls
+  // would act on data this write may already have changed. A new item has no row to hold.
   const submit = (name: string, item: CrudItem | null) =>
-    item === null ? onSubmit(name, null) : run(item.id, () => onSubmit(name, item));
+    run(item?.id ?? null, () => onSubmit(name, item));
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
       {children}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-lg font-semibold">{title ?? labels.title}</h1>
-        <Button onClick={() => setDialog({ kind: "form", item: null })}>
-          <Plus aria-hidden data-icon="inline-start" />
-          {labels.add}
-        </Button>
-      </div>
+      <BusyRegion busy={pending}>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="font-heading text-lg font-semibold">{title ?? labels.title}</h1>
+            <Button onClick={() => setDialog({ kind: "form", item: null })}>
+              <Plus aria-hidden data-icon="inline-start" />
+              {labels.add}
+            </Button>
+          </div>
 
-      <ItemList
-        labels={labels}
-        items={items}
-        loading={loading}
-        error={error}
-        blockedIds={blockedIds}
-        undeletableIds={undeletableIds}
-        undeletableHint={undeletableHint}
-        fixedItems={fixedItems}
-        fixedItemsHint={fixedItemsHint}
-        renderRowAction={renderRowAction}
-        busyId={busyId}
-        onEdit={(item) => setDialog({ kind: "form", item })}
-        onDelete={(item) => setDialog({ kind: "delete", item })}
-        onReorder={onReorder}
-      />
+          <ItemList
+            labels={labels}
+            items={items}
+            loading={loading}
+            error={error}
+            blockedIds={blockedIds}
+            undeletableIds={undeletableIds}
+            undeletableHint={undeletableHint}
+            fixedItems={fixedItems}
+            fixedItemsHint={fixedItemsHint}
+            renderRowAction={renderRowAction}
+            busyId={busyId}
+            onEdit={(item) => setDialog({ kind: "form", item })}
+            onDelete={(item) => setDialog({ kind: "delete", item })}
+            onReorder={(orderedIds) => run(null, async () => onReorder(orderedIds))}
+          />
+        </div>
+      </BusyRegion>
 
       {dialog.kind === "form" ? (
         <ItemFormDialog
@@ -184,15 +192,8 @@ function ItemList({
 }: ItemListProps) {
   const { title, singular, empty } = labels;
 
-  if (loading) {
-    return (
-      <Card className="items-center">
-        <div role="status" aria-label={`${title} werden geladen`} className="text-muted-foreground">
-          <LoaderCircle aria-hidden className="size-5 animate-spin" />
-        </div>
-      </Card>
-    );
-  }
+  // The header spinner says the app is working; a second one on the list would say it twice.
+  if (loading) return null;
 
   if (error) {
     return (

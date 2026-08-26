@@ -340,17 +340,18 @@ describe("deleteSeason", () => {
     expect(firestore.count("events")).toBe(0);
   });
 
-  it("deletes every master data record of the season with its child documents", async () => {
+  it("deletes every master data record of the season", async () => {
     seedSeason("s1", { isArchived: true });
-    firestore.seed("studentMasterData", "m1", { seasonId: "s1", studentId: "u1" });
-    firestore.seed("emergencyContacts", "c1", { studentMasterDataId: "m1", name: "Mama" });
-    firestore.seed("equipmentRentalItems", "r1", { studentMasterDataId: "m1", name: "Ski" });
+    firestore.seed("studentMasterData", "m1", {
+      seasonId: "s1",
+      studentId: "u1",
+      emergencyContact: { firstName: "Maria", lastName: "Muster" },
+      rentedEquipment: ["Ski"],
+    });
 
     await deleteSeason("s1");
 
     expect(firestore.count("studentMasterData")).toBe(0);
-    expect(firestore.count("emergencyContacts")).toBe(0);
-    expect(firestore.count("equipmentRentalItems")).toBe(0);
   });
 
   it("leaves documents of other seasons untouched", async () => {
