@@ -106,6 +106,9 @@ describe("isSchoolUpn", () => {
     ["an unrelated domain", "jane.doe@gmail.com"],
     ["a lookalike domain", "jane.doe@evil-htldornbirn.at"],
     ["a suffixed domain", "jane.doe@htldornbirn.at.evil.com"],
+    // Left unescaped, the dot in the domain is a wildcard and these would pass.
+    ["a staff domain with the dot substituted", "jane.doe@htldornbirnXat"],
+    ["a student domain with the dot substituted", "jane.doe@studentXhtldornbirn.at"],
     ["a dangling hyphen", "jane-.doe@htldornbirn.at"],
     ["an empty string", ""],
   ])("rejects %s", (_case, upn) => {
