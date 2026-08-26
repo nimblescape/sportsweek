@@ -5,7 +5,14 @@
  */
 "use client";
 
-import { useState } from "react";
+import {
+  useRef,
+  useState,
+  type KeyboardEventHandler,
+  type MouseEvent,
+  type PointerEvent,
+  type PointerEventHandler,
+} from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -22,7 +29,6 @@ import {
 } from "@dnd-kit/core";
 import { GripVertical } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
-import { BusyRegion } from "@/components/ui/busy-region";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import {
   EMPTY_FILTER,
@@ -44,6 +50,9 @@ const ALL_LABEL = "Alle";
 
 /** The filter's first tag reads "Alle" too, so this one says what it does instead. */
 const ALL_NAME = "Alle auswählen";
+
+/** Dragged like a student, but standing for every student the filter leaves. */
+const allDragId = (listId: ListId) => `all:${listId}`;
 
 /**
  * A drop counts only where the pointer actually is, so releasing between the lists cancels
@@ -73,8 +82,8 @@ const crossToOtherList: KeyboardCoordinateGetter = (event, { context, currentCoo
 };
 
 type TransferListsProps = {
-  /** Null while no week is selected, which is the state the dialog starts in. */
-  eventName: string | null;
+  /** The week the lower list stands for; one is always selected (US-12). */
+  eventName: string;
   unassigned: readonly RosterStudent[];
   assigned: readonly RosterStudent[];
   groups: readonly FilterGroup[];
@@ -101,7 +110,6 @@ export function TransferLists({
   const [unassignedFilter, setUnassignedFilter] = useState<StudentFilter>(EMPTY_FILTER);
   const [assignedFilter, setAssignedFilter] = useState<StudentFilter>(EMPTY_FILTER);
   const [picked, setPicked] = useState<readonly string[]>([]);
-  const [moving, setMoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -110,17 +118,10 @@ export function TransferLists({
     useSensor(KeyboardSensor, { coordinateGetter: crossToOtherList }),
   );
 
-  if (eventName === null) {
-    return (
-      <p className="text-muted-foreground text-sm">Wähle oben eine Woche, um Schüler zuzuteilen.</p>
-    );
-  }
-
   const shownUnassigned = filterStudents(unassigned, unassignedFilter);
   const shownAssigned = filterStudents(assigned, assignedFilter);
 
   async function move(recordIds: string[], transfer: (ids: string[]) => Promise<void>) {
-    setMoving(true);
     setError(null);
     try {
       await transfer(recordIds);
@@ -128,8 +129,6 @@ export function TransferLists({
       setPicked((current) => current.filter((id) => !recordIds.includes(id)));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Das hat leider nicht geklappt.");
-    } finally {
-      setMoving(false);
     }
   }
 
@@ -151,6 +150,16 @@ export function TransferLists({
     // No target, or the list it started in: a cancelled drag changes nothing.
     if (!over || from === undefined || over.id === from) return;
 
+    const shown = from === LISTS.unassigned ? shownUnassigned : shownAssigned;
+    // "Alle" stands for every student the filter leaves, which is exactly what it selects.
+    if (active.data.current?.all === true) {
+      void move(
+        shown.map((student) => student.id),
+        over.id === LISTS.assigned ? onAssign : onUnassign,
+      );
+      return;
+    }
+
     const recordId = String(active.id);
     const source = from === LISTS.unassigned ? unassigned : assigned;
     // A student who is part of the selection takes it along, filtered out of sight or not; one
@@ -169,38 +178,36 @@ export function TransferLists({
         </p>
       )}
 
-      <BusyRegion busy={moving}>
-        <DndContext sensors={sensors} collisionDetection={dropTarget} onDragEnd={handleDragEnd}>
-          <div className="flex flex-col gap-3">
-            <StudentList
-              listId={LISTS.unassigned}
-              label={UNASSIGNED_LABEL}
-              students={shownUnassigned}
-              groups={groups}
-              filter={unassignedFilter}
-              onFilterChange={setUnassignedFilter}
-              picked={picked}
-              onToggle={togglePicked}
-              onToggleAll={toggleAll}
-            />
+      <DndContext sensors={sensors} collisionDetection={dropTarget} onDragEnd={handleDragEnd}>
+        <div className="flex flex-col gap-3">
+          <StudentList
+            listId={LISTS.unassigned}
+            label={UNASSIGNED_LABEL}
+            students={shownUnassigned}
+            groups={groups}
+            filter={unassignedFilter}
+            onFilterChange={setUnassignedFilter}
+            picked={picked}
+            onToggle={togglePicked}
+            onToggleAll={toggleAll}
+          />
 
-            <StudentList
-              listId={LISTS.assigned}
-              // The card above already carries the week's name, so the title says only which
-              // week this is; the accessible name still says what the list holds.
-              label={`Zugeteilt: ${eventName}`}
-              title={eventName}
-              students={shownAssigned}
-              groups={groups}
-              filter={assignedFilter}
-              onFilterChange={setAssignedFilter}
-              picked={picked}
-              onToggle={togglePicked}
-              onToggleAll={toggleAll}
-            />
-          </div>
-        </DndContext>
-      </BusyRegion>
+          <StudentList
+            listId={LISTS.assigned}
+            // The card above already carries the week's name, so the title says only which
+            // week this is; the accessible name still says what the list holds.
+            label={`Zugeteilt: ${eventName}`}
+            title={eventName}
+            students={shownAssigned}
+            groups={groups}
+            filter={assignedFilter}
+            onFilterChange={setAssignedFilter}
+            picked={picked}
+            onToggle={togglePicked}
+            onToggleAll={toggleAll}
+          />
+        </div>
+      </DndContext>
     </div>
   );
 }
@@ -250,14 +257,11 @@ function StudentList({
 
           <ul className="max-h-72 overflow-y-auto">
             {students.length > 0 && (
-              <li>
-                <Row
-                  name={ALL_LABEL}
-                  label={ALL_NAME}
-                  picked={allPicked}
-                  onToggle={() => onToggleAll(students, allPicked)}
-                />
-              </li>
+              <AllRow
+                listId={listId}
+                picked={allPicked}
+                onToggle={() => onToggleAll(students, allPicked)}
+              />
             )}
             {students.map((student) => (
               <StudentRow
@@ -277,6 +281,27 @@ function StudentList({
   );
 }
 
+function AllRow({
+  listId,
+  picked,
+  onToggle,
+}: {
+  listId: ListId;
+  picked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <DraggableRow
+      dragId={allDragId(listId)}
+      data={{ list: listId, all: true }}
+      name={ALL_LABEL}
+      label={ALL_NAME}
+      picked={picked}
+      onToggle={onToggle}
+    />
+  );
+}
+
 function StudentRow({
   student,
   listId,
@@ -289,69 +314,84 @@ function StudentRow({
   onToggle: (recordId: string) => void;
 }) {
   const name = `${student.lastName} ${student.firstName}`;
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: student.id,
-    data: { list: listId },
-  });
-
-  /**
-   * The whole row is what a pointer drags; the handle is what a keyboard drags. Splitting the
-   * two keeps the row's own click free to pick the student — a drag only starts once the pointer
-   * has moved, and the click that follows one is swallowed by the sensor.
-   */
-  const startPointerDrag = listeners?.onPointerDown as React.PointerEventHandler | undefined;
 
   return (
-    <li ref={setNodeRef} className={cn(isDragging && "opacity-80")}>
-      <Row
-        name={name}
-        picked={picked}
-        onToggle={() => onToggle(student.id)}
-        onPointerDown={startPointerDrag}
-      >
-        <button
-          type="button"
-          aria-label={`${name} verschieben`}
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
-          {...attributes}
-          onKeyDown={listeners?.onKeyDown as React.KeyboardEventHandler | undefined}
-        >
-          <GripVertical aria-hidden className="size-4" />
-        </button>
-      </Row>
-    </li>
+    <DraggableRow
+      dragId={student.id}
+      data={{ list: listId }}
+      name={name}
+      picked={picked}
+      onToggle={() => onToggle(student.id)}
+    />
   );
 }
 
-/** Picked is shown by colouring the row, so there is no box to tick (US-12). */
-function Row({
+function DraggableRow({
+  dragId,
+  data,
   name,
   label,
   picked,
   onToggle,
-  onPointerDown,
-  children,
 }: {
+  dragId: string;
+  data: { list: ListId; all?: true };
   name: string;
   label?: string;
   picked: boolean;
   onToggle: () => void;
-  onPointerDown?: React.PointerEventHandler;
-  children?: React.ReactNode;
 }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: dragId, data });
+
+  /**
+   * The whole row is what a pointer drags; the handle is what a keyboard drags. Splitting the
+   * two keeps the row's own press free to pick the student — a drag only starts once the pointer
+   * has moved, and the click that follows one is swallowed by the sensor.
+   */
+  const startPointerDrag = listeners?.onPointerDown as PointerEventHandler | undefined;
+
+  // Whether the press landed on a row that was already picked, which is the only case releasing
+  // has anything left to do.
+  const wasPicked = useRef(false);
+
+  function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
+    wasPicked.current = picked;
+    // Picked on the way down rather than on the way up, so a press that turns into a drag is
+    // already carrying what it picked.
+    if (!picked) onToggle();
+    startPointerDrag?.(event);
+  }
+
+  function handleClick(event: MouseEvent<HTMLButtonElement>) {
+    // A keyboard activation has no press before it, so it toggles on its own.
+    if (event.detail === 0 || wasPicked.current) onToggle();
+  }
+
   return (
-    <div className={cn("flex items-center rounded-md", picked && "bg-accent")}>
-      {children ?? <span aria-hidden className="size-6 shrink-0" />}
-      <button
-        type="button"
-        aria-label={label}
-        aria-pressed={picked}
-        onClick={onToggle}
-        onPointerDown={onPointerDown}
-        className="focus-visible:ring-ring/50 flex-1 touch-none rounded-md px-1 py-2 text-left text-sm outline-none focus-visible:ring-3"
-      >
-        {name}
-      </button>
-    </div>
+    <li ref={setNodeRef} className={cn(isDragging && "opacity-80")}>
+      <div className={cn("flex items-center rounded-md", picked && "bg-accent")}>
+        <button
+          type="button"
+          aria-label={`${label ?? name} verschieben`}
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
+          {...attributes}
+          onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined}
+        >
+          <GripVertical aria-hidden className="size-4" />
+        </button>
+
+        {/* Picked is shown by colouring the row, so there is no box to tick (US-12). */}
+        <button
+          type="button"
+          aria-label={label}
+          aria-pressed={picked}
+          onPointerDown={handlePointerDown}
+          onClick={handleClick}
+          className="focus-visible:ring-ring/50 flex-1 touch-none rounded-md px-1 py-2 text-left text-sm outline-none focus-visible:ring-3"
+        >
+          {name}
+        </button>
+      </div>
+    </li>
   );
 }

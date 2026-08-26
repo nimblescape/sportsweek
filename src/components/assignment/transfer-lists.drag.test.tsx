@@ -64,12 +64,19 @@ function setup(unassigned: RosterStudent[] = [BENE, ANNA], assigned: RosterStude
 const upper = () => within(screen.getByRole("group", { name: "Nicht zugeteilt" }));
 const handleOf = (name: string) => screen.getByRole("button", { name: `${name} verschieben` });
 
-async function drag(name: string, direction: "{ArrowDown}" | "{ArrowUp}", drop = "{ }") {
-  handleOf(name).focus();
+async function dragHandle(
+  handle: HTMLElement,
+  direction: "{ArrowDown}" | "{ArrowUp}",
+  drop = "{ }",
+) {
+  handle.focus();
   await userEvent.keyboard("{ }");
   await userEvent.keyboard(direction);
   await userEvent.keyboard(drop);
 }
+
+const drag = (name: string, direction: "{ArrowDown}" | "{ArrowUp}", drop = "{ }") =>
+  dragHandle(handleOf(name), direction, drop);
 
 beforeEach(() => {
   onAssign.mockReset().mockResolvedValue(undefined);
@@ -80,11 +87,33 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("TransferLists — drag and drop", () => {
-  it("gives every student a grip handle, and 'Alle' none, since it is nobody", () => {
+  it("gives every row a grip handle, 'Alle' among them", () => {
     setup();
 
-    expect(upper().getAllByRole("button", { name: /verschieben/ })).toHaveLength(2);
-    expect(upper().getByRole("button", { name: "Alle auswählen" })).toBeInTheDocument();
+    expect(upper().getAllByRole("button", { name: /verschieben/ })).toHaveLength(3);
+    expect(upper().getByRole("button", { name: "Alle auswählen verschieben" })).toBeInTheDocument();
+  });
+  it("moves everyone the filter leaves when 'Alle' is dragged", async () => {
+    setup();
+
+    await dragHandle(
+      upper().getByRole("button", { name: "Alle auswählen verschieben" }),
+      "{ArrowDown}",
+    );
+
+    await waitFor(() => expect(onAssign).toHaveBeenCalledWith(["record-Berger", "record-Muster"]));
+  });
+
+  it("moves only what the filter leaves when 'Alle' is dragged", async () => {
+    setup();
+
+    await userEvent.click(upper().getByRole("button", { name: "Klasse: 5BHIF" }));
+    await dragHandle(
+      upper().getByRole("button", { name: "Alle auswählen verschieben" }),
+      "{ArrowDown}",
+    );
+
+    await waitFor(() => expect(onAssign).toHaveBeenCalledWith(["record-Berger"]));
   });
 
   it("assigns a student dragged down onto the week", async () => {

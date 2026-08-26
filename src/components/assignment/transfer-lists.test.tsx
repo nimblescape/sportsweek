@@ -48,7 +48,7 @@ function setup({
   unassigned = [BENE, ANNA],
   assigned = [CLARA],
 }: {
-  eventName?: string | null;
+  eventName?: string;
   unassigned?: RosterStudent[];
   assigned?: RosterStudent[];
 } = {}) {
@@ -73,13 +73,6 @@ beforeEach(() => {
 });
 
 describe("TransferLists", () => {
-  it("asks for a week first, since the lower list is one week's students", () => {
-    setup({ eventName: null });
-
-    expect(screen.getByText(/Woche/)).toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "Nicht zugeteilt" })).not.toBeInTheDocument();
-  });
-
   it("puts the unassigned students above the week's own", () => {
     setup();
 
@@ -149,6 +142,36 @@ describe("TransferLists", () => {
     expect(upper().getByRole("button", { name: "Berger Bene" })).toHaveAttribute(
       "aria-pressed",
       "false",
+    );
+  });
+
+  /** A press that turns into a drag has to be carrying what it picked by the time it moves. */
+  it("picks a student on the press, before the release", async () => {
+    setup();
+
+    await userEvent.pointer({
+      keys: "[MouseLeft>]",
+      target: upper().getByRole("button", { name: "Berger Bene" }),
+    });
+
+    expect(upper().getByRole("button", { name: "Berger Bene" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("keeps an already picked student picked while the press is held", async () => {
+    setup();
+
+    await userEvent.click(upper().getByRole("button", { name: "Berger Bene" }));
+    await userEvent.pointer({
+      keys: "[MouseLeft>]",
+      target: upper().getByRole("button", { name: "Berger Bene" }),
+    });
+
+    expect(upper().getByRole("button", { name: "Berger Bene" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
   });
 

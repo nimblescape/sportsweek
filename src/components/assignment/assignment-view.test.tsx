@@ -130,10 +130,14 @@ describe("AssignmentView", () => {
     ).toHaveTextContent("Angemeldet: 3 · Nimmt teil: 2 · Anteil: 67 %");
   });
 
-  it("waits for an event to be picked before offering the lists", () => {
+  it("starts on the first week, so there is always one being worked on", () => {
     render(<AssignmentView />);
 
-    expect(screen.queryByRole("group", { name: "Nicht zugeteilt" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Montafon" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("group", { name: "Zugeteilt: Montafon" })).toBeInTheDocument();
   });
 
   it("splits the attending students by the event that was picked", async () => {
