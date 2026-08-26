@@ -3,48 +3,65 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ApiRequestError } from "@/lib/api/client";
+import type { ErrorCode } from "@/lib/errors";
+import type { Season } from "@/lib/schemas/season";
 import { SeasonFormDialog } from "./season-form-dialog";
 
-function stubFetch(implementation: (...args: unknown[]) => unknown) {
-  const fetchMock = vi.fn(implementation);
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
-}
+const season: Season = {
+  id: "s1",
+  name: "Winter 2026",
+  isActive: false,
+  isArchived: false,
+  hasStudentData: false,
+  position: 0,
+};
 
-function okResponse(body: unknown = {}, status = 200) {
-  return Promise.resolve(
-    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }),
+/**
+ * The dialog owns the form and nothing else — which endpoint a name goes to is the list's
+ * business, so that it can hold itself still for the round trip (see useRowAction).
+ */
+function renderDialog(
+  options: {
+    season?: Season | null;
+    onSubmit?: (name: string, season: Season | null) => Promise<void>;
+  } = {},
+) {
+  const onSubmit = options.onSubmit ?? vi.fn().mockResolvedValue(undefined);
+  const onClose = vi.fn();
+  const onSaved = vi.fn();
+
+  render(
+    <SeasonFormDialog
+      open
+      season={options.season ?? null}
+      onSubmit={onSubmit}
+      onClose={onClose}
+      onSaved={onSaved}
+    />,
   );
+
+  return { onSubmit, onClose, onSaved };
 }
 
-afterEach(() => vi.unstubAllGlobals());
+const rejectWith = (code: ErrorCode, message: string) =>
+  vi.fn().mockRejectedValue(new ApiRequestError(message, code));
 
 describe("SeasonFormDialog — creating", () => {
-  it("posts the new season", async () => {
-    const fetchMock = stubFetch(() => okResponse({ season: { id: "s1" } }, 201));
-    render(<SeasonFormDialog open season={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+  it("hands the new name to the list", async () => {
+    const { onSubmit } = renderDialog();
 
     await userEvent.type(screen.getByLabelText("Name"), "Wintersportwoche 2026");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/seasons",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ name: "Wintersportwoche 2026" }),
-        }),
-      ),
-    );
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith("Wintersportwoche 2026", null));
   });
 
   it("reports the saved season to the caller so the list can react", async () => {
-    stubFetch(() => okResponse({ season: { id: "s1" } }, 201));
-    const onSaved = vi.fn();
-    render(<SeasonFormDialog open season={null} onClose={vi.fn()} onSaved={onSaved} />);
+    const { onSaved } = renderDialog();
 
     await userEvent.type(screen.getByLabelText("Name"), "Winter 2026");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
@@ -53,29 +70,26 @@ describe("SeasonFormDialog — creating", () => {
   });
 
   it("blocks an empty name and never reaches the server", async () => {
-    const fetchMock = stubFetch(() => okResponse());
-    render(<SeasonFormDialog open season={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const { onSubmit } = renderDialog();
 
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
     expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("treats a whitespace-only name as empty", async () => {
-    const fetchMock = stubFetch(() => okResponse());
-    render(<SeasonFormDialog open season={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const { onSubmit } = renderDialog();
 
     await userEvent.type(screen.getByLabelText("Name"), "   ");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
     expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("marks the field as invalid for assistive technology", async () => {
-    stubFetch(() => okResponse());
-    render(<SeasonFormDialog open season={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    renderDialog();
 
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
@@ -85,10 +99,7 @@ describe("SeasonFormDialog — creating", () => {
   });
 
   it("shows a rejection that is not about the name as a general alert", async () => {
-    stubFetch(() =>
-      okResponse({ error: { code: "NOT_FOUND", message: "Diese Saison gibt es nicht." } }, 404),
-    );
-    render(<SeasonFormDialog open season={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    renderDialog({ onSubmit: rejectWith("NOT_FOUND", "Diese Saison gibt es nicht.") });
 
     await userEvent.type(screen.getByLabelText("Name"), "Winter 2026");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
@@ -98,60 +109,37 @@ describe("SeasonFormDialog — creating", () => {
 });
 
 describe("SeasonFormDialog — editing", () => {
-  const season = {
-    id: "s1",
-    name: "Winter 2026",
-    isActive: false,
-    isArchived: false,
-    hasStudentData: false,
-    position: 0,
-  };
-
   it("prefills the current name", () => {
-    stubFetch(() => okResponse());
-    render(<SeasonFormDialog open season={season} onClose={vi.fn()} onSaved={vi.fn()} />);
+    renderDialog({ season });
 
     expect(screen.getByLabelText("Name")).toHaveValue("Winter 2026");
   });
 
-  it("patches only the season being edited", async () => {
-    const fetchMock = stubFetch(() => okResponse({ season }));
-    render(<SeasonFormDialog open season={season} onClose={vi.fn()} onSaved={vi.fn()} />);
+  it("hands the new name and the season it belongs to back", async () => {
+    const { onSubmit } = renderDialog({ season });
 
     await userEvent.clear(screen.getByLabelText("Name"));
     await userEvent.type(screen.getByLabelText("Name"), "Winter 2027");
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/seasons/s1",
-        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ name: "Winter 2027" }) }),
-      ),
-    );
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith("Winter 2027", season));
   });
 
   it("closes without writing when cancelled", async () => {
-    const fetchMock = stubFetch(() => okResponse());
-    const onClose = vi.fn();
-    render(<SeasonFormDialog open season={season} onClose={onClose} onSaved={vi.fn()} />);
+    const { onSubmit, onClose } = renderDialog({ season });
 
     await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
 
     expect(onClose).toHaveBeenCalled();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });
 
 describe("SeasonFormDialog — duplicate names", () => {
-  const conflict = () =>
-    okResponse(
-      { error: { code: "CONFLICT", message: 'Den Namen „Winter 2026" gibt es bereits.' } },
-      409,
-    );
+  const conflict = () => rejectWith("CONFLICT", 'Den Namen „Winter 2026" gibt es bereits.');
 
   it("reports the clash on the name field rather than as a detached alert", async () => {
-    stubFetch(conflict);
-    render(<SeasonFormDialog open season={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    renderDialog({ onSubmit: conflict() });
 
     await userEvent.type(screen.getByLabelText("Name"), "Winter 2026");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
@@ -162,8 +150,7 @@ describe("SeasonFormDialog — duplicate names", () => {
   });
 
   it("marks the field invalid, so the problem is obvious", async () => {
-    stubFetch(conflict);
-    render(<SeasonFormDialog open season={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    renderDialog({ onSubmit: conflict() });
 
     await userEvent.type(screen.getByLabelText("Name"), "Winter 2026");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
@@ -174,9 +161,7 @@ describe("SeasonFormDialog — duplicate names", () => {
   });
 
   it("keeps the dialog open so the name can be corrected", async () => {
-    stubFetch(conflict);
-    const onSaved = vi.fn();
-    render(<SeasonFormDialog open season={null} onClose={vi.fn()} onSaved={onSaved} />);
+    const { onSaved } = renderDialog({ onSubmit: conflict() });
 
     await userEvent.type(screen.getByLabelText("Name"), "Winter 2026");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
@@ -187,36 +172,19 @@ describe("SeasonFormDialog — duplicate names", () => {
   });
 
   it("still shows an unrelated failure as a general alert", async () => {
-    stubFetch(() =>
-      okResponse({ error: { code: "INTERNAL_ERROR", message: "Serverfehler." } }, 500),
-    );
-    render(<SeasonFormDialog open season={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    renderDialog({ onSubmit: rejectWith("INTERNAL_ERROR", "Serverfehler.") });
 
     await userEvent.type(screen.getByLabelText("Name"), "Winter 2026");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Serverfehler.");
   });
-});
-
-describe("SeasonFormDialog — duplicate name while editing", () => {
-  const season = {
-    id: "s1",
-    name: "Winter 2026",
-    isActive: false,
-    isArchived: false,
-    hasStudentData: false,
-    position: 0,
-  };
 
   it("reports the clash on the field when renaming onto a taken name", async () => {
-    stubFetch(() =>
-      okResponse(
-        { error: { code: "CONFLICT", message: 'Den Namen \u201eWinter 2027" gibt es bereits.' } },
-        409,
-      ),
-    );
-    render(<SeasonFormDialog open season={season} onClose={vi.fn()} onSaved={vi.fn()} />);
+    renderDialog({
+      season,
+      onSubmit: rejectWith("CONFLICT", 'Den Namen „Winter 2027" gibt es bereits.'),
+    });
 
     await userEvent.clear(screen.getByLabelText("Name"));
     await userEvent.type(screen.getByLabelText("Name"), "Winter 2027");

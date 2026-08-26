@@ -11,7 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { LoaderCircle, Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BusyOverlay } from "@/components/ui/busy-overlay";
+import { BusyRegion } from "@/components/ui/busy-region";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -104,7 +104,7 @@ export function CrudList({
     <div className="flex flex-col gap-4 p-4 md:p-6">
       {children}
 
-      <BusyOverlay busy={pending} label={`${title ?? labels.title} werden gespeichert`}>
+      <BusyRegion busy={pending}>
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="font-heading text-lg font-semibold">{title ?? labels.title}</h1>
@@ -131,7 +131,7 @@ export function CrudList({
             onReorder={(orderedIds) => run(null, async () => onReorder(orderedIds))}
           />
         </div>
-      </BusyOverlay>
+      </BusyRegion>
 
       {dialog.kind === "form" ? (
         <ItemFormDialog

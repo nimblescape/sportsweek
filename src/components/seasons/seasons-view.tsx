@@ -8,7 +8,7 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BusyOverlay } from "@/components/ui/busy-overlay";
+import { BusyRegion } from "@/components/ui/busy-region";
 import { DeleteSeasonDialog } from "@/components/seasons/delete-season-dialog";
 import { SeasonFormDialog } from "@/components/seasons/season-form-dialog";
 import { SeasonList } from "@/components/seasons/season-list";
@@ -59,7 +59,7 @@ export function SeasonsView() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <BusyOverlay busy={pending} label="Saisonen werden gespeichert">
+      <BusyRegion busy={pending}>
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="font-heading text-lg font-semibold">Saisonen</h1>
@@ -115,13 +115,20 @@ export function SeasonsView() {
             }
           />
         </div>
-      </BusyOverlay>
+      </BusyRegion>
 
       {dialog.kind === "form" ? (
         <SeasonFormDialog
           key={dialog.season?.id ?? "new"}
           open
           season={dialog.season}
+          onSubmit={(name, season) =>
+            run(season?.id ?? null, () =>
+              season === null
+                ? apiRequest("/api/seasons", { method: "POST", body: { name } })
+                : apiRequest(`/api/seasons/${season.id}`, { method: "PATCH", body: { name } }),
+            ).then(() => {})
+          }
           onClose={closeDialog}
           onSaved={closeDialog}
         />

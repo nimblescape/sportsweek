@@ -12,7 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowLeft, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BusyOverlay } from "@/components/ui/busy-overlay";
+import { BusyRegion } from "@/components/ui/busy-region";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -49,7 +49,7 @@ export function EventsView({ seasonId }: { seasonId: string }) {
         Alle Saisonen
       </Link>
 
-      <BusyOverlay busy={pending} label="Events werden gespeichert">
+      <BusyRegion busy={pending}>
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="font-heading text-lg font-semibold">
@@ -79,13 +79,18 @@ export function EventsView({ seasonId }: { seasonId: string }) {
             }
           />
         </div>
-      </BusyOverlay>
+      </BusyRegion>
 
       {dialog.kind === "form" ? (
         <EventFormDialog
-          seasonId={seasonId}
           event={dialog.event}
-          onSubmit={(event, request) => run(event.id, request)}
+          onSubmit={(name, event) =>
+            run(event?.id ?? null, () =>
+              event === null
+                ? apiRequest("/api/events", { method: "POST", body: { seasonId, name } })
+                : apiRequest(`/api/events/${event.id}`, { method: "PATCH", body: { name } }),
+            ).then(() => {})
+          }
           onClose={() => setDialog({ kind: "none" })}
         />
       ) : null}
@@ -203,15 +208,13 @@ function EventList({
 }
 
 function EventFormDialog({
-  seasonId,
   event,
-  onSubmit: runOnRow,
+  onSubmit: save,
   onClose,
 }: {
-  seasonId: string;
   event: Event | null;
-  /** Renaming holds the row it started from; a new event has no row yet. */
-  onSubmit: (event: Event, request: () => Promise<unknown>) => Promise<unknown>;
+  /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
+  onSubmit: (name: string, event: Event | null) => Promise<void>;
   onClose: () => void;
 }) {
   const isEdit = event !== null;
@@ -232,13 +235,7 @@ function EventFormDialog({
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
     try {
-      if (isEdit) {
-        await runOnRow(event, () =>
-          apiRequest(`/api/events/${event.id}`, { method: "PATCH", body: values }),
-        );
-      } else {
-        await apiRequest("/api/events", { method: "POST", body: { seasonId, name: values.name } });
-      }
+      await save(values.name, event);
       onClose();
     } catch (caught) {
       // A duplicate name belongs on the field, not in a detached alert (US-4).

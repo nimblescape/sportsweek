@@ -6,6 +6,7 @@
 "use client";
 
 import * as React from "react";
+import { useHold } from "@/lib/api/busy";
 
 /**
  * Which row of a list a write is currently running on, and whether one is running at all.
@@ -23,20 +24,23 @@ import * as React from "react";
 export function useRowAction() {
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [running, setRunning] = React.useState(0);
+  const hold = useHold();
 
   /** `id` is null for a write with no row of its own, which holds the list without holding a row. */
   const run = React.useCallback(
     async <T>(id: string | null, action: () => Promise<T>): Promise<T> => {
+      const release = hold();
       setBusyId(id);
       setRunning((count) => count + 1);
       try {
         return await action();
       } finally {
+        release();
         setBusyId(null);
         setRunning((count) => count - 1);
       }
     },
-    [],
+    [hold],
   );
 
   return { busyId, pending: running > 0, run };
