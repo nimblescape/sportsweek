@@ -93,6 +93,11 @@ function sentBody() {
   return apiRequest.mock.calls.at(-1)![1].body;
 }
 
+/** The button only wakes up once something has changed, so a save has to follow an answer. */
+async function changeSomething() {
+  await pick("Klasse", "4AHME");
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   apiRequest.mockResolvedValue({ record: storedRecord });
@@ -116,17 +121,19 @@ describe("StudentMasterDataForm", () => {
   it("saves the whole registration in one request", async () => {
     renderForm();
 
+    await changeSomething();
     await userEvent.click(save());
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
     expect(apiRequest.mock.calls[0][0]).toBe("/api/my-master-data");
     expect(apiRequest.mock.calls[0][1].method).toBe("PUT");
-    expect(sentBody()).toMatchObject({ class: "3AHME", program: "Ski" });
+    expect(sentBody()).toMatchObject({ class: "4AHME", program: "Ski" });
   });
 
   it("confirms a save, so the student knows the answer arrived", async () => {
     renderForm();
 
+    await changeSomething();
     await userEvent.click(save());
 
     expect(await screen.findByRole("status")).toHaveTextContent("gespeichert");
@@ -138,9 +145,67 @@ describe("StudentMasterDataForm", () => {
     );
     renderForm();
 
+    await changeSomething();
     await userEvent.click(save());
 
     expect(await screen.findByRole("alert")).toHaveTextContent("freigeschalten");
+  });
+
+  describe("the save button", () => {
+    it("has nothing to do until an answer changes", () => {
+      renderForm();
+
+      expect(save()).toBeDisabled();
+    });
+
+    it("wakes up once one does", async () => {
+      renderForm();
+
+      await changeSomething();
+
+      expect(save()).toBeEnabled();
+    });
+
+    it("goes back to sleep once the change is saved", async () => {
+      renderForm();
+
+      await changeSomething();
+      await userEvent.click(save());
+
+      await waitFor(() => expect(save()).toBeDisabled());
+    });
+
+    /** Offering a save that the server would only refuse is a button that lies. */
+    it("stays out of reach while an answer is still missing", async () => {
+      renderForm({
+        ...storedRecord,
+        emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
+      });
+
+      await changeSomething();
+
+      expect(save()).toBeDisabled();
+    });
+
+    it("comes back as soon as the missing answer is given", async () => {
+      renderForm({
+        ...storedRecord,
+        emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
+      });
+
+      await userEvent.type(screen.getByLabelText("Vorname"), "Maria");
+
+      await waitFor(() => expect(save()).toBeEnabled());
+    });
+
+    it("marks the answer the student has just emptied, and locks the save with it", async () => {
+      renderForm();
+
+      await userEvent.clear(screen.getByLabelText("Vorname"));
+
+      expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
+      expect(save()).toBeDisabled();
+    });
   });
 
   describe("attendance", () => {
@@ -263,18 +328,6 @@ describe("StudentMasterDataForm", () => {
       await answer("Beziehung", "Sonstiges");
 
       expect(screen.getByLabelText("Welche Beziehung?")).toBeInTheDocument();
-    });
-
-    it("reports a missing contact name on the field itself", async () => {
-      renderForm({
-        ...storedRecord,
-        emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
-      });
-
-      await userEvent.click(save());
-
-      expect(await screen.findAllByText("Pflichtfeld.")).not.toHaveLength(0);
-      expect(apiRequest).not.toHaveBeenCalled();
     });
   });
 });

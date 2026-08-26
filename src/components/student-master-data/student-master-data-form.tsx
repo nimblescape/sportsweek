@@ -127,9 +127,12 @@ export function StudentMasterDataForm({
     control,
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors, isDirty, isSubmitting, isValid },
     reset,
   } = useForm<StudentMasterDataInput>({
+    // Validated as the student answers, so the save button and the marks on the fields are two
+    // views of the same result — a greyed-out button always has a visible reason next to it.
+    mode: "onChange",
     resolver,
     defaultValues: record ? toRegistrationInput(record) : EMPTY_REGISTRATION,
   });
@@ -404,7 +407,8 @@ export function StudentMasterDataForm({
       ) : null}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isSubmitting}>
+        {/* Nothing to save until an answer changes, and nothing savable while one is missing. */}
+        <Button type="submit" disabled={!isDirty || !isValid || isSubmitting}>
           Speichern
         </Button>
       </div>
