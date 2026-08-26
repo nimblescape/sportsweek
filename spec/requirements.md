@@ -55,6 +55,10 @@ As a user, I log in with my Microsoft Entra ID credentials so that I can access 
 
 - The system uses federated login with Microsoft Entra ID.
 - First name, last name, and email address are obtained from Entra ID and stored in the user record.
+- The two names are read from the directory itself, each asked for by name — the first name from `givenName`, the last from `surname` — so that neither can be mistaken for the other. Whichever of them the directory holds is used, even if it holds only one.
+- The display name is never split into the two. Its word order is the tenant's own choice, and this school writes the surname first, so splitting it stores the name the wrong way round as often as the right way.
+- When the directory can supply neither, the name is derived from the UPN, whose local part is `firstname.lastname` by the same convention the roles rely on (see US-3, US-16). Umlauts are spelled out there, so this is an approximation — but a correct one about which name is which.
+- The names are refreshed on every login, so a record stored from a worse source corrects itself the next time the user signs in.
 - A user record is created on the user's first login if none exists yet.
 - There is a 1:1 relationship between the Entra ID user and the user record stored in the database.
 - The user record's ID is the Entra ID user principal name (UPN).
