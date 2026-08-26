@@ -80,7 +80,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-4 sm:grid-cols-2">{children}</CardContent>
+      <CardContent className="flex flex-col gap-4">{children}</CardContent>
     </Card>
   );
 }
@@ -279,15 +279,13 @@ export function StudentMasterDataForm({
               </div>
             ) : null}
             {equipment.length > 0 ? (
-              <div className="sm:col-span-2 sm:grid sm:grid-cols-2 sm:gap-4">
-                <RadioField
-                  control={control}
-                  name="equipmentRentalNeeded"
-                  label="Musst du Ausrüstung ausleihen?"
-                  options={YES_NO}
-                  error={errors.equipmentRentalNeeded?.message}
-                />
-              </div>
+              <RadioField
+                control={control}
+                name="equipmentRentalNeeded"
+                label="Musst du Ausrüstung ausleihen?"
+                options={YES_NO}
+                error={errors.equipmentRentalNeeded?.message}
+              />
             ) : null}
             {equipment.length > 0 && needsRental === true ? (
               <>
@@ -318,20 +316,18 @@ export function StudentMasterDataForm({
                     />
                   )}
                 </Field>
-                <div className="sm:col-span-2">
-                  <Controller
-                    control={control}
-                    name="rentedEquipment"
-                    render={({ field }) => (
-                      <EquipmentChecklist
-                        items={equipment}
-                        value={field.value ?? []}
-                        onChange={field.onChange}
-                        error={errors.rentedEquipment?.message}
-                      />
-                    )}
-                  />
-                </div>
+                <Controller
+                  control={control}
+                  name="rentedEquipment"
+                  render={({ field }) => (
+                    <EquipmentChecklist
+                      items={equipment}
+                      value={field.value ?? []}
+                      onChange={field.onChange}
+                      error={errors.rentedEquipment?.message}
+                    />
+                  )}
+                />
               </>
             ) : null}
           </Section>
@@ -383,13 +379,11 @@ export function StudentMasterDataForm({
           </Section>
 
           <Section title="Gesundheit">
-            <div className="sm:col-span-2">
-              <Field label="Krankheiten oder Allergien" error={errors.healthNotes?.message}>
-                {(id) => (
-                  <Textarea id={id} rows={3} {...register("healthNotes", { setValueAs: orNull })} />
-                )}
-              </Field>
-            </div>
+            <Field label="Krankheiten oder Allergien" error={errors.healthNotes?.message}>
+              {(id) => (
+                <Textarea id={id} rows={3} {...register("healthNotes", { setValueAs: orNull })} />
+              )}
+            </Field>
             <RadioField
               control={control}
               name="hasMedication"
