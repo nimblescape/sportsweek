@@ -10,13 +10,18 @@ import { PRODUCTION_PROJECT_ID } from "@/lib/auth/auth-mode";
 const getUserByEmail = vi.fn();
 const createUser = vi.fn();
 const createCustomToken = vi.fn();
+const verifySessionCookie = vi.fn();
 const firestore = new FakeFirestore();
+const cookieStore = { get: vi.fn(), set: vi.fn() };
+
+vi.mock("next/headers", () => ({ cookies: () => Promise.resolve(cookieStore) }));
 
 vi.mock("@/lib/firebase/admin", () => ({
   adminAuth: {
     getUserByEmail: (...args: unknown[]) => getUserByEmail(...args),
     createUser: (...args: unknown[]) => createUser(...args),
     createCustomToken: (...args: unknown[]) => createCustomToken(...args),
+    verifySessionCookie: (...args: unknown[]) => verifySessionCookie(...args),
   },
   adminDb: firestore,
 }));
@@ -30,6 +35,21 @@ function postRequest(body: unknown) {
   });
 }
 
+const ENTRA_TEACHER = {
+  uid: "real-uid",
+  email: "jane.doe@htldornbirn.at",
+  role: "teacher",
+  firebase: { sign_in_provider: "microsoft.com" },
+};
+
+/** Whatever cookie the browser is holding when the fake login is called. */
+function signedInWith(cookies: Record<string, string>, decoded: unknown = ENTRA_TEACHER) {
+  cookieStore.get.mockImplementation((name: string) =>
+    cookies[name] === undefined ? undefined : { value: cookies[name] },
+  );
+  verifySessionCookie.mockResolvedValue(decoded);
+}
+
 describe("/api/auth/fake", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -39,9 +59,69 @@ describe("/api/auth/fake", () => {
     getUserByEmail.mockRejectedValue({ code: "auth/user-not-found" });
     createUser.mockImplementation(({ email }: { email: string }) => ({ uid: `uid-${email}` }));
     createCustomToken.mockResolvedValue("custom-token");
+    signedInWith({ __session: "entra-cookie" });
   });
 
   afterEach(() => vi.unstubAllEnvs());
+
+  // The fake login mints sessions, so a session alone cannot be the credential that unlocks
+  // it — one forged identity would otherwise authorise minting the next indefinitely.
+  describe("the Entra ID gate", () => {
+    it.each([
+      ["nobody is signed in", {}, ENTRA_TEACHER],
+      [
+        "the session came from a custom token",
+        { __session: "impersonated" },
+        { ...ENTRA_TEACHER, firebase: { sign_in_provider: "custom" } },
+      ],
+      [
+        "the signed-in user is a student",
+        { __session: "entra-cookie" },
+        { ...ENTRA_TEACHER, role: "student" },
+      ],
+    ])("refuses when %s", async (_case, cookies, decoded) => {
+      signedInWith(cookies, decoded);
+
+      const listed = await GET();
+      const minted = await POST(
+        postRequest({ firstName: "Jane", lastName: "Doe", role: "teacher" }),
+      );
+
+      expect(listed.status).toBe(403);
+      expect(minted.status).toBe(403);
+      expect(createCustomToken).not.toHaveBeenCalled();
+    });
+
+    it("refuses when the cookie does not verify", async () => {
+      cookieStore.get.mockReturnValue({ value: "tampered" });
+      verifySessionCookie.mockRejectedValue(new Error("invalid"));
+
+      expect((await GET()).status).toBe(403);
+    });
+
+    // Impersonating replaces __session with a custom-token one, so the Entra credential is
+    // kept aside — otherwise a tester could switch identity exactly once.
+    it("keeps admitting the tester after they have impersonated someone", async () => {
+      signedInWith({ __session: "impersonated", __entra_session: "entra-cookie" }, ENTRA_TEACHER);
+      verifySessionCookie.mockImplementation(async (cookie: string) =>
+        cookie === "entra-cookie"
+          ? ENTRA_TEACHER
+          : { ...ENTRA_TEACHER, firebase: { sign_in_provider: "custom" } },
+      );
+
+      expect((await GET()).status).toBe(200);
+    });
+
+    it("remembers the Entra session so later switches still pass", async () => {
+      await POST(postRequest({ firstName: "Jane", lastName: "Doe", role: "teacher" }));
+
+      expect(cookieStore.set).toHaveBeenCalledWith(
+        "__entra_session",
+        "entra-cookie",
+        expect.objectContaining({ httpOnly: true, sameSite: "lax" }),
+      );
+    });
+  });
 
   describe("when the fake login is not enabled", () => {
     it.each([

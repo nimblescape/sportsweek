@@ -18,8 +18,8 @@ export const PRODUCTION_PROJECT_ID = "htld-sportsweek";
  * and confined to staging. Three things have to fail before it could serve real users:
  * `apphosting.yaml` pins the mode for production, `.env` is gitignored so a local override
  * cannot travel with the code, and the production project is refused here regardless.
- * Deliberately not a `NEXT_PUBLIC_` variable — it is read on the server and handed to the
- * client as a prop, so it never reaches the browser bundle.
+ * Deliberately not a `NEXT_PUBLIC_` variable — `next.config.ts` reads it at build time to
+ * decide which modules exist, so it never reaches the browser bundle.
  */
 export function resolveAuthMode(
   configured: string | undefined,

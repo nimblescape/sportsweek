@@ -12,7 +12,7 @@ const signInWithCustomToken = vi.fn();
 vi.mock("firebase/auth", () => ({ signInWithCustomToken }));
 vi.mock("@/lib/firebase/client", () => ({ auth: {} }));
 
-const { FakeSignInDialog } = await import("@/components/auth/fake-sign-in-dialog");
+const { ImpersonationDialog } = await import("@/components/auth/fake/impersonation-dialog");
 
 const KNOWN_USERS = [
   { upn: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", role: "teacher" },
@@ -37,9 +37,10 @@ function stubApi(post: PostResult = { ok: true, status: 200, body: { customToken
 }
 
 function renderDialog() {
-  const onClose = vi.fn();
-  render(<FakeSignInDialog open onClose={onClose} />);
-  return { onClose, user: userEvent.setup() };
+  const onCancel = vi.fn();
+  const onImpersonated = vi.fn();
+  render(<ImpersonationDialog open onCancel={onCancel} onImpersonated={onImpersonated} />);
+  return { onCancel, onImpersonated, user: userEvent.setup() };
 }
 
 async function typeName(
@@ -51,7 +52,7 @@ async function typeName(
   await user.type(screen.getByLabelText("Nachname"), last);
 }
 
-describe("FakeSignInDialog", () => {
+describe("ImpersonationDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     stubApi();
@@ -105,7 +106,7 @@ describe("FakeSignInDialog", () => {
 
   it("signs in with the token the server minted", async () => {
     const fetchMock = stubApi();
-    const { user, onClose } = renderDialog();
+    const { user, onImpersonated } = renderDialog();
 
     await typeName(user, "Jane", "Doe");
     await user.click(screen.getByRole("button", { name: "Anmelden" }));
@@ -117,7 +118,7 @@ describe("FakeSignInDialog", () => {
       lastName: "Doe",
       role: "teacher",
     });
-    expect(onClose).toHaveBeenCalled();
+    expect(onImpersonated).toHaveBeenCalled();
   });
 
   it("refuses to submit a name that yields no school address", async () => {
@@ -137,7 +138,7 @@ describe("FakeSignInDialog", () => {
       status: 500,
       body: { error: { code: "INTERNAL_ERROR", message: "Test-Anmeldung derzeit nicht möglich." } },
     });
-    const { user, onClose } = renderDialog();
+    const { user, onImpersonated } = renderDialog();
 
     await typeName(user, "Jane", "Doe");
     await user.click(screen.getByRole("button", { name: "Anmelden" }));
@@ -145,6 +146,6 @@ describe("FakeSignInDialog", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Test-Anmeldung derzeit nicht möglich.",
     );
-    expect(onClose).not.toHaveBeenCalled();
+    expect(onImpersonated).not.toHaveBeenCalled();
   });
 });

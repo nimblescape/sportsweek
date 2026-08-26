@@ -20,7 +20,7 @@ type MasterDataViewProps = {
   /** Options offered to students that the teacher does not maintain, such as "Sonstiges" (US-9). */
   fixedItems?: readonly string[];
   fixedItemsHint?: string;
-  renderRowAction?: (item: CrudItem) => React.ReactNode;
+  renderRowAction?: (item: CrudItem, options: { disabled: boolean }) => React.ReactNode;
 };
 
 /** A teacher-maintained collection on the shared CRUD list (US-5 to US-10). */

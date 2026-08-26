@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
+import { useRowAction } from "@/lib/api/use-row-action";
 import { namedListItemSchema } from "@/lib/schemas/master-data";
 import { IN_USE_HINT } from "@/lib/master-data/categories";
 
@@ -54,7 +55,7 @@ type CrudListProps = {
   fixedItems?: readonly string[];
   fixedItemsHint?: string;
   /** One extra control per row, ahead of edit and delete — the programs list uses it. */
-  renderRowAction?: (item: CrudItem) => React.ReactNode;
+  renderRowAction?: (item: CrudItem, options: { disabled: boolean }) => React.ReactNode;
   /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
   onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
   onDelete: (item: CrudItem) => Promise<void>;
@@ -88,8 +89,15 @@ export function CrudList({
   deleteNote,
 }: CrudListProps) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
+  const { busyId, run } = useRowAction();
 
   const closeDialog = () => setDialog({ kind: "none" });
+
+  // A write started from a row holds that row until it is answered. The list refreshes from a
+  // separate subscription, so until then the remaining controls would act on an item this write
+  // may already have removed. A new item has no row yet, so there is nothing to hold.
+  const submit = (name: string, item: CrudItem | null) =>
+    item === null ? onSubmit(name, null) : run(item.id, () => onSubmit(name, item));
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
@@ -114,6 +122,7 @@ export function CrudList({
         fixedItems={fixedItems}
         fixedItemsHint={fixedItemsHint}
         renderRowAction={renderRowAction}
+        busyId={busyId}
         onEdit={(item) => setDialog({ kind: "form", item })}
         onDelete={(item) => setDialog({ kind: "delete", item })}
         onReorder={onReorder}
@@ -124,7 +133,7 @@ export function CrudList({
           key={dialog.item?.id ?? "new"}
           labels={labels}
           item={dialog.item}
-          onSubmit={onSubmit}
+          onSubmit={submit}
           onClose={closeDialog}
         />
       ) : null}
@@ -135,7 +144,7 @@ export function CrudList({
           labels={labels}
           item={dialog.item}
           note={deleteNote(dialog.item)}
-          onDelete={onDelete}
+          onDelete={(item) => run(item.id, () => onDelete(item))}
           onClose={closeDialog}
         />
       ) : null}
@@ -150,7 +159,8 @@ type ItemListProps = Required<
   undeletableHint: string;
   fixedItems: readonly string[];
   fixedItemsHint?: string;
-  renderRowAction?: (item: CrudItem) => React.ReactNode;
+  renderRowAction?: (item: CrudItem, options: { disabled: boolean }) => React.ReactNode;
+  busyId: string | null;
   onEdit: (item: CrudItem) => void;
   onDelete: (item: CrudItem) => void;
   onReorder: (orderedIds: string[]) => void | Promise<void>;
@@ -167,6 +177,7 @@ function ItemList({
   fixedItems,
   fixedItemsHint,
   renderRowAction,
+  busyId,
   onEdit,
   onDelete,
   onReorder,
@@ -206,7 +217,9 @@ function ItemList({
       <SortableList
         items={items}
         onReorder={onReorder}
+        busyId={busyId}
         renderItem={(item) => {
+          const busy = item.id === busyId;
           const blocked = blockedIds.has(item.id);
           const undeletable = blocked || undeletableIds.has(item.id);
           const deleteHint = blocked ? IN_USE_HINT : undeletableHint;
@@ -217,7 +230,7 @@ function ItemList({
               <span className="truncate text-sm font-medium">{item.name}</span>
 
               <div className="flex shrink-0 items-center gap-1">
-                {renderRowAction?.(item)}
+                {renderRowAction?.(item, { disabled: busy })}
 
                 {/* Wrapped in a span because a disabled button emits no pointer events, and the
                     reason it is disabled is exactly what needs explaining here. */}
@@ -226,7 +239,7 @@ function ItemList({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      disabled={blocked}
+                      disabled={blocked || busy}
                       aria-label={`${singular} ${item.name} bearbeiten`}
                       aria-describedby={blocked ? hintId : undefined}
                       onClick={() => onEdit(item)}
@@ -241,7 +254,7 @@ function ItemList({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      disabled={undeletable}
+                      disabled={undeletable || busy}
                       aria-label={`${singular} ${item.name} löschen`}
                       aria-describedby={undeletable ? hintId : undefined}
                       onClick={() => onDelete(item)}

@@ -20,6 +20,11 @@ vi.mock("@/lib/firebase/admin", () => ({
 
 vi.mock("@/lib/auth/graph", () => ({ fetchEntraName }));
 
+// Whatever else a deployment refuses. Production refuses nothing, so the tests below say so
+// explicitly rather than leaning on which module the build happens to resolve.
+const refuseSignIn = vi.fn();
+vi.mock("@/lib/auth/sign-in-policy", () => ({ refuseSignIn }));
+
 const { provisionUser } = await import("@/lib/auth/provision-user");
 
 const teacherClaims = {
@@ -33,9 +38,68 @@ function existingRecord(data: Record<string, unknown>) {
   docGet.mockResolvedValue({ exists: true, data: () => data });
 }
 
+const ENTRA = { firebase: { sign_in_provider: "microsoft.com" } };
+const IMPERSONATED = { firebase: { sign_in_provider: "custom" } };
+
+const studentClaims = {
+  uid: "firebase-uid-2",
+  email: "max.mustermann@student.htldornbirn.at",
+  given_name: "Max",
+  family_name: "Mustermann",
+};
+
+/**
+ * Which sign-ins are refused is the policy's business, not this function's. What belongs here
+ * is that a refusal is asked for, and honoured when one comes back.
+ */
+describe("the deployment's own sign-in policy", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    refuseSignIn.mockReturnValue(null);
+    docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    fetchEntraName.mockResolvedValue(null);
+  });
+
+  it("refuses the sign-in the policy refuses, and writes nothing", async () => {
+    refuseSignIn.mockReturnValue({ reason: "students-excluded", message: "Nur Lehrpersonen." });
+
+    const result = await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "students-excluded",
+      message: "Nur Lehrpersonen.",
+    });
+    expect(docSet).not.toHaveBeenCalled();
+  });
+
+  // The role has been derived by then, so the policy never has to parse a UPN itself.
+  it("asks with the derived role and the provider Firebase reported", async () => {
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(refuseSignIn).toHaveBeenCalledWith({
+      role: "student",
+      signInProvider: "microsoft.com",
+    });
+  });
+
+  it("passes on an impersonated provider unchanged, so the policy can tell them apart", async () => {
+    await provisionUser({ ...studentClaims, ...IMPERSONATED });
+
+    expect(refuseSignIn).toHaveBeenCalledWith({ role: "student", signInProvider: "custom" });
+  });
+
+  it("provisions as usual when nothing is refused", async () => {
+    const result = await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe("provisionUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
   });

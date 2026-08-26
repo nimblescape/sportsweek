@@ -60,6 +60,36 @@ describe("POST /api/session", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
+  // "not enabled for Sportsweek" would send a student turned away from a test environment
+  // looking for someone to enable them.
+  it("uses the wording the refusal came with", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "u", email: "max@student.htldornbirn.at" });
+    provisionUser.mockResolvedValue({
+      ok: false,
+      reason: "students-excluded",
+      message: "Diese Umgebung steht nur Lehrpersonen offen.",
+    });
+
+    const response = await POST(postRequest({ idToken: "good-token" }));
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error.message).toMatch(/Lehrpersonen/);
+    expect(cookieStore.set).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the account wording when a refusal brings none", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "u", email: "jane@gmail.com" });
+    provisionUser.mockResolvedValue({ ok: false, reason: "unsupported-domain" });
+
+    const response = await POST(postRequest({ idToken: "good-token" }));
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error.message).toMatch(/nicht freigeschaltet/);
+    expect(cookieStore.set).not.toHaveBeenCalled();
+  });
+
   it("returns 401 when the ID token is invalid", async () => {
     verifyIdToken.mockRejectedValue(new Error("invalid token"));
 

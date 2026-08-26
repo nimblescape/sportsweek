@@ -57,10 +57,10 @@ export async function POST(request: Request) {
   }
 
   if (!provisioned.ok) {
-    return NextResponse.json(
-      apiError(ErrorCode.PermissionDenied, "Dieses Konto ist für Sportsweek nicht freigeschaltet."),
-      { status: 403 },
-    );
+    // The refusing rule supplies its own wording where it has better wording to give.
+    const message = provisioned.message ?? "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
+
+    return NextResponse.json(apiError(ErrorCode.PermissionDenied, message), { status: 403 });
   }
 
   let sessionCookie: string;

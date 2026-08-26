@@ -122,6 +122,21 @@ describe("SortableList — when reordering is not offered", () => {
   });
 });
 
+describe("SortableList — while a row is busy", () => {
+  it("locks the handle of the row being written to", () => {
+    renderList(vi.fn(), { busyId: "b" });
+
+    expect(screen.getByRole("button", { name: "Berta verschieben" })).toBeDisabled();
+  });
+
+  it("leaves every other handle alone", () => {
+    renderList(vi.fn(), { busyId: "b" });
+
+    expect(screen.getByRole("button", { name: "Anton verschieben" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cesar verschieben" })).not.toBeDisabled();
+  });
+});
+
 describe("SortableList — showing the result of a move", () => {
   /** The rendered order, with each row's handle label stripped off. */
   function shownOrder() {
@@ -211,5 +226,41 @@ describe("SortableList — showing the result of a move", () => {
     );
 
     expect(shownOrder()).toEqual(["Anton", "Cesar"]);
+  });
+
+  // A program's equipment is identified by its name, so renaming an entry replaces its id. The
+  // local order still names the entry that is gone, and can no longer place the one that
+  // replaced it — the stored order is the only one that can.
+  it("yields to the stored order once a renamed item leaves it nothing to say", async () => {
+    const { rerender } = renderWith(vi.fn());
+    await moveAntonDown();
+
+    rerender(
+      <SortableList
+        items={[items[1], { id: "a2", name: "Amadeus" }, items[2]]}
+        onReorder={vi.fn()}
+        renderItem={(item) => <span>{item.name}</span>}
+      />,
+    );
+
+    expect(shownOrder()).toEqual(["Berta", "Amadeus", "Cesar"]);
+  });
+
+  it("still follows the stored order after an item disappeared during the move", async () => {
+    const { rerender } = renderWith(vi.fn());
+    await moveAntonDown();
+
+    const list = (shown: typeof items) => (
+      <SortableList
+        items={shown}
+        onReorder={vi.fn()}
+        renderItem={(item) => <span>{item.name}</span>}
+      />
+    );
+
+    rerender(list([items[1], items[2]]));
+    rerender(list([items[2], items[1]]));
+
+    expect(shownOrder()).toEqual(["Cesar", "Berta"]);
   });
 });

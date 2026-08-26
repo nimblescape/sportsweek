@@ -7,6 +7,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const onIdTokenChanged = vi.fn();
 const onAuthStateChanged = vi.fn();
 const signInWithRedirect = vi.fn();
 const signOut = vi.fn();
@@ -16,6 +17,7 @@ const push = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("firebase/auth", () => ({
+  onIdTokenChanged,
   onAuthStateChanged,
   signInWithRedirect,
   signOut,
@@ -30,7 +32,7 @@ vi.mock("@/lib/firebase/client", () => ({
 }));
 
 // Stable across renders, as the real hooks are: a fresh object each call would re-run the
-// auth-state effect on every render, which the card is not written to expect.
+// subscription effect on every render, which the card is not written to expect.
 const router = { push, refresh };
 const searchParams = new URLSearchParams();
 
@@ -46,7 +48,15 @@ vi.mock("next/image", () => ({
 
 const { SignInCard } = await import("@/components/auth/sign-in-card");
 
-const signedInUser = { getIdToken: vi.fn().mockResolvedValue("id-token") };
+/** `signInProvider` is how the card tells a real sign-in from an impersonated one. */
+function userSignedInVia(provider: string) {
+  return {
+    getIdToken: vi.fn().mockResolvedValue("id-token"),
+    getIdTokenResult: vi.fn().mockResolvedValue({ token: "id-token", signInProvider: provider }),
+  };
+}
+
+const signedInUser = userSignedInVia("microsoft.com");
 
 function respondWith(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({
@@ -63,7 +73,7 @@ describe("SignInCard", () => {
     vi.clearAllMocks();
     getRedirectResult.mockResolvedValue(null);
     credentialFromResult.mockReturnValue(null);
-    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(signedInUser);
       return () => {};
     });
@@ -158,7 +168,7 @@ describe("SignInCard", () => {
     ["when idle", false],
   ])("reserves the spinner's space %s so the card keeps its height", async (_case, busy) => {
     respondWith(200, { status: "ok" });
-    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(busy ? signedInUser : null);
       return () => {};
     });
@@ -181,7 +191,7 @@ describe("SignInCard", () => {
   });
 
   it("shows no spinner once the visitor can sign in", async () => {
-    onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(null);
       return () => {};
     });
@@ -255,49 +265,51 @@ describe("SignInCard", () => {
     await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
   });
 
-  describe("in fake auth mode", () => {
-    beforeEach(() => {
-      respondWith(200, { status: "ok" });
-      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
-        callback(null);
-        return () => {};
-      });
+  it("starts the real sign-in when the button is pressed", async () => {
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+      callback(null);
+      return () => {};
     });
 
-    it("says on the button that this is not the real sign-in", async () => {
-      render(<SignInCard mode="fake" />);
+    render(<SignInCard />);
+    await userEvent.click(await screen.findByRole("button", { name: /Office 365/i }));
 
-      expect(await screen.findByRole("button", { name: /Testmodus/i })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /Office 365/i })).not.toBeInTheDocument();
+    expect(signInWithRedirect).toHaveBeenCalled();
+  });
+
+  // A rejected redirect never leaves the page, so saying nothing looks like a dead button.
+  it("reports a sign-in that could not even start", async () => {
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+      callback(null);
+      return () => {};
+    });
+    signInWithRedirect.mockRejectedValue(new Error("auth/unauthorized-domain"));
+
+    render(<SignInCard />);
+    await userEvent.click(await screen.findByRole("button", { name: /Office 365/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/fehlgeschlagen/i);
+    expect(screen.getByRole("button")).not.toBeDisabled();
+  });
+
+  // Impersonating yourself keeps the same uid, so the sign-in *state* never changes and
+  // onAuthStateChanged stays silent -- only the token is new. Listening to the wrong one
+  // leaves the card waiting for a callback that will not come.
+  it("notices a fresh token for the user already signed in", async () => {
+    respondWith(200, { status: "ok" });
+    let notify: (user: unknown) => void = () => {};
+    onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+      notify = callback;
+      callback(null);
+      return () => {};
     });
 
-    it("opens the test-login dialog instead of handing off to Entra ID", async () => {
-      render(<SignInCard mode="fake" />);
+    render(<SignInCard />);
+    await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
 
-      await userEvent.click(await screen.findByRole("button", { name: /Testmodus/i }));
+    await act(async () => notify(userSignedInVia("custom")));
 
-      expect(await screen.findByRole("dialog")).toBeInTheDocument();
-      expect(signInWithRedirect).not.toHaveBeenCalled();
-    });
-
-    // The dialog closes the moment it has signed in, and the session still has to be created
-    // before anything navigates. Entra ID never shows that gap because it arrives by redirect,
-    // so the card is already busy on first render.
-    it("goes back to showing progress once the dialog has signed in", async () => {
-      let notify: (user: unknown) => void = () => {};
-      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
-        notify = callback;
-        callback(null);
-        return () => {};
-      });
-
-      render(<SignInCard mode="fake" />);
-      await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
-
-      await act(async () => notify(signedInUser));
-
-      expect(screen.getByRole("status")).toBeInTheDocument();
-      expect(screen.getByRole("button")).toBeDisabled();
-    });
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/app"));
+    expect(onAuthStateChanged).not.toHaveBeenCalled();
   });
 });
