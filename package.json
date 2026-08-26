@@ -7,8 +7,9 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "next dev --experimental-https --experimental-https-key ./.certs/localhost-key.pem --experimental-https-cert ./.certs/localhost.pem",
-    "dev:staging": "APP_HOSTING_ENV=staging npm run dev",
+    "dev": "APP_HOSTING_ENV=staging npm run dev:server",
+    "dev:production": "npm run dev:server",
+    "dev:server": "next dev --experimental-https --experimental-https-key ./.certs/localhost-key.pem --experimental-https-cert ./.certs/localhost.pem",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
