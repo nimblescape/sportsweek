@@ -19,9 +19,6 @@ import { BusyRegion } from "@/components/ui/busy-region";
 import { AssignmentBoard } from "./assignment-board";
 import { ClassCards } from "./class-cards";
 
-/** Off while the board is being worked on; the cards themselves are ready for when it is done. */
-const SHOW_CLASS_CARDS = false;
-
 /**
  * The assignment dialog of US-12, scoped to the active season: how the classes stand, and a
  * board of cards — one per week, plus the students who have no week yet — a teacher drags
@@ -105,13 +102,11 @@ export function AssignmentView() {
       ) : (
         <BusyRegion busy={saving}>
           <div className="flex flex-col gap-4">
-            {SHOW_CLASS_CARDS && (
-              <ClassCards
-                rows={classOverview(students, classes.items, columns)}
-                programs={programNames}
-                skillLevels={skillLevelNames}
-              />
-            )}
+            <ClassCards
+              rows={classOverview(students, classes.items, columns)}
+              programs={programNames}
+              skillLevels={skillLevelNames}
+            />
 
             {events.length === 0 ? (
               <p role="status" className="text-muted-foreground text-sm">
@@ -122,6 +117,8 @@ export function AssignmentView() {
                 groups={assignmentGroups(students, events, columns)}
                 programs={programNames}
                 skillLevels={skillLevelNames}
+                columns={columns}
+                registered={students}
                 filterGroups={groups}
                 onMove={assign}
               />

@@ -39,6 +39,9 @@ export type AssignmentGroup = AttendingCounts & {
 export const skillColumnKey = (program: string | null, skillLevel: string | null) =>
   `${program}\u0000${skillLevel}`;
 
+/** Whole per cent: every share here answers "roughly how many", not to a decimal. */
+export const asPercent = (share: number) => `${Math.round(share * 100)} %`;
+
 /**
  * The columns of the class table, taken from the maintained lists rather than named here, so a
  * program or a skill level a teacher adds shows up without a code change (US-12).

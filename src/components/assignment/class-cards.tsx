@@ -8,12 +8,9 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
-import type { ClassRow } from "@/lib/assignment/statistics";
+import { asPercent, type ClassRow } from "@/lib/assignment/statistics";
 import { cn } from "@/lib/utils";
 import { SkillMatrix } from "./skill-matrix";
-
-/** Whole per cent: the figure answers "roughly how many of them are coming", not to a decimal. */
-const asPercent = (share: number) => `${Math.round(share * 100)} %`;
 
 /**
  * Registrations per class (US-12). Only these cards count the students who answered "no": they

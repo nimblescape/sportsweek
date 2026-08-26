@@ -18,7 +18,11 @@ import {
   type DragEndEvent,
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
-import { UNASSIGNED_GROUP, type AssignmentGroup } from "@/lib/assignment/statistics";
+import {
+  UNASSIGNED_GROUP,
+  type AssignmentGroup,
+  type SkillColumn,
+} from "@/lib/assignment/statistics";
 import {
   EMPTY_FILTER,
   filterStudents,
@@ -61,6 +65,10 @@ type AssignmentBoardProps = {
   groups: readonly AssignmentGroup[];
   programs: readonly string[];
   skillLevels: readonly string[];
+  /** The columns the groups were counted with; a card recounts with them when its filter applies. */
+  columns: readonly SkillColumn[];
+  /** Everyone registered for the season, taking part or not — what "Teilnahme" is measured against. */
+  registered: readonly RosterStudent[];
   filterGroups: readonly FilterGroup[];
   /** Given the students to move and the week to move them to, or null to take the week away. */
   onMove: (recordIds: string[], eventId: string | null) => Promise<void>;
@@ -77,6 +85,8 @@ export function AssignmentBoard({
   groups,
   programs,
   skillLevels,
+  columns,
+  registered,
   filterGroups,
   onMove,
 }: AssignmentBoardProps) {
@@ -160,6 +170,8 @@ export function AssignmentBoard({
               group={group}
               programs={programs}
               skillLevels={skillLevels}
+              columns={columns}
+              registered={registered}
               filterGroups={filterGroups}
               filter={filters[group.id] ?? EMPTY_FILTER}
               onFilterChange={(next) => setFilters((current) => ({ ...current, [group.id]: next }))}

@@ -117,11 +117,11 @@ describe("AssignmentView", () => {
     expect(screen.getByText("Es ist keine Saison aktiv.")).toBeInTheDocument();
   });
 
-  /** Hidden while the board is being worked on; the cards keep their own tests. */
-  it("shows no class cards for now", () => {
+  it("heads the board with a card per class", () => {
     render(<AssignmentView />);
 
-    expect(screen.queryByRole("group", { name: "5AHIF" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "5BHIF" })).toBeInTheDocument();
   });
 
   it("puts every attending student in the card of the week they belong to", () => {

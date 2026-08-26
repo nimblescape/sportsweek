@@ -3,17 +3,35 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import type { AttendingCounts } from "@/lib/assignment/statistics";
+import { asPercent, type AttendingCounts } from "@/lib/assignment/statistics";
 
 const cell = "border-border border-b px-3 py-1.5";
 
-/** The one figure a card carries that is not per program (US-12). */
-export function GenderTable({ counts }: { counts: AttendingCounts }) {
+/**
+ * The figures a card carries that are not per program (US-12). "Teilnahme" is the card's students
+ * over everyone registered, so on the unassigned card — before anything has been assigned — it is
+ * the season's own participation rate, and it falls as students are placed into weeks.
+ */
+export function GenderTable({
+  counts,
+  registeredTotal,
+}: {
+  counts: AttendingCounts;
+  registeredTotal: number;
+}) {
+  const total = counts.male + counts.female;
+  const columns = [
+    ["Männlich", counts.male],
+    ["Weiblich", counts.female],
+    ["Gesamt", total],
+    ["Teilnahme", asPercent(registeredTotal === 0 ? 0 : total / registeredTotal)],
+  ] as const;
+
   return (
     <table className="min-w-max text-sm">
       <thead>
         <tr>
-          {["Männlich", "Weiblich"].map((label) => (
+          {columns.map(([label]) => (
             <th
               key={label}
               scope="col"
@@ -26,8 +44,11 @@ export function GenderTable({ counts }: { counts: AttendingCounts }) {
       </thead>
       <tbody>
         <tr>
-          <td className={`${cell} text-right tabular-nums`}>{counts.male}</td>
-          <td className={`${cell} text-right tabular-nums`}>{counts.female}</td>
+          {columns.map(([label, value]) => (
+            <td key={label} className={`${cell} text-right tabular-nums`}>
+              {value}
+            </td>
+          ))}
         </tr>
       </tbody>
     </table>

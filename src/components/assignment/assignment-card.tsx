@@ -6,6 +6,7 @@
 "use client";
 
 import {
+  useId,
   useRef,
   useState,
   type KeyboardEventHandler,
@@ -18,7 +19,11 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronRight, GripVertical } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
-import type { AssignmentGroup } from "@/lib/assignment/statistics";
+import {
+  attendingCounts,
+  type AssignmentGroup,
+  type SkillColumn,
+} from "@/lib/assignment/statistics";
 import { filterStudents, type FilterGroup, type StudentFilter } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { cn } from "@/lib/utils";
@@ -54,6 +59,10 @@ type AssignmentCardProps = {
   group: AssignmentGroup;
   programs: readonly string[];
   skillLevels: readonly string[];
+  /** The columns the group was counted with, so the filtered figures line up with it. */
+  columns: readonly SkillColumn[];
+  /** Everyone registered for the season, taking part or not — what "Teilnahme" is measured against. */
+  registered: readonly RosterStudent[];
   filterGroups: readonly FilterGroup[];
   filter: StudentFilter;
   onFilterChange: (next: StudentFilter) => void;
@@ -67,13 +76,15 @@ type AssignmentCardProps = {
  * All of them are built alike, which is what makes a student draggable from any card to any
  * other rather than out to a holding list and back in.
  *
- * The filter narrows what the card lists; the figures beside it describe the whole card, so
- * narrowing the list never changes what the card says about itself.
+ * The filter narrows what the card lists; whether the figures follow it is the teacher's own
+ * choice, per card, and off to begin with.
  */
 export function AssignmentCard({
   group,
   programs,
   skillLevels,
+  columns,
+  registered,
   filterGroups,
   filter,
   onFilterChange,
@@ -82,11 +93,17 @@ export function AssignmentCard({
   onToggleAll,
 }: AssignmentCardProps) {
   const [expanded, setExpanded] = useState(true);
+  const [countFiltered, setCountFiltered] = useState(false);
+  const countFilteredId = useId();
   const { setNodeRef, isOver } = useDroppable({ id: group.id });
 
   const shown = filterStudents(group.students, filter);
   const allPicked = shown.every((student) => picked.includes(student.id));
   const pickedShown = shown.filter((student) => picked.includes(student.id)).length;
+  const counts = countFiltered ? attendingCounts(shown, columns) : group;
+  // Always the season's whole roster rather than the board, which holds no one who stays at
+  // home; the filter narrows it alongside the numerator so both answer the same question.
+  const measuredAgainst = countFiltered ? filterStudents(registered, filter) : registered;
 
   return (
     <Card
@@ -164,14 +181,32 @@ export function AssignmentCard({
               </ul>
             </section>
 
-            {/* Deliberately fed the whole card rather than `shown`: the figures describe the
-                card, not the filter someone happens to have typed into it. */}
             <section className={AREA}>
-              <AreaTitle>Statistik</AreaTitle>
+              <AreaTitle
+                aside={
+                  <label
+                    htmlFor={countFilteredId}
+                    className="text-muted-foreground flex shrink-0 items-center gap-1.5 text-xs"
+                  >
+                    <input
+                      id={countFilteredId}
+                      type="checkbox"
+                      checked={countFiltered}
+                      // Every card offers this one, so the name says which card's it is.
+                      aria-label={`${group.title}: Gefiltert`}
+                      onChange={(event) => setCountFiltered(event.target.checked)}
+                      className="accent-primary size-3.5"
+                    />
+                    Gefiltert
+                  </label>
+                }
+              >
+                Statistik
+              </AreaTitle>
               <div className="flex flex-col gap-3">
-                <GenderTable counts={group} />
+                <GenderTable counts={counts} registeredTotal={measuredAgainst.length} />
                 <SkillMatrix
-                  counts={group.skillLevels}
+                  counts={counts.skillLevels}
                   programs={programs}
                   skillLevels={skillLevels}
                 />

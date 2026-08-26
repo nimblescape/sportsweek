@@ -52,6 +52,14 @@ const ANNA = student("Anna", "Muster");
 const BENE = student("Bene", "Berger", { gender: "male", class: "5BHIF" });
 const CLARA = student("Clara", "Cerny", { eventId: "event1" });
 const DORA = student("Dora", "Danner", { eventId: "event2" });
+/** Registered but staying at home, so no card holds them and only "Teilnahme" counts them. */
+const ELIAS = student("Elias", "Egger", {
+  gender: "male",
+  class: "5BHIF",
+  isAttending: false,
+  program: null,
+  skillLevel: null,
+});
 
 const onMove = vi.fn();
 
@@ -61,6 +69,8 @@ function setup(roster: RosterStudent[] = [BENE, ANNA, CLARA, DORA]) {
       groups={assignmentGroups(roster, EVENTS, COLUMNS)}
       programs={PROGRAMS}
       skillLevels={SKILL_LEVELS}
+      columns={COLUMNS}
+      registered={roster}
       filterGroups={FILTERS}
       onMove={onMove}
     />,
@@ -250,5 +260,86 @@ describe("AssignmentBoard", () => {
     expect(
       await screen.findByText("Wer nicht teilnimmt, kann keinem Event zugeteilt werden."),
     ).toBeInTheDocument();
+  });
+});
+
+// The figures answer either "what is in this card" or "what is in the part of it I am looking
+// at", and which of the two is a question only the teacher at the card can answer.
+describe("AssignmentBoard — what the figures count", () => {
+  const toggleIn = (name: string) =>
+    card(name).getByRole("checkbox", { name: `${name}: Gefiltert` });
+
+  const genderCells = (name: string) =>
+    within(card(name).getAllByRole("table")[0])
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent);
+
+  it("puts the toggle on the title line of the statistics area", () => {
+    setup();
+
+    const heading = card("Nicht zugeteilt").getByRole("heading", { name: "Statistik" });
+
+    expect(heading.parentElement).toContainElement(toggleIn("Nicht zugeteilt"));
+  });
+
+  it("carries the two genders, their sum and the share of everyone taking part in one table", () => {
+    setup();
+
+    const table = card("Nicht zugeteilt").getAllByRole("table")[0];
+
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual(["Männlich", "Weiblich", "Gesamt", "Teilnahme"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "2", "50 %"]);
+  });
+
+  it("takes the share of the whole board, so the cards' shares add up to everyone", () => {
+    setup();
+
+    expect(genderCells("Montafon")).toEqual(["0", "1", "1", "25 %"]);
+  });
+
+  it("measures against everyone registered, not only against those taking part", () => {
+    setup([BENE, ANNA, CLARA, DORA, ELIAS]);
+
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "2", "40 %"]);
+  });
+
+  it("counts the whole card while the toggle is off, however the filter narrows the list", async () => {
+    setup();
+
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
+
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "2", "50 %"]);
+  });
+
+  it("counts only what the filter leaves once the toggle is on", async () => {
+    setup();
+
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
+    await userEvent.click(toggleIn("Nicht zugeteilt"));
+
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "0", "1", "100 %"]);
+  });
+
+  // Filtering to a class asks what that class did, so the students of it who stay at home have
+  // to be in the denominator; measuring against the whole season would answer another question.
+  it("measures a filtered card against the registered students the same filter leaves", async () => {
+    setup([BENE, ANNA, CLARA, DORA, ELIAS]);
+
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
+    await userEvent.click(toggleIn("Nicht zugeteilt"));
+
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "0", "1", "50 %"]);
+  });
+
+  it("is answered per card, since each card carries a filter of its own", async () => {
+    setup();
+
+    await userEvent.click(toggleIn("Nicht zugeteilt"));
+
+    expect(toggleIn("Montafon")).not.toBeChecked();
   });
 });

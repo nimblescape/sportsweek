@@ -3,10 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import type { ClassRow, SkillColumn } from "@/lib/assignment/statistics";
-
-/** Whole per cent: the figure answers "roughly how many of them are coming", not to a decimal. */
-const asPercent = (share: number) => `${Math.round(share * 100)} %`;
+import { asPercent, type ClassRow, type SkillColumn } from "@/lib/assignment/statistics";
 
 const headerCell = "border-border text-muted-foreground border-b px-3 py-2 font-medium";
 const numberCell = "border-border border-b px-3 py-2 text-right tabular-nums";
