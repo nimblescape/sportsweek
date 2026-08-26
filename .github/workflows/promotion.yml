@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+#
+
+name: Promotion
+
+# Only fires for pull requests into main, so it never appears on a PR into staging.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  promotion-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only staging may be promoted to main
+        # Via the environment rather than an expression inside the script: a branch name is
+        # attacker-controlled text and would otherwise be pasted straight into the shell.
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            staging)
+              echo "Promoting staging to main."
+              ;;
+            hotfix/*)
+              # The one way past the queue, named so it is visible in the log rather than
+              # done by disabling this check. Back-merge main into staging afterwards, or
+              # the two branches drift apart.
+              echo "Hotfix '$HEAD_REF' going straight to main."
+              ;;
+            *)
+              echo "::error::'$HEAD_REF' cannot merge into main. Changes reach production by"
+              echo "::error::merging into staging first, then opening staging -> main."
+              exit 1
+              ;;
+          esac
