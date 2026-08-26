@@ -269,23 +269,32 @@ export function StudentMasterDataForm({
               error={errors.program?.message}
             />
             {equipment.length > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                <p className="text-sm leading-none font-medium">Benötigte Ausrüstung</p>
-                <ul className="text-muted-foreground list-inside list-disc text-sm">
-                  {equipment.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                  <span className="text-sm leading-none font-medium">Benötigte Ausrüstung</span>
+                  <RadioField
+                    control={control}
+                    name="equipmentRentalNeeded"
+                    label="Musst du etwas ausleihen?"
+                    options={YES_NO}
+                    error={errors.equipmentRentalNeeded?.message}
+                    inline
+                  />
+                </div>
+                <Controller
+                  control={control}
+                  name="rentedEquipment"
+                  render={({ field }) => (
+                    <EquipmentChecklist
+                      items={equipment}
+                      selectable={needsRental === true}
+                      value={field.value ?? []}
+                      onChange={field.onChange}
+                      error={errors.rentedEquipment?.message}
+                    />
+                  )}
+                />
               </div>
-            ) : null}
-            {equipment.length > 0 ? (
-              <RadioField
-                control={control}
-                name="equipmentRentalNeeded"
-                label="Musst du Ausrüstung ausleihen?"
-                options={YES_NO}
-                error={errors.equipmentRentalNeeded?.message}
-              />
             ) : null}
             {equipment.length > 0 && needsRental === true ? (
               <>
@@ -316,18 +325,6 @@ export function StudentMasterDataForm({
                     />
                   )}
                 </Field>
-                <Controller
-                  control={control}
-                  name="rentedEquipment"
-                  render={({ field }) => (
-                    <EquipmentChecklist
-                      items={equipment}
-                      value={field.value ?? []}
-                      onChange={field.onChange}
-                      error={errors.rentedEquipment?.message}
-                    />
-                  )}
-                />
               </>
             ) : null}
           </Section>

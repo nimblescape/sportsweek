@@ -8,6 +8,7 @@
 import * as React from "react";
 import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -55,22 +56,34 @@ export function ReadOnlyField({ label, value }: { label: string; value: string }
   );
 }
 
-/** A group of choices needs its own label, which only a legend gives it. */
+/**
+ * A group of choices, named as a group so the question is announced with its answers. A plain
+ * element with `role="group"` rather than a fieldset: a legend is laid out by the browser in
+ * ways that will not sit beside anything, and the inline variant has to.
+ */
 export function ChoiceGroup({
   label,
   error,
+  inline = false,
   children,
 }: {
   label: string;
   error?: string;
+  inline?: boolean;
   children: React.ReactNode;
 }) {
+  const id = React.useId();
+
   return (
-    <fieldset className="flex flex-col gap-1.5">
-      <legend className="mb-1.5 text-sm leading-none font-medium">{label}</legend>
-      <div className="flex flex-wrap items-center gap-4">{children}</div>
+    <div role="group" aria-labelledby={id} className="flex flex-col gap-1.5">
+      <div className={cn("flex gap-1.5", inline ? "flex-wrap items-center gap-x-3" : "flex-col")}>
+        <span id={id} className="text-sm leading-none font-medium">
+          {label}
+        </span>
+        <div className="flex flex-wrap items-center gap-4">{children}</div>
+      </div>
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
-    </fieldset>
+    </div>
   );
 }
 
@@ -138,6 +151,8 @@ type RadioFieldProps<TValues extends FieldValues, TOption> = {
   label: string;
   options: readonly { value: TOption; label: string }[];
   error?: string;
+  /** Puts the question and its answers on one line, for a question short enough to fit. */
+  inline?: boolean;
 };
 
 /**
@@ -150,13 +165,14 @@ export function RadioField<TValues extends FieldValues, TOption extends string |
   label,
   options,
   error,
+  inline,
 }: RadioFieldProps<TValues, TOption>) {
   return (
     <Controller
       control={control}
       name={name}
       render={({ field }) => (
-        <ChoiceGroup label={label} error={error}>
+        <ChoiceGroup label={label} error={error} inline={inline}>
           {options.map((option) => (
             <label key={String(option.value)} className="flex items-center gap-2 text-sm">
               <input

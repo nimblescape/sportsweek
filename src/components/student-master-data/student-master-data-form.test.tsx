@@ -82,7 +82,7 @@ const answer = (question: string, option: string) =>
   );
 
 const ATTENDING = "Nimmst du an der Sportwoche teil?";
-const RENTING = "Musst du Ausrüstung ausleihen?";
+const RENTING = "Musst du etwas ausleihen?";
 
 async function pick(field: string, option: string) {
   await userEvent.click(screen.getByLabelText(field));
@@ -189,12 +189,20 @@ describe("StudentMasterDataForm", () => {
   });
 
   describe("equipment", () => {
-    it("lists what the selected program requires, to read rather than to answer (US-11)", () => {
+    it("lists what the selected program requires, next to the question about borrowing it", () => {
       renderForm();
 
-      const readout = screen.getByText("Benötigte Ausrüstung").parentElement!;
-      expect(readout).toHaveTextContent("Ski");
-      expect(readout).toHaveTextContent("Helm");
+      expect(screen.getByText("Benötigte Ausrüstung")).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Ski" })).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Helm" })).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: RENTING })).toBeInTheDocument();
+    });
+
+    it("has nothing to tick until the student says they need to borrow something", () => {
+      renderForm();
+
+      expect(screen.getByRole("checkbox", { name: "Ski" })).toBeDisabled();
+      expect(screen.queryByRole("checkbox", { name: "Alles" })).not.toBeInTheDocument();
     });
 
     it("asks nothing about renting for a program that requires nothing", async () => {
@@ -206,15 +214,14 @@ describe("StudentMasterDataForm", () => {
       expect(screen.queryByText("Benötigte Ausrüstung")).not.toBeInTheDocument();
     });
 
-    it("asks for the measurements and the items only once renting is answered with 'yes'", async () => {
+    it("turns the list into choices once renting is answered with 'yes'", async () => {
       renderForm();
-
-      expect(screen.queryByLabelText("Schuhgröße")).not.toBeInTheDocument();
 
       await answer(RENTING, "Ja");
 
       expect(await screen.findByLabelText("Schuhgröße")).toBeInTheDocument();
-      expect(screen.getByRole("checkbox", { name: "Helm" })).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Helm" })).toBeEnabled();
+      expect(screen.getByRole("checkbox", { name: "Alles" })).toBeInTheDocument();
     });
 
     it("stores nothing about renting for a program that requires nothing", async () => {
