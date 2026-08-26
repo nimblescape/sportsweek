@@ -6,13 +6,13 @@
 name: CodeQL
 
 # Replaces the default setup, which only ever scanned the default branch and pull requests
-# into it. With features merging into staging first, that left every feature branch unscanned
-# and the first analysis happening after the code was already deployed to staging.
+# into it. That leaves the release branch unscanned: a promotion is a pull request into
+# production, which the default setup does not look at.
 on:
   push:
-    branches: [main, staging]
+    branches: [main, production]
   pull_request:
-    branches: [main, staging]
+    branches: [main, production]
   schedule:
     # Keeps finding newly published problems in code that has stopped changing.
     - cron: "27 3 * * 1"

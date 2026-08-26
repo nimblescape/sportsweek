@@ -8,7 +8,7 @@ name: Deploy Security Rules
 on:
   workflow_dispatch:
   push:
-    branches: [main, staging]
+    branches: [main, production]
     paths:
       - "firestore.rules"
       - "storage.rules"
@@ -28,10 +28,11 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Rules reach staging by the same route the code does: the branch decides the project,
-    # so nothing can be released to production that has not passed through staging first.
+    # Rules reach a project by the same route the code does: the branch decides the project,
+    # so nothing can be released to production that has not run against the staging project
+    # on main first.
     env:
-      PROJECT: ${{ github.ref_name == 'main' && 'htld-sportsweek' || 'htld-sportsweek-staging' }}
+      PROJECT: ${{ github.ref_name == 'production' && 'htld-sportsweek' || 'htld-sportsweek-staging' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -42,10 +43,10 @@ jobs:
       - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: >-
-            ${{ github.ref_name == 'main' && vars.GCP_WORKLOAD_IDENTITY_PROVIDER
+            ${{ github.ref_name == 'production' && vars.GCP_WORKLOAD_IDENTITY_PROVIDER
             || vars.GCP_WORKLOAD_IDENTITY_PROVIDER_STAGING }}
           service_account: >-
-            ${{ github.ref_name == 'main' && vars.GCP_RULES_DEPLOY_SERVICE_ACCOUNT
+            ${{ github.ref_name == 'production' && vars.GCP_RULES_DEPLOY_SERVICE_ACCOUNT
             || vars.GCP_RULES_DEPLOY_SERVICE_ACCOUNT_STAGING }}
       - name: Deploy rules and indexes to ${{ env.PROJECT }}
         run: >-
