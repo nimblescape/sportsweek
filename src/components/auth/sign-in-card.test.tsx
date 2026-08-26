@@ -3,7 +3,8 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const onAuthStateChanged = vi.fn();
@@ -19,6 +20,7 @@ vi.mock("firebase/auth", () => ({
   signInWithRedirect,
   signOut,
   getRedirectResult,
+  signInWithCustomToken: vi.fn(),
   OAuthProvider: { credentialFromResult },
 }));
 
@@ -27,9 +29,14 @@ vi.mock("@/lib/firebase/client", () => ({
   createMicrosoftAuthProvider: () => ({}),
 }));
 
+// Stable across renders, as the real hooks are: a fresh object each call would re-run the
+// auth-state effect on every render, which the card is not written to expect.
+const router = { push, refresh };
+const searchParams = new URLSearchParams();
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push, refresh }),
-  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => router,
+  useSearchParams: () => searchParams,
 }));
 
 vi.mock("next/image", () => ({
@@ -246,5 +253,51 @@ describe("SignInCard", () => {
     render(<SignInCard />);
 
     await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
+  });
+
+  describe("in fake auth mode", () => {
+    beforeEach(() => {
+      respondWith(200, { status: "ok" });
+      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+        callback(null);
+        return () => {};
+      });
+    });
+
+    it("says on the button that this is not the real sign-in", async () => {
+      render(<SignInCard mode="fake" />);
+
+      expect(await screen.findByRole("button", { name: /Testmodus/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Office 365/i })).not.toBeInTheDocument();
+    });
+
+    it("opens the test-login dialog instead of handing off to Entra ID", async () => {
+      render(<SignInCard mode="fake" />);
+
+      await userEvent.click(await screen.findByRole("button", { name: /Testmodus/i }));
+
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+      expect(signInWithRedirect).not.toHaveBeenCalled();
+    });
+
+    // The dialog closes the moment it has signed in, and the session still has to be created
+    // before anything navigates. Entra ID never shows that gap because it arrives by redirect,
+    // so the card is already busy on first render.
+    it("goes back to showing progress once the dialog has signed in", async () => {
+      let notify: (user: unknown) => void = () => {};
+      onAuthStateChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
+        notify = callback;
+        callback(null);
+        return () => {};
+      });
+
+      render(<SignInCard mode="fake" />);
+      await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled());
+
+      await act(async () => notify(signedInUser));
+
+      expect(screen.getByRole("status")).toBeInTheDocument();
+      expect(screen.getByRole("button")).toBeDisabled();
+    });
   });
 });

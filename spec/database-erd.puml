@@ -71,7 +71,7 @@ entity "ClassOption" as classOption {
 entity "SkillLevel" as skillLevel {
   PK id : string
   --
-  name : string  ' Absoluter Anfänger, Anfänger, Fortgeschritten, Profi (US-7)
+  name : string  ' Keine Vorkenntnisse, Anfänger, Fortgeschritten, Profi (US-7)
   position : number  ' teacher-defined order — these are ranked, so alphabetical would be wrong
 }
 

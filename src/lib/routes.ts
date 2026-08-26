@@ -19,7 +19,7 @@ export const MASTER_DATA_SECTIONS = [
   { href: "/app/master-data/seasons", label: "Saisonen" },
   { href: "/app/master-data/programs", label: "Programme" },
   { href: "/app/master-data/classes", label: "Klassen" },
-  { href: "/app/master-data/skill-levels", label: "Könnensstufen" },
+  { href: "/app/master-data/skill-levels", label: "Leistungsstufen" },
   { href: "/app/master-data/bus-pickup-points", label: "Zustiegsstellen" },
   { href: "/app/master-data/food-options", label: "Verpflegung" },
   { href: "/app/master-data/season-pass-options", label: "Saisonkarten" },

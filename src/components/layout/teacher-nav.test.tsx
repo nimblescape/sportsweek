@@ -17,7 +17,7 @@ const SUB_ITEMS = [
   "Saisonen",
   "Programme",
   "Klassen",
-  "Könnensstufen",
+  "Leistungsstufen",
   "Zustiegsstellen",
   "Verpflegung",
   "Saisonkarten",

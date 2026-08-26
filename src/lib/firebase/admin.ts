@@ -17,6 +17,11 @@ function getAdminApp(): App {
   // Project ID isn't auto-discoverable from user ADC credentials, so pass it explicitly.
   return initializeApp({
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    // Minting a custom token means signing a JWT, and a user ADC credential holds no key to
+    // sign with. Deployed, the account is discovered from the metadata server; locally there
+    // is none, so the fake login needs to be told which account to sign as via the IAM API.
+    // Unset in every deployment, which is why it stays undefined here by default.
+    serviceAccountId: process.env.FIREBASE_SERVICE_ACCOUNT_ID,
   });
 }
 

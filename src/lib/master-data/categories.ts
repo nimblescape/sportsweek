@@ -61,10 +61,10 @@ export const MASTER_DATA_CATEGORIES = {
     collection: COLLECTIONS.skillLevels,
     usage: { kind: "masterData", field: "skillLevel" },
     labels: {
-      title: "Könnensstufen",
-      singular: "Könnensstufe",
-      add: "Neue Könnensstufe",
-      empty: "Es gibt noch keine Könnensstufe.",
+      title: "Leistungsstufen",
+      singular: "Leistungsstufe",
+      add: "Neue Leistungsstufe",
+      empty: "Es gibt noch keine Leistungsstufe.",
     },
   },
   "bus-pickup-points": {

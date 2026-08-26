@@ -59,6 +59,14 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  # Which sign-in the app offers. This file is the fallback for every backend without an
+  # environment name, so production reads `entra` from here; apphosting.staging.yaml
+  # overrides it. See src/lib/auth/auth-mode.ts, which refuses `fake` for this project anyway.
+  - variable: AUTH_MODE
+    value: entra
+    availability:
+      - BUILD
+      - RUNTIME
 # No service account keys are used anywhere: on App Hosting, firebase-admin uses Application
 # Default Credentials automatically via the backend's service account. Local dev uses
 # `gcloud auth application-default login` instead. The public values above are read straight

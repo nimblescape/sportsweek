@@ -56,8 +56,8 @@ describe("seedMasterDataDefaults", () => {
   it("stores the defaults with their German display text", async () => {
     await seedMasterDataDefaults();
 
-    expect(namesOf("skillLevels")).toEqual([
-      "Absoluter Anfänger",
+    expect(orderedNamesOf("skillLevels")).toEqual([
+      "Keine Vorkenntnisse",
       "Anfänger",
       "Fortgeschritten",
       "Profi",

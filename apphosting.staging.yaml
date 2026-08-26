@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+
+# Overrides for staging, layered over apphosting.yaml.
+#
+# App Hosting picks this file for any backend whose Environment name is `staging`
+# (console > App Hosting > View dashboard > Settings > Environment), falling back to
+# apphosting.yaml otherwise. `npm run dev:staging` sets APP_HOSTING_ENV=staging so
+# next.config.ts merges it the same way locally.
+# See https://firebase.google.com/docs/app-hosting/multiple-environments.
+#
+# Staging is a separate Firebase project on purpose: the fake login provisions real Auth
+# accounts and real user records, and none of those belong anywhere near production data.
+runConfig:
+  minInstances: 0
+  maxInstances: 1
+
+env:
+  # Public in the same sense as the production key -- it identifies the project, it does not
+  # grant access. Restrict it to this project's own origins in the Cloud console.
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyABbpPwfzqZHYmxYEkHkCkFcDTd0G0tXmc
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: htld-sportsweek-staging.firebaseapp.com
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: htld-sportsweek-staging
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: htld-sportsweek-staging.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "124249657490"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:124249657490:web:172cf58935cb8af74c164b"
+    availability:
+      - BUILD
+      - RUNTIME
+  # Set to `entra` to rehearse the real Microsoft sign-in here; the tenant is inherited from
+  # apphosting.yaml either way. resolveAuthMode refuses `fake` for the production project, so
+  # this value only ever takes effect where it is safe.
+  - variable: AUTH_MODE
+    value: fake
+    availability:
+      - BUILD
+      - RUNTIME
