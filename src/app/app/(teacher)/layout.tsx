@@ -17,7 +17,9 @@ export default async function TeacherLayout({ children }: { children: ReactNode 
       <aside className="border-border shrink-0 border-b md:border-r md:border-b-0">
         <TeacherNav />
       </aside>
-      <div className="flex flex-1 flex-col">{children}</div>
+      {/* min-w-0: without it the column is floored at the width of its widest table and the
+          row overflows, so narrowing the bar beside it hands the content no room back. */}
+      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }

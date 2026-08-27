@@ -10,7 +10,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChartColumn,
-  ChevronDown,
   Database,
   FileText,
   PanelLeftClose,
@@ -39,7 +38,6 @@ function itemClasses(active: boolean) {
 export function TeacherNav() {
   const pathname = usePathname();
   const inMasterData = pathname.startsWith(ROUTES.masterData);
-  const [masterDataOpen, setMasterDataOpen] = useState(inMasterData);
   const [collapsed, setCollapsed] = useState(false);
 
   // Collapsing is offered where the bar is a column; on a narrow screen it is a strip across the
@@ -83,29 +81,18 @@ export function TeacherNav() {
 
       <button
         type="button"
-        // Its sub-items need width to be read in, so asking for them asks for the bar back.
-        onClick={() => {
-          setCollapsed(false);
-          setMasterDataOpen((open) => collapsed || !open);
-        }}
-        aria-expanded={masterDataOpen && !collapsed}
+        // Its own section never folds, so the only thing left to ask of it is the width to read
+        // that section in.
+        onClick={() => setCollapsed(false)}
         title={collapsed ? "Stammdaten" : undefined}
         className={cn(itemClasses(inMasterData), "text-left")}
       >
         <Database aria-hidden className="size-4 shrink-0" />
-        <span className={cn("flex-1", labelClasses)}>Stammdaten</span>
-        <ChevronDown
-          aria-hidden
-          className={cn(
-            "size-4 shrink-0 transition-transform",
-            masterDataOpen && "rotate-180",
-            collapsed && "md:hidden",
-          )}
-        />
+        <span className={labelClasses}>Stammdaten</span>
       </button>
 
-      {masterDataOpen && !collapsed ? (
-        <ul className="flex flex-col gap-1 pl-3">
+      {collapsed ? null : (
+        <ul className="flex flex-col gap-1">
           {MASTER_DATA_SECTIONS.map(({ href, label }) => (
             <li key={href}>
               <Link
@@ -113,12 +100,15 @@ export function TeacherNav() {
                 aria-current={pathname === href ? "page" : undefined}
                 className={itemClasses(pathname === href)}
               >
+                {/* Stands in for the icon above it, so the text lines up by being laid out the
+                    same way rather than by a padding that has to add up to the same number. */}
+                <span aria-hidden className="size-4 shrink-0" />
                 {label}
               </Link>
             </li>
           ))}
         </ul>
-      ) : null}
+      )}
     </nav>
   );
 }

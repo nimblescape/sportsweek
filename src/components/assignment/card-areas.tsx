@@ -10,6 +10,9 @@ import type { ReactNode } from "react";
  * than as one crowded block. Side by side from the small breakpoint up — the card is what the
  * teacher works across, so keeping it one column any longer than necessary costs more than the
  * width it saves.
+ *
+ * The figures track is a plain `auto`: `minmax(0,auto)` reads as the same thing and Chrome
+ * treats it as one, but Safari laid the areas out in a single column with it.
  */
 export const AREAS = "grid gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto]";
 export const AREA = "border-border bg-muted/40 flex min-h-0 min-w-0 flex-col rounded-lg border p-3";

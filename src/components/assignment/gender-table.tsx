@@ -29,29 +29,34 @@ export function GenderTable({
   ] as const;
 
   return (
-    <table className="min-w-max text-sm">
-      <thead>
-        <tr>
-          {columns.map(([label]) => (
-            <th
-              key={label}
-              scope="col"
-              className={`${cell} text-muted-foreground text-right font-medium`}
-            >
-              {label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          {columns.map(([label, value]) => (
-            <td key={label} className={`${cell} text-right tabular-nums`}>
-              {value}
-            </td>
-          ))}
-        </tr>
-      </tbody>
-    </table>
+    // The scroll box is what stops the table reaching the card: a scroll container contributes
+    // nothing to its ancestors' min-content, and a table too narrow to fit does. SkillMatrix
+    // carries one for the same reason.
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr>
+            {columns.map(([label]) => (
+              <th
+                key={label}
+                scope="col"
+                className={`${cell} text-muted-foreground text-right font-medium`}
+              >
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            {columns.map(([label, value]) => (
+              <td key={label} className={`${cell} text-right tabular-nums`}>
+                {value}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
   );
 }

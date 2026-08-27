@@ -23,7 +23,7 @@ export function SkillMatrix({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-max text-sm">
+      <table className="w-full text-sm">
         <thead>
           <tr>
             <th />

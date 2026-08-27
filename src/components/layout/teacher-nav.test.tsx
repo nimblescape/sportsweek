@@ -56,15 +56,15 @@ describe("TeacherNav", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps the master data sub-items collapsed outside that section", () => {
+  it("shows the master data sub-items whatever the route is, since they never fold away", () => {
     render(<TeacherNav />);
 
     for (const label of SUB_ITEMS) {
-      expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
   });
 
-  it("expands the sub-items when Stammdaten is selected", async () => {
+  it("leaves them there when Stammdaten is clicked, which folds nothing", async () => {
     render(<TeacherNav />);
 
     await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
@@ -74,33 +74,13 @@ describe("TeacherNav", () => {
     }
   });
 
-  it("collapses the sub-items again when Stammdaten is deselected", async () => {
+  it("has one sub-item per teacher-maintained category", () => {
     render(<TeacherNav />);
-    const toggle = screen.getByRole("button", { name: /stammdaten/i });
-
-    await userEvent.click(toggle);
-    await userEvent.click(toggle);
-
-    expect(screen.queryByRole("link", { name: "Saisonen" })).not.toBeInTheDocument();
-  });
-
-  it("has one sub-item per teacher-maintained category", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
 
     expect(SUB_ITEMS).toHaveLength(7);
     for (const label of SUB_ITEMS) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
-  });
-
-  it("starts expanded when the current route is inside master data", () => {
-    pathname.mockReturnValue("/app/master-data/classes");
-
-    render(<TeacherNav />);
-
-    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
   });
 
   it("marks the active item for assistive technology", () => {
@@ -187,10 +167,9 @@ describe("TeacherNav — collapsing", () => {
     expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
   });
 
-  it("shows the section the way it was left once the bar is opened again", async () => {
+  it("brings the sub-items back with the bar", async () => {
     render(<TeacherNav />);
 
-    await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
     await userEvent.click(toggle());
     await userEvent.click(toggle());
 
