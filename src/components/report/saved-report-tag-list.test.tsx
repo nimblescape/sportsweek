@@ -164,20 +164,53 @@ describe("telling an untouched saved report from a changed one", () => {
 });
 
 describe("saving the report as it stands", () => {
+  const saveButton = () => screen.queryByRole("button", { name: "Bericht speichern" });
+
   it("takes a name inline, without leaving the report", async () => {
     setup();
 
-    await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Name des Berichts" }), "5BHIF");
+    await userEvent.click(saveButton() as HTMLElement);
+    await userEvent.type(nameField() as HTMLElement, "5BHIF");
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
     expect(onSave).toHaveBeenCalledWith("5BHIF", CURRENT);
   });
 
+  it("takes the place of the button rather than opening a row under it", async () => {
+    setup();
+
+    await userEvent.click(saveButton() as HTMLElement);
+
+    const row = screen.getByRole("group", { name: "Gespeicherte Berichte" });
+    expect(saveButton()).not.toBeInTheDocument();
+    expect(row).toContainElement(nameField());
+  });
+
+  it("gives the button back once the name has been taken", async () => {
+    setup();
+    await userEvent.click(saveButton() as HTMLElement);
+    await userEvent.type(nameField() as HTMLElement, "5BHIF");
+
+    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+    expect(nameField()).not.toBeInTheDocument();
+    expect(saveButton()).toBeInTheDocument();
+  });
+
+  it("gives it back on a cancel too, without saving anything", async () => {
+    setup();
+    await userEvent.click(saveButton() as HTMLElement);
+
+    await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(saveButton()).toBeInTheDocument();
+  });
+
   it("refuses a blank name rather than saving a report nothing can be opened by", async () => {
     setup();
 
-    await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
+    await userEvent.click(saveButton() as HTMLElement);
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
     expect(onSave).not.toHaveBeenCalled();
@@ -190,8 +223,8 @@ describe("saving the report as it stands", () => {
     const { change } = setup();
     await userEvent.click(tag("5AHIF"));
 
-    await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Name des Berichts" }), "Neu");
+    await userEvent.click(saveButton() as HTMLElement);
+    await userEvent.type(nameField() as HTMLElement, "Neu");
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
     change(CURRENT, [...REPORTS, fresh]);
 
@@ -303,12 +336,36 @@ describe("renaming and deleting from within the tag", () => {
     await userEvent.click(tag("5AHIF"));
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF umbenennen" }));
-    const field = screen.getByRole("textbox", { name: "Name des Berichts" });
+    const field = nameField() as HTMLElement;
     await userEvent.clear(field);
     await userEvent.type(field, "5CHIF");
     await userEvent.click(screen.getByRole("button", { name: "Umbenennen" }));
 
     expect(onRename).toHaveBeenCalledWith("r1", "5CHIF");
+  });
+
+  it("puts the name field where the tag stood, leaving the others alone", async () => {
+    setup();
+    await userEvent.click(tag("5AHIF"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF umbenennen" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Gespeicherter Bericht: 5AHIF" }),
+    ).not.toBeInTheDocument();
+    expect(tag("Alle Mädchen")).toBeInTheDocument();
+    expect(nameField()).toHaveValue("5AHIF");
+  });
+
+  it("gives the tag back when the rename is cancelled", async () => {
+    setup();
+    await userEvent.click(tag("5AHIF"));
+    await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF umbenennen" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    expect(onRename).not.toHaveBeenCalled();
+    expect(tag("5AHIF")).toBeInTheDocument();
   });
 
   it("asks before deleting, right there in the tag", async () => {

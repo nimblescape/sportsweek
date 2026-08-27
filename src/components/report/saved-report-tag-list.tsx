@@ -69,12 +69,25 @@ export function SavedReportTagList({
   }
 
   return (
-    <div className="space-y-2">
-      <div role="group" aria-label={ROW_LABEL} className="flex flex-wrap items-center gap-1.5">
-        {reports.length === 0 ? (
-          <p className="text-muted-foreground text-sm">{EMPTY_HINT}</p>
-        ) : (
-          reports.map((report) => (
+    <div role="group" aria-label={ROW_LABEL} className="flex flex-wrap items-center gap-1.5">
+      {reports.length === 0 && editing === null ? (
+        <p className="text-muted-foreground text-sm">{EMPTY_HINT}</p>
+      ) : (
+        reports.map((report) =>
+          // Renaming happens where the tag is, so the row neither grows nor reorders itself.
+          editing?.kind === "rename" && editing.report.id === report.id ? (
+            <NameForm
+              key={report.id}
+              initialName={report.name}
+              submitLabel="Umbenennen"
+              pending={pending}
+              onSubmit={async (name) => {
+                await run(report.id, () => onRename(report.id, name));
+                setEditing(null);
+              }}
+              onCancel={() => setEditing(null)}
+            />
+          ) : (
             <SavedReportTag
               key={report.id}
               report={report}
@@ -106,9 +119,23 @@ export function SavedReportTagList({
               }}
               onCancel={() => setConfirming(null)}
             />
-          ))
-        )}
+          ),
+        )
+      )}
 
+      {editing?.kind === "save" ? (
+        <NameForm
+          initialName=""
+          submitLabel="Speichern"
+          pending={pending}
+          onSubmit={async (name) => {
+            // The report on screen is now the one just saved, so the mark follows it there.
+            setMarkedId(await run(null, () => onSave(name, current)));
+            setEditing(null);
+          }}
+          onCancel={() => setEditing(null)}
+        />
+      ) : (
         <Button
           type="button"
           variant="outline"
@@ -116,32 +143,13 @@ export function SavedReportTagList({
           disabled={pending}
           onClick={() => {
             setConfirming(null);
-            setEditing(editing?.kind === "save" ? null : { kind: "save" });
+            setEditing({ kind: "save" });
           }}
         >
           <Plus aria-hidden data-icon="inline-start" />
           Bericht speichern
         </Button>
-      </div>
-
-      {editing !== null ? (
-        <NameForm
-          key={editing.kind === "rename" ? editing.report.id : "save"}
-          initialName={editing.kind === "rename" ? editing.report.name : ""}
-          submitLabel={editing.kind === "rename" ? "Umbenennen" : "Speichern"}
-          pending={pending}
-          onSubmit={async (name) => {
-            if (editing.kind === "rename") {
-              await run(editing.report.id, () => onRename(editing.report.id, name));
-            } else {
-              // The report on screen is now the one just saved, so the mark follows it there.
-              setMarkedId(await run(null, () => onSave(name, current)));
-            }
-            setEditing(null);
-          }}
-          onCancel={() => setEditing(null)}
-        />
-      ) : null}
+      )}
     </div>
   );
 }
@@ -280,6 +288,7 @@ function SavedReportTag({
 
 type NameFormProps = {
   initialName?: string;
+  /** The accessible name of the confirming icon, which is what the form is for. */
   submitLabel: string;
   /** Held by the row while its write is out, so a second name cannot be taken for the same one. */
   pending: boolean;
@@ -287,7 +296,11 @@ type NameFormProps = {
   onCancel: () => void;
 };
 
-/** The one place a report's name is typed — saving a new one and renaming an old one (US-13). */
+/**
+ * The one place a report's name is typed — saving a new one and renaming an old one (US-13).
+ * It stands in the row where the control that opened it stood, so naming a report neither moves
+ * the tags nor adds a line under them.
+ */
 function NameForm({ initialName = "", submitLabel, pending, onSubmit, onCancel }: NameFormProps) {
   const [name, setName] = React.useState(initialName);
   const [error, setError] = React.useState<string | null>(null);
@@ -295,7 +308,7 @@ function NameForm({ initialName = "", submitLabel, pending, onSubmit, onCancel }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
 
-    // The schema owns the wording, so the hint under the field is the one the server would send.
+    // The schema owns the wording, so the hint beside the field is the one the server would send.
     const parsed = nameSchema.safeParse(name);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Ungültiger Name.");
@@ -311,31 +324,37 @@ function NameForm({ initialName = "", submitLabel, pending, onSubmit, onCancel }
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-wrap items-start gap-2" noValidate>
-      <div className="flex flex-col gap-1">
-        <Input
-          autoFocus
-          aria-label={NAME_LABEL}
-          placeholder={NAME_LABEL}
-          value={name}
-          disabled={pending}
-          onChange={(event) => setName(event.target.value)}
-          className="w-64"
-        />
-        {error ? <p className="text-destructive text-sm">{error}</p> : null}
-      </div>
-      <Button type="submit" disabled={pending}>
-        {submitLabel}
+    <form onSubmit={submit} className="flex flex-wrap items-center gap-1.5" noValidate>
+      <Input
+        autoFocus
+        aria-label={NAME_LABEL}
+        aria-invalid={error !== null}
+        placeholder={NAME_LABEL}
+        value={name}
+        disabled={pending}
+        onChange={(event) => setName(event.target.value)}
+        className="h-9 w-48"
+      />
+      <Button
+        type="submit"
+        variant="outline"
+        size="icon-lg"
+        aria-label={submitLabel}
+        disabled={pending}
+      >
+        <Check aria-hidden />
       </Button>
       <Button
         type="button"
-        variant="ghost"
+        variant="outline"
+        size="icon-lg"
         aria-label="Abbrechen"
         disabled={pending}
         onClick={onCancel}
       >
-        Abbrechen
+        <X aria-hidden />
       </Button>
+      {error ? <p className="text-destructive text-sm">{error}</p> : null}
     </form>
   );
 }
