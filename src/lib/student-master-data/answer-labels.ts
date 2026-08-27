@@ -32,3 +32,10 @@ export const COMPLETENESS_LABELS = {
   complete: "Vollständig",
   incomplete: "Unvollständig",
 } as const;
+
+/**
+ * How the report marks a registration that still has answers outstanding — on the master line,
+ * on the printed copy, and as the tag that narrows the report to exactly those (US-13). One
+ * wording, because three ways of saying it would be three things to keep in step.
+ */
+export const INCOMPLETE_REGISTRATION_HINT = "Registrierung unvollständig";

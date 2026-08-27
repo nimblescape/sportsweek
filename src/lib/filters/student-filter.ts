@@ -5,6 +5,7 @@
  */
 import { z } from "zod";
 import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
+import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
 
 /**
  * The one filter the assignment dialog (US-12) and the report (US-13) both use. It is written
@@ -75,7 +76,12 @@ export const EMPTY_FILTER: StudentFilter = {
   },
 };
 
-export type FilterOption = { value: string; label: string };
+export type FilterOption = {
+  value: string;
+  label: string;
+  /** The accessible name, where the label already names its category and `Kategorie: Wert` would stutter. */
+  name?: string;
+};
 export type FilterGroup = {
   category: FilterCategory;
   label: string;
@@ -92,9 +98,17 @@ const ATTENDANCE_OPTIONS: readonly FilterOption[] = [
   { value: ATTENDANCE_VALUES.notAttending, label: "nimmt nicht teil" },
 ];
 
+/**
+ * One tag, not two: a teacher filters the report down to the registrations they still have to
+ * chase, and "complete" is simply everyone else. It is worded exactly as the master line marks
+ * them, so the tag and the mark cannot come to say different things (US-13).
+ */
 const COMPLETENESS_OPTIONS: readonly FilterOption[] = [
-  { value: COMPLETENESS_VALUES.complete, label: "vollständig" },
-  { value: COMPLETENESS_VALUES.incomplete, label: "unvollständig" },
+  {
+    value: COMPLETENESS_VALUES.incomplete,
+    label: INCOMPLETE_REGISTRATION_HINT,
+    name: INCOMPLETE_REGISTRATION_HINT,
+  },
 ];
 
 /** A list value is stored as the plain text it was chosen as (US-11), so it is its own tag. */
@@ -147,7 +161,11 @@ export function filterGroups(
     });
   }
   if (completeness) {
-    groups.push({ category: "completeness", label: "Anmeldung", options: COMPLETENESS_OPTIONS });
+    groups.push({
+      category: "completeness",
+      label: "Registrierung",
+      options: COMPLETENESS_OPTIONS,
+    });
   }
 
   return groups;

@@ -146,8 +146,8 @@ describe("a field's value", () => {
   });
 
   it("states whether the registration is still missing answers (US-11, US-13)", () => {
-    expect(lineFor("Anmeldung", studentRecord())).toBe("Vollständig");
-    expect(lineFor("Anmeldung", studentRecord({ isIncomplete: true }))).toBe("Unvollständig");
+    expect(lineFor("Registrierung", studentRecord())).toBe("Vollständig");
+    expect(lineFor("Registrierung", studentRecord({ isIncomplete: true }))).toBe("Unvollständig");
   });
 
   it("names the event a student is assigned to, since the record points at it by id", () => {

@@ -13,13 +13,6 @@ import {
   yesNo,
 } from "@/lib/student-master-data/answer-labels";
 
-/**
- * What the report says about a registration that still has answers outstanding. It reads the
- * flag the server stores on every save rather than re-deriving completeness per row (US-11,
- * US-13), and the printed copy says the same thing as the screen.
- */
-export const INCOMPLETE_REGISTRATION_HINT = "Anmeldung unvollständig";
-
 /** A field a student has not answered is said to be unanswered, never left as a blank line. */
 export const NO_ANSWER = "keine Angabe";
 
@@ -94,7 +87,7 @@ const answer = (key: string, label: string, valueOf: ReportField["valueOf"]): Re
  * and the e-mail address are not here, because the master line always carries them.
  */
 export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
-  answer("completeness", "Anmeldung", (record) =>
+  answer("completeness", "Registrierung", (record) =>
     record.isIncomplete ? COMPLETENESS_LABELS.incomplete : COMPLETENESS_LABELS.complete,
   ),
   answer("attendance", "Teilnahme", (record) => yesNo(record.isAttendingSportsWeek)),

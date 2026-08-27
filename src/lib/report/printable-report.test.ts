@@ -56,8 +56,8 @@ describe("printableReportHtml", () => {
   it("says which registrations are still missing answers, as the screen does", () => {
     const chasing = rosterStudent({ id: "r3", lastName: "Cerny" }, { isIncomplete: true });
 
-    expect(html([chasing])).toContain("Anmeldung unvollständig");
-    expect(html([ANNA])).not.toContain("Anmeldung unvollständig");
+    expect(html([chasing])).toContain("Registrierung unvollständig");
+    expect(html([ANNA])).not.toContain("Registrierung unvollständig");
   });
 
   it("carries no navigation, buttons or other chrome onto paper", () => {

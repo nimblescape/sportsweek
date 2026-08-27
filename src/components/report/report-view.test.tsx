@@ -131,8 +131,10 @@ describe("ReportView", () => {
 
     render(<ReportView />);
 
-    expect(within(rowOf("Cerny")).getByText("Anmeldung unvollständig")).toBeInTheDocument();
-    expect(within(rowOf("Muster")).queryByText("Anmeldung unvollständig")).not.toBeInTheDocument();
+    expect(within(rowOf("Cerny")).getByText("Registrierung unvollständig")).toBeInTheDocument();
+    expect(
+      within(rowOf("Muster")).queryByText("Registrierung unvollständig"),
+    ).not.toBeInTheDocument();
   });
 
   it("offers the attendance category the assignment dialog has no use for (US-13)", async () => {
@@ -172,7 +174,7 @@ describe("ReportView", () => {
     useRoster.mockReturnValue({ students: [chasing, ANNA], loading: false, error: null });
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Anmeldung: unvollständig" }));
+    await userEvent.click(screen.getByRole("button", { name: "Registrierung unvollständig" }));
 
     expect(rows()).toHaveLength(1);
     expect(rowOf("Cerny")).toBeInTheDocument();
@@ -264,7 +266,7 @@ describe("the fields tag list", () => {
 
   it("states whether a registration is still missing answers", async () => {
     render(<ReportView />);
-    await activate("Anmeldung");
+    await activate("Registrierung");
 
     expect(within(rowOf("Muster")).getByRole("definition")).toHaveTextContent("Vollständig");
   });

@@ -64,7 +64,7 @@ export function FilterTagList({ label, groups, value, onChange }: FilterTagListP
             <Tag
               key={`${group.category}:${option.value}`}
               // The row carries no headings, so the category is what the tag says it is.
-              label={`${group.label}: ${option.label}`}
+              label={option.name ?? `${group.label}: ${option.label}`}
               text={option.label}
               pressed={value.tags[group.category].includes(option.value)}
               onPress={() => onChange(toggleTag(value, group.category, option.value))}

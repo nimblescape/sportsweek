@@ -3,12 +3,8 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import {
-  INCOMPLETE_REGISTRATION_HINT,
-  NO_ANSWER,
-  type ReportField,
-  type ReportFieldContext,
-} from "./report-fields";
+import { NO_ANSWER, type ReportField, type ReportFieldContext } from "./report-fields";
+import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
 
 /** What a teacher is told when the browser refuses to open the print window (US-13). */

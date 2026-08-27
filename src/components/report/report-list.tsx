@@ -5,12 +5,8 @@
  */
 "use client";
 
-import {
-  INCOMPLETE_REGISTRATION_HINT,
-  NO_ANSWER,
-  type ReportField,
-  type ReportFieldContext,
-} from "@/lib/report/report-fields";
+import { NO_ANSWER, type ReportField, type ReportFieldContext } from "@/lib/report/report-fields";
+import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
 
 type ReportListProps = {

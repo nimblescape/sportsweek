@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
 import {
   ATTENDANCE_VALUES,
   COMPLETENESS_VALUES,
@@ -127,12 +128,10 @@ describe("matchesFilter", () => {
 
   it("filters by whether a registration is still missing answers (US-11, US-13)", () => {
     const chasing = student({ isIncomplete: true });
-    const complete = withTags(["completeness", COMPLETENESS_VALUES.complete]);
     const incomplete = withTags(["completeness", COMPLETENESS_VALUES.incomplete]);
 
     expect(matchesFilter(chasing, incomplete)).toBe(true);
-    expect(matchesFilter(chasing, complete)).toBe(false);
-    expect(matchesFilter(ANNA, complete)).toBe(true);
+    expect(matchesFilter(ANNA, incomplete)).toBe(false);
   });
 });
 
@@ -271,6 +270,21 @@ describe("filterGroups", () => {
         (group) => group.category,
       ),
     ).toEqual(["class", "gender", "program", "skillLevel", "attendance", "event", "completeness"]);
+  });
+
+  /** There is nothing to chase about a complete registration, so only the one tag is offered. */
+  it("offers a single completeness tag, named the way the master line marks it", () => {
+    const [completeness] = filterGroups(lists, { completeness: true }).filter(
+      (group) => group.category === "completeness",
+    );
+
+    expect(completeness.options).toEqual([
+      {
+        value: COMPLETENESS_VALUES.incomplete,
+        label: INCOMPLETE_REGISTRATION_HINT,
+        name: INCOMPLETE_REGISTRATION_HINT,
+      },
+    ]);
   });
 
   it("takes the options from the maintained lists rather than naming them itself", () => {
