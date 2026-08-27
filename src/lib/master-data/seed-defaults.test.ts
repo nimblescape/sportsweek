@@ -57,7 +57,7 @@ describe("seedMasterDataDefaults", () => {
     await seedMasterDataDefaults();
 
     expect(orderedNamesOf("skillLevels")).toEqual([
-      "Keine Vorkenntnisse",
+      "Einsteiger:in",
       "Anfänger:in",
       "Fortgeschritten",
       "Profi",

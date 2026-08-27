@@ -102,7 +102,7 @@ describe("ClassCards — the students", () => {
       card("5AHIF")
         .getAllByRole("list")
         .map((list) => list.getAttribute("aria-label")),
-    ).toEqual(["5AHIF: Nimmt teil", "5AHIF: Nimmt nicht teil"]);
+    ).toEqual(["5AHIF: Teilnahme", "5AHIF: Keine Teilnahme"]);
   });
 
   it("puts each student into the cloud their answer belongs in", () => {
@@ -110,8 +110,8 @@ describe("ClassCards — the students", () => {
     const staying = student({ isAttending: false });
     setup([coming, staying]);
 
-    expect(listIn("5AHIF", "Nimmt teil").getByText(nameOf(coming))).toBeInTheDocument();
-    expect(listIn("5AHIF", "Nimmt nicht teil").getByText(nameOf(staying))).toBeInTheDocument();
+    expect(listIn("5AHIF", "Teilnahme").getByText(nameOf(coming))).toBeInTheDocument();
+    expect(listIn("5AHIF", "Keine Teilnahme").getByText(nameOf(staying))).toBeInTheDocument();
   });
 
   it("lists only the students of its own class", () => {
@@ -119,8 +119,8 @@ describe("ClassCards — the students", () => {
     const elsewhere = student({ class: "5BHIF" });
     setup([here, elsewhere]);
 
-    expect(listIn("5AHIF", "Nimmt teil").queryByText(nameOf(elsewhere))).not.toBeInTheDocument();
-    expect(listIn("5BHIF", "Nimmt teil").getByText(nameOf(elsewhere))).toBeInTheDocument();
+    expect(listIn("5AHIF", "Teilnahme").queryByText(nameOf(elsewhere))).not.toBeInTheDocument();
+    expect(listIn("5BHIF", "Teilnahme").getByText(nameOf(elsewhere))).toBeInTheDocument();
   });
 
   it("narrows the list to what the card's own filter leaves", async () => {
@@ -130,8 +130,8 @@ describe("ClassCards — the students", () => {
 
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Programm: Ski" }));
 
-    expect(listIn("5AHIF", "Nimmt teil").getByText(nameOf(skier))).toBeInTheDocument();
-    expect(listIn("5AHIF", "Nimmt teil").queryByText(nameOf(boarder))).not.toBeInTheDocument();
+    expect(listIn("5AHIF", "Teilnahme").getByText(nameOf(skier))).toBeInTheDocument();
+    expect(listIn("5AHIF", "Teilnahme").queryByText(nameOf(boarder))).not.toBeInTheDocument();
   });
 });
 

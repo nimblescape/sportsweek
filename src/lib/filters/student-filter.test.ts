@@ -7,11 +7,10 @@ import { describe, expect, it } from "vitest";
 import { ANSWER_LABELS } from "@/lib/master-data/categories";
 import {
   EQUIPMENT_RENTAL_LABEL,
-  EQUIPMENT_RENTAL_NEEDED_LABEL,
-  EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
   HEALTH_LABEL,
   HEALTH_NOTED_LABEL,
   INCOMPLETE_REGISTRATION_HINT,
+  NO_EQUIPMENT_RENTAL_LABEL,
 } from "@/lib/registration/answer-labels";
 import { REPORT_FIELD_TAGS } from "@/lib/report/report-fields";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
@@ -447,13 +446,13 @@ describe("filterGroups", () => {
     expect(rental.options).toEqual([
       {
         value: EQUIPMENT_RENTAL_VALUES.needed,
-        label: EQUIPMENT_RENTAL_NEEDED_LABEL,
-        name: EQUIPMENT_RENTAL_NEEDED_LABEL,
+        label: EQUIPMENT_RENTAL_LABEL,
+        name: EQUIPMENT_RENTAL_LABEL,
       },
       {
         value: EQUIPMENT_RENTAL_VALUES.notNeeded,
-        label: EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
-        name: EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
+        label: NO_EQUIPMENT_RENTAL_LABEL,
+        name: NO_EQUIPMENT_RENTAL_LABEL,
       },
     ]);
   });
@@ -546,7 +545,7 @@ describe("filterSummary", () => {
 
   it("leaves out a category nothing is chosen in, which restricts nothing", () => {
     expect(filterSummary(withTags(["attendance", ATTENDANCE_VALUES.attending]), GROUPS)).toBe(
-      "Nimmt teil",
+      "Teilnahme",
     );
   });
 
