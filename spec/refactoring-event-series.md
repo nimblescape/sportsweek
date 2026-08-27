@@ -57,6 +57,7 @@ event series, labelled "Eventreihe".
 | `studentMasterData.eventId` points at an event document  | `registration.event` names the event, like every other list value                    |
 | One season is active; students write to that one         | Each series is open to students or not; several may be open at once                  |
 | Registration opens when a teacher activates a season     | A series is opened by generating its invitation link                                 |
+| The statistics page shows figures                        | The overview page runs the series: figures, invitation links and the open switch     |
 | The page decides which season it is about                | The header decides, once, for every page                                             |
 | Uniqueness via the `reservedNames` collection            | In-document for lists; a transactional query on `nameKey` for series names           |
 
@@ -255,7 +256,7 @@ actually runs, and so that two of them can be prepared at once.
   message stand alone, which is what US-11 does today.
 - A series is opened by the invitation link: generating one opens it (US-23), because handing out
   a link and opening the series are one intent rather than two. A teacher can close it at any
-  time from the event series list, and open it again without regenerating the link.
+  time from the overview page (US-29), and open it again without regenerating the link.
 - **Archiving closes, and unarchiving does not reopen.** A teacher who unarchives to look at last
   year does not thereby let that year's students back in; reopening is a separate, deliberate
   act. An archived series is therefore never open, which the server enforces by refusing to open
@@ -267,7 +268,7 @@ actually runs, and so that two of them can be prepared at once.
   revision.
 - **A template is an event series that can never be opened to students** (US-22, Q21). That is
   the whole of it: it is selected from the header row and scoped like any other, its lists are
-  maintained like any other's, and the report, statistics and assignment scoped to it show the
+  maintained like any other's, and the report, overview and assignment scoped to it show the
   ordinary empty state, because it holds no registrations — exactly as a series created this
   morning holds none. Several may exist, one per kind of week the school runs.
 - The server refuses to open a template to students, as it refuses to open an archived series —
@@ -343,6 +344,12 @@ header, so that every page I open is about that series and no page has to ask me
 - Colour is not the only thing that says which row a tag is in — its position does, and each row
   carries an accessible name ("Eventreihen", "Vorlagen") so the distinction survives for a reader
   who has neither.
+- **A tag whose series is open to students carries an icon** (US-19), so a teacher standing on any
+  page can see which series are taking registrations. Several may be open at once, and that is
+  precisely the state that is easy to lose track of — a Kulturwoche left open through the summer
+  is invisible otherwise. It is an icon rather than a third shade because colour is already spoken
+  for: accent says selected, grey says template, and a further tone would have to be told apart
+  from both. The icon carries an accessible name, so the state is not left to sight alone.
 - **Archived series are in neither row.** A template is offered because the row is the scope and
   a template's lists are maintained through it (Q21); an archived series is not, because it is
   read-only and nothing read-only is selectable (Q6).
@@ -352,7 +359,7 @@ header, so that every page I open is about that series and no page has to ask me
 - Reading an archived series means unarchiving it, looking, and archiving it again (Q6). Its
   master data can be had without that, by creating a new series from it (US-22).
 - Pressing a tag selects it, and the two rows are the only way to choose what is scoped.
-- Every teacher view — report, assignment, statistics, and each of the seven maintained lists —
+- Every teacher view — report, assignment, overview, and each of the seven maintained lists —
   is about the selected event series and nothing else. There is no second place to choose one.
 - The selection survives navigation and a reload.
 - Selecting another series while a page is open re-scopes that page rather than navigating away
@@ -508,9 +515,12 @@ everybody at once.
   structural version of a rule US-11 states today as a check — a student cannot usefully register
   before the teacher has set up a class — and it now holds because there is nothing to hand out
   rather than because something refuses.
-- Every non-archived event series offers, for each of its classes, a link the teacher can
-  generate, see and copy. Generating the first of them **opens the series to students** (US-19):
-  handing out a link and opening the series are one intent, so they are one action.
+- **The links are handed out from the overview page** (US-29), which already lists the classes of
+  the selected series, one card each. Each class card's header carries the controls for that
+  class's link — copy it, or show it as a QR code — so a teacher setting registration up reads
+  down the same list of classes they are about to invite.
+- Generating the first of them **opens the series to students** (US-19): handing out a link and
+  opening the series are one intent, so they are one action, whichever control produced the link.
 - The link names the event series by an unguessable token rather than by its id, so that holding
   one link tells the holder nothing about any other.
 - The token is generated from a cryptographically secure random source and is long enough that
@@ -660,7 +670,7 @@ to the records around it.
 **Acceptance criteria:**
 
 - The registration carries the student's first name, last name and e-mail address. The report,
-  the assignment board, the statistics and both exports read them from the registration and never
+  the assignment board, the overview and both exports read them from the registration and never
   join to `users`.
 - Those three fields are owned by the server. They are written from the session on every save and
   refused on the way in, so a student cannot type a name into their own record — which is the
@@ -762,9 +772,9 @@ reached them by mistake does not stay in the series for good.
 - The need comes from the links themselves: an invitation names a class rather than a student
   (US-23), so it can be forwarded, pasted into a group chat, or used by somebody it was never
   meant for. Without a way out, one stray registration is permanent.
-- **It is done from the statistics page**, which is scoped to the selected series and lists every
-  registered student of it, attending and not attending, grouped by class. That is why it is the
-  right page and not the assignment board: the board shows only the students who are attending
+- **It is done from the overview page** (US-29), which is scoped to the selected series and lists
+  every registered student of it, attending and not attending, grouped by class. That is why it is
+  the right page and not the assignment board: the board shows only the students who are attending
   (US-12), so a wrongly-registered student who answered "no" would never appear on it.
 - The control lives on the student's tag and follows the pattern the saved report tags already
   set (US-13): pressing a tag marks it, and the controls appear on the marked tag only,
@@ -789,6 +799,67 @@ reached them by mistake does not stay in the series for good.
 - A delete that races a running cascade is harmless: the cascade is expressed as "wherever this
   value is still the old one" (US-27), and a document that is gone simply is not among them.
 
+### US-29: The overview page is where an event series is run from
+
+As a teacher, I open one page that shows me the classes of the series I am working in, hands out
+the invitation links for them and says whether students may register at all, so that setting a
+series up is one place rather than three.
+
+**Acceptance criteria:**
+
+- **The statistics page becomes the overview page.** `/app/statistics` becomes `/app/overview`,
+  `ROUTES.statistics` becomes `ROUTES.overview`, and the navigation entry reads "Übersicht"
+  rather than "Statistik". The rename is the point rather than a tidy-up: the page stopped being a
+  set of figures the moment it became where a series is opened and where its classes are invited.
+- It is scoped like every other teacher view — by the header tag row (US-20) — and chooses nothing
+  itself. Which series it is about is settled above it, and selecting another re-scopes it.
+- It lists **one card per class** of the selected series, as it does today: the students of that
+  class, attending and not, and that class's figures.
+- **The title line carries a tag that opens and closes the series to students.** It is the
+  application's one tag component with `aria-pressed`, reading "Anmeldung freigeschaltet" when the
+  series is open and "Anmeldung nicht freigeschaltet" when it is not — Q19's two labels with the
+  noun they are about, since a bare "Freigeschaltet" in a title line does not say what is.
+- Pressing it is the whole of closing registration (US-19). There is no second control anywhere
+  else: two controls for one decision would be two answers to the same question.
+- The tag is **absent rather than disabled** where the series can never be opened — a template
+  (US-22), and an archived series, which cannot be selected at all (US-20). A page that offers to
+  open what cannot be opened is a page explaining a refusal it did not have to make.
+- **Each class card's header carries that class's invitation controls** (US-23): copy the link,
+  and show it as a QR code. A class with no link yet gets one on the first press, which opens the
+  series (US-19).
+- **The QR code is what removes the mailing step.** A teacher projects it and the class scans it,
+  which is quicker than any list of addresses and reaches the students who never read school mail.
+  It encodes the same link, so everything US-23 says about the token holds unchanged: regenerating
+  invalidates it, and closing the series stops it working.
+- The QR code is rendered **in the browser**, never fetched from an image service. A token in a
+  URL handed to a third party is a token that third party holds, and holding the token is the
+  whole of what enrols somebody.
+- **It is shown on a surface of its own, carrying the code and nothing but what the code is for.**
+  The event series name and the class name sit with it; the application chrome does not. The
+  students in the room are about to register for that series and that class, so naming both is the
+  point rather than a leak — what is withheld is the rest of the application, not the identity of
+  the thing being registered for. The header tag row would otherwise name every series the school
+  runs, and the navigation would show a room full of students a teacher's tools.
+- The code is centred and sized to the screen it is being shown on, and the only control on the
+  surface is a cross that closes the view.
+- Naming both is also what guards the mistake US-23 exists to prevent: a teacher projecting an
+  invitation reads the class off the same screen the room is looking at, rather than trusting the
+  card they pressed a moment ago. Getting that wrong enrols one class into another, and nothing
+  else on the screen would say so.
+- Everything beyond those two names stays off it, for the reason the code has to scan at all: a
+  projector has poor contrast and a phone camera focuses on whatever it finds first, so a quiet
+  field around the code is the difference between a class scanning it once and a class scanning it
+  three times.
+- Escape closes the view as well as the cross, and the cross carries an accessible name — it is
+  the one control on the surface, and a control nobody can name is one a screen reader cannot
+  offer.
+- **A projected code is more exposed than a mailed link**, and that is accepted rather than
+  overlooked: anyone in the room, or looking through the door, can scan it. What it costs is a
+  registration that should not exist, which US-28 deletes and a regenerated link (US-23) stops
+  from recurring. What it buys is a class registered in the time it takes to scan.
+- Deleting a registration stays on this page (US-28), for the reason it was put there: it is the
+  only view that lists every registered student, attending or not.
+
 ## Existing stories affected
 
 | Story                   | What happens to it                                                                                                                                                                                                                                                                                                      |
@@ -800,7 +871,7 @@ reached them by mistake does not stay in the series for good.
 | US-11                   | The season becomes the event series the invitation named, and the class comes from that invitation rather than being answered (US-23). **A question whose list is empty is not asked at all** (US-21). List values stop being snapshots and become references the server keeps in step (Q4). Self-containment is US-26. |
 | US-12                   | Scoped to the selected event series rather than the active season. `eventId` becomes `event`. Otherwise unchanged.                                                                                                                                                                                                      |
 | US-13                   | Scoped to the selected event series. Saved reports become per series (US-25). The tolerance on opening a saved report is kept.                                                                                                                                                                                          |
-| US-14                   | The header gains the event series tag row (US-20). Master data gains an "Events" sub-item, and the seasons sub-item becomes the event series list — the one page under it that is not scoped.                                                                                                                           |
+| US-14                   | The header gains the event series tag row (US-20). Master data gains an "Events" sub-item, and the seasons sub-item becomes the event series list — the one page under it that is not scoped. The "Statistik" entry becomes "Übersicht" (US-29).                                                                        |
 | US-15                   | A student may hold registrations in several series, but is asked to choose only when more than one is **open**; otherwise they go straight in (Q7).                                                                                                                                                                     |
 | US-16                   | Unchanged. It substitutes the identity provider and touches nothing this refactoring moves.                                                                                                                                                                                                                             |
 | US-17, US-18            | Unchanged in shape; both read a registration that no longer needs a join.                                                                                                                                                                                                                                               |
@@ -936,6 +1007,10 @@ It is also the slice that carries Q8's decision into the routes. The selection l
 so every teacher route gains an event series segment and `proxy.ts` stops matching teacher pages
 by a fixed prefix — which is the largest churn in the slice and the reason it is not sharing a
 pull request with anything else.
+
+The statistics page becomes the overview page in the same slice (US-29), because that is where
+both of the new controls live: the tag that opens the series and the per-class invitation links.
+Renaming it earlier would rename a page for a reason nobody could see yet.
 
 ### 6. Creating from a copy, and provisioning
 
@@ -1351,16 +1426,16 @@ anything**. Dropping at copy time avoids that entirely.
 The read-time tolerance is still kept, for what it was always for: a report saved before a
 category or a field key existed (US-25).
 
-**Q11 — A teacher can delete a registration, from the statistics page. Decided, as US-28.**
+**Q11 — A teacher can delete a registration, from the overview page. Decided, as US-28.**
 There is no such path today, and the invitation links of US-23 create the need: a link is per
 class, not per student, so it can be forwarded, pasted into a group chat or simply used by
 somebody it was not meant for. A teacher needs to be able to take a registration out again.
 
-The **statistics page** is the right place, and for a reason worth stating rather than leaving to
-taste: it is the only view that lists **every registered student** of the series, attending and
-not attending alike, grouped by class. The assignment board deliberately shows only the students
-who are attending (US-12), so a wrongly-registered student who answered "no" would be invisible
-there; the report can be filtered down to nobody. Statistics is the one page where the
+The **overview page** (US-29) is the right place, and for a reason worth stating rather than
+leaving to taste: it is the only view that lists **every registered student** of the series,
+attending and not attending alike, grouped by class. The assignment board deliberately shows only
+the students who are attending (US-12), so a wrongly-registered student who answered "no" would be
+invisible there; the report can be filtered down to nobody. The overview is the one page where the
 registration you need to remove is guaranteed to be on screen.
 
 Two knock-ons this settles:
@@ -1401,10 +1476,10 @@ reason that mechanism earns its place — it is the only way to exercise a stude
 end to end, and the invitation link is now the most consequential of them.
 
 It is not available in production, by construction, so what production offers instead is the
-event series list: whether a class has a current link is visible there without clicking anything.
-That is the right division — the list says a link **exists**, the fake login proves it **works** —
-and between them they remove any reason to build a "test link" control, which could only ever
-report on a path its own caller was not taking.
+overview page: whether a class has a current link is visible on its card without clicking anything
+(US-29). That is the right division — the card says a link **exists**, the fake login proves it
+**works** — and between them they remove any reason to build a "test link" control, which could
+only ever report on a path its own caller was not taking.
 
 ### Consistency and delivery
 
@@ -1632,7 +1707,7 @@ way back.
 Three things were asked for, and they cannot all be true at once:
 
 1. **The header tag row is the scope.** Not a shortcut to it, not one of several ways in — it is
-   what "which event series am I working in" means, for the report, the statistics, the
+   what "which event series am I working in" means, for the report, the overview, the
    assignment and the master data alike.
 2. **Master data is scoped to it**, like everything else.
 3. **A template's lists can be maintained, but a template is never in the row.**
@@ -1652,7 +1727,7 @@ drop. A template stops needing anything of its own:
 - **The definition shrinks to one sentence.** A template is an event series that can never be
   opened to students. Not a different kind of thing with views of its own — just that one refusal.
 - **No shrunken navigation, no template-only views, no read-only mode.** The report, the
-  statistics and the assignment scoped to a template show their ordinary empty state — because a
+  overview and the assignment scoped to a template show their ordinary empty state — because a
   template holds no registrations, exactly as a series created this morning holds none. There is
   no case to write: the empty case already exists and already works.
 - **No second way to scope anything.** One row, one selection, one URL, as before.
