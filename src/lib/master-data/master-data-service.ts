@@ -84,12 +84,10 @@ function storedList(category: MasterDataCategory, items: readonly MasterDataItem
   const value =
     category.equipmentField === undefined
       ? items.map((item) => item.name)
-      : items.map(
-          (item): Program => ({
-            name: item.name,
-            requiredEquipment: item.requiredEquipment ?? [],
-          }),
-        );
+      : items.map((item): Program => ({
+          name: item.name,
+          requiredEquipment: item.requiredEquipment ?? [],
+        }));
 
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
@@ -147,7 +145,7 @@ async function readActiveEventSeries(): Promise<EventSeries> {
  * different lists cannot lose one another's work (US-21). The document is re-read inside it and
  * `change` is applied to what it actually holds, never to the list the client was holding — so a
  * stale caller edits the list as it stands or fails, rather than overwriting what it never saw.
- */async function writeList(
+ */ async function writeList(
   eventSeriesId: string,
   category: MasterDataCategory,
   change: (items: MasterDataItem[]) => MasterDataItem[],

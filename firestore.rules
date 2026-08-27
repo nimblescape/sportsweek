@@ -80,26 +80,24 @@ service cloud.firestore {
     }
 
     /**
-     * Every teacher-maintained collection: anyone signed in may read, because a registration
-     * selects from these lists and the teacher views subscribe to them live. Nobody writes
-     * from the client.
+     * The event series and its events: anyone signed in may read, because a registration selects
+     * from the lists the event series document carries (US-21) and the teacher views subscribe to
+     * them live. A rule grants a whole document or none of it, so a student can also read the
+     * saved reports once those move here — accepted deliberately, since a saved report holds a
+     * name, a filter and a set of field keys and nothing about any student.
      *
-     * Writes are closed rather than merely restricted to teachers, because the invariants
-     * these collections carry cannot be expressed here at all. Rules can `get()` a known
-     * path but cannot run a query, so "is this name already taken?" (US-4 to US-10), "is
-     * at most one event series active?" (US-4), "is this item still in use?" (US-5 to US-10) and
-     * the cascade on delete (US-4) are all out of reach. They are enforced in transactions
-     * in the Route Handlers, which use the Admin SDK and bypass these rules — leaving a
-     * second, unchecked way in would make those guarantees worthless.
+     * Writes are closed rather than merely restricted to teachers, because the invariants these
+     * documents carry cannot be expressed here at all. Rules can `get()` a known path but cannot
+     * run a query, so "is this name already taken?" (US-4, US-21), "is at most one event series
+     * active?" (US-4) and "is this item still in use?" (US-5 to US-10) are all out of reach. They
+     * are enforced in transactions in the Route Handlers, which use the Admin SDK and bypass
+     * these rules — leaving a second, unchecked way in would make those guarantees worthless.
      *
      * The names below are a copy: this language cannot import application code. They are owned
      * by COLLECTIONS in src/lib/schemas/collections.ts and have to be kept in step by hand.
      */
     match /{collection}/{itemId} {
-      allow read: if isSignedIn() && collection in [
-        'eventSeries', 'events', 'programs',
-        'classOptions', 'skillLevels', 'busPickupPoints', 'foodOptions', 'seasonPassOptions'
-      ];
+      allow read: if isSignedIn() && collection in ['eventSeries', 'events'];
 
       allow write: if false;
     }

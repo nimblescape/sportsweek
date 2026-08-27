@@ -354,7 +354,11 @@ export function filterGroups(
     );
   }
   if (busPickupPoint) {
-    pushList("busPickupPoint", ANSWER_LABELS.busPickupPoint, asOptions(lists.busPickupPoints ?? []));
+    pushList(
+      "busPickupPoint",
+      ANSWER_LABELS.busPickupPoint,
+      asOptions(lists.busPickupPoints ?? []),
+    );
   }
   if (foodOption) {
     const food = lists.foodOptions ?? [];

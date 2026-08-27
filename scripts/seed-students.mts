@@ -17,17 +17,12 @@ import { getFirestore, type Firestore, type WriteBatch } from "firebase-admin/fi
 import { buildUpn } from "@/lib/auth/fake/upn-builder";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Gender } from "@/lib/schemas/common";
-import {
-  FOOD_OPTION_OTHER,
-  namedListItemSchema,
-  programSchema,
-  type Program,
-} from "@/lib/schemas/master-data";
+import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
 import { userRoleSchema, userSchema } from "@/lib/schemas/user";
 import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
-import { reservationKey, scopeOf } from "@/lib/firebase/reservation-key";
+import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import { EMPTY_REGISTRATION, recordIdFor } from "@/lib/registration/registration";
 import { apphostingValue, fail } from "./environment.mjs";
@@ -36,13 +31,34 @@ import { apphostingValue, fail } from "./environment.mjs";
 const SEEDABLE_ENVIRONMENTS = ["development", "staging"] as const;
 
 /**
- * What a purged environment gets so there is somewhere to put students. None of an event series, its
- * events or the classes are among the master data defaults the app seeds itself — US-6 starts
- * the class list empty — so a fresh project has none until a teacher types them in.
+ * What a purged environment gets so there is somewhere to put students. The application seeds
+ * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
+ * Kulturwoche — so a fresh project holds only what is written here.
  */
 const DEFAULT_EVENT_SERIES_NAME = "2026/2027";
-const DEFAULT_CLASS_NAMES = ["2aWI", "2bWI", "2cWI"] as const;
 const DEFAULT_EVENT_NAMES = ["Woche 1", "Woche 2", "Woche 3"] as const;
+
+/** The six maintained lists of that event series, in the order the master data menu shows them. */
+const MASTER_DATA_DEFAULTS = {
+  classOptions: ["2aWI", "2bWI", "2cWI"],
+  programs: [
+    { name: "Ski", requiredEquipment: ["Ski", "Skischuhe", "Stöcke", "Helm"] },
+    { name: "Snowboard", requiredEquipment: ["Board", "Boots", "Helm"] },
+    { name: "Alternativ", requiredEquipment: [] },
+  ],
+  skillLevels: ["Keine Vorkenntnisse", "Anfänger:in", "Fortgeschritten", "Profi"],
+  seasonPassOptions: ["Keine", "Vielleicht", "Golm-Bielerhöhe (Illwerke)", "Silvretta-Montafon"],
+  busPickupPoints: ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Unterkunft"],
+  foodOptions: ["Alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
+} satisfies Pick<
+  EventSeries,
+  | "classOptions"
+  | "programs"
+  | "skillLevels"
+  | "seasonPassOptions"
+  | "busPickupPoints"
+  | "foodOptions"
+>;
 
 /** The shape of the sports week as it is wanted in a test environment. */
 const STUDENTS_PER_CLASS = { min: 20, max: 25 };
@@ -266,11 +282,6 @@ function registrationOf(
   };
 }
 
-async function readNames(db: Firestore, collection: string): Promise<string[]> {
-  const snapshot = await db.collection(collection).orderBy("position").get();
-  return snapshot.docs.map((doc) => namedListItemSchema.parse({ id: doc.id, ...doc.data() }).name);
-}
-
 async function inBatches(
   db: Firestore,
   writes: readonly ((batch: WriteBatch) => void)[],
@@ -308,29 +319,7 @@ async function purgeStudents(db: Firestore): Promise<{ records: number; users: n
  * The reservation is `create`d rather than `set`, so a name already taken fails the whole commit
  * instead of quietly stealing it.
  */
-async function createNamed(
-  db: Firestore,
-  collection: string,
-  name: string,
-  fields: Record<string, unknown>,
-  parentId?: string,
-): Promise<string> {
-  const scope = scopeOf(collection, parentId);
-  const reference = db.collection(collection).doc();
-  const batch = db.batch();
-
-  batch.set(reference, { name, ...fields });
-  batch.create(db.collection(COLLECTIONS.reservedNames).doc(reservationKey(scope, name)), {
-    scope,
-    name,
-    ownerId: reference.id,
-  });
-  await batch.commit();
-
-  return reference.id;
-}
-
-/** Activating an existing one rather than adding a second: the name may only be claimed once. */
+/** Activating an existing one rather than adding a second: names are unique across event series. */
 async function ensureActiveEventSeries(db: Firestore): Promise<EventSeries> {
   const eventSeries = (await db.collection(COLLECTIONS.eventSeries).get()).docs.map((doc) =>
     eventSeriesSchema.parse({ id: doc.id, ...doc.data() }),
@@ -347,29 +336,23 @@ async function ensureActiveEventSeries(db: Firestore): Promise<EventSeries> {
     return { ...existing, isActive: true };
   }
 
-  const fields = {
+  // The lists live in this document (US-21), so seeding them is part of creating it.
+  const data = {
+    name: DEFAULT_EVENT_SERIES_NAME,
+    nameKey: normalizeName(DEFAULT_EVENT_SERIES_NAME),
     isActive: true,
     isArchived: false,
     hasRegistrations: false,
     position: eventSeries.length,
+    ...MASTER_DATA_DEFAULTS,
   };
-  const id = await createNamed(db, COLLECTIONS.eventSeries, DEFAULT_EVENT_SERIES_NAME, fields);
+  const reference = db.collection(COLLECTIONS.eventSeries).doc();
+  await reference.set(data);
 
-  return { id, name: DEFAULT_EVENT_SERIES_NAME, ...fields };
+  return { id: reference.id, ...data };
 }
 
-async function ensureClasses(db: Firestore): Promise<string[]> {
-  const existing = await readNames(db, COLLECTIONS.classOptions);
-  if (existing.length > 0) return existing;
-
-  for (const [position, name] of DEFAULT_CLASS_NAMES.entries()) {
-    await createNamed(db, COLLECTIONS.classOptions, name, { position });
-  }
-
-  return [...DEFAULT_CLASS_NAMES];
-}
-
-/** Event names are unique only within their own event series, hence the event series id as the scope. */
+/** Event names are unique only within their own event series, hence the query by both fields. */
 async function ensureEvents(db: Firestore, eventSeriesId: string): Promise<void> {
   const existing = await db
     .collection(COLLECTIONS.events)
@@ -377,9 +360,16 @@ async function ensureEvents(db: Firestore, eventSeriesId: string): Promise<void>
     .get();
   if (!existing.empty) return;
 
+  const batch = db.batch();
   for (const [position, name] of DEFAULT_EVENT_NAMES.entries()) {
-    await createNamed(db, COLLECTIONS.events, name, { eventSeriesId, position }, eventSeriesId);
+    batch.set(db.collection(COLLECTIONS.events).doc(), {
+      eventSeriesId,
+      name,
+      nameKey: normalizeName(name),
+      position,
+    });
   }
+  await batch.commit();
 }
 
 async function main(): Promise<void> {
@@ -398,15 +388,18 @@ async function main(): Promise<void> {
   // ambient environment names, and this must address the one just named and nothing else.
   const db = getFirestore(initializeApp({ projectId }));
 
-  const programs = (await db.collection(COLLECTIONS.programs).orderBy("position").get()).docs.map(
-    (doc) => programSchema.parse({ id: doc.id, ...doc.data() }),
-  );
+  // The lists are fields of the event series (US-21), so there is nothing to read until it
+  // exists — and creating it is what seeds them, since the application no longer does.
+  const eventSeries = await ensureActiveEventSeries(db);
+  await ensureEvents(db, eventSeries.id);
+
+  const programs = eventSeries.programs;
   const named = PROGRAM_SHARES.map(([name]) => programs.find((program) => program.name === name));
   const others = programs.filter((program) => !PROGRAM_SHARES.some(([n]) => n === program.name));
 
   if (named.some((program) => program === undefined) || others.length === 0) {
     fail(
-      `The programs in ${projectId} do not match the split this script seeds.`,
+      `The programs of "${eventSeries.name}" in ${projectId} do not match the split this script seeds.`,
       `  wanted: ${PROGRAM_SHARES.map(([name, share]) => `${name} ${share * 100}%`).join(", ")}, plus at least one more for the rest`,
       `  found:  ${programs.map((program) => program.name).join(", ") || "none"}`,
     );
@@ -420,16 +413,16 @@ async function main(): Promise<void> {
   ];
 
   const lists: Lists = {
-    skillLevels: await readNames(db, COLLECTIONS.skillLevels),
-    busPickupPoints: await readNames(db, COLLECTIONS.busPickupPoints),
-    foodOptions: await readNames(db, COLLECTIONS.foodOptions),
-    seasonPassOptions: await readNames(db, COLLECTIONS.seasonPassOptions),
+    skillLevels: eventSeries.skillLevels,
+    busPickupPoints: eventSeries.busPickupPoints,
+    foodOptions: eventSeries.foodOptions,
+    seasonPassOptions: eventSeries.seasonPassOptions,
   };
 
-  // After the checks above: a project this script cannot fill is left exactly as it was found.
-  const eventSeries = await ensureActiveEventSeries(db);
-  const classNames = await ensureClasses(db);
-  await ensureEvents(db, eventSeries.id);
+  const classNames = eventSeries.classOptions;
+  if (classNames.length === 0) {
+    fail(`"${eventSeries.name}" in ${projectId} has no classes to register students into.`);
+  }
 
   const purged = await purgeStudents(db);
   console.log(
