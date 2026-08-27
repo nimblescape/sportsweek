@@ -296,7 +296,22 @@ As a teacher, I can view a report listing all students so that I have their cont
 - Next to the dropdown, a Save button lets the teacher save the current filter tag list selection under a name, entered inline (e.g. in a small popover) without leaving the report page.
 - In the dropdown, each saved filter has a rename and a delete icon, so the teacher can rename or delete it inline, directly in the dropdown, without a separate management page. On pointer-based devices (desktop) the icons appear on hover; on touch devices (tablet, mobile), where there is no hover state, the icons are always visible instead, so the feature stays usable on every supported screen size (see General).
 - Renaming a saved filter edits its name in place; deleting one requires a lightweight inline confirmation before it is removed.
-- A print button on the report page opens the report as HTML in a popup window, keeping the master-detail structure, which the teacher can then print (e.g. to PDF or any format supported by the installed printers).
+- A print button on the report page opens the report as HTML in a popup window, keeping the master-detail structure, which the teacher can then print (e.g. to PDF or any format supported by the installed printers). A paginated PDF with page furniture of its own is a separate export (see US-17).
+
+### US-17: Teacher exports the student report as PDF
+
+As a teacher, I can export the report as a PDF so that I have a paginated document to file, hand on, or send, without going through a browser's print dialog and whatever it decides a page looks like.
+
+**Acceptance criteria:**
+
+- An export button exists on the report page, next to the print button of US-13, labelled "PDF exportieren".
+- The export contains exactly the students the filter tag list leaves and exactly the detail lines the fields tag list activates (see US-13). It is the report as it currently stands on screen, not a second report with rules of its own.
+- The document keeps the master-detail structure of the report: one master line per student, with that student's detail lines indented below it.
+- A student is one block that is never split across a page boundary — a master line always sits on the same page as the detail lines belonging to it, so a page never opens with answers whose owner was named on the page before. Only a block taller than a whole page may break, because there is no page it would fit on.
+- Every page carries the same header and the same footer, the first page included.
+- The header holds the HTL logo and the report title "Sportsweek Report". The title belongs to the header rather than being a heading printed once, which is what makes it repeat on every page.
+- The footer states the page's own number and the total number of pages, in the form "Seite 3 von 12".
+- The students' details are not put in a URL to produce the document, for the same reason the print window is written rather than fetched (see US-13): a class full of contact details has no business in an address bar, a history entry, or any log that records one.
 
 ## Navigation
 
