@@ -194,6 +194,23 @@ describe("updateSeason — exactly one active season", () => {
     expect(firestore.get("seasons", "s1")).toMatchObject({ isActive: false });
   });
 
+  it("refuses to rename an archived season, which is signed off rather than edited", async () => {
+    seedSeason("s1", { name: "Winter 2025", isArchived: true });
+
+    await expect(updateSeason("s1", { name: "Winter 2026" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(firestore.get("seasons", "s1")).toMatchObject({ name: "Winter 2025" });
+  });
+
+  it("still unarchives one, so signing a season off stays reversible", async () => {
+    seedSeason("s1", { name: "Winter 2025", isArchived: true });
+
+    await expect(updateSeason("s1", { isArchived: false })).resolves.toMatchObject({
+      isArchived: false,
+    });
+  });
+
   it("can deactivate the active season without touching the others", async () => {
     seedSeason("a", { isActive: true });
     seedSeason("b");

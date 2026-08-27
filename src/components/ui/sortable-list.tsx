@@ -25,6 +25,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
+import { applyVisibleOrder } from "@/lib/schemas/position";
 import { useDroppedOrder } from "@/lib/ui/use-dropped-order";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,11 @@ type SortableListProps<T extends SortableItem> = {
   renderItem: (item: T) => React.ReactNode;
   /** Hides the handles, for a list that is read-only in its current state. */
   disabled?: boolean;
+  /**
+   * Which rows may be dragged. A row that may not keeps the index it already has, however the
+   * rows around it are moved — dropping cannot push it somewhere it is not allowed to go.
+   */
+  movable?: (item: T) => boolean;
   /** The row a write is running on; its handle is locked until the write is answered. */
   busyId?: string | null;
   className?: string;
@@ -58,6 +64,7 @@ export function SortableList<T extends SortableItem>({
   onReorder,
   renderItem,
   disabled = false,
+  movable = () => true,
   busyId = null,
   className,
 }: SortableListProps<T>) {
@@ -76,14 +83,25 @@ export function SortableList<T extends SortableItem>({
     const to = ordered.findIndex((item) => item.id === over.id);
     if (from === -1 || to === -1) return;
 
-    await drop(arrayMove(ordered, from, to).map((item) => item.id));
+    // The pinned rows keep the slots they already hold; the rest are dealt back into what is left.
+    const moved = arrayMove(ordered, from, to).filter(movable);
+    const next = applyVisibleOrder(
+      ordered.map((item) => item.id),
+      moved.map((item) => item.id),
+    );
+    if (next.join("\u0000") === ordered.map((item) => item.id).join("\u0000")) return;
+
+    await drop(next);
   }
 
   if (disabled) {
     return (
       <ul className={className}>
         {items.map((item) => (
-          <li key={item.id}>{renderItem(item)}</li>
+          <li key={item.id} className="flex items-center">
+            <HandleSlot />
+            <div className="min-w-0 flex-1">{renderItem(item)}</div>
+          </li>
         ))}
       </ul>
     );
@@ -99,7 +117,12 @@ export function SortableList<T extends SortableItem>({
       <SortableContext items={ordered} strategy={verticalListSortingStrategy}>
         <ul className={className}>
           {ordered.map((item) => (
-            <SortableRow key={item.id} item={item} disabled={item.id === busyId}>
+            <SortableRow
+              key={item.id}
+              item={item}
+              movable={movable(item)}
+              disabled={item.id === busyId}
+            >
               {renderItem(item)}
             </SortableRow>
           ))}
@@ -109,18 +132,31 @@ export function SortableList<T extends SortableItem>({
   );
 }
 
+const HANDLE_BOX = "ml-2 shrink-0 rounded-md p-1";
+
+/** Where there is no handle its space is kept, so every row of a list is shaped the same. */
+function HandleSlot() {
+  return (
+    <span aria-hidden className={HANDLE_BOX}>
+      <GripVertical className="invisible size-4" />
+    </span>
+  );
+}
+
 function SortableRow({
   item,
+  movable,
   disabled,
   children,
 }: {
   item: SortableItem;
+  movable: boolean;
   disabled: boolean;
   children: React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
-    disabled,
+    disabled: disabled || !movable,
   });
 
   return (
@@ -129,16 +165,23 @@ function SortableRow({
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={cn("flex items-center", isDragging && "bg-muted relative z-10 opacity-80")}
     >
-      <button
-        type="button"
-        disabled={disabled}
-        aria-label={`${item.name} verschieben`}
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 ml-2 shrink-0 cursor-grab touch-none rounded-md p-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical aria-hidden className="size-4" />
-      </button>
+      {movable ? (
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label={`${item.name} verschieben`}
+          className={cn(
+            HANDLE_BOX,
+            "text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 cursor-grab touch-none transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50",
+          )}
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical aria-hidden className="size-4" />
+        </button>
+      ) : (
+        <HandleSlot />
+      )}
       <div className="min-w-0 flex-1">{children}</div>
     </li>
   );

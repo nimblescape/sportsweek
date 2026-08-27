@@ -226,6 +226,28 @@ describe("SeasonList — row actions", () => {
     expect(onArchivedChange).toHaveBeenCalledWith(seasons[1], false);
   });
 
+  it("offers no rename for an archived season, which is signed off rather than edited", () => {
+    renderList();
+
+    expect(
+      screen.queryByRole("button", { name: "Saison Wintersportwoche 2025 bearbeiten" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2026 bearbeiten" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers no grip for an archived season, so it keeps its place in the list", () => {
+    renderList();
+
+    expect(
+      screen.queryByRole("button", { name: "Wintersportwoche 2025 verschieben" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Wintersportwoche 2026 verschieben" }),
+    ).toBeInTheDocument();
+  });
+
   it("disables archiving the active season, which must be deactivated first", () => {
     renderList();
 

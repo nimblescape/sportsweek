@@ -142,6 +142,12 @@ export function SavedReportTagList({
                   pending={pending}
                   onOpen={() => {
                     closeForms();
+                    if (report.id === markedId) {
+                      // Pressing the marked tag lets go of it and leaves the two tag lists
+                      // alone: what is on screen is the teacher's, not the tag's, to give back.
+                      setMarkedId(null);
+                      return;
+                    }
                     setMarkedId(report.id);
                     onOpen(report);
                   }}

@@ -120,6 +120,41 @@ describe("SortableList — when reordering is not offered", () => {
     expect(screen.queryByRole("button", { name: /verschieben/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
   });
+
+  /** The handle's box is kept, or a list nobody can drag would sit differently from one they can. */
+  it("keeps the space the handle would have taken, so the rows keep their shape", () => {
+    renderList(vi.fn(), { disabled: true });
+
+    for (const row of screen.getAllByRole("listitem")) {
+      expect(row).toHaveClass("flex", "items-center");
+      expect(row.firstElementChild).toHaveClass("ml-2");
+    }
+  });
+});
+
+describe("SortableList — a row that may not move", () => {
+  const pinned = { movable: (item: { id: string }) => item.id !== "a" };
+
+  it("offers it no handle, but keeps the space one would have taken", () => {
+    renderList(vi.fn(), pinned);
+
+    expect(screen.queryByRole("button", { name: "Anton verschieben" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Berta verschieben" })).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")[0].firstElementChild).toHaveClass("ml-2");
+  });
+
+  it("leaves it at the index it had when the rows around it are moved", async () => {
+    const onReorder = renderList(vi.fn(), pinned);
+
+    const handle = screen.getByRole("button", { name: "Cesar verschieben" });
+    handle.focus();
+    await userEvent.keyboard("{ }");
+    await userEvent.keyboard("{ArrowUp}");
+    await userEvent.keyboard("{ArrowUp}");
+    await userEvent.keyboard("{ }");
+
+    await waitFor(() => expect(onReorder).toHaveBeenCalledWith(["a", "c", "b"]));
+  });
 });
 
 describe("SortableList — while a row is busy", () => {

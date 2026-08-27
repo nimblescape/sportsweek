@@ -131,6 +131,28 @@ describe("the tag the teacher opened", () => {
     expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
     expect(tag("Alle Mädchen")).toHaveAttribute("aria-pressed", "true");
   });
+
+  it("releases the mark when the tag holding it is pressed again", async () => {
+    setup();
+    await userEvent.click(tag("5AHIF"));
+
+    await userEvent.click(tag("5AHIF"));
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  /** Letting go of a report is not asking for one, so neither tag list hears about it. */
+  it("leaves both tag lists exactly as they are when the mark is released", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+    change({ ...CURRENT, fields: [] });
+    onOpen.mockClear();
+
+    await userEvent.click(tag("5AHIF"));
+
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
 });
 
 describe("telling an untouched saved report from a changed one", () => {

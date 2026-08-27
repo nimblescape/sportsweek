@@ -14,6 +14,7 @@ import {
   type PointerEventHandler,
 } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { ChevronRight, GripVertical } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -202,7 +203,10 @@ function Row({
   picked: boolean;
   onToggle: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: dragId, data });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: dragId,
+    data,
+  });
 
   /**
    * The whole row is what a pointer drags; the handle is what a keyboard drags. Splitting the
@@ -229,7 +233,13 @@ function Row({
   }
 
   return (
-    <li ref={setNodeRef} className={cn(isDragging && "opacity-80")}>
+    <li
+      ref={setNodeRef}
+      // Carried with the pointer rather than left behind faded, so what is being moved is what
+      // the teacher is looking at.
+      style={{ transform: CSS.Translate.toString(transform) }}
+      className={cn(isDragging && "relative z-10 opacity-80")}
+    >
       <div
         className={cn(
           "border-border bg-background flex items-center rounded-md border",
