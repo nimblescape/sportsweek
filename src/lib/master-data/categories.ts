@@ -77,6 +77,17 @@ export const MASTER_DATA_CATEGORIES = {
       answer: "Leistungsstufe",
     },
   },
+  "season-pass-options": {
+    collection: COLLECTIONS.seasonPassOptions,
+    usage: { kind: "masterData", field: "seasonPassOption" },
+    labels: {
+      title: "Zugangskarten",
+      singular: "Zugangskarte",
+      add: "Neue Zugangskarte",
+      empty: "Es gibt noch keine Zugangskarte.",
+      answer: "Zugangskarte",
+    },
+  },
   "bus-pickup-points": {
     collection: COLLECTIONS.busPickupPoints,
     usage: { kind: "masterData", field: "busPickupPoint" },
@@ -97,17 +108,6 @@ export const MASTER_DATA_CATEGORIES = {
       add: "Neue Verpflegungsoption",
       empty: "Es gibt noch keine Verpflegungsoption.",
       answer: "Verpflegung",
-    },
-  },
-  "season-pass-options": {
-    collection: COLLECTIONS.seasonPassOptions,
-    usage: { kind: "masterData", field: "seasonPassOption" },
-    labels: {
-      title: "Zugangskarten",
-      singular: "Zugangskarte",
-      add: "Neue Zugangskarte",
-      empty: "Es gibt noch keine Zugangskarte.",
-      answer: "Zugangskarte",
     },
   },
 } as const satisfies Record<string, MasterDataCategory>;

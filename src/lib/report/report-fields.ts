@@ -134,9 +134,9 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
     ],
   },
   answer("skillLevel", ANSWER_LABELS.skillLevel, (record) => record.skillLevel),
+  answer("seasonPassOption", ANSWER_LABELS.seasonPassOption, (record) => record.seasonPassOption),
   answer("busPickupPoint", ANSWER_LABELS.busPickupPoint, (record) => record.busPickupPoint),
   answer("food", ANSWER_LABELS.foodOption, foodOf),
-  answer("seasonPassOption", ANSWER_LABELS.seasonPassOption, (record) => record.seasonPassOption),
   {
     key: "health",
     label: "Gesundheit",

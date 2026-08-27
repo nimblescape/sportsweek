@@ -186,7 +186,6 @@ export function RegistrationForm({
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
       <Section title="Anmeldung">
-        <ReadOnlyField label="Eventreihe" value={eventSeriesName} />
         <ReadOnlyField label="Name" value={studentName} />
         <SelectField
           control={control}
@@ -299,13 +298,13 @@ export function RegistrationForm({
             </Field>
           </Section>
 
-          <Section title="Programm">
+          <Section title={eventSeriesName}>
             <SelectField
               control={control}
               name="program"
               label="Für welches Programm meldest du dich an?"
               options={lists.programs.map((entry) => entry.name)}
-              placeholder="Programm wählen"
+              placeholder={`${ANSWER_LABELS.program} wählen`}
               error={errors.program?.message ?? hint("program")}
             />
             {equipment.length > 0 ? (
@@ -370,9 +369,6 @@ export function RegistrationForm({
                 </Field>
               </>
             ) : null}
-          </Section>
-
-          <Section title="Sportwoche">
             <SelectField
               control={control}
               name="skillLevel"
@@ -397,9 +393,6 @@ export function RegistrationForm({
               placeholder={`${ANSWER_LABELS.busPickupPoint} wählen`}
               error={errors.busPickupPoint?.message ?? hint("busPickupPoint")}
             />
-          </Section>
-
-          <Section title="Verpflegung">
             <SelectField
               control={control}
               name="foodOption"

@@ -34,9 +34,9 @@ export const FILTER_CATEGORIES = [
   "program",
   "equipmentRental",
   "skillLevel",
+  "seasonPassOption",
   "busPickupPoint",
   "foodOption",
-  "seasonPassOption",
   "health",
   "completeness",
 ] as const;
@@ -56,9 +56,9 @@ export const FIELD_TAG_KEY_BY_CATEGORY: Record<FilterCategory, string> = {
   program: "program",
   equipmentRental: "rentedEquipment",
   skillLevel: "skillLevel",
+  seasonPassOption: "seasonPassOption",
   busPickupPoint: "busPickupPoint",
   foodOption: "food",
-  seasonPassOption: "seasonPassOption",
   health: "health",
   completeness: "completeness",
 };
@@ -126,9 +126,9 @@ export const EMPTY_FILTER: StudentFilter = {
     program: [],
     equipmentRental: [],
     skillLevel: [],
+    seasonPassOption: [],
     busPickupPoint: [],
     foodOption: [],
-    seasonPassOption: [],
     health: [],
     completeness: [],
   },
@@ -332,6 +332,13 @@ export function filterGroups(
     options: asOptions(lists.skillLevels),
   });
 
+  if (seasonPassOption) {
+    groups.push({
+      category: "seasonPassOption",
+      label: ANSWER_LABELS.seasonPassOption,
+      options: asOptions(lists.seasonPassOptions ?? []),
+    });
+  }
   if (busPickupPoint) {
     groups.push({
       category: "busPickupPoint",
@@ -348,13 +355,6 @@ export function filterGroups(
         ...asOptions(lists.foodOptions ?? []),
         { value: FOOD_OPTION_OTHER, label: FOOD_OPTION_OTHER_LABEL },
       ],
-    });
-  }
-  if (seasonPassOption) {
-    groups.push({
-      category: "seasonPassOption",
-      label: ANSWER_LABELS.seasonPassOption,
-      options: asOptions(lists.seasonPassOptions ?? []),
     });
   }
   if (health) {

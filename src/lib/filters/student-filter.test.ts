@@ -380,9 +380,9 @@ describe("filterGroups", () => {
       "program",
       "equipmentRental",
       "skillLevel",
+      "seasonPassOption",
       "busPickupPoint",
       "foodOption",
-      "seasonPassOption",
       "health",
       "completeness",
     ]);

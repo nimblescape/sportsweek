@@ -37,9 +37,9 @@ describe("REPORT_FIELD_TAGS", () => {
       "rentedEquipment",
       "measurements",
       "skillLevel",
+      "seasonPassOption",
       "busPickupPoint",
       "food",
-      "seasonPassOption",
       "health",
       "completeness",
     ]);
