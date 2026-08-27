@@ -81,9 +81,6 @@ export function SeasonList({
       <SortableList
         items={seasons}
         onReorder={onReorder}
-        // An archived season is finished with, so it keeps its place rather than being dragged
-        // around among the seasons still being planned (US-4).
-        movable={(season) => !season.isArchived}
         busyId={busySeasonId}
         className="[&>li]:border-border [&>li]:border-b [&>li:last-child]:border-b-0"
         renderItem={(season) => {

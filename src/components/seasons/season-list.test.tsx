@@ -237,17 +237,6 @@ describe("SeasonList — row actions", () => {
     ).toBeInTheDocument();
   });
 
-  it("offers no grip for an archived season, so it keeps its place in the list", () => {
-    renderList();
-
-    expect(
-      screen.queryByRole("button", { name: "Wintersportwoche 2025 verschieben" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Wintersportwoche 2026 verschieben" }),
-    ).toBeInTheDocument();
-  });
-
   it("disables archiving the active season, which must be deactivated first", () => {
     renderList();
 
