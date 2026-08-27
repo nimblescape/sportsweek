@@ -116,8 +116,13 @@ export function SavedReportTagList({
           initialName={editing.kind === "rename" ? editing.report.name : ""}
           submitLabel={editing.kind === "rename" ? "Umbenennen" : "Speichern"}
           onSubmit={async (name) => {
-            if (editing.kind === "rename") await onRename(editing.report.id, name);
-            else await onSave(name, current);
+            if (editing.kind === "rename") {
+              await onRename(editing.report.id, name);
+            } else {
+              await onSave(name, current);
+              // What was open is not what was just saved, so the row lets go of it.
+              setMarkedId(null);
+            }
             setEditing(null);
           }}
           onCancel={() => setEditing(null)}
@@ -212,16 +217,19 @@ function SavedReportTag({
         </>
       ) : (
         <>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Bericht ${report.name} aktualisieren`}
-            onClick={onUpdate}
-            className={ICON_CLASSES}
-          >
-            <Save aria-hidden />
-          </Button>
+          {/* Nothing to store while the report on screen still is the one this tag holds. */}
+          {changed ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Bericht ${report.name} aktualisieren`}
+              onClick={onUpdate}
+              className={ICON_CLASSES}
+            >
+              <Save aria-hidden />
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="ghost"

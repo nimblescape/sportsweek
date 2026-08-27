@@ -171,6 +171,18 @@ describe("saving the report as it stands", () => {
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText("Pflichtfeld.")).toBeInTheDocument();
   });
+
+  it("lets go of the report that was open, which is not the one just saved", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+    change({ ...CURRENT, fields: [] });
+
+    await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Name des Berichts" }), "5BHIF");
+    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
 });
 
 describe("the controls inside a tag", () => {
@@ -178,7 +190,7 @@ describe("the controls inside a tag", () => {
     setup();
     await userEvent.click(tag("5AHIF"));
 
-    for (const control of ["aktualisieren", "umbenennen", "löschen"]) {
+    for (const control of ["umbenennen", "löschen"]) {
       expect(screen.getByRole("button", { name: `Bericht 5AHIF ${control}` })).toBeInTheDocument();
     }
   });
@@ -193,6 +205,24 @@ describe("the controls inside a tag", () => {
 });
 
 describe("bringing the marked report up to date", () => {
+  it("offers no update while the marked report is still what is on screen", async () => {
+    setup();
+    await userEvent.click(tag("5AHIF"));
+
+    expect(
+      screen.queryByRole("button", { name: "Bericht 5AHIF aktualisieren" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers one as soon as either tag list is changed", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+
+    change({ ...CURRENT, fields: [] });
+
+    expect(screen.getByRole("button", { name: "Bericht 5AHIF aktualisieren" })).toBeInTheDocument();
+  });
+
   it("replaces what it holds with the report as it now stands", async () => {
     const changed = { ...CURRENT, fields: ["class", "contact"] };
     const { change } = setup();
