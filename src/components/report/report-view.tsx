@@ -10,7 +10,7 @@ import { FileDown, FileSpreadsheet, Printer } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
-import { EMPTY_FILTER, filterStudents, type StudentFilter } from "@/lib/filters/student-filter";
+import { EMPTY_FILTER, filterStudents } from "@/lib/filters/student-filter";
 import { reportFieldsOf } from "@/lib/report/report-fields";
 import { POPUP_BLOCKED_HINT, printableReportHtml } from "@/lib/report/printable-report";
 import {
@@ -19,19 +19,20 @@ import {
   EXPORT_FAILED_HINT,
   type ReportExport,
 } from "@/lib/report/report-download";
-import { matchingSavedFilter } from "@/lib/report/saved-filters";
-import { useSavedFilters } from "@/lib/report/use-saved-filters";
+import { matchingSavedReport } from "@/lib/report/saved-reports";
+import { useSavedReports } from "@/lib/report/use-saved-reports";
 import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
+import type { ReportSelection } from "@/lib/schemas/saved-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { FieldTagList } from "./field-tag-list";
 import { ReportList } from "./report-list";
-import { SavedFilterPicker } from "./saved-filter-picker";
+import { SavedReportTagList } from "./saved-report-tag-list";
 
 const FILTER_LABEL = "Bericht";
 
-const filterUrl = (id: string) => `/api/report-filters/${encodeURIComponent(id)}`;
+const reportUrl = (id: string) => `/api/saved-reports/${encodeURIComponent(id)}`;
 
 /**
  * The student report of US-13, scoped to the active season and listing everyone registered for
@@ -44,7 +45,7 @@ export function ReportView() {
     completeness: true,
     events: true,
   });
-  const { filters: savedFilters } = useSavedFilters();
+  const { reports: savedReports } = useSavedReports();
   const [filter, setFilter] = useState(EMPTY_FILTER);
   const [activeFields, setActiveFields] = useState<string[]>([]);
   const [outputError, setOutputError] = useState<string | null>(null);
@@ -55,24 +56,34 @@ export function ReportView() {
 
   const shown = useMemo(() => filterStudents(students, filter), [students, filter]);
   const fields = useMemo(() => reportFieldsOf(activeFields), [activeFields]);
+  // What a saved report holds, and so what one is compared against and what a save keeps.
+  const selection = useMemo<ReportSelection>(
+    () => ({ filter, fields: activeFields }),
+    [filter, activeFields],
+  );
   // A record points at its event by id, so the detail line needs the season's events to name it.
   const context = useMemo(
     () => ({ eventNames: new Map(events.map((event) => [event.id, event.name])) }),
     [events],
   );
 
+  function openReport(saved: ReportSelection) {
+    setFilter(saved.filter);
+    setActiveFields([...saved.fields]);
+  }
+
   // Writes go through handlers because the author is the session's, not the request's (US-13);
   // the list itself comes back from the subscription rather than from these answers.
-  async function saveFilter(name: string, selection: StudentFilter) {
-    await apiRequest("/api/report-filters", { method: "POST", body: { name, filter: selection } });
+  async function saveReport(name: string, saved: ReportSelection) {
+    await apiRequest("/api/saved-reports", { method: "POST", body: { name, ...saved } });
   }
 
-  async function renameFilter(id: string, name: string) {
-    await apiRequest(filterUrl(id), { method: "PATCH", body: { name } });
+  async function renameReport(id: string, name: string) {
+    await apiRequest(reportUrl(id), { method: "PATCH", body: { name } });
   }
 
-  async function deleteFilter(id: string) {
-    await apiRequest(filterUrl(id), { method: "DELETE" });
+  async function deleteReport(id: string) {
+    await apiRequest(reportUrl(id), { method: "DELETE" });
   }
 
   /**
@@ -94,10 +105,10 @@ export function ReportView() {
   }
 
   /**
-   * The saved filter the shown selection is, asked of the same module the dropdown asks, so the
-   * file a teacher receives is named after the filter the dropdown says they are looking at.
+   * The saved report the page currently is, asked of the same module the tag row asks, so the
+   * file a teacher receives is named after the tag the row shows as pressed.
    */
-  const savedFilterName = matchingSavedFilter(savedFilters, filter)?.name ?? null;
+  const savedReportName = matchingSavedReport(savedReports, selection)?.name ?? null;
 
   async function exportReport(download: (report: ReportExport) => Promise<void>) {
     setExporting(true);
@@ -107,7 +118,7 @@ export function ReportView() {
         students: shown,
         fields,
         context,
-        provenance: { filterName: savedFilterName, exportedAt: new Date() },
+        provenance: { reportName: savedReportName, exportedAt: new Date() },
       });
     } catch {
       setOutputError(EXPORT_FAILED_HINT);
@@ -165,15 +176,20 @@ export function ReportView() {
       ) : (
         <>
           <Card>
-            <CardContent className="flex flex-col gap-3">
-              <SavedFilterPicker
-                filters={savedFilters}
-                current={filter}
-                onApply={setFilter}
-                onSave={saveFilter}
-                onRename={renameFilter}
-                onDelete={deleteFilter}
+            <CardContent>
+              <SavedReportTagList
+                reports={savedReports}
+                current={selection}
+                onOpen={openReport}
+                onSave={saveReport}
+                onRename={renameReport}
+                onDelete={deleteReport}
               />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
               <FilterTagList
                 label={FILTER_LABEL}
                 groups={filterGroups}

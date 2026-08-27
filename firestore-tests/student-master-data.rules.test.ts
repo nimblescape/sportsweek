@@ -165,46 +165,47 @@ describe("/studentMasterData", () => {
   });
 });
 
-/** Saved report filters are shared among teachers (US-13) and are no business of a student's. */
-describe("/savedReportFilters", () => {
-  const filter = {
+/** Saved reports are shared among teachers (US-13) and are no business of a student's. */
+describe("/savedReports", () => {
+  const report = {
     createdByUserId: TEACHER_UPN,
     name: "5AHIF",
     filter: {
       name: "",
       tags: { class: ["5AHIF"], gender: [], program: [], skillLevel: [], attendance: [] },
     },
+    fields: ["class"],
   };
 
-  beforeEach(async () => await seed("savedReportFilters", "filter1", filter));
+  beforeEach(async () => await seed("savedReports", "report1", report));
 
-  it("lets a teacher read a filter saved by another teacher, since they are shared", async () => {
-    await assertSucceeds(teacher().collection("savedReportFilters").doc("filter1").get());
+  it("lets a teacher read a report saved by another teacher, since they are shared", async () => {
+    await assertSucceeds(teacher().collection("savedReports").doc("report1").get());
   });
 
-  it("lets a teacher query them, which is what the report's dropdown does", async () => {
-    await assertSucceeds(teacher().collection("savedReportFilters").get());
+  it("lets a teacher query them, which is what the report's tag row does", async () => {
+    await assertSucceeds(teacher().collection("savedReports").get());
   });
 
   it("denies a student reading them", async () => {
-    await assertFails(student().collection("savedReportFilters").doc("filter1").get());
+    await assertFails(student().collection("savedReports").doc("report1").get());
   });
 
   it("denies an unauthenticated read", async () => {
-    await assertFails(anonymous().collection("savedReportFilters").doc("filter1").get());
+    await assertFails(anonymous().collection("savedReports").doc("report1").get());
   });
 
   it("denies a teacher writing one", async () => {
     await assertFails(
       teacher()
-        .collection("savedReportFilters")
-        .doc("filter2")
-        .set({ ...filter, name: "5BHIF" }),
+        .collection("savedReports")
+        .doc("report2")
+        .set({ ...report, name: "5BHIF" }),
     );
   });
 
   it("denies a teacher deleting one", async () => {
-    await assertFails(teacher().collection("savedReportFilters").doc("filter1").delete());
+    await assertFails(teacher().collection("savedReports").doc("report1").delete());
   });
 });
 

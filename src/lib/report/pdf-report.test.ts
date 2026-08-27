@@ -21,7 +21,7 @@ const BENE = rosterStudent({
 
 const context = { eventNames: new Map([["event1", "Woche 1"]]) };
 const PROVENANCE: ReportProvenance = {
-  filterName: null,
+  reportName: null,
   exportedAt: new Date(2026, 7, 27, 14, 35),
 };
 const A4: ContextPageSize = { width: 595, height: 842, orientation: "portrait" };
@@ -95,9 +95,11 @@ describe("reportDocument", () => {
     expect(textOf(document([]).content)).toContain("Keine Schüler:innen gefunden.");
   });
 
-  it("puts the logo and the title in the header, which pdfmake repeats on every page", () => {
-    expect(textOf(document().header)).toContain("Sportsweek Report");
-    expect(JSON.stringify(document().header)).toContain("data:image/png;base64,AAA");
+  it("puts the title on the left and the logo on the right", () => {
+    const { columns } = document().header as { columns: unknown[] };
+
+    expect(textOf(columns[0])).toContain("Sportsweek Report");
+    expect(JSON.stringify(columns[1])).toContain("data:image/png;base64,AAA");
   });
 
   it("keeps the title in the header when the logo could not be loaded", () => {
@@ -115,13 +117,17 @@ describe("reportDocument", () => {
     expect(footerOf()).toContain("Erstellt am 27.08.2026, 14:35");
   });
 
-  it("names the saved filter in the footer, and names none where the selection matches none", () => {
+  it("names the saved filter under the title rather than in the footer", () => {
     const named = document([ANNA], reportFieldsOf([]), {
-      filterName: "Nur 5BHIF",
+      reportName: "Nur 5BHIF",
       exportedAt: PROVENANCE.exportedAt,
     });
 
-    expect(footerOf(named)).toContain("Filter: Nur 5BHIF");
-    expect(footerOf()).not.toContain("Filter:");
+    expect(textOf(named.header)).toContain("Bericht: Nur 5BHIF");
+    expect(footerOf(named)).not.toContain("Filter:");
+  });
+
+  it("leaves the title without a subtitle where the selection matches no saved filter", () => {
+    expect(textOf(document().header)).not.toContain("Filter:");
   });
 });

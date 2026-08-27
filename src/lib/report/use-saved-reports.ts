@@ -10,33 +10,33 @@ import { collection, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { subscribeWithRecovery } from "@/lib/firebase/live-query";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { savedReportFilterSchema, type SavedReportFilter } from "@/lib/schemas/saved-report-filter";
+import { savedReportSchema, type SavedReport } from "@/lib/schemas/saved-report";
 
 const byName = new Intl.Collator("de-AT").compare;
 
 /**
- * Every saved filter, live. They are shared among all teachers (US-13), so there is nothing to
- * scope the query by — and a filter one teacher saves shows up in another's dropdown without
- * either of them reloading.
+ * Every saved report, live. They are shared among all teachers (US-13), so there is nothing to
+ * scope the query by — and one teacher's save shows up in another's tag row without either of
+ * them reloading.
  *
  * Listed alphabetically: unlike the lists a teacher maintains (see Ordering), these are looked
  * up by the name they were given rather than read in an order somebody decided.
  */
-export function useSavedFilters() {
-  const [filters, setFilters] = useState<SavedReportFilter[]>([]);
+export function useSavedReports() {
+  const [reports, setReports] = useState<SavedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(
     () =>
-      subscribeWithRecovery<SavedReportFilter>({
-        label: COLLECTIONS.savedReportFilters,
-        buildQuery: () => query(collection(db, COLLECTIONS.savedReportFilters)),
+      subscribeWithRecovery<SavedReport>({
+        label: COLLECTIONS.savedReports,
+        buildQuery: () => query(collection(db, COLLECTIONS.savedReports)),
         parse: (id, data) => {
-          const parsed = savedReportFilterSchema.safeParse({ id, ...data });
+          const parsed = savedReportSchema.safeParse({ id, ...data });
           if (!parsed.success) {
             console.error(
-              `${COLLECTIONS.savedReportFilters}/${id} does not match the schema`,
+              `${COLLECTIONS.savedReports}/${id} does not match the schema`,
               parsed.error,
             );
             return null;
@@ -44,7 +44,7 @@ export function useSavedFilters() {
           return parsed.data;
         },
         onData: (received) => {
-          setFilters([...received].sort((left, right) => byName(left.name, right.name)));
+          setReports([...received].sort((left, right) => byName(left.name, right.name)));
           setLoading(false);
         },
         onError: (message) => {
@@ -55,5 +55,5 @@ export function useSavedFilters() {
     [],
   );
 
-  return { filters, loading, error };
+  return { reports, loading, error };
 }

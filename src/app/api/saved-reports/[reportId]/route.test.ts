@@ -7,13 +7,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 
 const getUserWithRole = vi.fn();
-const renameSavedFilter = vi.fn();
-const deleteSavedFilter = vi.fn();
+const renameSavedReport = vi.fn();
+const deleteSavedReport = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({ getUserWithRole: () => getUserWithRole() }));
-vi.mock("@/lib/report/saved-filter-service", () => ({
-  renameSavedFilter: (...args: unknown[]) => renameSavedFilter(...args),
-  deleteSavedFilter: (...args: unknown[]) => deleteSavedFilter(...args),
+vi.mock("@/lib/report/saved-report-service", () => ({
+  renameSavedReport: (...args: unknown[]) => renameSavedReport(...args),
+  deleteSavedReport: (...args: unknown[]) => deleteSavedReport(...args),
 }));
 
 const { DELETE, PATCH } = await import("./route");
@@ -22,10 +22,10 @@ const { ErrorCode } = await import("@/lib/errors");
 
 const TEACHER = "jane.doe@htldornbirn.at";
 const selection = toggleTag(EMPTY_FILTER, "class", "5AHIF");
-const params = Promise.resolve({ filterId: "f1" });
+const params = Promise.resolve({ reportId: "r1" });
 
 function patchRequest(body: unknown) {
-  return new Request("https://example.com/api/report-filters/f1", {
+  return new Request("https://example.com/api/saved-reports/r1", {
     method: "PATCH",
     body: JSON.stringify(body),
   });
@@ -34,61 +34,62 @@ function patchRequest(body: unknown) {
 beforeEach(() => {
   vi.clearAllMocks();
   getUserWithRole.mockResolvedValue({ uid: "u1", email: TEACHER, role: "teacher" });
-  renameSavedFilter.mockResolvedValue({
-    id: "f1",
+  renameSavedReport.mockResolvedValue({
+    id: "r1",
     name: "5BHIF",
     filter: selection,
+    fields: ["class"],
     createdByUserId: TEACHER,
   });
-  deleteSavedFilter.mockResolvedValue(undefined);
+  deleteSavedReport.mockResolvedValue(undefined);
 });
 
-describe("PATCH /api/report-filters/[filterId]", () => {
-  it("renames the filter in place", async () => {
+describe("PATCH /api/saved-reports/[reportId]", () => {
+  it("renames the saved report in place", async () => {
     const response = await PATCH(patchRequest({ name: "5BHIF" }), { params });
 
     expect(response.status).toBe(200);
-    expect(renameSavedFilter).toHaveBeenCalledWith("f1", "5BHIF");
+    expect(renameSavedReport).toHaveBeenCalledWith("r1", "5BHIF");
   });
 
-  it("refuses a request that tries to rewrite the selection alongside the name", async () => {
+  it("refuses a request that tries to rewrite what it holds alongside the name", async () => {
     const response = await PATCH(patchRequest({ name: "5BHIF", filter: selection }), { params });
 
     expect(response.status).toBe(400);
-    expect(renameSavedFilter).not.toHaveBeenCalled();
+    expect(renameSavedReport).not.toHaveBeenCalled();
   });
 
   it("rejects a student with 403", async () => {
     getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x.at", role: "student" });
 
     expect((await PATCH(patchRequest({ name: "5BHIF" }), { params })).status).toBe(403);
-    expect(renameSavedFilter).not.toHaveBeenCalled();
+    expect(renameSavedReport).not.toHaveBeenCalled();
   });
 
   it("passes a service refusal on in the shared envelope", async () => {
-    renameSavedFilter.mockRejectedValue(
-      new ServiceError(ErrorCode.NotFound, "Diesen Filter gibt es nicht."),
+    renameSavedReport.mockRejectedValue(
+      new ServiceError(ErrorCode.NotFound, "Diesen Bericht gibt es nicht."),
     );
 
     const response = await PATCH(patchRequest({ name: "5BHIF" }), { params });
 
     expect(response.status).toBe(404);
-    expect((await response.json()).error.message).toBe("Diesen Filter gibt es nicht.");
+    expect((await response.json()).error.message).toBe("Diesen Bericht gibt es nicht.");
   });
 });
 
-describe("DELETE /api/report-filters/[filterId]", () => {
-  it("removes the filter", async () => {
+describe("DELETE /api/saved-reports/[reportId]", () => {
+  it("removes the saved report", async () => {
     const response = await DELETE(new Request("https://example.com"), { params });
 
     expect(response.status).toBe(204);
-    expect(deleteSavedFilter).toHaveBeenCalledWith("f1");
+    expect(deleteSavedReport).toHaveBeenCalledWith("r1");
   });
 
   it("rejects a student with 403", async () => {
     getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x.at", role: "student" });
 
     expect((await DELETE(new Request("https://example.com"), { params })).status).toBe(403);
-    expect(deleteSavedFilter).not.toHaveBeenCalled();
+    expect(deleteSavedReport).not.toHaveBeenCalled();
   });
 });

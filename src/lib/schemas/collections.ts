@@ -21,7 +21,7 @@ export const COLLECTIONS = {
   // The emergency contact and the rented equipment are fields of this record rather than
   // collections of their own: neither exists apart from it, and nothing else refers to them.
   studentMasterData: "studentMasterData",
-  savedReportFilters: "savedReportFilters",
+  savedReports: "savedReports",
   /** Name reservations: the document id is the name, which is how uniqueness is enforced. */
   reservedNames: "reservedNames",
   /** Which defaults have already been seeded, so a deleted one is never resurrected. */

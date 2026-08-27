@@ -9,20 +9,20 @@ import {
   parseJsonBody,
   requireTeacherIdentityOrResponse,
 } from "@/lib/api/handler";
-import { savedReportFilterInputSchema } from "@/lib/schemas/saved-report-filter";
-import { createSavedFilter } from "@/lib/report/saved-filter-service";
+import { savedReportInputSchema } from "@/lib/schemas/saved-report";
+import { createSavedReport } from "@/lib/report/saved-report-service";
 
 export async function POST(request: Request) {
   const teacher = await requireTeacherIdentityOrResponse();
   if (!teacher.ok) return teacher.response;
 
-  const body = await parseJsonBody(request, savedReportFilterInputSchema);
+  const body = await parseJsonBody(request, savedReportInputSchema);
   if (!body.ok) return body.response;
 
   try {
-    const filter = await createSavedFilter(body.data, teacher.userId);
-    return NextResponse.json({ filter }, { status: 201 });
+    const report = await createSavedReport(body.data, teacher.userId);
+    return NextResponse.json({ report }, { status: 201 });
   } catch (error) {
-    return handleServiceFailure(error, "Saving a report filter");
+    return handleServiceFailure(error, "Saving a report");
   }
 }

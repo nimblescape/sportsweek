@@ -5,7 +5,7 @@
  */
 import ExcelJS from "exceljs";
 import type { ReportField, ReportFieldContext } from "./report-fields";
-import { exportedAtLine, filterLine, REPORT_TITLE, type ReportProvenance } from "./report-export";
+import { exportedAtLine, reportLine, REPORT_TITLE, type ReportProvenance } from "./report-export";
 import type { RosterStudent } from "@/lib/students/roster";
 
 /** One says what the export is, the other holds the students (US-18). */
@@ -48,11 +48,11 @@ export function reportTable(
 }
 
 /** What the overview sheet says under the logo — the same wording the PDF's footer uses. */
-export function overviewLines({ filterName, exportedAt }: ReportProvenance): string[] {
+export function overviewLines({ reportName, exportedAt }: ReportProvenance): string[] {
   return [
     REPORT_TITLE,
     exportedAtLine(exportedAt),
-    ...(filterName === null ? [] : [filterLine(filterName)]),
+    ...(reportName === null ? [] : [reportLine(reportName)]),
   ];
 }
 
