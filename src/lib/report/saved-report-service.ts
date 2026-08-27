@@ -5,6 +5,7 @@
  */
 import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
+import { reorderCollection } from "@/lib/firebase/reorder";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
@@ -61,7 +62,11 @@ export async function createSavedReport(
   }
 
   const reference = adminDb.collection(COLLECTIONS.savedReports).doc();
-  const data = { ...parsed.data, createdByUserId };
+  // A new report's tag goes to the end of the row, where the button that made it stands, and
+  // stays there (see Ordering). Two simultaneous saves would tie, which the name tiebreak
+  // absorbs and the next drop renumbers away.
+  const position = (await adminDb.collection(COLLECTIONS.savedReports).count().get()).data().count;
+  const data = { ...parsed.data, createdByUserId, position };
   await reference.set(data);
 
   return { id: reference.id, ...data };
@@ -95,4 +100,9 @@ export async function updateSavedReportSelection(
 export async function deleteSavedReport(id: string): Promise<void> {
   await readReport(id);
   await reportDoc(id).delete();
+}
+
+/** Ordering changes nothing a report holds, so it is open to any teacher (see Ordering). */
+export async function reorderSavedReports(orderedIds: readonly string[]): Promise<void> {
+  await reorderCollection({ collection: COLLECTIONS.savedReports, orderedIds });
 }

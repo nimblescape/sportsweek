@@ -93,6 +93,10 @@ export function ReportView() {
     await apiRequest(reportUrl(id), { method: "DELETE" });
   }
 
+  async function reorderReports(order: string[]) {
+    await apiRequest("/api/saved-reports", { method: "PATCH", body: { order } });
+  }
+
   /**
    * The saved report the page currently is, asked of the same module the tag row asks, so the
    * file a teacher receives is named after a report it really holds rather than one it resembles.
@@ -180,6 +184,7 @@ export function ReportView() {
                 onUpdate={updateReport}
                 onRename={renameReport}
                 onDelete={deleteReport}
+                onReorder={reorderReports}
               />
             </CardContent>
           </Card>

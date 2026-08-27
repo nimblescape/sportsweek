@@ -20,6 +20,7 @@ const saved = {
   id: "report-1",
   createdByUserId: "jane.doe@htldornbirn.at",
   name: "Anwesende Skifahrer",
+  position: 2,
   filter: selection,
   fields: ["class", "contact"],
 };
@@ -43,6 +44,14 @@ describe("savedReportSchema", () => {
     );
 
     expect(savedReportSchema.parse(beforeFields).fields).toEqual([]);
+  });
+
+  it("reads a report saved before the row could be ordered as one that sorts last", () => {
+    const beforePositions = Object.fromEntries(
+      Object.entries(saved).filter(([key]) => key !== "position"),
+    );
+
+    expect(savedReportSchema.parse(beforePositions).position).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it("reads a category added after a report was saved as no restriction from it", () => {
@@ -76,6 +85,17 @@ describe("savedReportInputSchema", () => {
         filter: selection,
         fields: [],
         createdByUserId: "someone.else@htldornbirn.at",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("refuses a position, which is where the row put it rather than what a request asks for", () => {
+    expect(
+      savedReportInputSchema.safeParse({
+        name: "5AHIF",
+        filter: selection,
+        fields: [],
+        position: 0,
       }).success,
     ).toBe(false);
   });

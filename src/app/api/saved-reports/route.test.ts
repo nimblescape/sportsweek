@@ -8,13 +8,15 @@ import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 
 const getUserWithRole = vi.fn();
 const createSavedReport = vi.fn();
+const reorderSavedReports = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({ getUserWithRole: () => getUserWithRole() }));
 vi.mock("@/lib/report/saved-report-service", () => ({
   createSavedReport: (...args: unknown[]) => createSavedReport(...args),
+  reorderSavedReports: (...args: unknown[]) => reorderSavedReports(...args),
 }));
 
-const { POST } = await import("./route");
+const { PATCH, POST } = await import("./route");
 
 const TEACHER = "jane.doe@htldornbirn.at";
 const selection = toggleTag(EMPTY_FILTER, "class", "5AHIF");
@@ -28,10 +30,18 @@ function postRequest(body: unknown) {
   });
 }
 
+function patchRequest(body: unknown) {
+  return new Request("https://example.com/api/saved-reports", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   getUserWithRole.mockResolvedValue({ uid: "u1", email: TEACHER, role: "teacher" });
   createSavedReport.mockResolvedValue({ id: "r1", ...input, createdByUserId: TEACHER });
+  reorderSavedReports.mockResolvedValue(undefined);
 });
 
 describe("POST /api/saved-reports", () => {
@@ -88,5 +98,28 @@ describe("POST /api/saved-reports", () => {
     await POST(postRequest({ ...input, filter: { ...selection, tags } }));
 
     expect(createSavedReport).toHaveBeenCalledWith(input, TEACHER);
+  });
+});
+
+describe("PATCH /api/saved-reports", () => {
+  it("renumbers the row in the order the tags were dropped into", async () => {
+    const response = await PATCH(patchRequest({ order: ["r2", "r1"] }));
+
+    expect(response.status).toBe(204);
+    expect(reorderSavedReports).toHaveBeenCalledWith(["r2", "r1"]);
+  });
+
+  it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
+    getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x.at", role: "student" });
+
+    expect((await PATCH(patchRequest({ order: ["r1"] }))).status).toBe(403);
+    expect(reorderSavedReports).not.toHaveBeenCalled();
+  });
+
+  it("rejects a body that is not an order", async () => {
+    const response = await PATCH(patchRequest({ order: ["r1"], name: "5AHIF" }));
+
+    expect(response.status).toBe(400);
+    expect(reorderSavedReports).not.toHaveBeenCalled();
   });
 });

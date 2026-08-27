@@ -5,9 +5,10 @@
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag, type StudentFilter } from "@/lib/filters/student-filter";
 import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
+import { stubTagRowLayout } from "@/test/stub-tag-row-layout";
 import { SavedReportTagList } from "./saved-report-tag-list";
 
 const selection = toggleTag(EMPTY_FILTER, "class", "5AHIF");
@@ -22,6 +23,7 @@ const saved = (
   name,
   filter,
   fields,
+  position: 0,
   createdByUserId: "jane.doe@htldornbirn.at",
 });
 
@@ -33,6 +35,7 @@ const onSave = vi.fn();
 const onUpdate = vi.fn();
 const onRename = vi.fn();
 const onDelete = vi.fn();
+const onReorder = vi.fn();
 
 const row = (reports: readonly SavedReport[], current: ReportSelection) => (
   <SavedReportTagList
@@ -43,6 +46,7 @@ const row = (reports: readonly SavedReport[], current: ReportSelection) => (
     onUpdate={onUpdate}
     onRename={onRename}
     onDelete={onDelete}
+    onReorder={onReorder}
   />
 );
 
@@ -75,6 +79,7 @@ beforeEach(() => {
   onUpdate.mockResolvedValue(undefined);
   onRename.mockResolvedValue(undefined);
   onDelete.mockResolvedValue(undefined);
+  onReorder.mockResolvedValue(undefined);
 });
 
 describe("SavedReportTagList", () => {
@@ -238,6 +243,55 @@ describe("saving the report as it stands", () => {
     change(CURRENT, [...REPORTS, fresh]);
 
     expect(tag("Neu")).toHaveAttribute("aria-pressed", "true");
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
+describe("ordering the row by dragging", () => {
+  beforeEach(stubTagRowLayout);
+  afterEach(() => vi.restoreAllMocks());
+
+  const grip = (name: string) => screen.getByRole("button", { name: `${name} verschieben` });
+
+  it("gives every tag a grip, so a drag is never started by pressing the tag itself", () => {
+    setup();
+
+    expect(screen.getAllByRole("button", { name: /verschieben/ })).toHaveLength(2);
+  });
+
+  it("reports the new order when a tag is moved along the row", async () => {
+    setup();
+
+    grip("5AHIF").focus();
+    await userEvent.keyboard("{ }");
+    await userEvent.keyboard("{ArrowRight}");
+    await userEvent.keyboard("{ }");
+
+    await waitFor(() => expect(onReorder).toHaveBeenCalledWith(["r2", "r1"]));
+  });
+
+  it("leaves the row alone when the move is cancelled", async () => {
+    setup();
+
+    grip("5AHIF").focus();
+    await userEvent.keyboard("{ }");
+    await userEvent.keyboard("{ArrowRight}");
+    await userEvent.keyboard("{Escape}");
+
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  /** Moving a report is not choosing it — the tag's own press is the only thing that opens one. */
+  it("opens nothing and marks nothing when a tag is dragged", async () => {
+    setup();
+
+    grip("5AHIF").focus();
+    await userEvent.keyboard("{ }");
+    await userEvent.keyboard("{ArrowRight}");
+    await userEvent.keyboard("{ }");
+
+    await waitFor(() => expect(onReorder).toHaveBeenCalled());
+    expect(onOpen).not.toHaveBeenCalled();
     expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
   });
 });

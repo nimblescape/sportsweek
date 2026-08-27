@@ -6,11 +6,30 @@
 "use client";
 
 import * as React from "react";
-import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { restrictToParentElement } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Check, GripVertical, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useRowAction } from "@/lib/api/use-row-action";
+import { useDroppedOrder } from "@/lib/ui/use-dropped-order";
 import { sameSelection } from "@/lib/report/saved-reports";
 import {
   savedReportSchema,
@@ -35,6 +54,7 @@ type SavedReportTagListProps = {
   onUpdate: (id: string, selection: ReportSelection) => Promise<void>;
   onRename: (id: string, name: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onReorder: (orderedIds: string[]) => Promise<void>;
 };
 
 type Editing = { kind: "save" } | { kind: "rename"; report: SavedReport };
@@ -53,6 +73,7 @@ export function SavedReportTagList({
   onUpdate,
   onRename,
   onDelete,
+  onReorder,
 }: SavedReportTagListProps) {
   const [editing, setEditing] = React.useState<Editing | null>(null);
   const [confirming, setConfirming] = React.useState<string | null>(null);
@@ -61,6 +82,23 @@ export function SavedReportTagList({
   const [markedId, setMarkedId] = React.useState<string | null>(null);
   // Every tag is drawn from the reports one write is changing, so all of them wait for it.
   const { pending, run } = useRowAction();
+  const { ordered, drop } = useDroppedOrder(reports, onReorder);
+
+  const sensors = useSensors(
+    // A short distance threshold, so a tap on a grip is not mistaken for the start of a drag.
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  async function handleDragEnd({ active, over }: DragEndEvent) {
+    if (!over || active.id === over.id) return;
+
+    const from = ordered.findIndex((report) => report.id === active.id);
+    const to = ordered.findIndex((report) => report.id === over.id);
+    if (from === -1 || to === -1) return;
+
+    await drop(arrayMove(ordered, from, to).map((report) => report.id));
+  }
 
   // Reaching for a control in a tag has moved on from naming a report to managing one.
   function closeForms() {
@@ -69,90 +107,99 @@ export function SavedReportTagList({
   }
 
   return (
-    <div role="group" aria-label={ROW_LABEL} className="flex flex-wrap items-center gap-1.5">
-      {reports.length === 0 && editing === null ? (
-        <p className="text-muted-foreground text-sm">{EMPTY_HINT}</p>
-      ) : (
-        reports.map((report) =>
-          // Renaming happens where the tag is, so the row neither grows nor reorders itself.
-          editing?.kind === "rename" && editing.report.id === report.id ? (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      modifiers={[restrictToParentElement]}
+      onDragEnd={(event) => void handleDragEnd(event)}
+    >
+      <SortableContext items={ordered} strategy={rectSortingStrategy}>
+        <div role="group" aria-label={ROW_LABEL} className="flex flex-wrap items-center gap-1.5">
+          {ordered.length === 0 && editing === null ? (
+            <p className="text-muted-foreground text-sm">{EMPTY_HINT}</p>
+          ) : (
+            ordered.map((report) =>
+              // Renaming happens where the tag is, so the row neither grows nor reorders itself.
+              editing?.kind === "rename" && editing.report.id === report.id ? (
+                <NameForm
+                  key={report.id}
+                  initialName={report.name}
+                  submitLabel="Umbenennen"
+                  pending={pending}
+                  onSubmit={async (name) => {
+                    await run(report.id, () => onRename(report.id, name));
+                    setEditing(null);
+                  }}
+                  onCancel={() => setEditing(null)}
+                />
+              ) : (
+                <SavedReportTag
+                  key={report.id}
+                  report={report}
+                  marked={report.id === markedId}
+                  changed={report.id === markedId && !sameSelection(report, current)}
+                  confirming={confirming === report.id}
+                  pending={pending}
+                  onOpen={() => {
+                    closeForms();
+                    setMarkedId(report.id);
+                    onOpen(report);
+                  }}
+                  onUpdate={() => {
+                    closeForms();
+                    return run(report.id, () => onUpdate(report.id, current));
+                  }}
+                  onStartRename={() => {
+                    closeForms();
+                    setEditing({ kind: "rename", report });
+                  }}
+                  onStartDelete={() => {
+                    closeForms();
+                    setConfirming(report.id);
+                  }}
+                  onDelete={async () => {
+                    await run(report.id, () => onDelete(report.id));
+                    setConfirming(null);
+                    setMarkedId(null);
+                  }}
+                  onCancel={() => setConfirming(null)}
+                />
+              ),
+            )
+          )}
+
+          {editing?.kind === "save" ? (
             <NameForm
-              key={report.id}
-              initialName={report.name}
-              submitLabel="Umbenennen"
+              initialName=""
+              submitLabel="Speichern"
               pending={pending}
               onSubmit={async (name) => {
-                await run(report.id, () => onRename(report.id, name));
+                // The report on screen is now the one just saved, so the mark follows it there.
+                setMarkedId(await run(null, () => onSave(name, current)));
                 setEditing(null);
               }}
               onCancel={() => setEditing(null)}
             />
           ) : (
-            <SavedReportTag
-              key={report.id}
-              report={report}
-              marked={report.id === markedId}
-              changed={report.id === markedId && !sameSelection(report, current)}
-              confirming={confirming === report.id}
-              pending={pending}
-              onOpen={() => {
-                closeForms();
-                setMarkedId(report.id);
-                onOpen(report);
-              }}
-              onUpdate={() => {
-                closeForms();
-                return run(report.id, () => onUpdate(report.id, current));
-              }}
-              onStartRename={() => {
-                closeForms();
-                setEditing({ kind: "rename", report });
-              }}
-              onStartDelete={() => {
-                closeForms();
-                setConfirming(report.id);
-              }}
-              onDelete={async () => {
-                await run(report.id, () => onDelete(report.id));
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              disabled={pending}
+              onClick={() => {
                 setConfirming(null);
+                // Naming a new report is a move away from the one that was open, not a change to it.
                 setMarkedId(null);
+                setEditing({ kind: "save" });
               }}
-              onCancel={() => setConfirming(null)}
-            />
-          ),
-        )
-      )}
-
-      {editing?.kind === "save" ? (
-        <NameForm
-          initialName=""
-          submitLabel="Speichern"
-          pending={pending}
-          onSubmit={async (name) => {
-            // The report on screen is now the one just saved, so the mark follows it there.
-            setMarkedId(await run(null, () => onSave(name, current)));
-            setEditing(null);
-          }}
-          onCancel={() => setEditing(null)}
-        />
-      ) : (
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          disabled={pending}
-          onClick={() => {
-            setConfirming(null);
-            // Naming a new report is a move away from the one that was open, not a change to it.
-            setMarkedId(null);
-            setEditing({ kind: "save" });
-          }}
-        >
-          <Plus aria-hidden data-icon="inline-start" />
-          Bericht speichern
-        </Button>
-      )}
-    </div>
+            >
+              <Plus aria-hidden data-icon="inline-start" />
+              Bericht speichern
+            </Button>
+          )}
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 }
 
@@ -187,9 +234,15 @@ function SavedReportTag({
   onCancel,
 }: SavedReportTagProps) {
   const hintId = React.useId();
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: report.id,
+    disabled: pending,
+  });
 
   return (
     <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
       className={cn(
         // Three states, and the middle one is the point: opened, and since changed (US-13).
         buttonVariants({
@@ -197,8 +250,21 @@ function SavedReportTag({
           size: "lg",
         }),
         "gap-0.5 px-1",
+        isDragging && "relative z-10 opacity-80",
       )}
     >
+      {/* Dragging starts here and nowhere else, so moving a tag never opens the report it holds. */}
+      <button
+        type="button"
+        aria-label={`${report.name} verschieben`}
+        disabled={pending}
+        className="focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-0.5 outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical aria-hidden className="size-3.5" />
+      </button>
+
       <button
         type="button"
         aria-pressed={marked}

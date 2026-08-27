@@ -10,17 +10,16 @@ import { collection, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { subscribeWithRecovery } from "@/lib/firebase/live-query";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { byPosition } from "@/lib/schemas/position";
 import { savedReportSchema, type SavedReport } from "@/lib/schemas/saved-report";
-
-const byName = new Intl.Collator("de-AT").compare;
 
 /**
  * Every saved report, live. They are shared among all teachers (US-13), so there is nothing to
  * scope the query by — and one teacher's save shows up in another's tag row without either of
  * them reloading.
  *
- * Listed alphabetically: unlike the lists a teacher maintains (see Ordering), these are looked
- * up by the name they were given rather than read in an order somebody decided.
+ * In the order the tags were dragged into (see Ordering): a teacher puts the reports they open
+ * every week at the front, which no alphabet would have guessed.
  */
 export function useSavedReports() {
   const [reports, setReports] = useState<SavedReport[]>([]);
@@ -44,7 +43,7 @@ export function useSavedReports() {
           return parsed.data;
         },
         onData: (received) => {
-          setReports([...received].sort((left, right) => byName(left.name, right.name)));
+          setReports([...received].sort(byPosition));
           setLoading(false);
         },
         onError: (message) => {

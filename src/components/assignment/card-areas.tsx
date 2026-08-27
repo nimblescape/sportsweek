@@ -21,7 +21,9 @@ export const AREA = "border-border bg-muted/40 flex min-h-0 min-w-0 flex-col rou
 /** The aside sits at the far end of the title line — a tally on one area, a toggle on another. */
 export function AreaTitle({ children, aside }: { children: string; aside?: ReactNode }) {
   return (
-    <div className="mb-2 flex items-baseline justify-between gap-3">
+    // Floored at the height of the tallest aside, or an area carrying a tag would sit lower than
+    // one carrying plain text and the three headings would stop lining up.
+    <div className="mb-2 flex min-h-7 items-center justify-between gap-3">
       <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
         {children}
       </h3>
