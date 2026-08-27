@@ -6,13 +6,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Printer } from "lucide-react";
+import { FileDown, FileSpreadsheet, Printer } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
 import { EMPTY_FILTER, filterStudents, type StudentFilter } from "@/lib/filters/student-filter";
 import { reportFieldsOf } from "@/lib/report/report-fields";
 import { POPUP_BLOCKED_HINT, printableReportHtml } from "@/lib/report/printable-report";
+import {
+  downloadReportPdf,
+  downloadReportWorkbook,
+  EXPORT_FAILED_HINT,
+  type ReportExport,
+} from "@/lib/report/report-download";
+import { matchingSavedFilter } from "@/lib/report/saved-filters";
 import { useSavedFilters } from "@/lib/report/use-saved-filters";
 import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
 import { Button } from "@/components/ui/button";
@@ -40,10 +47,11 @@ export function ReportView() {
   const { filters: savedFilters } = useSavedFilters();
   const [filter, setFilter] = useState(EMPTY_FILTER);
   const [activeFields, setActiveFields] = useState<string[]>([]);
-  const [printError, setPrintError] = useState<string | null>(null);
+  const [outputError, setOutputError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading);
+  useBusyWhile(loading || exporting);
 
   const shown = useMemo(() => filterStudents(students, filter), [students, filter]);
   const fields = useMemo(() => reportFieldsOf(activeFields), [activeFields]);
@@ -74,25 +82,68 @@ export function ReportView() {
   function print() {
     const popup = window.open("", "_blank");
     if (!popup) {
-      setPrintError(POPUP_BLOCKED_HINT);
+      setOutputError(POPUP_BLOCKED_HINT);
       return;
     }
 
-    setPrintError(null);
+    setOutputError(null);
     const heading = season === null ? "Bericht" : `Bericht – Saison ${season.name}`;
     popup.document.open();
     popup.document.write(printableReportHtml(shown, fields, { heading, context }));
     popup.document.close();
   }
 
+  /**
+   * The saved filter the shown selection is, asked of the same module the dropdown asks, so the
+   * file a teacher receives is named after the filter the dropdown says they are looking at.
+   */
+  const savedFilterName = matchingSavedFilter(savedFilters, filter)?.name ?? null;
+
+  async function exportReport(download: (report: ReportExport) => Promise<void>) {
+    setExporting(true);
+    setOutputError(null);
+    try {
+      await download({
+        students: shown,
+        fields,
+        context,
+        provenance: { filterName: savedFilterName, exportedAt: new Date() },
+      });
+    } catch {
+      setOutputError(EXPORT_FAILED_HINT);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-heading text-lg font-semibold">Bericht</h1>
-        <Button type="button" variant="outline" onClick={print} disabled={season === null}>
-          <Printer aria-hidden data-icon="inline-start" />
-          Drucken
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" onClick={print} disabled={season === null}>
+            <Printer aria-hidden data-icon="inline-start" />
+            Drucken
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => exportReport(downloadReportPdf)}
+            disabled={season === null || exporting}
+          >
+            <FileDown aria-hidden data-icon="inline-start" />
+            PDF exportieren
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => exportReport(downloadReportWorkbook)}
+            disabled={season === null || exporting}
+          >
+            <FileSpreadsheet aria-hidden data-icon="inline-start" />
+            Excel exportieren
+          </Button>
+        </div>
       </div>
 
       {error !== null && (
@@ -101,9 +152,9 @@ export function ReportView() {
         </p>
       )}
 
-      {printError !== null && (
+      {outputError !== null && (
         <p role="alert" className="text-destructive text-sm">
-          {printError}
+          {outputError}
         </p>
       )}
 

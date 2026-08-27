@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { StudentFilter } from "@/lib/filters/student-filter";
-import { sameFilter } from "@/lib/filters/student-filter";
+import { matchingSavedFilter } from "@/lib/report/saved-filters";
 import { savedReportFilterSchema, type SavedReportFilter } from "@/lib/schemas/saved-report-filter";
 import { useHoverCapability } from "@/lib/ui/use-hover-capability";
 
@@ -50,7 +50,7 @@ export function SavedFilterPicker({
 
   // Derived, not remembered: the name goes as soon as a tag is changed, because by then the
   // report is no longer showing what was saved.
-  const selected = filters.find((candidate) => sameFilter(candidate.filter, current)) ?? null;
+  const selected = matchingSavedFilter(filters, current);
 
   const close = React.useCallback(() => {
     setPanel("none");

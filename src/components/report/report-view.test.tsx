@@ -17,6 +17,8 @@ const useMasterData = vi.fn();
 const usePrograms = vi.fn();
 const useSavedFilters = vi.fn();
 const apiRequest = vi.fn();
+const downloadReportPdf = vi.fn();
+const downloadReportWorkbook = vi.fn();
 
 vi.mock("@/lib/seasons/use-seasons", () => ({ useSeasons: () => useSeasons() }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
@@ -31,6 +33,11 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
   apiRequest: (...args: unknown[]) => apiRequest(...args),
 }));
 vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
+vi.mock("@/lib/report/report-download", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/report/report-download")>()),
+  downloadReportPdf: (report: unknown) => downloadReportPdf(report),
+  downloadReportWorkbook: (report: unknown) => downloadReportWorkbook(report),
+}));
 
 const { ReportView } = await import("./report-view");
 
@@ -86,6 +93,8 @@ beforeEach(() => {
   });
   useSavedFilters.mockReturnValue({ filters: [], loading: false, error: null });
   apiRequest.mockResolvedValue(null);
+  downloadReportPdf.mockResolvedValue(undefined);
+  downloadReportWorkbook.mockResolvedValue(undefined);
 });
 
 const rows = () => within(screen.getByRole("list", { name: "Schüler:innen" })).getAllByRole("listitem"); // prettier-ignore
@@ -381,5 +390,71 @@ describe("printing", () => {
     await userEvent.click(screen.getByRole("button", { name: "Drucken" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("Das Druckfenster wurde blockiert.");
+  });
+});
+
+describe("exporting", () => {
+  const pressed = (mock: typeof downloadReportPdf) => mock.mock.calls[0][0];
+
+  it("hands the PDF the students the filter leaves and the fields that are activated", async () => {
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Teilnahme: nimmt teil" }));
+    await activate("Klasse");
+    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+
+    const report = pressed(downloadReportPdf);
+    expect(report.students.map((it: RosterStudent) => it.lastName)).toEqual(["Muster"]);
+    expect(report.fields.map((it: { key: string }) => it.key)).toEqual(["class"]);
+  });
+
+  it("hands the workbook the same scope the PDF gets", async () => {
+    render(<ReportView />);
+    await activate("Klasse");
+    await userEvent.click(screen.getByRole("button", { name: "Excel exportieren" }));
+
+    const report = pressed(downloadReportWorkbook);
+    expect(report.students.map((it: RosterStudent) => it.lastName)).toEqual(["Berger", "Muster"]);
+    expect(report.fields.map((it: { key: string }) => it.key)).toEqual(["class"]);
+  });
+
+  it("names the export after the saved filter the report is showing", async () => {
+    useSavedFilters.mockReturnValue({
+      filters: [{ id: "f1", createdByUserId: "t", name: "Alle", filter: EMPTY_FILTER }],
+      loading: false,
+      error: null,
+    });
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+
+    expect(pressed(downloadReportPdf).provenance.filterName).toBe("Alle");
+  });
+
+  it("leaves the export unnamed while the selection matches no saved filter", async () => {
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Excel exportieren" }));
+
+    const { filterName, exportedAt } = pressed(downloadReportWorkbook).provenance;
+    expect(filterName).toBeNull();
+    expect(exportedAt).toBeInstanceOf(Date);
+  });
+
+  it("says so when an export could not be built, instead of failing silently", async () => {
+    downloadReportPdf.mockRejectedValue(new Error("no fonts"));
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Der Export konnte nicht erstellt werden.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("no fonts");
+  });
+
+  it("offers no export while no season is active", () => {
+    useSeasons.mockReturnValue({ seasons: [], loading: false, error: null });
+
+    render(<ReportView />);
+
+    expect(screen.getByRole("button", { name: "PDF exportieren" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Excel exportieren" })).toBeDisabled();
   });
 });
