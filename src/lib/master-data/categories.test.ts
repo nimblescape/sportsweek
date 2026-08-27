@@ -101,9 +101,9 @@ describe("MASTER_DATA_SECTIONS", () => {
       "Klassen",
       "Programme",
       "Leistungsstufen",
+      "Zugangskarten",
       "Zustiegsstellen",
       "Verpflegung",
-      "Zugangskarten",
     ]);
   });
 

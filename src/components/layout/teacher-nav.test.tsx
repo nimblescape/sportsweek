@@ -18,9 +18,9 @@ const SUB_ITEMS = [
   "Klassen",
   "Programme",
   "Leistungsstufen",
+  "Zugangskarten",
   "Zustiegsstellen",
   "Verpflegung",
-  "Zugangskarten",
 ];
 
 describe("TeacherNav", () => {

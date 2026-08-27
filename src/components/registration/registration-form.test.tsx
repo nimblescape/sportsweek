@@ -6,6 +6,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ANSWER_LABELS } from "@/lib/master-data/categories";
 import type { Registration } from "@/lib/schemas/registration";
 
 const apiRequest = vi.fn();
@@ -99,6 +100,14 @@ async function changeSomething() {
   await pick("Klasse", "4AHME");
 }
 
+const cardTitles = () =>
+  Array.from(document.querySelectorAll('[data-slot="card-title"]')).map(
+    (title) => title.textContent ?? "",
+  );
+
+const eventSeriesCard = () =>
+  screen.getByText("Winter 2026").closest('[data-slot="card"]') as HTMLElement;
+
 beforeEach(() => {
   vi.clearAllMocks();
   apiRequest.mockResolvedValue({ record: storedRecord });
@@ -108,9 +117,38 @@ describe("RegistrationForm", () => {
   it("shows the event series and the name from the user record as text, not as fields (US-11)", () => {
     renderForm();
 
-    expect(screen.getByLabelText("Eventreihe")).toHaveTextContent("Winter 2026");
+    expect(cardTitles()).toContain("Winter 2026");
     expect(screen.getByLabelText("Name")).toHaveTextContent("Jane Doe");
     expect(screen.queryByRole("textbox", { name: "Name" })).not.toBeInTheDocument();
+  });
+
+  /** One card for the event series rather than three, so the answers about it are read together. */
+  it("gathers the answers about the event series into one card, titled with its name", () => {
+    renderForm();
+
+    expect(cardTitles()).toEqual([
+      "Anmeldung",
+      "Persönliches",
+      "Notfallkontakt",
+      "Winter 2026",
+      "Gesundheit",
+    ]);
+  });
+
+  it("puts that card's answers in the order the master data menu lists them", () => {
+    renderForm();
+
+    const text = eventSeriesCard().textContent ?? "";
+    const at = [
+      "Programm",
+      ANSWER_LABELS.skillLevel,
+      ANSWER_LABELS.seasonPassOption,
+      ANSWER_LABELS.busPickupPoint,
+      ANSWER_LABELS.foodOption,
+    ].map((label) => text.indexOf(label));
+
+    expect(at).not.toContain(-1);
+    expect([...at].sort((left, right) => left - right)).toEqual(at);
   });
 
   it("starts a student who has not registered yet on an empty form", () => {
