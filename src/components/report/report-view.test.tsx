@@ -83,9 +83,13 @@ beforeEach(() => {
     loading: false,
     error: null,
   });
-  useMasterData.mockImplementation((key: string) =>
-    key === "classes" ? listOf("5AHIF", "5BHIF") : listOf("Profi"),
-  );
+  useMasterData.mockImplementation((key: string) => {
+    if (key === "classes") return listOf("5AHIF", "5BHIF");
+    if (key === "bus-pickup-points") return listOf("Dornbirn", "Bregenz");
+    if (key === "season-pass-options") return listOf("Keine");
+    if (key === "food-options") return listOf("Alles", "Vegetarisch");
+    return listOf("Profi");
+  });
   usePrograms.mockReturnValue({
     programs: [{ id: "p1", name: "Ski", position: 0, requiredEquipment: [] }],
     loading: false,
@@ -194,7 +198,18 @@ describe("ReportView", () => {
     useRoster.mockReturnValue({ students: [renting, ANNA], loading: false, error: null });
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Ausrüstung zum Leihen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leihausrüstung benötigt" }));
+
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Dorn")).toBeInTheDocument();
+  });
+
+  it("filters by the answers a teacher's own lists supply (US-8, US-9, US-10)", async () => {
+    const bregenz = student("Dora", "Dorn", { busPickupPoint: "Bregenz" });
+    useRoster.mockReturnValue({ students: [bregenz, ANNA], loading: false, error: null });
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Zustiegsstelle: Bregenz" }));
 
     expect(rows()).toHaveLength(1);
     expect(rowOf("Dorn")).toBeInTheDocument();

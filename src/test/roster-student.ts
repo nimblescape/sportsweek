@@ -71,6 +71,9 @@ export function rosterStudent(
     equipmentRentalNeeded: answers.equipmentRentalNeeded ?? false,
     healthNotes: answers.healthNotes ?? null,
     hasMedication: answers.hasMedication ?? false,
+    busPickupPoint: answers.busPickupPoint ?? "Dornbirn",
+    seasonPassOption: answers.seasonPassOption ?? "Keine",
+    foodOption: answers.foodOption ?? "Alles",
     ...overrides,
   } satisfies Omit<RosterStudent, "record">;
 
@@ -89,6 +92,9 @@ export function rosterStudent(
       equipmentRentalNeeded: row.equipmentRentalNeeded,
       healthNotes: row.healthNotes,
       hasMedication: row.hasMedication,
+      busPickupPoint: row.busPickupPoint,
+      seasonPassOption: row.seasonPassOption,
+      foodOption: row.foodOption,
       ...answers,
     }),
   };

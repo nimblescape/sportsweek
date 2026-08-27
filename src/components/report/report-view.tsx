@@ -54,6 +54,7 @@ export function ReportView() {
     completeness: true,
     equipmentRental: true,
     health: true,
+    answerLists: true,
     events: true,
   });
   const { reports: savedReports } = useSavedReports();

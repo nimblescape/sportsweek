@@ -62,6 +62,9 @@ export function joinRoster(
           equipmentRentalNeeded: record.equipmentRentalNeeded,
           healthNotes: record.healthNotes,
           hasMedication: record.hasMedication,
+          busPickupPoint: record.busPickupPoint,
+          seasonPassOption: record.seasonPassOption,
+          foodOption: record.foodOption,
         },
       ];
     })

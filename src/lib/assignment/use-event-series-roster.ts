@@ -38,6 +38,8 @@ type EventSeriesRosterOptions = {
   completeness?: boolean;
   equipmentRental?: boolean;
   health?: boolean;
+  /** Bus pickup point, season pass and food together — three lists nothing else subscribes to. */
+  answerLists?: boolean;
   events?: boolean;
 };
 
@@ -55,6 +57,7 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
     completeness = false,
     equipmentRental = false,
     health = false,
+    answerLists = false,
     events: eventTags = false,
   } = options;
   const { eventSeries, loading: eventSeriesLoading, error: eventSeriesError } = useEventSeries();
@@ -77,6 +80,9 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
   const { events, loading: eventsLoading } = useEvents(active.eventSeries?.id ?? "");
   const classes = useMasterData("classes");
   const skillLevels = useMasterData("skill-levels");
+  const busPickupPoints = useMasterData("bus-pickup-points");
+  const seasonPassOptions = useMasterData("season-pass-options");
+  const foodOptions = useMasterData("food-options");
   const { programs } = usePrograms();
 
   const columns = useMemo(
@@ -91,19 +97,39 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
   const groups = useMemo(
     () =>
       filterGroups(
-        { classes: classes.items, programs, skillLevels: skillLevels.items },
-        { attendance, completeness, equipmentRental, health, ...(eventTags ? { events } : {}) },
+        {
+          classes: classes.items,
+          programs,
+          skillLevels: skillLevels.items,
+          busPickupPoints: busPickupPoints.items,
+          seasonPassOptions: seasonPassOptions.items,
+          foodOptions: foodOptions.items,
+        },
+        {
+          attendance,
+          completeness,
+          equipmentRental,
+          health,
+          busPickupPoint: answerLists,
+          seasonPassOption: answerLists,
+          foodOption: answerLists,
+          ...(eventTags ? { events } : {}),
+        },
       ),
     [
       attendance,
       completeness,
       equipmentRental,
       health,
+      answerLists,
       eventTags,
       events,
       classes.items,
       programs,
       skillLevels.items,
+      busPickupPoints.items,
+      seasonPassOptions.items,
+      foodOptions.items,
     ],
   );
 
