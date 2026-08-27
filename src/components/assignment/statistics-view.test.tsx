@@ -6,14 +6,17 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
+import { rosterStudent } from "@/test/roster-student";
 
 const useSeasons = vi.fn();
 const useRoster = vi.fn();
+const useEvents = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
 
 vi.mock("@/lib/seasons/use-seasons", () => ({ useSeasons: () => useSeasons() }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
+vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (key: string) => useMasterData(key),
   usePrograms: () => usePrograms(),
@@ -22,20 +25,17 @@ vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
 
 const { StatisticsView } = await import("./statistics-view");
 
-function student(lastName: string, overrides: Partial<RosterStudent> = {}): RosterStudent {
-  return {
+function student(
+  lastName: string,
+  overrides: Partial<Omit<RosterStudent, "record">> = {},
+): RosterStudent {
+  return rosterStudent({
     id: `record-${lastName}`,
     userId: `${lastName}@student.htldornbirn.at`,
     firstName: "Vorname",
     lastName,
-    class: "5AHIF",
-    gender: "female",
-    program: "Ski",
-    skillLevel: "Profi",
-    isAttending: true,
-    eventId: null,
     ...overrides,
-  };
+  });
 }
 
 const season = {
@@ -61,6 +61,7 @@ beforeEach(() => {
     loading: false,
     error: null,
   });
+  useEvents.mockReturnValue({ events: [], loading: false, error: null });
   useMasterData.mockImplementation((key: string) =>
     key === "classes" ? listOf("5AHIF", "5BHIF") : listOf("Profi"),
   );

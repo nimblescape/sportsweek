@@ -7,6 +7,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
+import { rosterStudent } from "@/test/roster-student";
 import { stubBoardLayout } from "@/test/stub-board-layout";
 
 const useSeasons = vi.fn();
@@ -35,21 +36,15 @@ const { AssignmentView } = await import("./assignment-view");
 function student(
   firstName: string,
   lastName: string,
-  overrides: Partial<RosterStudent> = {},
+  overrides: Partial<Omit<RosterStudent, "record">> = {},
 ): RosterStudent {
-  return {
+  return rosterStudent({
     id: `record-${lastName}`,
     userId: `${lastName}@student.htldornbirn.at`,
     firstName,
     lastName,
-    class: "5AHIF",
-    gender: "female",
-    program: "Ski",
-    skillLevel: "Profi",
-    isAttending: true,
-    eventId: null,
     ...overrides,
-  };
+  });
 }
 
 const ANNA = student("Anna", "Muster");

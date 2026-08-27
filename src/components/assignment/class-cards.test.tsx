@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { classOverview, skillColumns } from "@/lib/assignment/statistics";
 import { filterGroups } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
+import { rosterStudent } from "@/test/roster-student";
 import { ClassCards } from "./class-cards";
 
 const PROGRAMS = ["Ski", "Snowboard"];
@@ -26,21 +27,15 @@ const FILTERS = filterGroups({
 
 let seed = 0;
 
-function student(overrides: Partial<RosterStudent> = {}): RosterStudent {
+function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): RosterStudent {
   seed += 1;
-  return {
+  return rosterStudent({
     id: `record${seed}`,
     userId: `student${seed}@student.htldornbirn.at`,
     firstName: `Vorname${seed}`,
     lastName: `Nachname${seed}`,
-    class: "5AHIF",
-    gender: "female",
-    program: "Ski",
-    skillLevel: "Profi",
-    isAttending: true,
-    eventId: null,
     ...overrides,
-  };
+  });
 }
 
 const nameOf = (person: RosterStudent) => `${person.lastName} ${person.firstName}`;

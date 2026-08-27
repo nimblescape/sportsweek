@@ -149,15 +149,19 @@ entity "SavedReportFilter" as savedReportFilter {
                                ' is shared/visible to all teachers, not private (US-13)
   --
   name : string
-  ' Each *Filter field below is a set of selected tags for that category: OR within the field
-  ' (a student matches if it matches any selected tag), AND across fields, empty/null = no
-  ' restriction from that category (US-12, US-13)
-  classFilter : string[] <<nullable>>
-  genderFilter : enum(male, female)[] <<nullable>>
-  programFilter : string[] <<nullable>>
-  skillLevelFilter : string[] <<nullable>>
-  attendingFilter : boolean[] <<nullable>>  ' US-13 only \u2014 no equivalent in the assignment dialog (US-12)
-  nameTextFilter : string <<nullable>>
+  ' The selection itself, stored in the shape the report filters with rather than in a second
+  ' spelling of it: a free-text name filter, plus one array of selected tags per category.
+  ' OR within a category, AND across categories, an empty array = no restriction (US-12, US-13).
+  filter.name : string
+  filter.tags.class : string[]
+  filter.tags.gender : enum(male, female)[]
+  filter.tags.program : string[]
+  filter.tags.skillLevel : string[]
+  ' The three below are US-13 only — the assignment dialog has no use for any of them: its
+  ' cards are already one per event, and it lists only the students who are attending (US-12).
+  filter.tags.attendance : enum(attending, notAttending)[]
+  filter.tags.event : Event.id[]
+  filter.tags.completeness : enum(complete, incomplete)[]
 }
 
 ' Seasons & Events (US-4)

@@ -3,9 +3,9 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { SectionPlaceholder } from "@/components/layout/section-placeholder";
+import { ReportView } from "@/components/report/report-view";
 
-// Replaced by the report in #42 to #45; the teacher layout already guards this route.
+// The teacher layout guards this route; the report itself is scoped to the active season (US-13).
 export default function ReportPage() {
-  return <SectionPlaceholder title="Bericht" />;
+  return <ReportView />;
 }

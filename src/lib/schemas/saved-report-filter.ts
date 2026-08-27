@@ -4,25 +4,30 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { z } from "zod";
-import {
-  documentIdSchema,
-  genderSchema,
-  optionalText,
-  requiredText,
-  snapshotValueSchema,
-} from "./common";
+import { studentFilterSchema } from "@/lib/filters/student-filter";
+import { documentIdSchema, requiredText } from "./common";
 
-// Shared among all teachers, not private to the one who saved it (US-13).
-// A null category imposes no restriction; values within a category combine with OR.
+/**
+ * A filter tag list selection a teacher kept, shared among all teachers rather than private to
+ * whoever saved it (US-13). What it holds is the selection itself, in the shape the report
+ * filters with, so applying one is handing the report back what it gave.
+ */
 export const savedReportFilterSchema = z.object({
   id: documentIdSchema,
   createdByUserId: documentIdSchema,
   name: requiredText(120),
-  classFilter: z.array(snapshotValueSchema).nullable(),
-  genderFilter: z.array(genderSchema).nullable(),
-  programFilter: z.array(snapshotValueSchema).nullable(),
-  skillLevelFilter: z.array(snapshotValueSchema).nullable(),
-  attendingFilter: z.array(z.boolean()).nullable(),
-  nameTextFilter: optionalText(120),
+  filter: studentFilterSchema,
 });
 export type SavedReportFilter = z.infer<typeof savedReportFilterSchema>;
+
+/**
+ * What a teacher may send. The author comes from the session, so a request naming one is
+ * refused outright rather than quietly ignored.
+ */
+export const savedReportFilterInputSchema = savedReportFilterSchema
+  .omit({ id: true, createdByUserId: true })
+  .strict();
+export type SavedReportFilterInput = z.infer<typeof savedReportFilterInputSchema>;
+
+/** Renaming is the only edit the dropdown offers, and it touches nothing else (US-13). */
+export const savedReportFilterRenameSchema = savedReportFilterSchema.pick({ name: true }).strict();

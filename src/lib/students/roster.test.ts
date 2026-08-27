@@ -81,6 +81,18 @@ describe("joinRoster", () => {
     expect(roster[0].eventId).toBe("event1");
   });
 
+  it("carries the e-mail address, which the report's master line shows (US-13)", () => {
+    const roster = joinRoster([record(ANNA.id)], [ANNA]);
+
+    expect(roster[0].email).toBe(ANNA.email);
+  });
+
+  it("keeps the whole registration, which is what the report's detail lines read (US-13)", () => {
+    const stored = record(ANNA.id, { healthNotes: "Asthma", isIncomplete: true });
+
+    expect(joinRoster([stored], [ANNA])[0].record).toEqual(stored);
+  });
+
   it("sorts by last name, then first name, so a list can be read down", () => {
     const clara = user("clara@student.htldornbirn.at", "Clara", "Berger");
     const roster = joinRoster(

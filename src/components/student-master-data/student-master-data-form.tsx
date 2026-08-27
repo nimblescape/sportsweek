@@ -28,6 +28,7 @@ import {
   scopeRentalToProgram,
   toRegistrationInput,
 } from "@/lib/student-master-data/registration";
+import { GENDER_LABELS, RELATIONSHIP_LABELS } from "@/lib/student-master-data/answer-labels";
 import { missingAnswers } from "@/lib/student-master-data/completeness";
 import { EquipmentChecklist } from "./equipment-checklist";
 import { Field, RadioField, ReadOnlyField, SelectField, YES_NO } from "./fields";
@@ -50,14 +51,14 @@ type StudentMasterDataFormProps = {
 };
 
 const GENDERS = [
-  { value: "male", label: "Männlich" },
-  { value: "female", label: "Weiblich" },
+  { value: "male", label: GENDER_LABELS.male },
+  { value: "female", label: GENDER_LABELS.female },
 ] as const;
 
 const RELATIONSHIPS = [
-  { value: "mother", label: "Mutter" },
-  { value: "father", label: "Vater" },
-  { value: "other", label: "Sonstiges" },
+  { value: "mother", label: RELATIONSHIP_LABELS.mother },
+  { value: "father", label: RELATIONSHIP_LABELS.father },
+  { value: "other", label: RELATIONSHIP_LABELS.other },
 ] as const;
 
 const MISSING_ANSWER = "Pflichtfeld.";

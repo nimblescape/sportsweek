@@ -10,7 +10,6 @@ import { assignmentGroups } from "@/lib/assignment/statistics";
 import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
-import { useEvents } from "@/lib/events/use-events";
 import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { AssignmentBoard } from "./assignment-board";
@@ -23,15 +22,11 @@ import { AssignmentBoard } from "./assignment-board";
  * shows up as soon as the subscription brings the record back.
  */
 export function AssignmentView() {
-  const { season, loading: rosterLoading, error, students, columns, programNames, skillLevelNames, filterGroups } = useSeasonRoster(); // prettier-ignore
+  const { season, loading, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useSeasonRoster(); // prettier-ignore
   const [saving, setSaving] = useState(false);
 
-  // No season means no id to scope by, and a query for the empty one matches nothing — which is
-  // what this view shows anyway.
-  const { events, loading: eventsLoading } = useEvents(season?.id ?? "");
-
   // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(rosterLoading || eventsLoading || saving);
+  useBusyWhile(loading || saving);
 
   /**
    * The write and the refresh are separate paths, so the whole view is held until the answer

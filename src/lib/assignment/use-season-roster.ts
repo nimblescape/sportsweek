@@ -7,10 +7,11 @@
 
 import { useMemo } from "react";
 import { skillColumns, type SkillColumn } from "@/lib/assignment/statistics";
+import { useEvents } from "@/lib/events/use-events";
 import { filterGroups, type FilterGroup } from "@/lib/filters/student-filter";
 import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
 import type { NamedListItem } from "@/lib/schemas/master-data";
-import type { Season } from "@/lib/schemas/season";
+import type { Event, Season } from "@/lib/schemas/season";
 import { activeSeasonOf } from "@/lib/seasons/season-state";
 import { useSeasons } from "@/lib/seasons/use-seasons";
 import type { RosterStudent } from "@/lib/students/roster";
@@ -23,6 +24,7 @@ export type SeasonRoster = {
   error: string | null;
   /** Everyone registered for the active season, taking part or not. */
   students: RosterStudent[];
+  events: Event[];
   classes: NamedListItem[];
   columns: SkillColumn[];
   programNames: string[];
@@ -30,13 +32,19 @@ export type SeasonRoster = {
   filterGroups: FilterGroup[];
 };
 
+/** Which of the report-only tag categories to offer; the board has a use for none of them. */
+type SeasonRosterOptions = { attendance?: boolean; completeness?: boolean; events?: boolean };
+
 /**
- * The active season and everything the views built on it count: the roster, the maintained lists
- * behind the tables, and the tags to filter by. Held here because the assignment board and the
- * statistics both need exactly this, and two copies of it would drift the moment one gained a
- * list the other did not.
+ * The active season and everything the views built on it count: the roster, its events, the
+ * maintained lists behind the tables, and the tags to filter by. Held here because the
+ * assignment board, the statistics and the report all need exactly this, and copies of it would
+ * drift the moment one gained a list the others did not.
+ *
+ * The options add the tag categories only the report has a use for (US-13).
  */
-export function useSeasonRoster(): SeasonRoster {
+export function useSeasonRoster(options: SeasonRosterOptions = {}): SeasonRoster {
+  const { attendance = false, completeness = false, events: eventTags = false } = options;
   const { seasons, loading: seasonsLoading, error: seasonsError } = useSeasons();
 
   // Two active seasons is a data defect a teacher cannot act on here, so it is reported rather
@@ -50,6 +58,8 @@ export function useSeasonRoster(): SeasonRoster {
   }, [seasons]);
 
   const { students, loading: rosterLoading, error: rosterError } = useRoster(active.season?.id ?? null); // prettier-ignore
+  // No season means no id to scope by, and a query for the empty one matches nothing.
+  const { events, loading: eventsLoading } = useEvents(active.season?.id ?? "");
   const classes = useMasterData("classes");
   const skillLevels = useMasterData("skill-levels");
   const { programs } = usePrograms();
@@ -64,15 +74,20 @@ export function useSeasonRoster(): SeasonRoster {
     [skillLevels.items],
   );
   const groups = useMemo(
-    () => filterGroups({ classes: classes.items, programs, skillLevels: skillLevels.items }),
-    [classes.items, programs, skillLevels.items],
+    () =>
+      filterGroups(
+        { classes: classes.items, programs, skillLevels: skillLevels.items },
+        { attendance, completeness, ...(eventTags ? { events } : {}) },
+      ),
+    [attendance, completeness, eventTags, events, classes.items, programs, skillLevels.items],
   );
 
   return {
     season: active.season,
-    loading: seasonsLoading || rosterLoading || classes.loading,
+    loading: seasonsLoading || rosterLoading || eventsLoading || classes.loading,
     error: seasonsError ?? active.error ?? rosterError,
     students,
+    events,
     classes: classes.items,
     columns,
     programNames,

@@ -4,14 +4,17 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
 import {
   ATTENDANCE_VALUES,
+  COMPLETENESS_VALUES,
   EMPTY_FILTER,
   clearTags,
   filterGroups,
   filterStudents,
   hasNoTags,
   matchesFilter,
+  sameFilter,
   toggleTag,
   type FilterableStudent,
 } from "./student-filter";
@@ -25,6 +28,8 @@ function student(overrides: Partial<FilterableStudent> = {}): FilterableStudent 
     program: "Ski",
     skillLevel: "Keine Vorkenntnisse",
     isAttending: true,
+    eventId: null,
+    isIncomplete: false,
     ...overrides,
   };
 }
@@ -111,6 +116,23 @@ describe("matchesFilter", () => {
     expect(matchesFilter(CLARA, filter)).toBe(true);
     expect(matchesFilter(BENE, filter)).toBe(false);
   });
+
+  it("filters by the event a student is assigned to (US-12, US-13)", () => {
+    const montafon = student({ eventId: "event1" });
+    const filter = withTags(["event", "event1"]);
+
+    expect(matchesFilter(montafon, filter)).toBe(true);
+    expect(matchesFilter(student({ eventId: "event2" }), filter)).toBe(false);
+    expect(matchesFilter(student({ eventId: null }), filter)).toBe(false);
+  });
+
+  it("filters by whether a registration is still missing answers (US-11, US-13)", () => {
+    const chasing = student({ isIncomplete: true });
+    const incomplete = withTags(["completeness", COMPLETENESS_VALUES.incomplete]);
+
+    expect(matchesFilter(chasing, incomplete)).toBe(true);
+    expect(matchesFilter(ANNA, incomplete)).toBe(false);
+  });
 });
 
 describe("toggleTag", () => {
@@ -162,6 +184,29 @@ describe("hasNoTags", () => {
   });
 });
 
+describe("sameFilter", () => {
+  it("ignores the order tags were pressed in, which is no part of what a filter means", () => {
+    const one = withTags(["class", "5AHIF"], ["class", "5BHIF"]);
+    const other = withTags(["class", "5BHIF"], ["class", "5AHIF"]);
+
+    expect(sameFilter(one, other)).toBe(true);
+  });
+
+  it("stops holding as soon as a tag is added or taken away", () => {
+    const saved = withTags(["class", "5AHIF"]);
+
+    expect(sameFilter(saved, EMPTY_FILTER)).toBe(false);
+    expect(sameFilter(saved, withTags(["class", "5AHIF"], ["gender", "male"]))).toBe(false);
+  });
+
+  it("counts the free text too, since it narrows the report just as a tag does", () => {
+    expect(sameFilter(EMPTY_FILTER, { ...EMPTY_FILTER, name: "anna" })).toBe(false);
+    expect(sameFilter({ ...EMPTY_FILTER, name: " anna " }, { ...EMPTY_FILTER, name: "anna" })).toBe(
+      true,
+    );
+  });
+});
+
 describe("filterStudents", () => {
   it("keeps the given order and drops what does not match", () => {
     const filter = withTags(["class", "5BHIF"]);
@@ -193,6 +238,52 @@ describe("filterGroups", () => {
       "program",
       "skillLevel",
       "attendance",
+    ]);
+  });
+
+  it("offers the events of the season as tags, in the order the teacher set them", () => {
+    const events = [
+      { id: "event1", name: "Woche 1" },
+      { id: "event2", name: "Woche 2" },
+    ];
+
+    const [event] = filterGroups(lists, { events }).filter((group) => group.category === "event");
+
+    expect(event.label).toBe("Event");
+    expect(event.options).toEqual([
+      { value: "event1", label: "Woche 1" },
+      { value: "event2", label: "Woche 2" },
+    ]);
+  });
+
+  // The board's cards are one per event already, so filtering by event inside one says nothing.
+  it("leaves the event and completeness categories out unless they are asked for", () => {
+    expect(filterGroups(lists).map((group) => group.category)).not.toContain("event");
+    expect(filterGroups(lists).map((group) => group.category)).not.toContain("completeness");
+  });
+
+  it("puts the report's own categories after the four US-12 gives", () => {
+    const events = [{ id: "event1", name: "Woche 1" }];
+
+    expect(
+      filterGroups(lists, { attendance: true, completeness: true, events }).map(
+        (group) => group.category,
+      ),
+    ).toEqual(["class", "gender", "program", "skillLevel", "attendance", "event", "completeness"]);
+  });
+
+  /** There is nothing to chase about a complete registration, so only the one tag is offered. */
+  it("offers a single completeness tag, named the way the master line marks it", () => {
+    const [completeness] = filterGroups(lists, { completeness: true }).filter(
+      (group) => group.category === "completeness",
+    );
+
+    expect(completeness.options).toEqual([
+      {
+        value: COMPLETENESS_VALUES.incomplete,
+        label: INCOMPLETE_REGISTRATION_HINT,
+        name: INCOMPLETE_REGISTRATION_HINT,
+      },
     ]);
   });
 

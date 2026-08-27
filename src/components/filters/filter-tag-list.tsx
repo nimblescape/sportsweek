@@ -8,6 +8,7 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tag } from "@/components/ui/tag";
 import {
   clearTags,
   hasNoTags,
@@ -63,7 +64,7 @@ export function FilterTagList({ label, groups, value, onChange }: FilterTagListP
             <Tag
               key={`${group.category}:${option.value}`}
               // The row carries no headings, so the category is what the tag says it is.
-              label={`${group.label}: ${option.label}`}
+              label={option.name ?? `${group.label}: ${option.label}`}
               text={option.label}
               pressed={value.tags[group.category].includes(option.value)}
               onPress={() => onChange(toggleTag(value, group.category, option.value))}
@@ -72,30 +73,5 @@ export function FilterTagList({ label, groups, value, onChange }: FilterTagListP
         )}
       </div>
     </div>
-  );
-}
-
-function Tag({
-  label,
-  text = label,
-  pressed,
-  onPress,
-}: {
-  label: string;
-  text?: string;
-  pressed: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      size="lg"
-      variant={pressed ? "default" : "outline"}
-      aria-label={label}
-      aria-pressed={pressed}
-      onClick={onPress}
-    >
-      {text}
-    </Button>
   );
 }

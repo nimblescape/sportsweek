@@ -54,7 +54,7 @@ export function Dialog({
       onClose={onClose}
       onCancel={onClose}
       className={cn(
-        "bg-card text-card-foreground ring-foreground/10 shadow-card m-auto w-[calc(100vw---spacing(8))] max-w-md rounded-xl p-0 ring-1 backdrop:bg-black/40",
+        "bg-card text-card-foreground ring-foreground/10 shadow-card m-auto w-[calc(100vw-(--spacing(8)))] max-w-md rounded-xl p-0 ring-1 backdrop:bg-black/40",
         className,
       )}
     >

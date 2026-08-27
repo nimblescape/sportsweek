@@ -30,7 +30,7 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    // Section headings use text-lg (see SectionPlaceholder), so the brand must outrank it.
+    // Section headings use text-lg, so the brand must outrank it.
     expect(screen.getByText("Sportsweek").className).toContain("text-xl");
   });
 

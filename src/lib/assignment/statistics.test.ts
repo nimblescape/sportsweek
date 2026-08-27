@@ -5,25 +5,21 @@
  */
 import { describe, expect, it } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
+import { rosterStudent } from "@/test/roster-student";
 import { assignmentGroups, classOverview, skillColumns, UNASSIGNED_GROUP } from "./statistics";
 
 let seed = 0;
 
-function student(overrides: Partial<RosterStudent> = {}): RosterStudent {
+function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): RosterStudent {
   seed += 1;
-  return {
+  return rosterStudent({
     id: `record${seed}`,
     userId: `student${seed}@student.htldornbirn.at`,
     firstName: `Vorname${seed}`,
     lastName: `Nachname${seed}`,
-    class: "5AHIF",
-    gender: "female",
-    program: "Ski",
     skillLevel: "Fortgeschritten",
-    isAttending: true,
-    eventId: null,
     ...overrides,
-  };
+  });
 }
 
 const PROGRAMS = [{ name: "Ski" }, { name: "Snowboard" }];

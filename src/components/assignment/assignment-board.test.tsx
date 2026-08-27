@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assignmentGroups, skillColumns } from "@/lib/assignment/statistics";
 import { filterGroups } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
+import { rosterStudent } from "@/test/roster-student";
 import { stubBoardLayout } from "@/test/stub-board-layout";
 import { AssignmentBoard } from "./assignment-board";
 
@@ -31,21 +32,15 @@ const EVENTS = [
 function student(
   firstName: string,
   lastName: string,
-  overrides: Partial<RosterStudent> = {},
+  overrides: Partial<Omit<RosterStudent, "record">> = {},
 ): RosterStudent {
-  return {
+  return rosterStudent({
     id: `record-${lastName}`,
     userId: `${lastName}@student.htldornbirn.at`,
     firstName,
     lastName,
-    class: "5AHIF",
-    gender: "female",
-    program: "Ski",
-    skillLevel: "Profi",
-    isAttending: true,
-    eventId: null,
     ...overrides,
-  };
+  });
 }
 
 const ANNA = student("Anna", "Muster");
