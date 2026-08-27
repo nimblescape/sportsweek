@@ -427,7 +427,7 @@ describe("exporting", () => {
     await userEvent.click(screen.getByRole("button", { name: "Klasse: 5BHIF" }));
     await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
 
-    expect(pressed(downloadReportPdf).provenance.filterSummary).toBe("Klasse: 5BHIF");
+    expect(pressed(downloadReportPdf).provenance.filterSummary).toBe("5BHIF");
   });
 
   it("says so when an export could not be built, instead of failing silently", async () => {

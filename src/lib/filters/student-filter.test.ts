@@ -306,22 +306,22 @@ describe("filterSummary", () => {
   };
   const GROUPS = filterGroups(lists, { attendance: true });
 
-  it("names each restricted category and the tags chosen in it", () => {
+  it("lists the tags chosen, grouped by the category they were chosen in", () => {
     const filter = withTags(["class", "5AHIF"], ["class", "5BHIF"], ["gender", "female"]);
 
-    expect(filterSummary(filter, GROUPS)).toBe("Klasse: 5AHIF, 5BHIF · Geschlecht: weiblich");
+    expect(filterSummary(filter, GROUPS)).toBe("5AHIF, 5BHIF \u00b7 weiblich");
   });
 
   it("leaves out a category nothing is chosen in, which restricts nothing", () => {
     expect(filterSummary(withTags(["attendance", ATTENDANCE_VALUES.attending]), GROUPS)).toBe(
-      "Teilnahme: nimmt teil",
+      "nimmt teil",
     );
   });
 
-  it("puts the name being searched for first, since it narrows the most", () => {
+  it("puts the name being searched for first, and says that is what it is", () => {
     const filter = { ...withTags(["class", "5AHIF"]), name: "Muster" };
 
-    expect(filterSummary(filter, GROUPS)).toBe("Name: Muster · Klasse: 5AHIF");
+    expect(filterSummary(filter, GROUPS)).toBe("Name: Muster · 5AHIF");
   });
 
   it("says nothing about a filter that restricts nothing", () => {

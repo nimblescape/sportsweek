@@ -124,32 +124,32 @@ describe("reportDocument", () => {
       reportName: "Nur 5BHIF",
     });
 
-    expect(textOf(named.header)).toContain("Bericht: Nur 5BHIF");
-    expect(footerOf(named)).not.toContain("Filter:");
+    expect(textOf(named.header)).toContain("Nur 5BHIF");
+    expect(footerOf(named)).not.toContain("Nur 5BHIF");
   });
 
   it("puts the filter under the saved report's name, as a second subtitle line", () => {
     const both = document([ANNA], reportFieldsOf([]), {
       ...PROVENANCE,
       reportName: "Nur 5BHIF",
-      filterSummary: "Klasse: 5BHIF",
+      filterSummary: "5BHIF \u00b7 weiblich",
     });
 
     const [title] = (both.header as { columns: { stack: { text: string }[] }[] }).columns;
     expect(title.stack.map((line) => line.text)).toEqual([
       "Sportsweek Report",
-      "Bericht: Nur 5BHIF",
-      "Klasse: 5BHIF",
+      "Nur 5BHIF",
+      "5BHIF \u00b7 weiblich",
     ]);
   });
 
   it("describes the filter under the title where no saved report names the selection", () => {
     const filtered = document([ANNA], reportFieldsOf([]), {
       ...PROVENANCE,
-      filterSummary: "Klasse: 5BHIF",
+      filterSummary: "5BHIF",
     });
 
-    expect(textOf(filtered.header)).toContain("Klasse: 5BHIF");
+    expect(textOf(filtered.header)).toContain("5BHIF");
   });
 
   it("leaves the title without a subtitle where the selection matches no saved filter", () => {

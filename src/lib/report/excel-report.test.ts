@@ -90,7 +90,7 @@ describe("reportWorkbook", () => {
       reportName: "Nur 5BHIF",
     });
 
-    expect(named.getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBe("Bericht: Nur 5BHIF");
+    expect(named.getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBe("Nur 5BHIF");
     expect(workbook().getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBeNull();
   });
 
@@ -98,21 +98,21 @@ describe("reportWorkbook", () => {
     const both = workbook([ANNA], reportFieldsOf([]), {
       ...PROVENANCE,
       reportName: "Nur 5BHIF",
-      filterSummary: "Klasse: 5BHIF",
+      filterSummary: "5BHIF · weiblich",
     });
 
     const overview = both.getWorksheet(OVERVIEW_SHEET);
-    expect(overview?.getCell("A8").value).toBe("Bericht: Nur 5BHIF");
-    expect(overview?.getCell("A9").value).toBe("Klasse: 5BHIF");
+    expect(overview?.getCell("A8").value).toBe("Nur 5BHIF");
+    expect(overview?.getCell("A9").value).toBe("5BHIF · weiblich");
   });
 
   it("describes the filter where no saved report names the selection", () => {
     const filtered = workbook([ANNA], reportFieldsOf([]), {
       ...PROVENANCE,
-      filterSummary: "Klasse: 5BHIF",
+      filterSummary: "5BHIF",
     });
 
-    expect(filtered.getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBe("Klasse: 5BHIF");
+    expect(filtered.getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBe("5BHIF");
   });
 
   it("carries the logo on the overview sheet when it was loaded", () => {

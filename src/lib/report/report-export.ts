@@ -29,7 +29,6 @@ export function germanDateTime(at: Date): string {
 
 /** One wording for the PDF's footer and the workbook's overview sheet alike. */
 export const exportedAtLine = (at: Date) => `Erstellt am ${germanDateTime(at)}`;
-export const reportLine = (name: string) => `Bericht: ${name}`;
 
 /**
  * What the copy says it holds, under its title: the saved report that names it, then the filter
@@ -37,7 +36,7 @@ export const reportLine = (name: string) => `Bericht: ${name}`;
  */
 export function subtitleLines({ reportName, filterSummary }: ReportProvenance): string[] {
   return [
-    ...(reportName === null ? [] : [reportLine(reportName)]),
+    ...(reportName === null ? [] : [reportName]),
     ...(filterSummary === null ? [] : [filterSummary]),
   ];
 }

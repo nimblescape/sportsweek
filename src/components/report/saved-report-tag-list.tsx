@@ -325,35 +325,40 @@ function NameForm({ initialName = "", submitLabel, pending, onSubmit, onCancel }
 
   return (
     <form onSubmit={submit} className="flex flex-wrap items-center gap-1.5" noValidate>
-      <Input
-        autoFocus
-        aria-label={NAME_LABEL}
-        aria-invalid={error !== null}
-        placeholder={NAME_LABEL}
-        value={name}
-        disabled={pending}
-        onChange={(event) => setName(event.target.value)}
-        className="h-9 w-48"
-      />
-      <Button
-        type="submit"
-        variant="outline"
-        size="icon-lg"
-        aria-label={submitLabel}
-        disabled={pending}
-      >
-        <Check aria-hidden />
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-lg"
-        aria-label="Abbrechen"
-        disabled={pending}
-        onClick={onCancel}
-      >
-        <X aria-hidden />
-      </Button>
+      {/* Shaped as a tag, with its controls inside it, exactly as a tag being deleted is. */}
+      <div className={cn(buttonVariants({ variant: "outline", size: "lg" }), "gap-0.5 px-1")}>
+        <Input
+          autoFocus
+          aria-label={NAME_LABEL}
+          aria-invalid={error !== null}
+          placeholder={NAME_LABEL}
+          value={name}
+          disabled={pending}
+          onChange={(event) => setName(event.target.value)}
+          className="h-7 w-40 rounded-md border-0 bg-transparent px-1.5 shadow-none focus-visible:ring-0 dark:bg-transparent"
+        />
+        <Button
+          type="submit"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={submitLabel}
+          disabled={pending}
+          className={ICON_CLASSES}
+        >
+          <Check aria-hidden />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Abbrechen"
+          disabled={pending}
+          onClick={onCancel}
+          className={ICON_CLASSES}
+        >
+          <X aria-hidden />
+        </Button>
+      </div>
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
     </form>
   );

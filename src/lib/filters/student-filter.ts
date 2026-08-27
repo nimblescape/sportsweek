@@ -89,10 +89,10 @@ export type FilterGroup = {
 };
 
 /**
- * What the filter leaves, in words: the name being searched for, then each restricted category
- * and the tags chosen in it. Null where it restricts nothing, which is a report of everybody and
- * has nothing to say about itself. A tag no category offers any more is passed over, exactly as
- * the tag row passes over it (US-13).
+ * What the filter leaves, in words: the name being searched for, then the tags chosen, grouped
+ * by category so that what is an "or" and what is an "and" survives the wording. Null where it
+ * restricts nothing, which is a report of everybody and has nothing to say about itself. A tag
+ * no category offers any more is passed over, exactly as the tag row passes over it (US-13).
  */
 export function filterSummary(
   filter: StudentFilter,
@@ -104,9 +104,7 @@ export function filterSummary(
     ...groups.flatMap((group) => {
       const chosen = filter.tags[group.category];
       const labels = group.options.filter((option) => chosen.includes(option.value));
-      return labels.length === 0
-        ? []
-        : [`${group.label}: ${labels.map((option) => option.label).join(", ")}`];
+      return labels.length === 0 ? [] : [labels.map((option) => option.label).join(", ")];
     }),
   ];
 
