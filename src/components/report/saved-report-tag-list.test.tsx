@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag, type StudentFilter } from "@/lib/filters/student-filter";
@@ -59,6 +59,15 @@ const tag = (name: string) =>
 
 /** The tag is the box around that button, and the box is what carries the colour. */
 const tagBox = (name: string) => tag(name).parentElement as HTMLElement;
+
+/** A write that is still out, so what the row does meanwhile can be looked at. */
+function deferred<T>() {
+  let settle!: (value: T) => void;
+  const promise = new Promise<T>((resolve) => (settle = resolve));
+  return { promise, settle };
+}
+
+const nameField = () => screen.queryByRole("textbox", { name: "Name des Berichts" });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -238,6 +247,53 @@ describe("bringing the marked report up to date", () => {
     await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF aktualisieren" }));
 
     expect(onUpdate).toHaveBeenCalledWith("r1", changed);
+  });
+});
+
+describe("while a write is out", () => {
+  it("closes an open name form when a control in a tag is pressed", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+    change({ ...CURRENT, fields: [] });
+    await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
+    expect(nameField()).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF aktualisieren" }));
+
+    expect(nameField()).not.toBeInTheDocument();
+  });
+
+  it("holds every tag, so a second press cannot act on a report the first is still changing", async () => {
+    const { promise, settle } = deferred<void>();
+    onDelete.mockReturnValue(promise);
+    setup();
+    await userEvent.click(tag("5AHIF"));
+    await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF löschen" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Löschen von 5AHIF bestätigen" }));
+
+    expect(tag("Alle Mädchen")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Bericht speichern" })).toBeDisabled();
+
+    settle();
+    await waitFor(() => expect(tag("Alle Mädchen")).toBeEnabled());
+  });
+
+  it("holds the name form itself, rather than taking a second name for the same report", async () => {
+    const { promise, settle } = deferred<string | null>();
+    onSave.mockReturnValue(promise);
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
+    await userEvent.type(nameField() as HTMLElement, "Neu");
+
+    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+    expect(nameField()).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Speichern" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Abbrechen" })).toBeDisabled();
+
+    settle(null);
+    await waitFor(() => expect(nameField()).not.toBeInTheDocument());
   });
 });
 

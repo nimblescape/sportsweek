@@ -32,7 +32,7 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
   apiRequest: (...args: unknown[]) => apiRequest(...args),
 }));
-vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
+vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {}, useHold: () => () => () => {} }));
 vi.mock("@/lib/report/report-download", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/report/report-download")>()),
   downloadReportPdf: (report: unknown) => downloadReportPdf(report),

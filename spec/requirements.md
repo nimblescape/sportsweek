@@ -301,6 +301,8 @@ As a teacher, I can view a report listing all students so that I have their cont
 - The controls for updating, renaming and deleting a saved report sit inside its own tag, so it is managed where it is shown rather than on a page of its own. They are shown on the marked tag only, permanently and on every device rather than revealed by a hover a teacher has to discover (see General); an unmarked tag carries no controls at all, so there is nothing on it to press by accident.
 - Updating a saved report replaces both tag list selections it holds with the report as it currently stands, leaving its name alone. It is what a teacher reaches for after opening a saved report and adjusting it, instead of saving a second report under a second name. Its control appears only while the marked report is no longer what is on screen, since a report that has not been changed has nothing to store.
 - Renaming a saved report edits its name in place; deleting one requires a lightweight inline confirmation before it is removed, asked in the tag that is about to go.
+- Reaching for a control in a tag closes the name form if one is open, whether it was opened to save a report or to rename one: the teacher has moved on from naming a report to managing one, and a form left standing would take a name for something they are no longer doing.
+- While a saved report is being created, updated, renamed or removed, every tag and the name form are out of reach and the application's shared spinner says so, because every tag is drawn from the reports that write is changing.
 
 ### US-17: Teacher exports the student report as PDF
 

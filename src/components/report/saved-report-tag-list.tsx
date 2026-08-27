@@ -10,6 +10,7 @@ import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useRowAction } from "@/lib/api/use-row-action";
 import { sameSelection } from "@/lib/report/saved-reports";
 import {
   savedReportSchema,
@@ -58,6 +59,14 @@ export function SavedReportTagList({
   // Remembered rather than derived from the selection, so the mark survives the changes a
   // teacher then makes — which is what keeps this report's controls, and its update, reachable.
   const [markedId, setMarkedId] = React.useState<string | null>(null);
+  // Every tag is drawn from the reports one write is changing, so all of them wait for it.
+  const { pending, run } = useRowAction();
+
+  // Reaching for a control in a tag has moved on from naming a report to managing one.
+  function closeForms() {
+    setEditing(null);
+    setConfirming(null);
+  }
 
   return (
     <div className="space-y-2">
@@ -72,23 +81,26 @@ export function SavedReportTagList({
               marked={report.id === markedId}
               changed={report.id === markedId && !sameSelection(report, current)}
               confirming={confirming === report.id}
+              pending={pending}
               onOpen={() => {
-                setConfirming(null);
-                setEditing(null);
+                closeForms();
                 setMarkedId(report.id);
                 onOpen(report);
               }}
-              onUpdate={() => onUpdate(report.id, current)}
+              onUpdate={() => {
+                closeForms();
+                return run(report.id, () => onUpdate(report.id, current));
+              }}
               onStartRename={() => {
-                setConfirming(null);
+                closeForms();
                 setEditing({ kind: "rename", report });
               }}
               onStartDelete={() => {
-                setEditing(null);
+                closeForms();
                 setConfirming(report.id);
               }}
               onDelete={async () => {
-                await onDelete(report.id);
+                await run(report.id, () => onDelete(report.id));
                 setConfirming(null);
                 setMarkedId(null);
               }}
@@ -101,6 +113,7 @@ export function SavedReportTagList({
           type="button"
           variant="outline"
           size="lg"
+          disabled={pending}
           onClick={() => {
             setConfirming(null);
             setEditing(editing?.kind === "save" ? null : { kind: "save" });
@@ -116,12 +129,13 @@ export function SavedReportTagList({
           key={editing.kind === "rename" ? editing.report.id : "save"}
           initialName={editing.kind === "rename" ? editing.report.name : ""}
           submitLabel={editing.kind === "rename" ? "Umbenennen" : "Speichern"}
+          pending={pending}
           onSubmit={async (name) => {
             if (editing.kind === "rename") {
-              await onRename(editing.report.id, name);
+              await run(editing.report.id, () => onRename(editing.report.id, name));
             } else {
               // The report on screen is now the one just saved, so the mark follows it there.
-              setMarkedId(await onSave(name, current));
+              setMarkedId(await run(null, () => onSave(name, current)));
             }
             setEditing(null);
           }}
@@ -137,6 +151,7 @@ type SavedReportTagProps = {
   marked: boolean;
   changed: boolean;
   confirming: boolean;
+  pending: boolean;
   onOpen: () => void;
   onUpdate: () => Promise<void>;
   onStartRename: () => void;
@@ -153,6 +168,7 @@ function SavedReportTag({
   marked,
   changed,
   confirming,
+  pending,
   onOpen,
   onUpdate,
   onStartRename,
@@ -178,8 +194,9 @@ function SavedReportTag({
         aria-pressed={marked}
         aria-label={`Gespeicherter Bericht: ${report.name}`}
         aria-describedby={changed ? hintId : undefined}
+        disabled={pending}
         onClick={onOpen}
-        className="focus-visible:ring-ring/50 max-w-60 truncate rounded-md px-1.5 outline-none focus-visible:ring-3"
+        className="focus-visible:ring-ring/50 max-w-60 truncate rounded-md px-1.5 outline-none focus-visible:ring-3 disabled:opacity-50"
       >
         {report.name}
       </button>
@@ -199,6 +216,7 @@ function SavedReportTag({
             variant="ghost"
             size="icon-sm"
             aria-label={`Löschen von ${report.name} bestätigen`}
+            disabled={pending}
             onClick={onDelete}
             className={ICON_CLASSES}
           >
@@ -209,6 +227,7 @@ function SavedReportTag({
             variant="ghost"
             size="icon-sm"
             aria-label={`Löschen von ${report.name} abbrechen`}
+            disabled={pending}
             onClick={onCancel}
             className={ICON_CLASSES}
           >
@@ -224,6 +243,7 @@ function SavedReportTag({
               variant="ghost"
               size="icon-sm"
               aria-label={`Bericht ${report.name} aktualisieren`}
+              disabled={pending}
               onClick={onUpdate}
               className={ICON_CLASSES}
             >
@@ -235,6 +255,7 @@ function SavedReportTag({
             variant="ghost"
             size="icon-sm"
             aria-label={`Bericht ${report.name} umbenennen`}
+            disabled={pending}
             onClick={onStartRename}
             className={ICON_CLASSES}
           >
@@ -245,6 +266,7 @@ function SavedReportTag({
             variant="ghost"
             size="icon-sm"
             aria-label={`Bericht ${report.name} löschen`}
+            disabled={pending}
             onClick={onStartDelete}
             className={ICON_CLASSES}
           >
@@ -259,15 +281,16 @@ function SavedReportTag({
 type NameFormProps = {
   initialName?: string;
   submitLabel: string;
+  /** Held by the row while its write is out, so a second name cannot be taken for the same one. */
+  pending: boolean;
   onSubmit: (name: string) => Promise<void>;
   onCancel: () => void;
 };
 
 /** The one place a report's name is typed — saving a new one and renaming an old one (US-13). */
-function NameForm({ initialName = "", submitLabel, onSubmit, onCancel }: NameFormProps) {
+function NameForm({ initialName = "", submitLabel, pending, onSubmit, onCancel }: NameFormProps) {
   const [name, setName] = React.useState(initialName);
   const [error, setError] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -280,13 +303,10 @@ function NameForm({ initialName = "", submitLabel, onSubmit, onCancel }: NameFor
     }
 
     setError(null);
-    setPending(true);
     try {
       await onSubmit(parsed.data);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Das hat leider nicht geklappt.");
-    } finally {
-      setPending(false);
     }
   }
 
@@ -298,6 +318,7 @@ function NameForm({ initialName = "", submitLabel, onSubmit, onCancel }: NameFor
           aria-label={NAME_LABEL}
           placeholder={NAME_LABEL}
           value={name}
+          disabled={pending}
           onChange={(event) => setName(event.target.value)}
           className="w-64"
         />
@@ -306,7 +327,13 @@ function NameForm({ initialName = "", submitLabel, onSubmit, onCancel }: NameFor
       <Button type="submit" disabled={pending}>
         {submitLabel}
       </Button>
-      <Button type="button" variant="ghost" aria-label="Abbrechen" onClick={onCancel}>
+      <Button
+        type="button"
+        variant="ghost"
+        aria-label="Abbrechen"
+        disabled={pending}
+        onClick={onCancel}
+      >
         Abbrechen
       </Button>
     </form>
