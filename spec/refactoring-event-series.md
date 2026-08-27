@@ -19,8 +19,8 @@ placed by topic when merged, exactly as US-17 and US-18 were.
 
 Three things are wrong with the model the application has today, and they have the same cause.
 
-**Master data is global, but it describes one event.** Programs, classes, skill levels, bus
-pickup points, food options and season pass options live in collections of their own, shared by
+**Master data is global, but it describes one event.** Classes, programs, skill levels, season
+pass options, bus pickup points and food options live in collections of their own, shared by
 every season. A Kulturwoche has no use for "Ski" and a Sommersportwoche has no use for
 "Silvretta-Montafon", but every season is made to offer both. The lists cannot diverge, so they
 grow into the union of everything every event ever needed.
@@ -90,19 +90,21 @@ event series, labelled "Eventreihe".
   // which list changed, from what to what, how far it has got, and how many attempts it has had.
   "pendingCascade": null,
 
-  // The maintained lists. Array order is the teacher-defined order, so no item carries a
-  // position, and an item's name is its identity, so no item carries an id.
+  // The maintained lists, in the order the master data menu states (US-14) — the one order the
+  // report fields, the filter categories and the registration form already follow. Array order
+  // is the teacher-defined order, so no item carries a position, and an item's name is its
+  // identity, so no item carries an id.
   "events": ["Woche 1", "Woche 2", "Woche 3"],
   "classOptions": ["2aWI", "2bWI", "2cWI"],
-  "skillLevels": ["Einsteiger:in", "Anfänger:in", "Fortgeschritten", "Profi"],
-  "busPickupPoints": ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Unterkunft"],
-  "foodOptions": ["Alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
-  "seasonPassOptions": ["Keine", "Vielleicht", "Golm-Bielerhöhe (Illwerke)", "Silvretta-Montafon"],
   "programs": [
     { "name": "Ski", "requiredEquipment": ["Ski", "Skischuhe", "Stöcke", "Helm"] },
     { "name": "Snowboard", "requiredEquipment": ["Board", "Boots", "Helm"] },
     { "name": "Alternativ", "requiredEquipment": [] },
   ],
+  "skillLevels": ["Einsteiger:in", "Anfänger:in", "Fortgeschritten", "Profi"],
+  "seasonPassOptions": ["Keine", "Vielleicht", "Golm-Bielerhöhe (Illwerke)", "Silvretta-Montafon"],
+  "busPickupPoints": ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Unterkunft"],
+  "foodOptions": ["Alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
 
   // A saved report is a selection the teacher asked to be remembered, and nothing else: a name,
   // which students are shown, and which detail lines they show (US-13, US-25). It is here for
@@ -376,14 +378,20 @@ header, so that every page I open is about that series and no page has to ask me
 
 ### US-21: Master data belongs to the event series and is stored in its document
 
-As a teacher, I maintain the events, programs, classes, skill levels, bus pickup points, food
-options and season pass options of one event series, so that a Kulturwoche is not made to share
+As a teacher, I maintain the events, classes, programs, skill levels, season pass options, bus
+pickup points and food options of one event series, so that a Kulturwoche is not made to share
 its lists with a Wintersportwoche.
 
 **Acceptance criteria:**
 
 - The seven maintained lists are fields of the event series document, stored as ordered arrays.
   None of them is a collection any more.
+- **Only the storage moves.** The category definitions keep everything else they own: the menu
+  order, which is the one order the report fields, the filter categories and the registration
+  form all follow (US-14), the singular and answer labels each list is named by, and the field a
+  registration stores its answer in. A list's document field is the collection name it had, so
+  the definitions gain a field name where they carried a collection name and nothing else about
+  them changes.
 - Events join the master data section as the seventh list. Reaching them is no longer a step
   inside a season's row; they are maintained like any other list, for the selected series.
 - An item's identity is its name. There is no id beside it, because the name is already unique
@@ -436,8 +444,16 @@ its lists with a Wintersportwoche.
     wearing the shape of data.
   - **The statistics leave out what has no dimensions**, so a series with no programs and no
     skill levels shows no skill matrix rather than an empty grid.
-  - Filters need nothing: a category with no options offers no tags, and a category with no tag
-    selected already restricts nothing (US-12).
+  - **The filter offers no category whose list is empty**, which is what it already does with a
+    category that has no options — including the food category's permanent "Sonstiges" tag, which
+    goes with the list it is appended to rather than standing on its own (Q22). A category with no
+    tag selected already restricts nothing (US-12), so nothing else is needed here.
+  - **Opening a saved report waits for the document.** US-13 keeps its tolerance — a tag nothing
+    offers any more restricts nothing — but its exception for a category offering no options at
+    all is what one subscription per list forced: an empty list and a list still being read looked
+    alike, so dropping against either would have shown every report as changed. One document has
+    one loading flag, so the two can finally be told apart: the report scopes its filter once the
+    document has arrived, and an empty list then means what US-21 says it means.
 - Equipment rental was already conditional on the chosen program having required equipment
   (US-11); it now sits behind a second condition, since a series with no programs asks no program
   question and so can have no rental question either.
@@ -446,6 +462,12 @@ its lists with a Wintersportwoche.
 - Because one subscription to one document now carries every list and every saved report, the six
   `useMasterData` subscriptions, the `useEvents` subscription and `useSavedReports` collapse into
   one.
+- The roster's opt-in flags survive that, with one of their two reasons gone. They say which
+  filter categories a view offers, which the board and the report still disagree about; they no
+  longer say which lists are worth subscribing to, because there is one subscription and it
+  carries all of them. `answerLists`, which existed to buy three subscriptions with one flag,
+  therefore keeps its name only as long as it still names three categories a view asks for
+  together.
 
 ### US-22: A new event series is a series or a template, blank or copied
 
@@ -939,6 +961,12 @@ subscriptions and the `useEvents` one collapse into a single subscription to a s
 and every list write becomes one transaction on it, taking the intent rather than the list the
 client happened to be holding.
 
+What the category definitions own is the base this starts from and is carried through unchanged:
+the menu order that the report fields, the filter categories and the registration form all
+follow, the answer label each list is named by, and the field a registration stores its answer
+in. The tests that pin those four lists to one another are what says the move preserved them, so
+a slice that has to relax one of them has gone wrong somewhere else.
+
 The in-use rule of US-5 to US-10 **stays** for this slice, rewritten against the new storage, so
 that nothing a teacher can do changes yet. Withdrawing it is slice 3b, where the cascade that
 makes withdrawing it safe arrives.
@@ -955,7 +983,10 @@ Three things are finished here rather than left half-done:
   writing master data as a side effect.
 - **An empty list asks no question** (US-21, Q22), with the consequences that have to move with
   it: completeness computed against the series' lists, the report offering only the fields its
-  series asks for, and the statistics leaving out what has no dimensions.
+  series asks for, the statistics leaving out what has no dimensions, and the filter offering no
+  category whose list is empty. That last one is what finally lets a saved report be scoped
+  against an empty list rather than excepted from it — one document has one loading flag, so a
+  list nobody filled in and a list still being read stop looking alike.
 
 ### 3a. The functions codebase
 
@@ -1769,7 +1800,7 @@ a thing that is not on the list cannot be what keeps the list from being empty. 
 never been able to summon its own question.
 
 So the rule stands as seven cases and no exceptions: **each of the seven questions is asked
-exactly when its list has entries.** In code it is one condition in one place — the permanent
-option is appended to the offered answers only where the stored list is non-empty — and the test
-worth writing is that an empty food list produces no question, rather than a question with a
-single option.
+exactly when its list has entries.** In code it is one condition wherever the permanent option is
+appended — the registration form, which offers it as an answer, and the filter row, which offers
+it as a tag — and the test worth writing is at both: an empty food list produces no question and
+no food category, rather than either with a single option in it.
