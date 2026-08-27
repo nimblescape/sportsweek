@@ -14,6 +14,8 @@ export const REPORT_TITLE = "Sportsweek Report";
 export type ReportProvenance = {
   /** The saved report the page matched, or null where it matched none. */
   reportName: string | null;
+  /** What the filter tag list leaves, in words, or null where it leaves the whole season. */
+  filterSummary: string | null;
   exportedAt: Date;
 };
 
@@ -29,6 +31,17 @@ export function germanDateTime(at: Date): string {
 export const exportedAtLine = (at: Date) => `Erstellt am ${germanDateTime(at)}`;
 export const reportLine = (name: string) => `Bericht: ${name}`;
 
+/**
+ * What the copy says it holds, under its title: the saved report that names it, then the filter
+ * that produced it. Either, both, or — for an unfiltered report nobody saved — neither.
+ */
+export function subtitleLines({ reportName, filterSummary }: ReportProvenance): string[] {
+  return [
+    ...(reportName === null ? [] : [reportLine(reportName)]),
+    ...(filterSummary === null ? [] : [filterSummary]),
+  ];
+}
+
 /** Year first, so a folder of exports sorts into the order they were taken in (US-17). */
 function fileStamp(at: Date): string {
   const date = `${at.getFullYear()}-${twoDigits(at.getMonth() + 1)}-${twoDigits(at.getDate())}`;
@@ -43,7 +56,7 @@ const NOT_IN_A_FILE_NAME = /[\p{Cc}/\\:*?"<>|]/gu;
  * none of them, then the moment it was taken (US-17).
  */
 export function exportFileName(
-  { reportName, exportedAt }: ReportProvenance,
+  { reportName, exportedAt }: Pick<ReportProvenance, "reportName" | "exportedAt">,
   extension: string,
 ): string {
   const cleaned = (reportName ?? "").replace(NOT_IN_A_FILE_NAME, " ").replace(/\s+/g, " ").trim();

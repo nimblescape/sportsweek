@@ -21,6 +21,7 @@ const BENE = rosterStudent({
 const context = { eventNames: new Map([["event1", "Woche 1"]]) };
 const PROVENANCE: ReportProvenance = {
   reportName: null,
+  filterSummary: null,
   exportedAt: new Date(2026, 7, 27, 14, 35),
 };
 
@@ -85,12 +86,33 @@ describe("reportWorkbook", () => {
 
   it("names the saved filter on the overview, and names none where there is none", () => {
     const named = workbook([ANNA], reportFieldsOf([]), {
+      ...PROVENANCE,
       reportName: "Nur 5BHIF",
-      exportedAt: PROVENANCE.exportedAt,
     });
 
     expect(named.getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBe("Bericht: Nur 5BHIF");
     expect(workbook().getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBeNull();
+  });
+
+  it("puts the filter under the saved report's name, as the PDF's subtitle does", () => {
+    const both = workbook([ANNA], reportFieldsOf([]), {
+      ...PROVENANCE,
+      reportName: "Nur 5BHIF",
+      filterSummary: "Klasse: 5BHIF",
+    });
+
+    const overview = both.getWorksheet(OVERVIEW_SHEET);
+    expect(overview?.getCell("A8").value).toBe("Bericht: Nur 5BHIF");
+    expect(overview?.getCell("A9").value).toBe("Klasse: 5BHIF");
+  });
+
+  it("describes the filter where no saved report names the selection", () => {
+    const filtered = workbook([ANNA], reportFieldsOf([]), {
+      ...PROVENANCE,
+      filterSummary: "Klasse: 5BHIF",
+    });
+
+    expect(filtered.getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBe("Klasse: 5BHIF");
   });
 
   it("carries the logo on the overview sheet when it was loaded", () => {

@@ -29,7 +29,8 @@ type SavedReportTagListProps = {
   /** What a save would keep: the report as it currently stands, both tag rows (US-13). */
   current: ReportSelection;
   onOpen: (selection: ReportSelection) => void;
-  onSave: (name: string, selection: ReportSelection) => Promise<void>;
+  /** Answers with the id of the report it saved, which the row then marks. */
+  onSave: (name: string, selection: ReportSelection) => Promise<string | null>;
   onUpdate: (id: string, selection: ReportSelection) => Promise<void>;
   onRename: (id: string, name: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -119,9 +120,8 @@ export function SavedReportTagList({
             if (editing.kind === "rename") {
               await onRename(editing.report.id, name);
             } else {
-              await onSave(name, current);
-              // What was open is not what was just saved, so the row lets go of it.
-              setMarkedId(null);
+              // The report on screen is now the one just saved, so the mark follows it there.
+              setMarkedId(await onSave(name, current));
             }
             setEditing(null);
           }}

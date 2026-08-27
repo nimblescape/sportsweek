@@ -12,6 +12,7 @@ import {
   clearTags,
   filterGroups,
   filterStudents,
+  filterSummary,
   hasNoTags,
   matchesFilter,
   sameFilter,
@@ -294,5 +295,40 @@ describe("filterGroups", () => {
       { value: "5AHIF", label: "5AHIF" },
       { value: "5BHIF", label: "5BHIF" },
     ]);
+  });
+});
+
+describe("filterSummary", () => {
+  const lists = {
+    classes: [{ name: "5AHIF" }, { name: "5BHIF" }],
+    programs: [{ name: "Ski" }],
+    skillLevels: [{ name: "Keine Vorkenntnisse" }],
+  };
+  const GROUPS = filterGroups(lists, { attendance: true });
+
+  it("names each restricted category and the tags chosen in it", () => {
+    const filter = withTags(["class", "5AHIF"], ["class", "5BHIF"], ["gender", "female"]);
+
+    expect(filterSummary(filter, GROUPS)).toBe("Klasse: 5AHIF, 5BHIF · Geschlecht: weiblich");
+  });
+
+  it("leaves out a category nothing is chosen in, which restricts nothing", () => {
+    expect(filterSummary(withTags(["attendance", ATTENDANCE_VALUES.attending]), GROUPS)).toBe(
+      "Teilnahme: nimmt teil",
+    );
+  });
+
+  it("puts the name being searched for first, since it narrows the most", () => {
+    const filter = { ...withTags(["class", "5AHIF"]), name: "Muster" };
+
+    expect(filterSummary(filter, GROUPS)).toBe("Name: Muster · Klasse: 5AHIF");
+  });
+
+  it("says nothing about a filter that restricts nothing", () => {
+    expect(filterSummary(EMPTY_FILTER, GROUPS)).toBeNull();
+  });
+
+  it("passes over a tag no category offers any more, as the row itself does", () => {
+    expect(filterSummary(withTags(["class", "3AHME"]), GROUPS)).toBeNull();
   });
 });

@@ -4,7 +4,13 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { exportedAtLine, exportFileName, germanDateTime, reportLine } from "./report-export";
+import {
+  exportedAtLine,
+  exportFileName,
+  germanDateTime,
+  reportLine,
+  subtitleLines,
+} from "./report-export";
 
 const AT = new Date(2026, 7, 27, 14, 35);
 
@@ -25,6 +31,30 @@ describe("the lines both exports share", () => {
 
   it("says which slice of the season it holds", () => {
     expect(reportLine("Nur 5BHIF")).toBe("Bericht: Nur 5BHIF");
+  });
+});
+
+describe("subtitleLines", () => {
+  const provenance = { reportName: null, filterSummary: null, exportedAt: AT };
+
+  it("names the saved report first and the filter that produced it below", () => {
+    const named = { ...provenance, reportName: "Nur 5BHIF", filterSummary: "Klasse: 5BHIF" };
+
+    expect(subtitleLines(named)).toEqual(["Bericht: Nur 5BHIF", "Klasse: 5BHIF"]);
+  });
+
+  it("still describes the filter where no saved report names the selection", () => {
+    expect(subtitleLines({ ...provenance, filterSummary: "Klasse: 5BHIF" })).toEqual([
+      "Klasse: 5BHIF",
+    ]);
+  });
+
+  it("names a saved report that restricts nothing on its own", () => {
+    expect(subtitleLines({ ...provenance, reportName: "Alle" })).toEqual(["Bericht: Alle"]);
+  });
+
+  it("says nothing about an unfiltered report nobody saved", () => {
+    expect(subtitleLines(provenance)).toEqual([]);
   });
 });
 

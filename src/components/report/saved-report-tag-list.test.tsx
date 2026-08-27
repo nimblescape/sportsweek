@@ -48,7 +48,10 @@ const row = (reports: readonly SavedReport[], current: ReportSelection) => (
 
 function setup(reports: SavedReport[] = REPORTS, current: ReportSelection = CURRENT) {
   const { rerender } = render(row(reports, current));
-  return { change: (next: ReportSelection) => rerender(row(reports, next)) };
+  return {
+    change: (next: ReportSelection, saved: readonly SavedReport[] = reports) =>
+      rerender(row(saved, next)),
+  };
 }
 
 const tag = (name: string) =>
@@ -59,7 +62,7 @@ const tagBox = (name: string) => tag(name).parentElement as HTMLElement;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  onSave.mockResolvedValue(undefined);
+  onSave.mockResolvedValue(null);
   onUpdate.mockResolvedValue(undefined);
   onRename.mockResolvedValue(undefined);
   onDelete.mockResolvedValue(undefined);
@@ -172,15 +175,18 @@ describe("saving the report as it stands", () => {
     expect(screen.getByText("Pflichtfeld.")).toBeInTheDocument();
   });
 
-  it("lets go of the report that was open, which is not the one just saved", async () => {
+  it("moves the mark to the report just saved, off whichever tag was open", async () => {
+    const fresh = saved("r9", "Neu", EMPTY_FILTER, []);
+    onSave.mockResolvedValue(fresh.id);
     const { change } = setup();
     await userEvent.click(tag("5AHIF"));
-    change({ ...CURRENT, fields: [] });
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Name des Berichts" }), "5BHIF");
+    await userEvent.type(screen.getByRole("textbox", { name: "Name des Berichts" }), "Neu");
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+    change(CURRENT, [...REPORTS, fresh]);
 
+    expect(tag("Neu")).toHaveAttribute("aria-pressed", "true");
     expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
   });
 });

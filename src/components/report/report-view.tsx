@@ -10,7 +10,7 @@ import { FileDown, FileSpreadsheet } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
-import { EMPTY_FILTER, filterStudents } from "@/lib/filters/student-filter";
+import { EMPTY_FILTER, filterStudents, filterSummary } from "@/lib/filters/student-filter";
 import { reportFieldsOf } from "@/lib/report/report-fields";
 import {
   downloadReportPdf,
@@ -21,7 +21,7 @@ import {
 import { matchingSavedReport } from "@/lib/report/saved-reports";
 import { useSavedReports } from "@/lib/report/use-saved-reports";
 import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
-import type { ReportSelection } from "@/lib/schemas/saved-report";
+import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
@@ -74,7 +74,11 @@ export function ReportView() {
   // Writes go through handlers because the author is the session's, not the request's (US-13);
   // the list itself comes back from the subscription rather than from these answers.
   async function saveReport(name: string, saved: ReportSelection) {
-    await apiRequest("/api/saved-reports", { method: "POST", body: { name, ...saved } });
+    const answer = await apiRequest<{ report: SavedReport }>("/api/saved-reports", {
+      method: "POST",
+      body: { name, ...saved },
+    });
+    return answer?.report.id ?? null;
   }
 
   async function renameReport(id: string, name: string) {
@@ -95,6 +99,12 @@ export function ReportView() {
    */
   const savedReportName = matchingSavedReport(savedReports, selection)?.name ?? null;
 
+  // What the copy says it holds where no saved report names it, and beside that name where one does.
+  const filterDescription = useMemo(
+    () => filterSummary(filter, filterGroups),
+    [filter, filterGroups],
+  );
+
   async function exportReport(download: (report: ReportExport) => Promise<void>) {
     setExporting(true);
     setOutputError(null);
@@ -103,7 +113,11 @@ export function ReportView() {
         students: shown,
         fields,
         context,
-        provenance: { reportName: savedReportName, exportedAt: new Date() },
+        provenance: {
+          reportName: savedReportName,
+          filterSummary: filterDescription,
+          exportedAt: new Date(),
+        },
       });
     } catch {
       setOutputError(EXPORT_FAILED_HINT);

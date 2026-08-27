@@ -88,6 +88,31 @@ export type FilterGroup = {
   options: readonly FilterOption[];
 };
 
+/**
+ * What the filter leaves, in words: the name being searched for, then each restricted category
+ * and the tags chosen in it. Null where it restricts nothing, which is a report of everybody and
+ * has nothing to say about itself. A tag no category offers any more is passed over, exactly as
+ * the tag row passes over it (US-13).
+ */
+export function filterSummary(
+  filter: StudentFilter,
+  groups: readonly FilterGroup[],
+): string | null {
+  const name = filter.name.trim();
+  const parts = [
+    ...(name === "" ? [] : [`Name: ${name}`]),
+    ...groups.flatMap((group) => {
+      const chosen = filter.tags[group.category];
+      const labels = group.options.filter((option) => chosen.includes(option.value));
+      return labels.length === 0
+        ? []
+        : [`${group.label}: ${labels.map((option) => option.label).join(", ")}`];
+    }),
+  ];
+
+  return parts.length === 0 ? null : parts.join(" \u00b7 ");
+}
+
 const GENDER_OPTIONS: readonly FilterOption[] = [
   { value: "male", label: "männlich" },
   { value: "female", label: "weiblich" },

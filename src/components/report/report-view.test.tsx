@@ -357,6 +357,22 @@ describe("the saved reports", () => {
       body: { filter: toggleTag(saved.filter, "class", "5AHIF"), fields: ["class"] },
     });
   });
+
+  it("marks the report it has just saved, so the controls on offer are that report's", async () => {
+    const fresh = { ...saved, id: "r9", name: "Neu", filter: EMPTY_FILTER, fields: [] };
+    apiRequest.mockResolvedValue({ report: fresh });
+    useSavedReports.mockReturnValue({ reports: [fresh], loading: false, error: null });
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Name des Berichts" }), "Neu");
+    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+    expect(screen.getByRole("button", { name: "Gespeicherter Bericht: Neu" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
 });
 
 describe("exporting", () => {
@@ -400,9 +416,18 @@ describe("exporting", () => {
     render(<ReportView />);
     await userEvent.click(screen.getByRole("button", { name: "Excel exportieren" }));
 
-    const { reportName, exportedAt } = pressed(downloadReportWorkbook).provenance;
+    const { reportName, filterSummary, exportedAt } = pressed(downloadReportWorkbook).provenance;
     expect(reportName).toBeNull();
+    expect(filterSummary).toBeNull();
     expect(exportedAt).toBeInstanceOf(Date);
+  });
+
+  it("describes the filter alongside it, so a copy says which slice of the season it holds", async () => {
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Klasse: 5BHIF" }));
+    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+
+    expect(pressed(downloadReportPdf).provenance.filterSummary).toBe("Klasse: 5BHIF");
   });
 
   it("says so when an export could not be built, instead of failing silently", async () => {
