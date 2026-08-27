@@ -21,7 +21,7 @@ import {
 import { matchingSavedReport } from "@/lib/report/saved-reports";
 import { useSavedReports } from "@/lib/report/use-saved-reports";
 import { NO_ACTIVE_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
-import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
+import type { ReportSelection, SavedReport, SavedReportEdit } from "@/lib/schemas/saved-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeading } from "@/components/layout/page-heading";
@@ -96,12 +96,9 @@ export function ReportView() {
     return answer?.report.id ?? null;
   }
 
-  async function renameReport(id: string, name: string) {
-    await apiRequest(reportUrl(id), { method: "PATCH", body: { name } });
-  }
-
-  async function updateReport(id: string, saved: ReportSelection) {
-    await apiRequest(reportUrl(id), { method: "PATCH", body: saved });
+  // One PATCH for both controls: renaming a tag stores the report it holds, not its name alone.
+  async function editReport(id: string, edit: SavedReportEdit) {
+    await apiRequest(reportUrl(id), { method: "PATCH", body: edit });
   }
 
   async function deleteReport(id: string) {
@@ -199,8 +196,8 @@ export function ReportView() {
                 current={selection}
                 onOpen={openReport}
                 onSave={saveReport}
-                onUpdate={updateReport}
-                onRename={renameReport}
+                onUpdate={editReport}
+                onRename={editReport}
                 onDelete={deleteReport}
                 onReorder={reorderReports}
               />

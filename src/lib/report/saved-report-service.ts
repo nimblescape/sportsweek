@@ -10,15 +10,13 @@ import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import {
+  savedReportEditSchema,
   savedReportInputSchema,
   savedReportSchema,
-  savedReportSelectionSchema,
-  type ReportSelection,
   type SavedReport,
+  type SavedReportEdit,
   type SavedReportInput,
 } from "@/lib/schemas/saved-report";
-
-const nameSchema = savedReportSchema.shape.name;
 
 function reportDoc(id: string) {
   return adminDb.collection(COLLECTIONS.savedReports).doc(id);
@@ -26,11 +24,6 @@ function reportDoc(id: string) {
 
 function reject(message: string): never {
   throw new ServiceError(ErrorCode.ValidationError, message);
-}
-
-function parseName(value: string): string {
-  const parsed = nameSchema.safeParse(value);
-  return parsed.success ? parsed.data : reject(parsed.error.issues[0]?.message ?? "Ungültiger Name."); // prettier-ignore
 }
 
 async function readReport(id: string): Promise<SavedReport> {
@@ -72,21 +65,13 @@ export async function createSavedReport(
   return { id: reference.id, ...data };
 }
 
-/** Renaming is edited in place in the tag, and touches nothing but the name (US-13). */
-export async function renameSavedReport(id: string, name: string): Promise<SavedReport> {
-  const parsed = parseName(name);
-  const current = await readReport(id);
-
-  await reportDoc(id).update({ name: parsed });
-  return { ...current, name: parsed };
-}
-
-/** The counterpart: what a report holds gives way to the report on screen, its name kept (US-13). */
-export async function updateSavedReportSelection(
-  id: string,
-  selection: ReportSelection,
-): Promise<SavedReport> {
-  const parsed = savedReportSelectionSchema.safeParse(selection);
+/**
+ * An edit replaces everything a teacher may change. Renaming and bringing up to date are one
+ * write rather than two: the tag a teacher renames is the report they are looking at, and
+ * storing the name without the selection is what left it reading as changed afterwards (US-13).
+ */
+export async function updateSavedReport(id: string, input: SavedReportEdit): Promise<SavedReport> {
+  const parsed = savedReportEditSchema.safeParse(input);
   if (!parsed.success) {
     reject(parsed.error.issues[0]?.message ?? "Dieser Bericht lässt sich nicht speichern.");
   }

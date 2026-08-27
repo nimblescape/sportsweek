@@ -453,6 +453,9 @@ describe("the saved reports", () => {
 
     render(<ReportView />);
     await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
+    // Renaming a report that has been changed stores the change with it, rather than leaving the
+    // tag reading as changed once the new name has been taken.
+    await userEvent.click(screen.getByRole("button", { name: "Klasse: 5AHIF" }));
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF umbenennen" }));
     const field = screen.getByRole("textbox", { name: "Name des Berichts" });
@@ -462,7 +465,11 @@ describe("the saved reports", () => {
 
     expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", {
       method: "PATCH",
-      body: { name: "5BHIF" },
+      body: {
+        name: "5BHIF",
+        filter: toggleTag(saved.filter, "class", "5AHIF"),
+        fields: saved.fields,
+      },
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF löschen" }));
@@ -482,7 +489,11 @@ describe("the saved reports", () => {
 
     expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", {
       method: "PATCH",
-      body: { filter: toggleTag(saved.filter, "class", "5AHIF"), fields: ["class"] },
+      body: {
+        name: saved.name,
+        filter: toggleTag(saved.filter, "class", "5AHIF"),
+        fields: ["class"],
+      },
     });
   });
 

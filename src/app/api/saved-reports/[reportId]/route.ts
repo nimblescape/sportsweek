@@ -6,15 +6,11 @@
 import { NextResponse } from "next/server";
 import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@/lib/api/handler";
 import { savedReportEditSchema } from "@/lib/schemas/saved-report";
-import {
-  deleteSavedReport,
-  renameSavedReport,
-  updateSavedReportSelection,
-} from "@/lib/report/saved-report-service";
+import { deleteSavedReport, updateSavedReport } from "@/lib/report/saved-report-service";
 
 type Context = { params: Promise<{ reportId: string }> };
 
-/** The two edits a tag offers: its name, or what it holds replaced by the report on screen. */
+/** One edit, whichever control sent it: the report as the teacher now has it, name included. */
 export async function PATCH(request: Request, { params }: Context) {
   const denied = await requireTeacherOrResponse();
   if (denied) return denied;
@@ -25,10 +21,7 @@ export async function PATCH(request: Request, { params }: Context) {
   const { reportId } = await params;
 
   try {
-    const report =
-      "name" in body.data
-        ? await renameSavedReport(reportId, body.data.name)
-        : await updateSavedReportSelection(reportId, body.data);
+    const report = await updateSavedReport(reportId, body.data);
     return NextResponse.json({ report });
   } catch (error) {
     return handleServiceFailure(error, `Editing saved report ${reportId}`);

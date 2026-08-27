@@ -401,7 +401,7 @@ describe("bringing the marked report up to date", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF aktualisieren" }));
 
-    expect(onUpdate).toHaveBeenCalledWith("r1", changed);
+    expect(onUpdate).toHaveBeenCalledWith("r1", { name: "5AHIF", ...changed });
   });
 });
 
@@ -451,9 +451,12 @@ describe("while a write is out", () => {
 });
 
 describe("renaming and deleting from within the tag", () => {
-  it("edits the name in place", async () => {
-    setup();
+  /** Renaming the tag a teacher is working in stores the report they are looking at with it. */
+  it("edits the name in place, storing the report as it now stands along with it", async () => {
+    const changed = { ...CURRENT, fields: ["class", "contact"] };
+    const { change } = setup();
     await userEvent.click(tag("5AHIF"));
+    change(changed);
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF umbenennen" }));
     const field = nameField() as HTMLElement;
@@ -461,7 +464,7 @@ describe("renaming and deleting from within the tag", () => {
     await userEvent.type(field, "5CHIF");
     await userEvent.click(screen.getByRole("button", { name: "Umbenennen" }));
 
-    expect(onRename).toHaveBeenCalledWith("r1", "5CHIF");
+    expect(onRename).toHaveBeenCalledWith("r1", { name: "5CHIF", ...changed });
   });
 
   it("puts the name field where the tag stood, leaving the others alone", async () => {
