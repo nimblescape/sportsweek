@@ -274,7 +274,7 @@ function Row({
           aria-label={`${label ?? name} verschieben`}
           className={cn(
             TAG_GRIP,
-            "hover:text-foreground focus-visible:ring-ring/50 cursor-grab touch-none rounded-l-md transition-colors outline-none focus-visible:ring-3",
+            "hover:text-foreground focus-visible:ring-ring/50 cursor-grab touch-none rounded-l-md transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing",
             isDragging && "cursor-grabbing",
           )}
           {...attributes}

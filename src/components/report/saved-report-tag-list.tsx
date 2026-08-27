@@ -269,7 +269,7 @@ function SavedReportTag({
         aria-label={`${report.name} verschieben`}
         disabled={pending}
         className={cn(
-          "focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-0.5 outline-none focus-visible:ring-3 disabled:cursor-default disabled:opacity-50",
+          "focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-0.5 outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50",
           isDragging && "cursor-grabbing",
         )}
         {...attributes}
