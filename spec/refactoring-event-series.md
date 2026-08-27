@@ -809,6 +809,11 @@ The refactoring is too large for one pull request and each slice below leaves th
 working, tested and deployable. Each is red-green-refactor as usual, and the Firestore rules
 suite has to grow a denial test for every new path before that path exists.
 
+Nothing is live yet (Q18), so the slicing is for **reviewability** rather than continuity: there
+are no users to keep served, and no slice has to survive contact with a running school. Each one
+is kept deployable anyway, because that is what stops a half-finished shape being excused by the
+slice that was going to follow it.
+
 1. **Rename only.** `seasons` to `eventSeries` in code, routes, labels and the ERD. No shape
    change, no behaviour change. This is the diff nobody needs to read closely, and keeping it
    separate is what makes the ones that follow readable.
@@ -1194,6 +1199,10 @@ So a slice is two deploys rather than one, in that order, and slice 4 is the one
 backwards would be visible: narrowing the `users` rule before the join is gone breaks every
 teacher's report.
 
+None of that bites while nothing is live (Q18) — with no users, any order works. It is worth
+following from the start regardless, because the ordering is a habit rather than a step, and the
+first deploy where it matters is not one anybody will remember to think about.
+
 **Q10 — Saved reports are copied along with the lists. Decided.** They are part of the setup a
 teacher would otherwise rebuild, and they filter only on master data, which the copy has — so a
 copied report works from the moment it exists.
@@ -1429,15 +1438,16 @@ in is what repairs it, and a student who never signs in again has no name to cor
 a field that differs is written, and registrations in archived series are left as they are
 (US-26). No manual re-sync control is needed.
 
-**Q18 — No migration; a clean break. Decided.** The production project holds no real
-registrations, so there is nothing to carry across. Development and staging are purged with the
-scripts that already exist, the new rules and indexes are deployed to each, and the sequencing
-above stands unchanged: no migration step in slice 2 or slice 4, and no schema anywhere that has
-to read both shapes.
+**Q18 — No migration; a clean break. Decided.** **The application is not in production yet**, so
+there is no data anywhere to carry across — not a registration, not a season, not a saved report.
+Development and staging are purged with the scripts that already exist, the new rules and indexes
+are deployed to each, and the sequencing above stands unchanged: no migration step in slice 2 or
+slice 4, and no schema anywhere that has to read both shapes.
 
-Worth noting that this is a decision with an expiry rather than a permanent property. It is
-available only while production is empty, so the refactoring is much cheaper done before the
-school runs a week on the application than after.
+That is a property of the moment rather than of the design, and the moment ends precisely at the
+**first real registration**. Until then the refactoring costs what is written above; after it,
+slice 2 and slice 4 each grow a migration script and every schema in between has to read two
+shapes. Which is the whole argument for doing it now.
 
 **Q19 — The flag is `isOpenToStudents`, not `isActive`. Decided.** The state introduced in US-19
 — students may join and go on amending — needs a name, and the two obvious ones both mislead.
