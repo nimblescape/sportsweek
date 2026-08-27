@@ -261,9 +261,9 @@ function SavedReportTag({
         isDragging && "relative z-10 cursor-grabbing opacity-80",
       )}
     >
-      {/* The whole tag is what a pointer drags; the grip is what a keyboard drags. Splitting the
-          two leaves the tag's own press free to open the report — a drag only starts once the
-          pointer has moved, and the click that would follow one is swallowed by the sensor. */}
+      {/* Both the grip and the tag start a pointer drag; the grip also carries the keyboard one.
+          The tag's own press opens the report — a drag only starts once the pointer has moved,
+          and the click that would follow one is swallowed by the sensor. */}
       <button
         type="button"
         aria-label={`${report.name} verschieben`}
@@ -273,6 +273,7 @@ function SavedReportTag({
           isDragging && "cursor-grabbing",
         )}
         {...attributes}
+        onPointerDown={listeners?.onPointerDown as React.PointerEventHandler | undefined}
         onKeyDown={listeners?.onKeyDown as React.KeyboardEventHandler | undefined}
       >
         <GripVertical aria-hidden className="size-3.5" />

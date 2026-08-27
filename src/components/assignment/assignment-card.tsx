@@ -239,9 +239,10 @@ function Row({
   });
 
   /**
-   * The whole row is what a pointer drags; the handle is what a keyboard drags. Splitting the
-   * two keeps the row's own press free to pick the student — a drag only starts once the pointer
-   * has moved, and the click that follows one is swallowed by the sensor.
+   * Both the row and the handle start a pointer drag; the handle also carries the keyboard one.
+   * The row's press is what picks the student, so a drag from the handle moves without picking —
+   * a drag only starts once the pointer has moved, and the click that follows one is swallowed
+   * by the sensor.
    */
   const startPointerDrag = listeners?.onPointerDown as PointerEventHandler | undefined;
 
@@ -277,6 +278,7 @@ function Row({
             isDragging && "cursor-grabbing",
           )}
           {...attributes}
+          onPointerDown={startPointerDrag}
           onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined}
         >
           <GripVertical aria-hidden className="size-3.5" />
