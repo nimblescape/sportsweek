@@ -94,7 +94,7 @@ event series, labelled "Eventreihe".
   // position, and an item's name is its identity, so no item carries an id.
   "events": ["Woche 1", "Woche 2", "Woche 3"],
   "classOptions": ["2aWI", "2bWI", "2cWI"],
-  "skillLevels": ["Keine Vorkenntnisse", "Anfänger:in", "Fortgeschritten", "Profi"],
+  "skillLevels": ["Einsteiger:in", "Anfänger:in", "Fortgeschritten", "Profi"],
   "busPickupPoints": ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Unterkunft"],
   "foodOptions": ["Alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
   "seasonPassOptions": ["Keine", "Vielleicht", "Golm-Bielerhöhe (Illwerke)", "Silvretta-Montafon"],

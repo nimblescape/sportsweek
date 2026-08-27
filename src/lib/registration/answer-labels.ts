@@ -24,8 +24,8 @@ export const RELATIONSHIP_LABELS: Record<Relationship, string> = {
 
 /** How the attendance answer reads where it names a group of students or a tag that selects one. */
 export const ATTENDANCE_LABELS = {
-  attending: "Nimmt teil",
-  notAttending: "Nimmt nicht teil",
+  attending: "Teilnahme",
+  notAttending: "Keine Teilnahme",
 } as const;
 
 /** "Nein" first, because that is where an unanswered registration starts (US-11). */
@@ -52,8 +52,8 @@ export const INCOMPLETE_REGISTRATION_HINT = "Registrierung unvollständig";
  * two ways the question can be answered (US-11, US-13).
  */
 export const EQUIPMENT_RENTAL_LABEL = "Leihausrüstung";
-export const EQUIPMENT_RENTAL_NEEDED_LABEL = "Leihausrüstung benötigt";
-export const EQUIPMENT_RENTAL_NOT_NEEDED_LABEL = "Leihausrüstung nicht benötigt";
+/** Only the negative needs a word of its own; renting is called what the answer itself is called. */
+export const NO_EQUIPMENT_RENTAL_LABEL = "Keine Leihausrüstung";
 
 /**
  * The two health answers are read as one question — is there anything to look out for — so the

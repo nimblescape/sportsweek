@@ -10,12 +10,11 @@ import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master
 import {
   ATTENDANCE_LABELS,
   EQUIPMENT_RENTAL_LABEL,
-  EQUIPMENT_RENTAL_NEEDED_LABEL,
-  EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
   GENDER_LABELS,
   HEALTH_LABEL,
   HEALTH_NOTED_LABEL,
   INCOMPLETE_REGISTRATION_HINT,
+  NO_EQUIPMENT_RENTAL_LABEL,
 } from "@/lib/registration/answer-labels";
 
 /**
@@ -207,9 +206,18 @@ const GENDER_OPTIONS: readonly FilterOption[] = [
   { value: "female", label: GENDER_LABELS.female },
 ];
 
+/** Named in full, since the tag now reads as its own category would and would otherwise stutter. */
 const ATTENDANCE_OPTIONS: readonly FilterOption[] = [
-  { value: ATTENDANCE_VALUES.attending, label: ATTENDANCE_LABELS.attending },
-  { value: ATTENDANCE_VALUES.notAttending, label: ATTENDANCE_LABELS.notAttending },
+  {
+    value: ATTENDANCE_VALUES.attending,
+    label: ATTENDANCE_LABELS.attending,
+    name: ATTENDANCE_LABELS.attending,
+  },
+  {
+    value: ATTENDANCE_VALUES.notAttending,
+    label: ATTENDANCE_LABELS.notAttending,
+    name: ATTENDANCE_LABELS.notAttending,
+  },
 ];
 
 /**
@@ -229,13 +237,13 @@ const COMPLETENESS_OPTIONS: readonly FilterOption[] = [
 const EQUIPMENT_RENTAL_OPTIONS: readonly FilterOption[] = [
   {
     value: EQUIPMENT_RENTAL_VALUES.needed,
-    label: EQUIPMENT_RENTAL_NEEDED_LABEL,
-    name: EQUIPMENT_RENTAL_NEEDED_LABEL,
+    label: EQUIPMENT_RENTAL_LABEL,
+    name: EQUIPMENT_RENTAL_LABEL,
   },
   {
     value: EQUIPMENT_RENTAL_VALUES.notNeeded,
-    label: EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
-    name: EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
+    label: NO_EQUIPMENT_RENTAL_LABEL,
+    name: NO_EQUIPMENT_RENTAL_LABEL,
   },
 ];
 
