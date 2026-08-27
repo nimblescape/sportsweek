@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { z } from "zod";
+import { ANSWER_LABELS } from "@/lib/master-data/categories";
 import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import {
@@ -31,11 +32,11 @@ export const FILTER_CATEGORIES = [
   "class",
   "gender",
   "program",
-  "skillLevel",
   "equipmentRental",
+  "skillLevel",
   "busPickupPoint",
-  "seasonPassOption",
   "foodOption",
+  "seasonPassOption",
   "health",
   "completeness",
 ] as const;
@@ -53,11 +54,11 @@ export const FIELD_TAG_KEY_BY_CATEGORY: Record<FilterCategory, string> = {
   class: "class",
   gender: "gender",
   program: "program",
-  skillLevel: "skillLevel",
   equipmentRental: "rentedEquipment",
+  skillLevel: "skillLevel",
   busPickupPoint: "busPickupPoint",
-  seasonPassOption: "seasonPassOption",
   foodOption: "food",
+  seasonPassOption: "seasonPassOption",
   health: "health",
   completeness: "completeness",
 };
@@ -123,11 +124,11 @@ export const EMPTY_FILTER: StudentFilter = {
     class: [],
     gender: [],
     program: [],
-    skillLevel: [],
     equipmentRental: [],
+    skillLevel: [],
     busPickupPoint: [],
-    seasonPassOption: [],
     foodOption: [],
+    seasonPassOption: [],
     health: [],
     completeness: [],
   },
@@ -152,6 +153,10 @@ export type FilterGroup = {
  * them keep changing: a class is renamed, a program is removed. A tag standing for something that
  * no longer exists cannot be seen and cannot be unpressed, but it still restricts — and it
  * restricts to nobody, so the report would open empty with nothing on screen to explain it.
+ *
+ * A category offering nothing at all is a different case and keeps its tags: an empty list has
+ * not answered the question. It is what a subscription looks like before it has delivered, and
+ * dropping against it would strip a report the moment it is opened and then call it changed.
  */
 export function scopeFilterToGroups(
   filter: StudentFilter,
@@ -164,10 +169,12 @@ export function scopeFilterToGroups(
   return {
     ...filter,
     tags: Object.fromEntries(
-      FILTER_CATEGORIES.map((category) => [
-        category,
-        filter.tags[category].filter((value) => offered.get(category)?.has(value) ?? false),
-      ]),
+      FILTER_CATEGORIES.map((category) => {
+        const values = offered.get(category);
+        if (values === undefined) return [category, []];
+        if (values.size === 0) return [category, filter.tags[category]];
+        return [category, filter.tags[category].filter((value) => values.has(value))];
+      }),
     ) as StudentFilter["tags"],
   };
 }
@@ -305,12 +312,12 @@ export function filterGroups(
   }
 
   groups.push(
-    { category: "class", label: "Klasse", options: asOptions(lists.classes) },
+    { category: "class", label: ANSWER_LABELS.class, options: asOptions(lists.classes) },
     { category: "gender", label: "Geschlecht", options: GENDER_OPTIONS },
-    { category: "program", label: "Programm", options: asOptions(lists.programs) },
-    { category: "skillLevel", label: "Leistungsstufe", options: asOptions(lists.skillLevels) },
+    { category: "program", label: ANSWER_LABELS.program, options: asOptions(lists.programs) },
   );
 
+  // Between the program and the skill level, where the fields row keeps the same answer.
   if (equipmentRental) {
     groups.push({
       category: "equipmentRental",
@@ -318,29 +325,36 @@ export function filterGroups(
       options: EQUIPMENT_RENTAL_OPTIONS,
     });
   }
+
+  groups.push({
+    category: "skillLevel",
+    label: ANSWER_LABELS.skillLevel,
+    options: asOptions(lists.skillLevels),
+  });
+
   if (busPickupPoint) {
     groups.push({
       category: "busPickupPoint",
-      label: "Zustiegsstelle",
+      label: ANSWER_LABELS.busPickupPoint,
       options: asOptions(lists.busPickupPoints ?? []),
-    });
-  }
-  if (seasonPassOption) {
-    groups.push({
-      category: "seasonPassOption",
-      label: "Saisonkarte",
-      options: asOptions(lists.seasonPassOptions ?? []),
     });
   }
   if (foodOption) {
     groups.push({
       category: "foodOption",
-      label: "Verpflegung",
+      label: ANSWER_LABELS.foodOption,
       // The free-text choice is offered to students without being a row a teacher keeps (US-9).
       options: [
         ...asOptions(lists.foodOptions ?? []),
         { value: FOOD_OPTION_OTHER, label: FOOD_OPTION_OTHER_LABEL },
       ],
+    });
+  }
+  if (seasonPassOption) {
+    groups.push({
+      category: "seasonPassOption",
+      label: ANSWER_LABELS.seasonPassOption,
+      options: asOptions(lists.seasonPassOptions ?? []),
     });
   }
   if (health) {

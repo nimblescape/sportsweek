@@ -3,6 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
+import { ANSWER_LABELS } from "@/lib/master-data/categories";
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import type { RegistrationInput } from "@/lib/schemas/registration";
 import { EQUIPMENT_RENTAL_LABEL } from "./answer-labels";
@@ -19,11 +20,11 @@ const ATTENDING_ANSWERS = [
   ["dateOfBirth", "Geburtsdatum"],
   ["gender", "Geschlecht"],
   ["phoneNumber", "Telefonnummer"],
-  ["program", "Programm"],
-  ["skillLevel", "Leistungsstufe"],
-  ["seasonPassOption", "Saisonkarte"],
-  ["busPickupPoint", "Zustiegsstelle"],
-  ["foodOption", "Verpflegung"],
+  ["program", ANSWER_LABELS.program],
+  ["skillLevel", ANSWER_LABELS.skillLevel],
+  ["seasonPassOption", ANSWER_LABELS.seasonPassOption],
+  ["busPickupPoint", ANSWER_LABELS.busPickupPoint],
+  ["foodOption", ANSWER_LABELS.foodOption],
   ["hasMedication", "Medikamente"],
 ] as const satisfies readonly (readonly [keyof RegistrationInput, string])[];
 
@@ -56,7 +57,7 @@ export type MissingAnswer = { path: string; label: string };
 export function missingAnswers(input: RegistrationInput): MissingAnswer[] {
   const missing: MissingAnswer[] = [];
 
-  if (isBlank(input.class)) missing.push({ path: "class", label: "Klasse" });
+  if (isBlank(input.class)) missing.push({ path: "class", label: ANSWER_LABELS.class });
   if (!input.isAttendingSportsWeek) return missing;
 
   for (const [field, label] of ATTENDING_ANSWERS) {

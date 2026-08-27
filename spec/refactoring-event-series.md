@@ -217,8 +217,10 @@ The label is built on the word the interface already uses for the children — "
 "Neues Event" — so an Eventreihe holds Events and a teacher reads the relationship off the two
 words. See Q2 for why it is not "Veranstaltungsprogramm" and not "Eventserie".
 
-Note that "Saisonkarte" stays exactly as it is — a season pass is a thing the lift company sells,
-not our entity, and renaming it because we renamed something else would be a mistake.
+Note that `seasonPassOption` stays exactly as it is — a season pass is a thing the lift company
+sells, not our entity, and renaming it because we renamed something else would be a mistake. Its
+German label has since become "Zugangskarte", which takes nothing away from that: a caption is not an
+identifier, and renaming one is not a reason to rename the other.
 
 ## New user stories
 
@@ -851,10 +853,12 @@ the entity a registration throughout. So `src/lib/student-master-data/` becomes
 The German follows: "Meine Stammdaten" becomes **"Meine Anmeldung"**. "Stammdaten" survives where
 it is still true — the teacher's maintained lists — which is the whole point of the distinction.
 
-**"Saisonkarte" does not move.** `seasonPassOptions`, its label and its route segment stay exactly
-as they are, for the reason given under Naming. It is also what proves the rename was done by
-reading rather than by replacing: afterwards the word "season" survives in that one list and
-nowhere else.
+**`seasonPassOption` does not move.** The field, the `seasonPassOptions` collection and the route
+segment stay exactly as they are, for the reason given under Naming. It is also what proves the
+rename was done by reading rather than by replacing: afterwards the word "season" survives in that
+one list and nowhere else. What a teacher reads on screen is no longer "Saisonkarte" but
+"Zugangskarte",
+renamed on its own account — which is exactly the kind of change that leaves an identifier alone.
 
 ### 2. Master data into the document
 

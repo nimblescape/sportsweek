@@ -28,6 +28,12 @@ export type MasterDataCategory = {
     add: string;
     /** Shown when the list is empty. */
     empty: string;
+    /**
+     * What the answer this list supplies is called wherever a student is asked it, a report
+     * prints it or a filter offers it. Usually the singular, but not always: one adds an option
+     * to a "Verpflegungsoption" list and answers a question about "Verpflegung".
+     */
+    answer: string;
   };
 };
 
@@ -45,6 +51,7 @@ export const MASTER_DATA_CATEGORIES = {
       singular: "Klasse",
       add: "Neue Klasse",
       empty: "Es gibt noch keine Klasse.",
+      answer: "Klasse",
     },
   },
   programs: {
@@ -56,6 +63,7 @@ export const MASTER_DATA_CATEGORIES = {
       singular: "Programm",
       add: "Neues Programm",
       empty: "Es gibt noch kein Programm.",
+      answer: "Programm",
     },
   },
   "skill-levels": {
@@ -66,6 +74,7 @@ export const MASTER_DATA_CATEGORIES = {
       singular: "Leistungsstufe",
       add: "Neue Leistungsstufe",
       empty: "Es gibt noch keine Leistungsstufe.",
+      answer: "Leistungsstufe",
     },
   },
   "bus-pickup-points": {
@@ -76,6 +85,7 @@ export const MASTER_DATA_CATEGORIES = {
       singular: "Zustiegsstelle",
       add: "Neue Zustiegsstelle",
       empty: "Es gibt noch keine Zustiegsstelle.",
+      answer: "Zustiegsstelle",
     },
   },
   "food-options": {
@@ -86,21 +96,38 @@ export const MASTER_DATA_CATEGORIES = {
       singular: "Verpflegungsoption",
       add: "Neue Verpflegungsoption",
       empty: "Es gibt noch keine Verpflegungsoption.",
+      answer: "Verpflegung",
     },
   },
   "season-pass-options": {
     collection: COLLECTIONS.seasonPassOptions,
     usage: { kind: "masterData", field: "seasonPassOption" },
     labels: {
-      title: "Saisonkarten",
-      singular: "Saisonkarte",
-      add: "Neue Saisonkarte",
-      empty: "Es gibt noch keine Saisonkarte.",
+      title: "Zugangskarten",
+      singular: "Zugangskarte",
+      add: "Neue Zugangskarte",
+      empty: "Es gibt noch keine Zugangskarte.",
+      answer: "Zugangskarte",
     },
   },
 } as const satisfies Record<string, MasterDataCategory>;
 
 export type MasterDataCategoryKey = keyof typeof MASTER_DATA_CATEGORIES;
+
+/** The registration fields the maintained lists supply an answer for (US-5 to US-11). */
+type AnswerField = (typeof MASTER_DATA_CATEGORIES)[MasterDataCategoryKey]["usage"]["field"];
+
+/**
+ * What each of those answers is called in German, keyed by the field that stores it. The form
+ * asks for it, the report prints it, the filter offers it as a category and the completeness
+ * check names it as still owed — one word rather than four that drift apart at the next rename.
+ */
+export const ANSWER_LABELS = Object.fromEntries(
+  Object.values(MASTER_DATA_CATEGORIES).map((category) => [
+    category.usage.field,
+    category.labels.answer,
+  ]),
+) as Record<AnswerField, string>;
 
 /**
  * The master data menu, in the order it is shown (US-4 to US-10). EventSeries lead and are not a
