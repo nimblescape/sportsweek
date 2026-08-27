@@ -8,6 +8,7 @@
 import { useState } from "react";
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
@@ -30,8 +31,7 @@ import {
   type StudentFilter,
 } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
-import { AssignmentCard } from "./assignment-card";
-
+import { AssignmentCard, DraggedTag } from "./assignment-card";
 /**
  * A drop counts only where the pointer actually is, so releasing between two cards cancels
  * instead of snapping to the nearer one. A keyboard drag has no pointer, and then the nearest
@@ -93,6 +93,8 @@ export function AssignmentBoard({
   const [filters, setFilters] = useState<Readonly<Record<string, StudentFilter>>>({});
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // The name of the tag under the pointer, which is all the overlay needs to draw it.
+  const [dragged, setDragged] = useState<string | null>(null);
 
   const sensors = useSensors(
     // A short distance threshold, so a tap on a row is not mistaken for the start of a drag.
@@ -125,6 +127,7 @@ export function AssignmentBoard({
   }
 
   function handleDragEnd({ active, over }: DragEndEvent) {
+    setDragged(null);
     const from = active.data.current?.group as string | undefined;
     // No target, or the card it started in: a cancelled drag changes nothing.
     if (!over || from === undefined || over.id === from) return;
@@ -162,7 +165,21 @@ export function AssignmentBoard({
         </p>
       )}
 
-      <DndContext sensors={sensors} collisionDetection={dropTarget} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={dropTarget}
+        onDragStart={({ active, activatorEvent }) =>
+          // A keyboard drag has no pointer for an overlay to follow, and the tag it would copy is
+          // still on screen where the teacher left it.
+          setDragged(
+            activatorEvent instanceof KeyboardEvent
+              ? null
+              : String(active.data.current?.name ?? ""),
+          )
+        }
+        onDragCancel={() => setDragged(null)}
+        onDragEnd={handleDragEnd}
+      >
         <div className="flex flex-col gap-3">
           {groups.map((group) => (
             <AssignmentCard
@@ -181,6 +198,14 @@ export function AssignmentBoard({
             />
           ))}
         </div>
+
+        {/* Mounted only while a pointer is carrying something: an overlay measures itself, and
+            one standing by with nothing in it would answer for where the drag is. */}
+        {dragged === null ? null : (
+          <DragOverlay dropAnimation={null}>
+            <DraggedTag name={dragged} />
+          </DragOverlay>
+        )}
       </DndContext>
     </div>
   );

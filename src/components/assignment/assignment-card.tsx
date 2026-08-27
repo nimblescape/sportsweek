@@ -14,7 +14,6 @@ import {
   type PointerEventHandler,
 } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { ChevronRight, GripVertical } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -188,6 +187,24 @@ export function AssignmentCard({
   );
 }
 
+// Shared with the overlay that follows the pointer, so what is dragged looks like what was picked.
+const TAG_BOX = "border-border bg-background flex items-center rounded-md border";
+const TAG_PICKED = "border-ring bg-accent";
+const TAG_GRIP = "text-muted-foreground shrink-0 py-1 pl-1";
+const TAG_TEXT = "py-1 pr-2 pl-0.5 text-left text-sm whitespace-nowrap";
+
+/** What is drawn under the pointer during a drag — above every card, so no card's box clips it. */
+export function DraggedTag({ name }: { name: string }) {
+  return (
+    <div className={cn(TAG_BOX, TAG_PICKED, "shadow-lg")}>
+      <span className={TAG_GRIP}>
+        <GripVertical aria-hidden className="size-3.5" />
+      </span>
+      <span className={TAG_TEXT}>{name}</span>
+    </div>
+  );
+}
+
 function Row({
   dragId,
   data,
@@ -203,9 +220,10 @@ function Row({
   picked: boolean;
   onToggle: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: dragId,
-    data,
+    // The overlay is drawn from this, so it can name the tag without looking the student up again.
+    data: { ...data, name },
   });
 
   /**
@@ -233,23 +251,15 @@ function Row({
   }
 
   return (
-    <li
-      ref={setNodeRef}
-      // Carried with the pointer rather than left behind faded, so what is being moved is what
-      // the teacher is looking at.
-      style={{ transform: CSS.Translate.toString(transform) }}
-      className={cn(isDragging && "relative z-10 opacity-80")}
-    >
-      <div
-        className={cn(
-          "border-border bg-background flex items-center rounded-md border",
-          picked && "border-ring bg-accent",
-        )}
-      >
+    <li ref={setNodeRef} className={cn(isDragging && "opacity-40")}>
+      <div className={cn(TAG_BOX, picked && TAG_PICKED)}>
         <button
           type="button"
           aria-label={`${label ?? name} verschieben`}
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-l-md py-1 pl-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
+          className={cn(
+            TAG_GRIP,
+            "hover:text-foreground focus-visible:ring-ring/50 cursor-grab touch-none rounded-l-md transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing",
+          )}
           {...attributes}
           onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined}
         >
@@ -263,7 +273,10 @@ function Row({
           aria-pressed={picked}
           onPointerDown={handlePointerDown}
           onClick={handleClick}
-          className="focus-visible:ring-ring/50 touch-none rounded-r-md py-1 pr-2 pl-0.5 text-left text-sm whitespace-nowrap outline-none focus-visible:ring-3"
+          className={cn(
+            TAG_TEXT,
+            "focus-visible:ring-ring/50 touch-none rounded-r-md outline-none focus-visible:ring-3",
+          )}
         >
           {name}
         </button>

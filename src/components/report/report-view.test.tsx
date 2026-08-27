@@ -301,6 +301,18 @@ describe("the saved reports", () => {
     expect(within(rowOf("Berger")).getByRole("term")).toHaveTextContent("Klasse:");
   });
 
+  /** A class renamed since the report was saved is a tag nothing can show and nobody can unpress. */
+  it("drops a tag the lists no longer offer instead of showing nobody", async () => {
+    const stale = { ...saved, filter: toggleTag(saved.filter, "class", "3AHME") };
+    useSavedReports.mockReturnValue({ reports: [stale], loading: false, error: null });
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
+
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Berger")).toBeInTheDocument();
+  });
+
   it("saves the report the teacher is looking at, under the name they type", async () => {
     render(<ReportView />);
 

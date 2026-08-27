@@ -10,7 +10,7 @@ import { FileDown, FileSpreadsheet } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
-import { EMPTY_FILTER, filterStudents, filterSummary } from "@/lib/filters/student-filter";
+import { EMPTY_FILTER, filterStudents, filterSummary, scopeFilterToGroups } from "@/lib/filters/student-filter"; // prettier-ignore
 import { reportFieldsOf } from "@/lib/report/report-fields";
 import {
   downloadReportPdf,
@@ -24,6 +24,7 @@ import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
 import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeading } from "@/components/layout/page-heading";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { FieldTagList } from "./field-tag-list";
 import { ReportList } from "./report-list";
@@ -67,8 +68,10 @@ export function ReportView() {
   );
 
   function openReport(saved: ReportSelection) {
-    setFilter(saved.filter);
-    setActiveFields([...saved.fields]);
+    // What the lists no longer offer is dropped rather than silently restricting the report to
+    // nobody: a class renamed since the report was saved is a tag nothing can show or unpress.
+    setFilter(scopeFilterToGroups(saved.filter, filterGroups));
+    setActiveFields(reportFieldsOf(saved.fields).map((field) => field.key));
   }
 
   // Writes go through handlers because the author is the session's, not the request's (US-13);
@@ -132,29 +135,32 @@ export function ReportView() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-lg font-semibold">Bericht</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => exportReport(downloadReportPdf)}
-            disabled={season === null || exporting}
-          >
-            <FileDown aria-hidden data-icon="inline-start" />
-            PDF
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => exportReport(downloadReportWorkbook)}
-            disabled={season === null || exporting}
-          >
-            <FileSpreadsheet aria-hidden data-icon="inline-start" />
-            Excel
-          </Button>
-        </div>
-      </div>
+      <PageHeading
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => exportReport(downloadReportPdf)}
+              disabled={season === null || exporting}
+            >
+              <FileDown aria-hidden data-icon="inline-start" />
+              PDF
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => exportReport(downloadReportWorkbook)}
+              disabled={season === null || exporting}
+            >
+              <FileSpreadsheet aria-hidden data-icon="inline-start" />
+              Excel
+            </Button>
+          </div>
+        }
+      >
+        Bericht
+      </PageHeading>
 
       {error !== null && (
         <p role="alert" className="text-destructive text-sm">

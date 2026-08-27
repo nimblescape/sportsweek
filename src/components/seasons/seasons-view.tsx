@@ -19,6 +19,7 @@ import { applyVisibleOrder } from "@/lib/schemas/position";
 import type { Season } from "@/lib/schemas/season";
 import { visibleSeasons } from "@/lib/seasons/season-state";
 import { useSeasons } from "@/lib/seasons/use-seasons";
+import { PageHeading } from "@/components/layout/page-heading";
 
 type OpenDialog =
   { kind: "none" } | { kind: "form"; season: Season | null } | { kind: "delete"; season: Season };
@@ -64,13 +65,16 @@ export function SeasonsView() {
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <BusyRegion busy={pending}>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="font-heading text-lg font-semibold">Saisonen</h1>
-            <Button onClick={() => setDialog({ kind: "form", season: null })}>
-              <Plus aria-hidden data-icon="inline-start" />
-              Neue Saison
-            </Button>
-          </div>
+          <PageHeading
+            actions={
+              <Button onClick={() => setDialog({ kind: "form", season: null })}>
+                <Plus aria-hidden data-icon="inline-start" />
+                Neue Saison
+              </Button>
+            }
+          >
+            Saisonen
+          </PageHeading>
 
           <label
             htmlFor={toggleId}

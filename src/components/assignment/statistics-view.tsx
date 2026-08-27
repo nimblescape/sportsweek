@@ -9,6 +9,7 @@ import { classOverview } from "@/lib/assignment/statistics";
 import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
 import { useBusyWhile } from "@/lib/api/busy";
 import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
+import { PageHeading } from "@/components/layout/page-heading";
 import { ClassCards } from "./class-cards";
 
 /**
@@ -25,7 +26,7 @@ export function StatisticsView() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <h1 className="font-heading text-lg font-semibold">Statistik</h1>
+      <PageHeading>Statistik</PageHeading>
 
       {error !== null && (
         <p role="alert" className="text-destructive text-sm">

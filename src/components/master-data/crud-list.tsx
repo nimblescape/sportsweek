@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
+import { PageHeading } from "@/components/layout/page-heading";
 import { ApiRequestError } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
@@ -115,13 +116,16 @@ export function CrudList({
 
       <BusyRegion busy={pending}>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="font-heading text-lg font-semibold">{title ?? labels.title}</h1>
-            <Button onClick={() => setDialog({ kind: "form", item: null })}>
-              <Plus aria-hidden data-icon="inline-start" />
-              {labels.add}
-            </Button>
-          </div>
+          <PageHeading
+            actions={
+              <Button onClick={() => setDialog({ kind: "form", item: null })}>
+                <Plus aria-hidden data-icon="inline-start" />
+                {labels.add}
+              </Button>
+            }
+          >
+            {title ?? labels.title}
+          </PageHeading>
 
           <ItemList
             labels={labels}

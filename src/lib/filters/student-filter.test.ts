@@ -16,6 +16,7 @@ import {
   hasNoTags,
   matchesFilter,
   sameFilter,
+  scopeFilterToGroups,
   toggleTag,
   type FilterableStudent,
 } from "./student-filter";
@@ -295,6 +296,41 @@ describe("filterGroups", () => {
       { value: "5AHIF", label: "5AHIF" },
       { value: "5BHIF", label: "5BHIF" },
     ]);
+  });
+});
+
+describe("scopeFilterToGroups", () => {
+  const GROUPS = filterGroups(
+    {
+      classes: [{ name: "5AHIF" }],
+      programs: [{ name: "Ski" }],
+      skillLevels: [{ name: "Keine Vorkenntnisse" }],
+    },
+    { attendance: true },
+  );
+
+  it("keeps the tags the categories still offer", () => {
+    const filter = withTags(["class", "5AHIF"], ["program", "Ski"]);
+
+    expect(scopeFilterToGroups(filter, GROUPS)).toEqual(filter);
+  });
+
+  it("drops a tag whose option is gone, rather than filtering to nobody by something invisible", () => {
+    const filter = withTags(["class", "5AHIF"], ["class", "3AHME"]);
+
+    expect(scopeFilterToGroups(filter, GROUPS).tags.class).toEqual(["5AHIF"]);
+  });
+
+  it("drops every tag of a category nothing offers at all", () => {
+    const filter = withTags(["event", "event1"]);
+
+    expect(scopeFilterToGroups(filter, GROUPS).tags.event).toEqual([]);
+  });
+
+  it("leaves the name being searched for alone, which no list has to offer", () => {
+    const filter = { ...withTags(["class", "3AHME"]), name: "Muster" };
+
+    expect(scopeFilterToGroups(filter, GROUPS).name).toBe("Muster");
   });
 });
 

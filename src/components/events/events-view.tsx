@@ -25,6 +25,7 @@ import { useRowAction } from "@/lib/api/use-row-action";
 import { eventSchema, type Event } from "@/lib/schemas/season";
 import { useEvents } from "@/lib/events/use-events";
 import { useSeasons } from "@/lib/seasons/use-seasons";
+import { PageHeading } from "@/components/layout/page-heading";
 
 const formSchema = z.object({ name: eventSchema.shape.name });
 type FormValues = z.infer<typeof formSchema>;
@@ -58,18 +59,19 @@ export function EventsView({ seasonId }: { seasonId: string }) {
 
       <BusyRegion busy={pending}>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="font-heading text-lg font-semibold">
-              Events – {season?.name ?? "Saison"}
-            </h1>
-            {/* An archived season is read-only, so nothing new can be attached to it (US-4). */}
-            {season?.isArchived ? null : (
-              <Button onClick={() => setDialog({ kind: "form", event: null })}>
-                <Plus aria-hidden data-icon="inline-start" />
-                Neues Event
-              </Button>
-            )}
-          </div>
+          <PageHeading
+            actions={
+              /* An archived season is read-only, so nothing new can be attached to it (US-4). */
+              season?.isArchived ? null : (
+                <Button onClick={() => setDialog({ kind: "form", event: null })}>
+                  <Plus aria-hidden data-icon="inline-start" />
+                  Neues Event
+                </Button>
+              )
+            }
+          >
+            Events – {season?.name ?? "Saison"}
+          </PageHeading>
 
           <EventList
             events={events}
