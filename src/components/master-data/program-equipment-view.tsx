@@ -9,7 +9,11 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { CrudList, type CrudItem } from "@/components/master-data/crud-list";
 import { apiRequest } from "@/lib/api/client";
-import { EQUIPMENT_LABELS } from "@/lib/master-data/categories";
+import {
+  ARCHIVED_DATA_KEEPS_NAME_HINT,
+  ARCHIVED_DATA_UNCHANGED_HINT,
+  EQUIPMENT_LABELS,
+} from "@/lib/master-data/categories";
 import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
 
 /**
@@ -51,8 +55,13 @@ export function ProgramEquipmentView({ programId }: { programId: string }) {
       onReorder={(order) => save(order)}
       deleteNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.
-          Bereits gespeicherte Schüler:innendaten bleiben unverändert.
+          <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.{" "}
+          {ARCHIVED_DATA_UNCHANGED_HINT}
+        </>
+      )}
+      editNote={(item) => (
+        <>
+          <strong>{item.name}</strong> wird umbenannt. {ARCHIVED_DATA_KEEPS_NAME_HINT}
         </>
       )}
     >

@@ -161,18 +161,21 @@ export function SeasonList({
                   </Tooltip>
                 ) : null}
 
-                <Tooltip label="Bearbeiten">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={busy}
-                    aria-label={`Saison ${season.name} bearbeiten`}
-                    onClick={() => onEdit(season)}
-                  >
-                    <Pencil aria-hidden />
-                  </Button>
-                </Tooltip>
-
+                {/* An archived season is finished with: it can be unarchived or removed, but
+                    not rewritten, and neither its name nor its place is up for change (US-4). */}
+                {season.isArchived ? null : (
+                  <Tooltip label="Bearbeiten">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={busy}
+                      aria-label={`Saison ${season.name} bearbeiten`}
+                      onClick={() => onEdit(season)}
+                    >
+                      <Pencil aria-hidden />
+                    </Button>
+                  </Tooltip>
+                )}
                 <Tooltip
                   label={
                     archivingDisabled

@@ -5,7 +5,7 @@
  */
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -32,7 +32,7 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
   apiRequest: (...args: unknown[]) => apiRequest(...args),
 }));
-vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
+vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {}, useHold: () => () => () => {} }));
 vi.mock("@/lib/report/report-download", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/report/report-download")>()),
   downloadReportPdf: (report: unknown) => downloadReportPdf(report),
@@ -218,6 +218,22 @@ describe("the fields tag list", () => {
     expect(detailsOf("Muster")).toEqual([]);
   });
 
+  /** What "Alle" is to the students, "Keine" is to the detail lines. */
+  it("clears every activated field at once, and is pressed while none is", async () => {
+    render(<ReportView />);
+    const none = () => screen.getByRole("button", { name: "Keine" });
+    expect(none()).toHaveAttribute("aria-pressed", "true");
+
+    await activate("Klasse");
+    await activate("Kontaktdaten");
+    expect(none()).toHaveAttribute("aria-pressed", "false");
+
+    await userEvent.click(none());
+
+    expect(detailsOf("Muster")).toEqual([]);
+    expect(none()).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("gives a grouped tag one detail line per field in the group (US-13)", async () => {
     render(<ReportView />);
 
@@ -301,6 +317,31 @@ describe("the saved reports", () => {
     expect(within(rowOf("Berger")).getByRole("term")).toHaveTextContent("Klasse:");
   });
 
+  /** A class renamed since the report was saved is a tag nothing can show and nobody can unpress. */
+  it("drops a tag the lists no longer offer instead of showing nobody", async () => {
+    const stale = { ...saved, filter: toggleTag(saved.filter, "class", "3AHME") };
+    useSavedReports.mockReturnValue({ reports: [stale], loading: false, error: null });
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
+
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Berger")).toBeInTheDocument();
+  });
+
+  /** Opening one puts back exactly what it holds, so it cannot be called changed on arrival. */
+  it("does not read as changed the moment it is opened, group tags included", async () => {
+    const grouped = { ...saved, fields: ["class", "contact"] };
+    useSavedReports.mockReturnValue({ reports: [grouped], loading: false, error: null });
+
+    render(<ReportView />);
+    const tag = screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" });
+    await userEvent.click(tag);
+
+    expect(tag).toHaveAttribute("aria-pressed", "true");
+    expect(tag).toHaveAccessibleDescription("");
+  });
+
   it("saves the report the teacher is looking at, under the name they type", async () => {
     render(<ReportView />);
 
@@ -324,6 +365,7 @@ describe("the saved reports", () => {
     useSavedReports.mockReturnValue({ reports: [saved], loading: false, error: null });
 
     render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF umbenennen" }));
     const field = screen.getByRole("textbox", { name: "Name des Berichts" });
@@ -341,60 +383,36 @@ describe("the saved reports", () => {
 
     expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", { method: "DELETE" });
   });
-});
 
-describe("printing", () => {
-  function stubPopup(popup: unknown) {
-    return vi
-      .spyOn(window, "open")
-      .mockReturnValue(popup as ReturnType<typeof window.open>) as unknown as ReturnType<
-      typeof vi.fn
-    >;
-  }
-
-  const fakePopup = () => {
-    const written: string[] = [];
-    return {
-      written,
-      document: { open: () => {}, write: (html: string) => written.push(html), close: () => {} },
-    };
-  };
-
-  afterEach(() => vi.restoreAllMocks());
-
-  it("opens a window of its own rather than putting the students in a query string", async () => {
-    const popup = fakePopup();
-    const open = stubPopup(popup);
+  it("brings the opened report up to date with the report as it now stands", async () => {
+    useSavedReports.mockReturnValue({ reports: [saved], loading: false, error: null });
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Drucken" }));
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
+    await userEvent.click(screen.getByRole("button", { name: "Klasse: 5AHIF" }));
 
-    expect(open).toHaveBeenCalledWith("", "_blank");
-    expect(popup.written.join("")).toContain("Anna Muster");
+    await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF aktualisieren" }));
+
+    expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", {
+      method: "PATCH",
+      body: { filter: toggleTag(saved.filter, "class", "5AHIF"), fields: ["class"] },
+    });
   });
 
-  it("prints the students the filter leaves and the fields that are activated", async () => {
-    const popup = fakePopup();
-    stubPopup(popup);
+  it("marks the report it has just saved, so the controls on offer are that report's", async () => {
+    const fresh = { ...saved, id: "r9", name: "Neu", filter: EMPTY_FILTER, fields: [] };
+    apiRequest.mockResolvedValue({ report: fresh });
+    useSavedReports.mockReturnValue({ reports: [fresh], loading: false, error: null });
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Teilnahme: nimmt teil" }));
-    await activate("Klasse");
-    await userEvent.click(screen.getByRole("button", { name: "Drucken" }));
+    await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Name des Berichts" }), "Neu");
+    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
-    const printed = popup.written.join("");
-    expect(printed).toContain("Anna Muster");
-    expect(printed).not.toContain("Bene Berger");
-    expect(printed).toContain("<dt>Klasse:</dt>");
-  });
-
-  it("says so when the browser blocks the window, instead of doing nothing", async () => {
-    stubPopup(null);
-
-    render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Drucken" }));
-
-    expect(screen.getByRole("alert")).toHaveTextContent("Das Druckfenster wurde blockiert.");
+    expect(screen.getByRole("button", { name: "Gespeicherter Bericht: Neu" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });
 
@@ -405,7 +423,7 @@ describe("exporting", () => {
     render(<ReportView />);
     await userEvent.click(screen.getByRole("button", { name: "Teilnahme: nimmt teil" }));
     await activate("Klasse");
-    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "PDF" }));
 
     const report = pressed(downloadReportPdf);
     expect(report.students.map((it: RosterStudent) => it.lastName)).toEqual(["Muster"]);
@@ -415,7 +433,7 @@ describe("exporting", () => {
   it("hands the workbook the same scope the PDF gets", async () => {
     render(<ReportView />);
     await activate("Klasse");
-    await userEvent.click(screen.getByRole("button", { name: "Excel exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Excel" }));
 
     const report = pressed(downloadReportWorkbook);
     expect(report.students.map((it: RosterStudent) => it.lastName)).toEqual(["Berger", "Muster"]);
@@ -430,25 +448,34 @@ describe("exporting", () => {
     });
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "PDF" }));
 
     expect(pressed(downloadReportPdf).provenance.reportName).toBe("Alle");
   });
 
   it("leaves the export unnamed while the page matches no saved report", async () => {
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Excel exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Excel" }));
 
-    const { reportName, exportedAt } = pressed(downloadReportWorkbook).provenance;
+    const { reportName, filterSummary, exportedAt } = pressed(downloadReportWorkbook).provenance;
     expect(reportName).toBeNull();
+    expect(filterSummary).toBeNull();
     expect(exportedAt).toBeInstanceOf(Date);
+  });
+
+  it("describes the filter alongside it, so a copy says which slice of the season it holds", async () => {
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Klasse: 5BHIF" }));
+    await userEvent.click(screen.getByRole("button", { name: "PDF" }));
+
+    expect(pressed(downloadReportPdf).provenance.filterSummary).toBe("5BHIF");
   });
 
   it("says so when an export could not be built, instead of failing silently", async () => {
     downloadReportPdf.mockRejectedValue(new Error("no fonts"));
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "PDF" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("Der Export konnte nicht erstellt werden.");
     expect(screen.getByRole("alert")).not.toHaveTextContent("no fonts");
@@ -459,7 +486,7 @@ describe("exporting", () => {
 
     render(<ReportView />);
 
-    expect(screen.getByRole("button", { name: "PDF exportieren" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Excel exportieren" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "PDF" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Excel" })).toBeDisabled();
   });
 });

@@ -22,6 +22,7 @@ const BENE = rosterStudent({
 const context = { eventNames: new Map([["event1", "Woche 1"]]) };
 const PROVENANCE: ReportProvenance = {
   reportName: null,
+  filterSummary: null,
   exportedAt: new Date(2026, 7, 27, 14, 35),
 };
 const A4: ContextPageSize = { width: 595, height: 842, orientation: "portrait" };
@@ -119,12 +120,36 @@ describe("reportDocument", () => {
 
   it("names the saved filter under the title rather than in the footer", () => {
     const named = document([ANNA], reportFieldsOf([]), {
+      ...PROVENANCE,
       reportName: "Nur 5BHIF",
-      exportedAt: PROVENANCE.exportedAt,
     });
 
-    expect(textOf(named.header)).toContain("Bericht: Nur 5BHIF");
-    expect(footerOf(named)).not.toContain("Filter:");
+    expect(textOf(named.header)).toContain("Nur 5BHIF");
+    expect(footerOf(named)).not.toContain("Nur 5BHIF");
+  });
+
+  it("puts the filter under the saved report's name, as a second subtitle line", () => {
+    const both = document([ANNA], reportFieldsOf([]), {
+      ...PROVENANCE,
+      reportName: "Nur 5BHIF",
+      filterSummary: "5BHIF \u00b7 weiblich",
+    });
+
+    const [title] = (both.header as { columns: { stack: { text: string }[] }[] }).columns;
+    expect(title.stack.map((line) => line.text)).toEqual([
+      "Sportsweek Report",
+      "Nur 5BHIF",
+      "5BHIF \u00b7 weiblich",
+    ]);
+  });
+
+  it("describes the filter under the title where no saved report names the selection", () => {
+    const filtered = document([ANNA], reportFieldsOf([]), {
+      ...PROVENANCE,
+      filterSummary: "5BHIF",
+    });
+
+    expect(textOf(filtered.header)).toContain("5BHIF");
   });
 
   it("leaves the title without a subtitle where the selection matches no saved filter", () => {

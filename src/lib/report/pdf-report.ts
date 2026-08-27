@@ -10,7 +10,12 @@ import {
   type ReportField,
   type ReportFieldContext,
 } from "./report-fields";
-import { exportedAtLine, reportLine, REPORT_TITLE, type ReportProvenance } from "./report-export";
+import {
+  exportedAtLine,
+  REPORT_TITLE,
+  subtitleLines,
+  type ReportProvenance,
+} from "./report-export";
 import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
 
@@ -50,12 +55,12 @@ export type ReportDocumentOptions = {
 };
 
 /** Repeated on every page by pdfmake, which is what puts the title on all of them (US-17). */
-function header(logo: string | null, reportName: string | null): Content {
+function header(logo: string | null, provenance: ReportProvenance): Content {
   const title: Column = {
     width: "*",
     stack: [
       { text: REPORT_TITLE, style: "title" },
-      ...(reportName === null ? [] : [{ text: reportLine(reportName), style: "subtitle" }]),
+      ...subtitleLines(provenance).map((text) => ({ text, style: "subtitle" })),
     ],
   };
 
@@ -126,7 +131,7 @@ export function reportDocument(
     info: { title: REPORT_TITLE },
     pageSize: "A4",
     pageMargins: [PAGE_MARGIN, TOP_MARGIN, PAGE_MARGIN, BOTTOM_MARGIN],
-    header: header(logo, provenance.reportName),
+    header: header(logo, provenance),
     footer: footer(provenance),
     content: blocks.length === 0 ? [{ text: NO_STUDENTS_HINT, style: "meta" }] : blocks,
     defaultStyle: { font: DEFAULT_FONT, fontSize: 10 },

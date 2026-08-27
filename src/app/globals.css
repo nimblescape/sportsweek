@@ -143,4 +143,11 @@
   html {
     @apply font-sans;
   }
+
+  /* The pointer leaves what it picked up almost at once, so the hand is held closed on everything
+     it passes over instead. `!important` is what beats each item's own grab cursor. */
+  body[data-dragging],
+  body[data-dragging] * {
+    cursor: grabbing !important;
+  }
 }

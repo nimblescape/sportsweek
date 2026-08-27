@@ -219,6 +219,17 @@ describe("AssignmentBoard", () => {
     await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Berger"], "event1"));
   });
 
+  it("offers no 'Alle' where a card holds one student, who is already their own everyone", () => {
+    setup();
+
+    expect(
+      card("Montafon").queryByRole("button", { name: "Alle auswählen" }),
+    ).not.toBeInTheDocument();
+    expect(
+      card("Nicht zugeteilt").getByRole("button", { name: "Alle auswählen" }),
+    ).toBeInTheDocument();
+  });
+
   it("moves everyone the filter leaves when 'Alle' is dragged", async () => {
     setup();
 
@@ -261,8 +272,7 @@ describe("AssignmentBoard", () => {
 // The figures answer either "what is in this card" or "what is in the part of it I am looking
 // at", and which of the two is a question only the teacher at the card can answer.
 describe("AssignmentBoard — what the figures count", () => {
-  const toggleIn = (name: string) =>
-    card(name).getByRole("checkbox", { name: `${name}: Gefiltert` });
+  const toggleIn = (name: string) => card(name).getByRole("button", { name: `${name}: Gefiltert` });
 
   const genderCells = (name: string) =>
     within(card(name).getAllByRole("table")[0])

@@ -7,6 +7,7 @@ import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { reorderCollection } from "@/lib/firebase/reorder";
+import { ARCHIVED_IS_READ_ONLY_HINT } from "@/lib/seasons/season-state";
 import { releaseName, reservationRef, reserveName, scopeOf } from "@/lib/firebase/unique-name";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
@@ -105,6 +106,12 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
     }
 
     const renaming = name !== undefined && name !== current.name;
+
+    // Archiving signs a season off, so what it is called is settled with it: unarchive it first
+    // and the name is editable again (US-4).
+    if (renaming && current.isArchived) {
+      throw new ServiceError(ErrorCode.Conflict, ARCHIVED_IS_READ_ONLY_HINT);
+    }
 
     // Every read has to happen before the first write, and reserveName writes — so the query
     // that finds the outgoing season has to run first. Every match is stood down rather than

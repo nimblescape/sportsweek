@@ -179,6 +179,25 @@ describe("MasterDataView — editing", () => {
 
     expect(screen.getByLabelText("Name")).toHaveValue("3AHIT");
   });
+
+  /** Renaming leaves what was already stored alone, exactly as removing does. */
+  it("says that already saved data keeps the name it was given", async () => {
+    stubFetch(created);
+    renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" }));
+
+    expect(screen.getByText(/behalten den bisherigen Namen/, { exact: false })).toBeInTheDocument();
+  });
+
+  it("says nothing of the sort while a new item is being added, which stores nothing yet", async () => {
+    stubFetch(created);
+    renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: "Neue Klasse" }));
+
+    expect(screen.queryByText(/behalten den bisherigen Namen/)).not.toBeInTheDocument();
+  });
 });
 
 describe("MasterDataView — deleting", () => {

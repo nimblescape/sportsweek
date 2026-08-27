@@ -5,7 +5,7 @@
  */
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,7 @@ import {
 } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { cn } from "@/lib/utils";
-import { AREA, AREAS, AreaTitle } from "./card-areas";
+import { AREA, AREAS, AreaTitle, FilteredTag } from "./card-areas";
 import { GenderTable } from "./gender-table";
 import { SkillMatrix } from "./skill-matrix";
 
@@ -75,7 +75,6 @@ function ClassCard({
   const [expanded, setExpanded] = useState(true);
   const [filter, setFilter] = useState<StudentFilter>(EMPTY_FILTER);
   const [countFiltered, setCountFiltered] = useState(false);
-  const countFilteredId = useId();
 
   const shown = filterStudents(row.students, filter);
   const figures = countFiltered ? classFigures(shown, columns) : row;
@@ -140,21 +139,11 @@ function ClassCard({
             <section className={AREA}>
               <AreaTitle
                 aside={
-                  <label
-                    htmlFor={countFilteredId}
-                    className="text-muted-foreground flex shrink-0 items-center gap-1.5 text-xs"
-                  >
-                    <input
-                      id={countFilteredId}
-                      type="checkbox"
-                      checked={countFiltered}
-                      // Every card offers this one, so the name says which card's it is.
-                      aria-label={`${row.class}: Gefiltert`}
-                      onChange={(event) => setCountFiltered(event.target.checked)}
-                      className="accent-primary size-3.5"
-                    />
-                    Gefiltert
-                  </label>
+                  <FilteredTag
+                    card={row.class}
+                    pressed={countFiltered}
+                    onPress={() => setCountFiltered(!countFiltered)}
+                  />
                 }
               >
                 Statistik

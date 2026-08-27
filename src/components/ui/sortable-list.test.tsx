@@ -120,6 +120,16 @@ describe("SortableList — when reordering is not offered", () => {
     expect(screen.queryByRole("button", { name: /verschieben/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
   });
+
+  /** The handle's box is kept, or a list nobody can drag would sit differently from one they can. */
+  it("keeps the space the handle would have taken, so the rows keep their shape", () => {
+    renderList(vi.fn(), { disabled: true });
+
+    for (const row of screen.getAllByRole("listitem")) {
+      expect(row).toHaveClass("flex", "items-center");
+      expect(row.firstElementChild).toHaveClass("ml-2");
+    }
+  });
 });
 
 describe("SortableList — while a row is busy", () => {

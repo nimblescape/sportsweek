@@ -11,23 +11,6 @@ import { afterEach } from "vitest";
 // and rendered DOM would otherwise leak from one test into the next.
 afterEach(cleanup);
 
-// jsdom parses media queries but evaluates none of them, and leaves `matchMedia` off `window`
-// entirely — so anything asking the device what it can do would throw rather than answer.
-// This says "no" to every query; a test that cares about one stands in for it itself.
-if (typeof window !== "undefined" && !window.matchMedia) {
-  window.matchMedia = (media: string) =>
-    ({
-      media,
-      matches: false,
-      onchange: null,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-      addListener: () => {},
-      removeListener: () => {},
-      dispatchEvent: () => false,
-    }) as unknown as MediaQueryList;
-}
-
 // jsdom implements <dialog> but not showModal/close, so the confirmation dialogs (US-4)
 // would be untestable. This stands in for the top layer only — focus trapping and the
 // backdrop are the browser's job and are not simulated here.

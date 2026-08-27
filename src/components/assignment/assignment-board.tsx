@@ -8,6 +8,7 @@
 import { useState } from "react";
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
@@ -16,6 +17,7 @@ import {
   useSensors,
   type CollisionDetection,
   type DragEndEvent,
+  type DragStartEvent,
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import {
@@ -30,7 +32,10 @@ import {
   type StudentFilter,
 } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
-import { AssignmentCard } from "./assignment-card";
+import { DraggingCursor } from "@/components/ui/dragging-cursor";
+import { ALL_LABEL, AssignmentCard, DraggedTag, studentTagName } from "./assignment-card";
+
+const NOTHING_CARRIED: ReadonlySet<string> = new Set();
 
 /**
  * A drop counts only where the pointer actually is, so releasing between two cards cancels
@@ -93,6 +98,15 @@ export function AssignmentBoard({
   const [filters, setFilters] = useState<Readonly<Record<string, StudentFilter>>>({});
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // What a drag is carrying: the ids to fade where they stand, and the tags to draw under the
+  // pointer. The tag that was grabbed is one of them, "Alle" included — it travels too.
+  const [drag, setDrag] = useState<{
+    ids: ReadonlySet<string>;
+    names: readonly string[];
+    overlay: boolean;
+  } | null>(null);
+
+  const carried = drag?.ids ?? NOTHING_CARRIED;
 
   const sensors = useSensors(
     // A short distance threshold, so a tap on a row is not mistaken for the start of a drag.
@@ -125,6 +139,7 @@ export function AssignmentBoard({
   }
 
   function handleDragEnd({ active, over }: DragEndEvent) {
+    setDrag(null);
     const from = active.data.current?.group as string | undefined;
     // No target, or the card it started in: a cancelled drag changes nothing.
     if (!over || from === undefined || over.id === from) return;
@@ -132,26 +147,37 @@ export function AssignmentBoard({
     const source = groups.find((group) => group.id === from);
     if (!source) return;
 
-    const target = String(over.id);
-    const filtered = filterStudentsOf(source, filters[source.id]);
+    void move(
+      carriedBy(active, source, filters[source.id], picked).map((student) => student.id),
+      String(over.id),
+    );
+  }
 
-    // "Alle" stands for every student the filter leaves, which is exactly what it selects.
-    if (active.data.current?.all === true) {
-      void move(
-        filtered.map((student) => student.id),
-        target,
-      );
-      return;
-    }
+  function startDrag({ active, activatorEvent }: DragStartEvent) {
+    const from = active.data.current?.group as string | undefined;
+    const source = groups.find((group) => group.id === from);
+    if (!source) return;
 
-    const recordId = String(active.id);
-    // A student who is part of the selection takes it along, filtered out of sight or not; one
-    // who is not travels alone.
-    const selection = source.students
-      .filter((student) => picked.includes(student.id))
-      .map((student) => student.id);
+    const students = carriedBy(active, source, filters[source.id], picked);
+    const grabbed = String(active.data.current?.name ?? "");
+    // Where everything the card shows is going, the tag that stands for all of them goes too.
+    const carrying = new Set(students.map((student) => student.id));
+    const takesAll = filterStudentsOf(source, filters[source.id]).every((student) =>
+      carrying.has(student.id),
+    );
 
-    void move(selection.includes(recordId) ? selection : [recordId], target);
+    setDrag({
+      ids: new Set([String(active.id), ...carrying]),
+      // The grabbed tag leads, and the rest follow in the order the card lists them.
+      names: [
+        ...(takesAll && grabbed !== ALL_LABEL ? [ALL_LABEL] : []),
+        grabbed,
+        ...students.filter((student) => student.id !== active.id).map(studentTagName),
+      ],
+      // A keyboard drag has no pointer for an overlay to follow, and the tags it would copy are
+      // still on screen where the teacher left them.
+      overlay: !(activatorEvent instanceof KeyboardEvent),
+    });
   }
 
   return (
@@ -162,7 +188,14 @@ export function AssignmentBoard({
         </p>
       )}
 
-      <DndContext sensors={sensors} collisionDetection={dropTarget} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={dropTarget}
+        onDragStart={startDrag}
+        onDragCancel={() => setDrag(null)}
+        onDragEnd={handleDragEnd}
+      >
+        <DraggingCursor />
         <div className="flex flex-col gap-3">
           {groups.map((group) => (
             <AssignmentCard
@@ -176,11 +209,26 @@ export function AssignmentBoard({
               filter={filters[group.id] ?? EMPTY_FILTER}
               onFilterChange={(next) => setFilters((current) => ({ ...current, [group.id]: next }))}
               picked={picked}
+              carried={carried}
               onToggle={togglePicked}
               onToggleAll={toggleAll}
             />
           ))}
         </div>
+
+        {/* Mounted only while a pointer is carrying something: an overlay measures itself, and
+            one standing by with nothing in it would answer for where the drag is. */}
+        {drag?.overlay ? (
+          <DragOverlay dropAnimation={null}>
+            <ul className="flex w-max max-w-xs flex-wrap gap-1.5 opacity-80">
+              {drag.names.map((name) => (
+                <li key={name}>
+                  <DraggedTag name={name} />
+                </li>
+              ))}
+            </ul>
+          </DragOverlay>
+        ) : null}
       </DndContext>
     </div>
   );
@@ -188,4 +236,25 @@ export function AssignmentBoard({
 
 function filterStudentsOf(group: AssignmentGroup, filter: StudentFilter | undefined) {
   return filterStudents(group.students, filter ?? EMPTY_FILTER);
+}
+
+/**
+ * Who a drag started on this tag is carrying. "Alle" stands for everyone the card's filter
+ * leaves; a student who is part of that card's selection takes it along, filtered out of sight
+ * or not; one who is not travels alone. Asked once, so what the overlay shows is what moves.
+ */
+function carriedBy(
+  active: DragEndEvent["active"],
+  source: AssignmentGroup,
+  filter: StudentFilter | undefined,
+  picked: readonly string[],
+): RosterStudent[] {
+  if (active.data.current?.all === true) return filterStudentsOf(source, filter);
+
+  const recordId = String(active.id);
+  const selection = source.students.filter((student) => picked.includes(student.id));
+
+  return selection.some((student) => student.id === recordId)
+    ? selection
+    : source.students.filter((student) => student.id === recordId);
 }

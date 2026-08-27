@@ -90,7 +90,7 @@ describe("SeasonsView — archived visibility", () => {
     stubFetch(noContent);
     renderView();
 
-    await userEvent.click(screen.getByRole("checkbox", { name: /archivierte/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Archivierte Saisonen anzeigen" }));
 
     expect(screen.getByText("Winter 2025")).toBeInTheDocument();
   });
@@ -164,7 +164,7 @@ describe("SeasonsView — flags", () => {
     const fetchMock = stubFetch(okJson);
     renderView([archived]);
 
-    await userEvent.click(screen.getByRole("checkbox", { name: /archivierte/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Archivierte Saisonen anzeigen" }));
     await userEvent.click(
       screen.getByRole("button", { name: "Saison Winter 2025 wiederherstellen" }),
     );
@@ -199,7 +199,7 @@ describe("SeasonsView — deleting", () => {
     stubFetch(noContent);
     renderView();
 
-    await userEvent.click(screen.getByRole("checkbox", { name: /archivierte/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Archivierte Saisonen anzeigen" }));
     await userEvent.click(screen.getByRole("button", { name: "Saison Winter 2025 löschen" }));
 
     expect(screen.getByRole("dialog")).toHaveAccessibleName("Saison löschen");
@@ -209,7 +209,7 @@ describe("SeasonsView — deleting", () => {
     const fetchMock = stubFetch(noContent);
     renderView();
 
-    await userEvent.click(screen.getByRole("checkbox", { name: /archivierte/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Archivierte Saisonen anzeigen" }));
     await userEvent.click(screen.getByRole("button", { name: "Saison Winter 2025 löschen" }));
     await userEvent.type(screen.getByLabelText(/Name der Saison/), "Winter 2025");
     await userEvent.click(screen.getByRole("button", { name: "Löschen" }));
@@ -226,7 +226,7 @@ describe("SeasonsView — deleting", () => {
     stubFetch(noContent);
     renderView();
 
-    await userEvent.click(screen.getByRole("checkbox", { name: /archivierte/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Archivierte Saisonen anzeigen" }));
     await userEvent.click(screen.getByRole("button", { name: "Saison Winter 2025 löschen" }));
     await userEvent.type(screen.getByLabelText(/Name der Saison/), "Winter 2025");
     await userEvent.click(screen.getByRole("button", { name: "Löschen" }));

@@ -24,6 +24,9 @@ export function FieldTagList({ value, onChange }: FieldTagListProps) {
 
   return (
     <div role="group" aria-label="Datenfelder" className="flex flex-wrap gap-1.5">
+      {/* What the filter row's "Alle" is to students, this is to detail lines: the report as it
+          stands with nothing added. */}
+      <Tag label="Keine" pressed={value.length === 0} onPress={() => onChange([])} />
       {REPORT_FIELD_TAGS.map((tag) => (
         <Tag
           key={tag.key}

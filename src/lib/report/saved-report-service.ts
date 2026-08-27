@@ -5,12 +5,15 @@
  */
 import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
+import { reorderCollection } from "@/lib/firebase/reorder";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import {
   savedReportInputSchema,
   savedReportSchema,
+  savedReportSelectionSchema,
+  type ReportSelection,
   type SavedReport,
   type SavedReportInput,
 } from "@/lib/schemas/saved-report";
@@ -59,7 +62,11 @@ export async function createSavedReport(
   }
 
   const reference = adminDb.collection(COLLECTIONS.savedReports).doc();
-  const data = { ...parsed.data, createdByUserId };
+  // A new report's tag goes to the end of the row, where the button that made it stands, and
+  // stays there (see Ordering). Two simultaneous saves would tie, which the name tiebreak
+  // absorbs and the next drop renumbers away.
+  const position = (await adminDb.collection(COLLECTIONS.savedReports).count().get()).data().count;
+  const data = { ...parsed.data, createdByUserId, position };
   await reference.set(data);
 
   return { id: reference.id, ...data };
@@ -74,7 +81,28 @@ export async function renameSavedReport(id: string, name: string): Promise<Saved
   return { ...current, name: parsed };
 }
 
+/** The counterpart: what a report holds gives way to the report on screen, its name kept (US-13). */
+export async function updateSavedReportSelection(
+  id: string,
+  selection: ReportSelection,
+): Promise<SavedReport> {
+  const parsed = savedReportSelectionSchema.safeParse(selection);
+  if (!parsed.success) {
+    reject(parsed.error.issues[0]?.message ?? "Dieser Bericht lässt sich nicht speichern.");
+  }
+
+  const current = await readReport(id);
+
+  await reportDoc(id).update(parsed.data);
+  return { ...current, ...parsed.data };
+}
+
 export async function deleteSavedReport(id: string): Promise<void> {
   await readReport(id);
   await reportDoc(id).delete();
+}
+
+/** Ordering changes nothing a report holds, so it is open to any teacher (see Ordering). */
+export async function reorderSavedReports(orderedIds: readonly string[]): Promise<void> {
+  await reorderCollection({ collection: COLLECTIONS.savedReports, orderedIds });
 }

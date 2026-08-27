@@ -6,7 +6,6 @@
 "use client";
 
 import {
-  useId,
   useRef,
   useState,
   type KeyboardEventHandler,
@@ -26,14 +25,18 @@ import {
 import { filterStudents, type FilterGroup, type StudentFilter } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { cn } from "@/lib/utils";
-import { AREA, AREAS, AreaTitle } from "./card-areas";
+import { AREA, AREAS, AreaTitle, FilteredTag } from "./card-areas";
 import { GenderTable } from "./gender-table";
 import { SkillMatrix } from "./skill-matrix";
 
 /** Picks everyone the filter leaves; not a student, so it is dragged under an id of its own. */
-const ALL_LABEL = "Alle";
+export const ALL_LABEL = "Alle";
 const ALL_NAME = "Alle auswählen";
 export const allDragId = (groupId: string) => `all:${groupId}`;
+
+/** How a student's tag reads, so a copy of it cannot come to read differently. */
+export const studentTagName = (student: Pick<RosterStudent, "firstName" | "lastName">) =>
+  `${student.lastName} ${student.firstName}`;
 
 type AssignmentCardProps = {
   group: AssignmentGroup;
@@ -47,6 +50,8 @@ type AssignmentCardProps = {
   filter: StudentFilter;
   onFilterChange: (next: StudentFilter) => void;
   picked: readonly string[];
+  /** The ids a drag is currently carrying, all of which are faded where they stand. */
+  carried: ReadonlySet<string>;
   onToggle: (recordId: string) => void;
   onToggleAll: (students: readonly RosterStudent[], allPicked: boolean) => void;
 };
@@ -69,12 +74,12 @@ export function AssignmentCard({
   filter,
   onFilterChange,
   picked,
+  carried,
   onToggle,
   onToggleAll,
 }: AssignmentCardProps) {
   const [expanded, setExpanded] = useState(true);
   const [countFiltered, setCountFiltered] = useState(false);
-  const countFilteredId = useId();
   const { setNodeRef, isOver } = useDroppable({ id: group.id });
 
   const shown = filterStudents(group.students, filter);
@@ -138,13 +143,15 @@ export function AssignmentCard({
                   `flex-1` starts it from nothing, so the names never decide how tall the card
                   is — it takes the height the other two areas set, and scrolls inside it. */}
               <ul className="flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-y-auto">
-                {shown.length > 0 && (
+                {shown.length > 1 && (
                   <Row
                     dragId={allDragId(group.id)}
                     data={{ group: group.id, all: true }}
                     name={ALL_LABEL}
                     label={ALL_NAME}
                     picked={allPicked}
+                    // It stands for everyone the filter leaves, so it travels whenever they all do.
+                    carried={shown.every((student) => carried.has(student.id))}
                     onToggle={() => onToggleAll(shown, allPicked)}
                   />
                 )}
@@ -153,8 +160,9 @@ export function AssignmentCard({
                     key={student.id}
                     dragId={student.id}
                     data={{ group: group.id }}
-                    name={`${student.lastName} ${student.firstName}`}
+                    name={studentTagName(student)}
                     picked={picked.includes(student.id)}
+                    carried={carried.has(student.id)}
                     onToggle={() => onToggle(student.id)}
                   />
                 ))}
@@ -164,21 +172,11 @@ export function AssignmentCard({
             <section className={AREA}>
               <AreaTitle
                 aside={
-                  <label
-                    htmlFor={countFilteredId}
-                    className="text-muted-foreground flex shrink-0 items-center gap-1.5 text-xs"
-                  >
-                    <input
-                      id={countFilteredId}
-                      type="checkbox"
-                      checked={countFiltered}
-                      // Every card offers this one, so the name says which card's it is.
-                      aria-label={`${group.title}: Gefiltert`}
-                      onChange={(event) => setCountFiltered(event.target.checked)}
-                      className="accent-primary size-3.5"
-                    />
-                    Gefiltert
-                  </label>
+                  <FilteredTag
+                    card={group.title}
+                    pressed={countFiltered}
+                    onPress={() => setCountFiltered(!countFiltered)}
+                  />
                 }
               >
                 Statistik
@@ -199,12 +197,31 @@ export function AssignmentCard({
   );
 }
 
+// Shared with the overlay that follows the pointer, so what is dragged looks like what was picked.
+const TAG_BOX = "border-border bg-background flex items-center rounded-md border";
+const TAG_PICKED = "border-ring bg-accent";
+const TAG_GRIP = "text-muted-foreground shrink-0 py-1 pl-1";
+const TAG_TEXT = "py-1 pr-2 pl-0.5 text-left text-sm whitespace-nowrap";
+
+/** What is drawn under the pointer during a drag — above every card, so no card's box clips it. */
+export function DraggedTag({ name }: { name: string }) {
+  return (
+    <div className={cn(TAG_BOX, TAG_PICKED, "shadow-lg")}>
+      <span className={TAG_GRIP}>
+        <GripVertical aria-hidden className="size-3.5" />
+      </span>
+      <span className={TAG_TEXT}>{name}</span>
+    </div>
+  );
+}
+
 function Row({
   dragId,
   data,
   name,
   label,
   picked,
+  carried,
   onToggle,
 }: {
   dragId: string;
@@ -212,14 +229,20 @@ function Row({
   name: string;
   label?: string;
   picked: boolean;
+  carried: boolean;
   onToggle: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: dragId, data });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: dragId,
+    // The overlay is drawn from this, so it can name the tag without looking the student up again.
+    data: { ...data, name },
+  });
 
   /**
-   * The whole row is what a pointer drags; the handle is what a keyboard drags. Splitting the
-   * two keeps the row's own press free to pick the student — a drag only starts once the pointer
-   * has moved, and the click that follows one is swallowed by the sensor.
+   * Both the row and the handle start a pointer drag; the handle also carries the keyboard one.
+   * The row's press is what picks the student, so a drag from the handle moves without picking —
+   * a drag only starts once the pointer has moved, and the click that follows one is swallowed
+   * by the sensor.
    */
   const startPointerDrag = listeners?.onPointerDown as PointerEventHandler | undefined;
 
@@ -241,18 +264,21 @@ function Row({
   }
 
   return (
-    <li ref={setNodeRef} className={cn(isDragging && "opacity-80")}>
-      <div
-        className={cn(
-          "border-border bg-background flex items-center rounded-md border",
-          picked && "border-ring bg-accent",
-        )}
-      >
+    <li
+      ref={setNodeRef}
+      className={cn((isDragging || carried) && "opacity-40", isDragging && "cursor-grabbing")}
+    >
+      <div className={cn(TAG_BOX, picked && TAG_PICKED)}>
         <button
           type="button"
           aria-label={`${label ?? name} verschieben`}
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-l-md py-1 pl-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
+          className={cn(
+            TAG_GRIP,
+            "hover:text-foreground focus-visible:ring-ring/50 cursor-grab touch-none rounded-l-md transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing",
+            isDragging && "cursor-grabbing",
+          )}
           {...attributes}
+          onPointerDown={startPointerDrag}
           onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined}
         >
           <GripVertical aria-hidden className="size-3.5" />
@@ -265,7 +291,10 @@ function Row({
           aria-pressed={picked}
           onPointerDown={handlePointerDown}
           onClick={handleClick}
-          className="focus-visible:ring-ring/50 touch-none rounded-r-md py-1 pr-2 pl-0.5 text-left text-sm whitespace-nowrap outline-none focus-visible:ring-3"
+          className={cn(
+            TAG_TEXT,
+            "focus-visible:ring-ring/50 touch-none rounded-r-md outline-none focus-visible:ring-3",
+          )}
         >
           {name}
         </button>

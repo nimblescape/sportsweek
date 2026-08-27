@@ -134,6 +134,18 @@ export const CHILD_IN_USE_HINT =
 export const USAGE_PENDING_HINT =
   "Es wird noch geprüft, ob dieser Eintrag in Schüler:innendaten verwendet wird.";
 
+/**
+ * What is left behind when an item is removed or renamed — and it is only ever archived data,
+ * because the in-use rule above is what allowed the edit in the first place: an entry a
+ * non-archived season still holds cannot be touched at all.
+ */
+export const ARCHIVED_DATA_UNCHANGED_HINT =
+  "Bereits gespeicherte Schüler:innendaten in archivierten Saisonen bleiben unverändert.";
+
+/** The records hold the name itself, so an archived one goes on holding the one it was given. */
+export const ARCHIVED_DATA_KEEPS_NAME_HINT =
+  "Bereits gespeicherte Schüler:innendaten in archivierten Saisonen behalten den bisherigen Namen.";
+
 /** Labels for the equipment list a program carries, which is a field rather than a category. */
 export const EQUIPMENT_LABELS = {
   title: "Benötigte Ausrüstung",

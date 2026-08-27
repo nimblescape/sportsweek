@@ -6,13 +6,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FileDown, FileSpreadsheet, Printer } from "lucide-react";
+import { FileDown, FileSpreadsheet } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
-import { EMPTY_FILTER, filterStudents } from "@/lib/filters/student-filter";
-import { reportFieldsOf } from "@/lib/report/report-fields";
-import { POPUP_BLOCKED_HINT, printableReportHtml } from "@/lib/report/printable-report";
+import { EMPTY_FILTER, filterStudents, filterSummary, scopeFilterToGroups } from "@/lib/filters/student-filter"; // prettier-ignore
+import { offeredFieldTags, reportFieldsOf } from "@/lib/report/report-fields";
 import {
   downloadReportPdf,
   downloadReportWorkbook,
@@ -22,9 +21,10 @@ import {
 import { matchingSavedReport } from "@/lib/report/saved-reports";
 import { useSavedReports } from "@/lib/report/use-saved-reports";
 import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
-import type { ReportSelection } from "@/lib/schemas/saved-report";
+import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeading } from "@/components/layout/page-heading";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { FieldTagList } from "./field-tag-list";
 import { ReportList } from "./report-list";
@@ -33,6 +33,15 @@ import { SavedReportTagList } from "./saved-report-tag-list";
 const FILTER_LABEL = "Bericht";
 
 const reportUrl = (id: string) => `/api/saved-reports/${encodeURIComponent(id)}`;
+
+/** Two tag rows sit under each other and decide different things, so each says which it is. */
+function CardHeading({ children }: { children: string }) {
+  return (
+    <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+      {children}
+    </h2>
+  );
+}
 
 /**
  * The student report of US-13, scoped to the active season and listing everyone registered for
@@ -68,47 +77,49 @@ export function ReportView() {
   );
 
   function openReport(saved: ReportSelection) {
-    setFilter(saved.filter);
-    setActiveFields([...saved.fields]);
+    // What the lists no longer offer is dropped rather than silently restricting the report to
+    // nobody: a class renamed since the report was saved is a tag nothing can show or unpress.
+    setFilter(scopeFilterToGroups(saved.filter, filterGroups));
+    setActiveFields(offeredFieldTags(saved.fields));
   }
 
   // Writes go through handlers because the author is the session's, not the request's (US-13);
   // the list itself comes back from the subscription rather than from these answers.
   async function saveReport(name: string, saved: ReportSelection) {
-    await apiRequest("/api/saved-reports", { method: "POST", body: { name, ...saved } });
+    const answer = await apiRequest<{ report: SavedReport }>("/api/saved-reports", {
+      method: "POST",
+      body: { name, ...saved },
+    });
+    return answer?.report.id ?? null;
   }
 
   async function renameReport(id: string, name: string) {
     await apiRequest(reportUrl(id), { method: "PATCH", body: { name } });
   }
 
+  async function updateReport(id: string, saved: ReportSelection) {
+    await apiRequest(reportUrl(id), { method: "PATCH", body: saved });
+  }
+
   async function deleteReport(id: string) {
     await apiRequest(reportUrl(id), { method: "DELETE" });
   }
 
-  /**
-   * The document is written into the window rather than fetched from a URL: a class full of
-   * contact details has no business in an address bar, a history entry or a server log.
-   */
-  function print() {
-    const popup = window.open("", "_blank");
-    if (!popup) {
-      setOutputError(POPUP_BLOCKED_HINT);
-      return;
-    }
-
-    setOutputError(null);
-    const heading = season === null ? "Bericht" : `Bericht – Saison ${season.name}`;
-    popup.document.open();
-    popup.document.write(printableReportHtml(shown, fields, { heading, context }));
-    popup.document.close();
+  async function reorderReports(order: string[]) {
+    await apiRequest("/api/saved-reports", { method: "PATCH", body: { order } });
   }
 
   /**
    * The saved report the page currently is, asked of the same module the tag row asks, so the
-   * file a teacher receives is named after the tag the row shows as pressed.
+   * file a teacher receives is named after a report it really holds rather than one it resembles.
    */
   const savedReportName = matchingSavedReport(savedReports, selection)?.name ?? null;
+
+  // What the copy says it holds where no saved report names it, and beside that name where one does.
+  const filterDescription = useMemo(
+    () => filterSummary(filter, filterGroups),
+    [filter, filterGroups],
+  );
 
   async function exportReport(download: (report: ReportExport) => Promise<void>) {
     setExporting(true);
@@ -118,7 +129,11 @@ export function ReportView() {
         students: shown,
         fields,
         context,
-        provenance: { reportName: savedReportName, exportedAt: new Date() },
+        provenance: {
+          reportName: savedReportName,
+          filterSummary: filterDescription,
+          exportedAt: new Date(),
+        },
       });
     } catch {
       setOutputError(EXPORT_FAILED_HINT);
@@ -129,33 +144,32 @@ export function ReportView() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-lg font-semibold">Bericht</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" onClick={print} disabled={season === null}>
-            <Printer aria-hidden data-icon="inline-start" />
-            Drucken
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => exportReport(downloadReportPdf)}
-            disabled={season === null || exporting}
-          >
-            <FileDown aria-hidden data-icon="inline-start" />
-            PDF exportieren
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => exportReport(downloadReportWorkbook)}
-            disabled={season === null || exporting}
-          >
-            <FileSpreadsheet aria-hidden data-icon="inline-start" />
-            Excel exportieren
-          </Button>
-        </div>
-      </div>
+      <PageHeading
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => exportReport(downloadReportPdf)}
+              disabled={season === null || exporting}
+            >
+              <FileDown aria-hidden data-icon="inline-start" />
+              PDF
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => exportReport(downloadReportWorkbook)}
+              disabled={season === null || exporting}
+            >
+              <FileSpreadsheet aria-hidden data-icon="inline-start" />
+              Excel
+            </Button>
+          </div>
+        }
+      >
+        Bericht
+      </PageHeading>
 
       {error !== null && (
         <p role="alert" className="text-destructive text-sm">
@@ -182,14 +196,17 @@ export function ReportView() {
                 current={selection}
                 onOpen={openReport}
                 onSave={saveReport}
+                onUpdate={updateReport}
                 onRename={renameReport}
                 onDelete={deleteReport}
+                onReorder={reorderReports}
               />
             </CardContent>
           </Card>
 
           <Card>
             <CardContent>
+              <CardHeading>Filter</CardHeading>
               <FilterTagList
                 label={FILTER_LABEL}
                 groups={filterGroups}
@@ -201,6 +218,7 @@ export function ReportView() {
 
           <Card>
             <CardContent>
+              <CardHeading>Datenfelder</CardHeading>
               <FieldTagList value={activeFields} onChange={setActiveFields} />
             </CardContent>
           </Card>

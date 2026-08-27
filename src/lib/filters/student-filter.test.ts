@@ -12,9 +12,11 @@ import {
   clearTags,
   filterGroups,
   filterStudents,
+  filterSummary,
   hasNoTags,
   matchesFilter,
   sameFilter,
+  scopeFilterToGroups,
   toggleTag,
   type FilterableStudent,
 } from "./student-filter";
@@ -294,5 +296,75 @@ describe("filterGroups", () => {
       { value: "5AHIF", label: "5AHIF" },
       { value: "5BHIF", label: "5BHIF" },
     ]);
+  });
+});
+
+describe("scopeFilterToGroups", () => {
+  const GROUPS = filterGroups(
+    {
+      classes: [{ name: "5AHIF" }],
+      programs: [{ name: "Ski" }],
+      skillLevels: [{ name: "Keine Vorkenntnisse" }],
+    },
+    { attendance: true },
+  );
+
+  it("keeps the tags the categories still offer", () => {
+    const filter = withTags(["class", "5AHIF"], ["program", "Ski"]);
+
+    expect(scopeFilterToGroups(filter, GROUPS)).toEqual(filter);
+  });
+
+  it("drops a tag whose option is gone, rather than filtering to nobody by something invisible", () => {
+    const filter = withTags(["class", "5AHIF"], ["class", "3AHME"]);
+
+    expect(scopeFilterToGroups(filter, GROUPS).tags.class).toEqual(["5AHIF"]);
+  });
+
+  it("drops every tag of a category nothing offers at all", () => {
+    const filter = withTags(["event", "event1"]);
+
+    expect(scopeFilterToGroups(filter, GROUPS).tags.event).toEqual([]);
+  });
+
+  it("leaves the name being searched for alone, which no list has to offer", () => {
+    const filter = { ...withTags(["class", "3AHME"]), name: "Muster" };
+
+    expect(scopeFilterToGroups(filter, GROUPS).name).toBe("Muster");
+  });
+});
+
+describe("filterSummary", () => {
+  const lists = {
+    classes: [{ name: "5AHIF" }, { name: "5BHIF" }],
+    programs: [{ name: "Ski" }],
+    skillLevels: [{ name: "Keine Vorkenntnisse" }],
+  };
+  const GROUPS = filterGroups(lists, { attendance: true });
+
+  it("lists the tags chosen, grouped by the category they were chosen in", () => {
+    const filter = withTags(["class", "5AHIF"], ["class", "5BHIF"], ["gender", "female"]);
+
+    expect(filterSummary(filter, GROUPS)).toBe("5AHIF, 5BHIF \u00b7 weiblich");
+  });
+
+  it("leaves out a category nothing is chosen in, which restricts nothing", () => {
+    expect(filterSummary(withTags(["attendance", ATTENDANCE_VALUES.attending]), GROUPS)).toBe(
+      "nimmt teil",
+    );
+  });
+
+  it("puts the name being searched for first, and says that is what it is", () => {
+    const filter = { ...withTags(["class", "5AHIF"]), name: "Muster" };
+
+    expect(filterSummary(filter, GROUPS)).toBe("Name: Muster · 5AHIF");
+  });
+
+  it("says nothing about a filter that restricts nothing", () => {
+    expect(filterSummary(EMPTY_FILTER, GROUPS)).toBeNull();
+  });
+
+  it("passes over a tag no category offers any more, as the row itself does", () => {
+    expect(filterSummary(withTags(["class", "3AHME"]), GROUPS)).toBeNull();
   });
 });

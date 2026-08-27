@@ -5,7 +5,11 @@
  */
 import { describe, expect, it } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
-import { savedReportInputSchema, savedReportSchema } from "@/lib/schemas/saved-report";
+import {
+  savedReportEditSchema,
+  savedReportInputSchema,
+  savedReportSchema,
+} from "@/lib/schemas/saved-report";
 
 const selection = toggleTag({ ...EMPTY_FILTER, name: "Muster" }, "class", "3AHME");
 
@@ -16,6 +20,7 @@ const saved = {
   id: "report-1",
   createdByUserId: "jane.doe@htldornbirn.at",
   name: "Anwesende Skifahrer",
+  position: 2,
   filter: selection,
   fields: ["class", "contact"],
 };
@@ -39,6 +44,14 @@ describe("savedReportSchema", () => {
     );
 
     expect(savedReportSchema.parse(beforeFields).fields).toEqual([]);
+  });
+
+  it("reads a report saved before the row could be ordered as one that sorts last", () => {
+    const beforePositions = Object.fromEntries(
+      Object.entries(saved).filter(([key]) => key !== "position"),
+    );
+
+    expect(savedReportSchema.parse(beforePositions).position).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it("reads a category added after a report was saved as no restriction from it", () => {
@@ -69,6 +82,45 @@ describe("savedReportInputSchema", () => {
     expect(
       savedReportInputSchema.safeParse({
         name: "5AHIF",
+        filter: selection,
+        fields: [],
+        createdByUserId: "someone.else@htldornbirn.at",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("refuses a position, which is where the row put it rather than what a request asks for", () => {
+    expect(
+      savedReportInputSchema.safeParse({
+        name: "5AHIF",
+        filter: selection,
+        fields: [],
+        position: 0,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("savedReportEditSchema", () => {
+  it("takes a new name on its own, which is what renaming a tag sends", () => {
+    expect(savedReportEditSchema.parse({ name: "5AHIF" })).toEqual({ name: "5AHIF" });
+  });
+
+  it("takes both selections on their own, which is what bringing one up to date sends", () => {
+    const edit = { filter: selection, fields: ["class"] };
+
+    expect(savedReportEditSchema.parse(edit)).toEqual(edit);
+  });
+
+  it("refuses renaming and rewriting at once, rather than performing half of it", () => {
+    expect(
+      savedReportEditSchema.safeParse({ name: "5AHIF", filter: selection, fields: [] }).success,
+    ).toBe(false);
+  });
+
+  it("refuses the author, which the session decides and no request may claim", () => {
+    expect(
+      savedReportEditSchema.safeParse({
         filter: selection,
         fields: [],
         createdByUserId: "someone.else@htldornbirn.at",

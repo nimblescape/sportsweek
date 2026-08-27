@@ -12,6 +12,7 @@ import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
 import { BusyRegion } from "@/components/ui/busy-region";
+import { PageHeading } from "@/components/layout/page-heading";
 import { AssignmentBoard } from "./assignment-board";
 
 /**
@@ -44,7 +45,7 @@ export function AssignmentView() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <h1 className="font-heading text-lg font-semibold">Zuteilung</h1>
+      <PageHeading>Zuteilung</PageHeading>
 
       {error !== null && (
         <p role="alert" className="text-destructive text-sm">

@@ -11,6 +11,10 @@ export type SeasonState = (typeof SEASON_STATES)[number];
 /** Shown by the views that bind to the active season, and returned by the handlers behind them. */
 export const NO_ACTIVE_SEASON_HINT = "Es ist keine Saison aktiv.";
 
+/** Why an archived season refuses a rename, said once for the guard and whoever shows it. */
+export const ARCHIVED_IS_READ_ONLY_HINT =
+  "Eine archivierte Saison kann nicht bearbeitet werden. Bitte zuerst aus dem Archiv holen.";
+
 /**
  * Derives the displayed state from the two stored flags (US-4) — it is never persisted.
  * Archived takes precedence, so a contradictory record still resolves to exactly one state.

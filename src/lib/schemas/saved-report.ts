@@ -7,6 +7,7 @@ import { z } from "zod";
 import { studentFilterSchema } from "@/lib/filters/student-filter";
 import { REPORT_FIELD_TAGS } from "@/lib/report/report-fields";
 import { documentIdSchema, requiredText, snapshotValueSchema } from "./common";
+import { positionSchema } from "./position";
 
 /**
  * A report a teacher kept, shared among all teachers rather than private to whoever saved it
@@ -18,6 +19,8 @@ export const savedReportSchema = z.object({
   id: documentIdSchema,
   createdByUserId: documentIdSchema,
   name: requiredText(120),
+  /** Where its tag sits in the row the teachers dragged it into (see Ordering). */
+  position: positionSchema,
   filter: studentFilterSchema,
   /**
    * The activated field tags, by key. A key nothing offers any more adds no detail line rather
@@ -32,13 +35,20 @@ export const reportSelectionSchema = savedReportSchema.pick({ filter: true, fiel
 export type ReportSelection = z.infer<typeof reportSelectionSchema>;
 
 /**
- * What a teacher may send. The author comes from the session, so a request naming one is
- * refused outright rather than quietly ignored.
+ * What a teacher may send. The author and the position come from the server, so a request
+ * naming one is refused outright rather than quietly ignored.
  */
 export const savedReportInputSchema = savedReportSchema
-  .omit({ id: true, createdByUserId: true })
+  .omit({ id: true, createdByUserId: true, position: true })
   .strict();
 export type SavedReportInput = z.infer<typeof savedReportInputSchema>;
 
-/** Renaming is the only edit the tag offers, and it touches nothing else (US-13). */
+/** Renaming is one of the two edits a tag offers, and it touches nothing else (US-13). */
 export const savedReportRenameSchema = savedReportSchema.pick({ name: true }).strict();
+
+/** The other: what a report holds is replaced by the report on screen, its name left alone. */
+export const savedReportSelectionSchema = reportSelectionSchema.strict();
+
+/** Never both at once — an edit that renames and rewrites is refused rather than half done. */
+export const savedReportEditSchema = z.union([savedReportRenameSchema, savedReportSelectionSchema]);
+export type SavedReportEdit = z.infer<typeof savedReportEditSchema>;

@@ -19,17 +19,19 @@ import { applyVisibleOrder } from "@/lib/schemas/position";
 import type { Season } from "@/lib/schemas/season";
 import { visibleSeasons } from "@/lib/seasons/season-state";
 import { useSeasons } from "@/lib/seasons/use-seasons";
+import { useShowArchived } from "@/lib/seasons/show-archived";
+import { Tag } from "@/components/ui/tag";
+import { PageHeading } from "@/components/layout/page-heading";
 
 type OpenDialog =
   { kind: "none" } | { kind: "form"; season: Season | null } | { kind: "delete"; season: Season };
 
 export function SeasonsView() {
   const { seasons, loading, error } = useSeasons();
-  const [showArchived, setShowArchived] = React.useState(false);
+  const { showArchived, setShowArchived } = useShowArchived();
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
   const { busyId, pending, run } = useRowAction();
   const [actionError, setActionError] = React.useState<string | null>(null);
-  const toggleId = React.useId();
 
   useBusyWhile(loading);
 
@@ -64,27 +66,24 @@ export function SeasonsView() {
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <BusyRegion busy={pending}>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="font-heading text-lg font-semibold">Saisonen</h1>
-            <Button onClick={() => setDialog({ kind: "form", season: null })}>
-              <Plus aria-hidden data-icon="inline-start" />
-              Neue Saison
-            </Button>
-          </div>
-
-          <label
-            htmlFor={toggleId}
-            className="text-muted-foreground flex items-center gap-2 text-sm"
+          <PageHeading
+            actions={
+              <Button onClick={() => setDialog({ kind: "form", season: null })}>
+                <Plus aria-hidden data-icon="inline-start" />
+                Neue Saison
+              </Button>
+            }
           >
-            <input
-              id={toggleId}
-              type="checkbox"
-              checked={showArchived}
-              onChange={(event) => setShowArchived(event.target.checked)}
-              className="accent-primary size-4"
+            Saisonen
+          </PageHeading>
+
+          <div>
+            <Tag
+              label="Archivierte Saisonen anzeigen"
+              pressed={showArchived}
+              onPress={() => setShowArchived(!showArchived)}
             />
-            Archivierte Saisonen anzeigen
-          </label>
+          </div>
 
           {actionError ? (
             <p role="alert" className="text-destructive text-sm">

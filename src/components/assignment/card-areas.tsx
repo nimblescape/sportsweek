@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { ReactNode } from "react";
+import { Tag } from "@/components/ui/tag";
 
 /**
  * Each area gets a surface of its own, so three columns of content read as three areas rather
@@ -20,11 +21,40 @@ export const AREA = "border-border bg-muted/40 flex min-h-0 min-w-0 flex-col rou
 /** The aside sits at the far end of the title line — a tally on one area, a toggle on another. */
 export function AreaTitle({ children, aside }: { children: string; aside?: ReactNode }) {
   return (
-    <div className="mb-2 flex items-baseline justify-between gap-3">
+    // Floored at the height of the tallest aside, or an area carrying a tag would sit lower than
+    // one carrying plain text and the three headings would stop lining up.
+    <div className="mb-2 flex min-h-7 items-center justify-between gap-3">
       <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
         {children}
       </h3>
       {aside}
     </div>
+  );
+}
+
+const FILTERED_LABEL = "Gefiltert";
+
+/**
+ * Whether the card's figures count everyone it holds or only what its filter leaves. A tag
+ * rather than a checkbox, because pressing tags is how everything else on this page is chosen.
+ */
+export function FilteredTag({
+  card,
+  pressed,
+  onPress,
+}: {
+  /** Every card offers this one, so the name says which card's it is. */
+  card: string;
+  pressed: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Tag
+      label={`${card}: ${FILTERED_LABEL}`}
+      text={FILTERED_LABEL}
+      size="sm"
+      pressed={pressed}
+      onPress={onPress}
+    />
   );
 }

@@ -159,3 +159,12 @@ export function reportFieldsOf(selected: readonly string[]): ReportField[] {
   const picked = new Set(selected);
   return REPORT_FIELD_TAGS.filter((tag) => picked.has(tag.key)).flatMap((tag) => tag.fields);
 }
+
+/**
+ * The same selection with the keys nothing offers any more taken out — in tags, not in the fields
+ * a tag expands into, which is what the row is pressed by and what a saved report holds (US-13).
+ */
+export function offeredFieldTags(selected: readonly string[]): string[] {
+  const offered = new Set(REPORT_FIELD_TAGS.map((tag) => tag.key));
+  return selected.filter((key) => offered.has(key));
+}

@@ -88,6 +88,56 @@ export type FilterGroup = {
   options: readonly FilterOption[];
 };
 
+/**
+ * The filter with every tag no category offers any more taken out.
+ *
+ * A saved report holds the tags that were chosen when it was saved (US-13), and the lists behind
+ * them keep changing: a class is renamed, a program is removed. A tag standing for something that
+ * no longer exists cannot be seen and cannot be unpressed, but it still restricts — and it
+ * restricts to nobody, so the report would open empty with nothing on screen to explain it.
+ */
+export function scopeFilterToGroups(
+  filter: StudentFilter,
+  groups: readonly FilterGroup[],
+): StudentFilter {
+  const offered = new Map(
+    groups.map((group) => [group.category, new Set(group.options.map((option) => option.value))]),
+  );
+
+  return {
+    ...filter,
+    tags: Object.fromEntries(
+      FILTER_CATEGORIES.map((category) => [
+        category,
+        filter.tags[category].filter((value) => offered.get(category)?.has(value) ?? false),
+      ]),
+    ) as StudentFilter["tags"],
+  };
+}
+
+/**
+ * What the filter leaves, in words: the name being searched for, then the tags chosen, grouped
+ * by category so that what is an "or" and what is an "and" survives the wording. Null where it
+ * restricts nothing, which is a report of everybody and has nothing to say about itself. A tag
+ * no category offers any more is passed over, exactly as the tag row passes over it (US-13).
+ */
+export function filterSummary(
+  filter: StudentFilter,
+  groups: readonly FilterGroup[],
+): string | null {
+  const name = filter.name.trim();
+  const parts = [
+    ...(name === "" ? [] : [`Name: ${name}`]),
+    ...groups.flatMap((group) => {
+      const chosen = filter.tags[group.category];
+      const labels = group.options.filter((option) => chosen.includes(option.value));
+      return labels.length === 0 ? [] : [labels.map((option) => option.label).join(", ")];
+    }),
+  ];
+
+  return parts.length === 0 ? null : parts.join(" \u00b7 ");
+}
+
 const GENDER_OPTIONS: readonly FilterOption[] = [
   { value: "male", label: "männlich" },
   { value: "female", label: "weiblich" },
