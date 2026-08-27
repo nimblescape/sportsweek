@@ -3,7 +3,8 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import type { Gender } from "@/lib/schemas/common";
+import { z } from "zod";
+import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
 
 /**
  * The one filter the assignment dialog (US-12) and the report (US-13) both use. It is written
@@ -32,11 +33,19 @@ export type FilterableStudent = {
   isAttending: boolean;
 };
 
-export type StudentFilter = {
+const FILTER_NAME_MAX = 120;
+
+/**
+ * A selection, as a schema rather than only a type, because the report stores one under a name
+ * and reads it back from a place a client can write to (US-13). Every category is present, so a
+ * stored filter is never half a selection.
+ */
+export const studentFilterSchema = z.object({
   /** Matched against the first name and the last name (US-12). */
-  name: string;
-  tags: Readonly<Record<FilterCategory, readonly string[]>>;
-};
+  name: z.string().trim().max(FILTER_NAME_MAX, `Höchstens ${FILTER_NAME_MAX} Zeichen.`),
+  tags: z.record(z.enum(FILTER_CATEGORIES), z.array(snapshotValueSchema)),
+});
+export type StudentFilter = z.infer<typeof studentFilterSchema>;
 
 export const EMPTY_FILTER: StudentFilter = {
   name: "",

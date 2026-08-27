@@ -1,0 +1,142 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
+import { describe, expect, it } from "vitest";
+import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
+import type { StudentMasterData } from "@/lib/schemas/student-master-data";
+import { studentRecord } from "@/test/roster-student";
+import { NO_ANSWER, REPORT_FIELD_TAGS, reportFieldsOf } from "./report-fields";
+
+const keys = REPORT_FIELD_TAGS.map((tag) => tag.key);
+
+const lineFor = (label: string, record: StudentMasterData) => {
+  const field = REPORT_FIELD_TAGS.flatMap((tag) => tag.fields).find(
+    (candidate) => candidate.label === label,
+  );
+  if (!field) throw new Error(`No report field labelled ${label}`);
+  return field.valueOf(record);
+};
+
+describe("REPORT_FIELD_TAGS", () => {
+  it("offers every field US-13 lists, in the order it lists them", () => {
+    expect(keys).toEqual([
+      "attendance",
+      "class",
+      "gender",
+      "dateOfBirth",
+      "contact",
+      "program",
+      "skillLevel",
+      "measurements",
+      "rentedEquipment",
+      "busPickupPoint",
+      "seasonPassOption",
+      "food",
+      "health",
+    ]);
+  });
+
+  it("does not offer the e-mail address, which the master line already carries", () => {
+    const labels = REPORT_FIELD_TAGS.flatMap((tag) => tag.fields).map((field) => field.label);
+
+    expect(labels).not.toContain("E-Mail");
+  });
+
+  it("keys every field uniquely, since each one renders a detail line of its own", () => {
+    const fields = REPORT_FIELD_TAGS.flatMap((tag) => tag.fields).map((field) => field.key);
+
+    expect(new Set(fields).size).toBe(fields.length);
+  });
+});
+
+describe("reportFieldsOf", () => {
+  it("activates nothing while no tag is selected, leaving the master line alone", () => {
+    expect(reportFieldsOf([])).toEqual([]);
+  });
+
+  it("gives a grouped tag one detail line per field in the group (US-13)", () => {
+    expect(reportFieldsOf(["contact"]).map((field) => field.label)).toEqual([
+      "Telefonnummer",
+      "Notfallkontakt",
+      "Beziehung",
+      "Telefonnummer des Notfallkontakts",
+    ]);
+    expect(reportFieldsOf(["measurements"]).map((field) => field.label)).toEqual([
+      "Gewicht [kg]",
+      "Körpergröße [cm]",
+      "Schuhgröße",
+    ]);
+    expect(reportFieldsOf(["health"]).map((field) => field.label)).toEqual([
+      "Krankheiten oder Allergien",
+      "Medikamente",
+    ]);
+  });
+
+  it("keeps the fields in their own order, not in the order the tags were pressed", () => {
+    expect(reportFieldsOf(["gender", "attendance"]).map((field) => field.key)).toEqual([
+      "attendance",
+      "gender",
+    ]);
+  });
+
+  it("ignores a tag it does not know, so a stale saved selection cannot break the report", () => {
+    expect(reportFieldsOf(["nonsense"])).toEqual([]);
+  });
+});
+
+describe("a field's value", () => {
+  it("reads an answer back in the words the form asked it in", () => {
+    const record = studentRecord();
+
+    expect(lineFor("Teilnahme", record)).toBe("Ja");
+    expect(lineFor("Geschlecht", record)).toBe("Weiblich");
+    expect(lineFor("Beziehung", record)).toBe("Mutter");
+    expect(lineFor("Medikamente", record)).toBe("Nein");
+  });
+
+  it("writes a date the way it is read in German, without leaning on a time zone", () => {
+    expect(lineFor("Geburtsdatum", studentRecord({ dateOfBirth: "2008-01-03" }))).toBe(
+      "03.01.2008",
+    );
+  });
+
+  it("names the emergency contact as one person rather than two answers", () => {
+    expect(lineFor("Notfallkontakt", studentRecord())).toBe("Maria Muster");
+  });
+
+  it("spells out the relationship a student typed in themselves", () => {
+    const record = studentRecord({
+      emergencyContact: {
+        firstName: "Ida",
+        lastName: "Muster",
+        relationship: "other",
+        relationshipOtherText: "Tante",
+        phoneNumber: null,
+      },
+    });
+
+    expect(lineFor("Beziehung", record)).toBe("Tante");
+  });
+
+  it("carries the free text of the food option, which is the answer itself (US-9)", () => {
+    const record = studentRecord({ foodOption: FOOD_OPTION_OTHER, foodOtherText: "Laktose" });
+
+    expect(lineFor("Verpflegung", record)).toBe("Sonstiges: Laktose");
+  });
+
+  it("lists the rented equipment, and says so when nothing is rented", () => {
+    expect(
+      lineFor("Ausrüstung zum Ausleihen", studentRecord({ rentedEquipment: ["Ski", "Helm"] })),
+    ).toBe("Ski, Helm");
+    expect(lineFor("Ausrüstung zum Ausleihen", studentRecord())).toBe("Nein");
+  });
+
+  it("leaves an unanswered field to the placeholder rather than inventing one", () => {
+    expect(lineFor("Klasse", studentRecord({ class: null }))).toBeNull();
+    expect(lineFor("Geburtsdatum", studentRecord({ dateOfBirth: null }))).toBeNull();
+    expect(lineFor("Krankheiten oder Allergien", studentRecord({ healthNotes: null }))).toBeNull();
+    expect(NO_ANSWER).toBe("keine Angabe");
+  });
+});

@@ -12,6 +12,14 @@ export type RosterStudent = FilterableStudent & {
   id: string;
   userId: string;
   eventId: string | null;
+  /** On the report's master line, where it is the one contact detail always shown (US-13). */
+  email: string;
+  /**
+   * The registration whole, because the report's detail lines may ask for any answer in it
+   * (US-13). The fields above it are the projection the filter is written against, so a row
+   * answers both questions without the two views joining the same records twice.
+   */
+  record: StudentMasterData;
 };
 
 const byName = new Intl.Collator("de-AT").compare;
@@ -41,6 +49,8 @@ export function joinRoster(
         {
           id: record.id,
           userId: record.userId,
+          email: user.email,
+          record,
           firstName: user.firstName,
           lastName: user.lastName,
           class: record.class,

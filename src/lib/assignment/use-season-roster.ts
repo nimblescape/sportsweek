@@ -35,8 +35,12 @@ export type SeasonRoster = {
  * behind the tables, and the tags to filter by. Held here because the assignment board and the
  * statistics both need exactly this, and two copies of it would drift the moment one gained a
  * list the other did not.
+ *
+ * `attendance` adds the category only the report has a use for: it is the one view that also
+ * lists the students who stay at home (US-13).
  */
-export function useSeasonRoster(): SeasonRoster {
+export function useSeasonRoster(options: { attendance?: boolean } = {}): SeasonRoster {
+  const { attendance = false } = options;
   const { seasons, loading: seasonsLoading, error: seasonsError } = useSeasons();
 
   // Two active seasons is a data defect a teacher cannot act on here, so it is reported rather
@@ -64,8 +68,12 @@ export function useSeasonRoster(): SeasonRoster {
     [skillLevels.items],
   );
   const groups = useMemo(
-    () => filterGroups({ classes: classes.items, programs, skillLevels: skillLevels.items }),
-    [classes.items, programs, skillLevels.items],
+    () =>
+      filterGroups(
+        { classes: classes.items, programs, skillLevels: skillLevels.items },
+        { attendance },
+      ),
+    [attendance, classes.items, programs, skillLevels.items],
   );
 
   return {

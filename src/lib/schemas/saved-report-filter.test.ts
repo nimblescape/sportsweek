@@ -4,49 +4,63 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { savedReportFilterSchema } from "@/lib/schemas/saved-report-filter";
+import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
+import {
+  savedReportFilterInputSchema,
+  savedReportFilterSchema,
+} from "@/lib/schemas/saved-report-filter";
 
-const validFilter = {
+const selection = toggleTag({ ...EMPTY_FILTER, name: "Muster" }, "class", "3AHME");
+
+const without = (category: string) =>
+  Object.fromEntries(Object.entries(selection.tags).filter(([key]) => key !== category));
+
+const saved = {
   id: "filter-1",
   createdByUserId: "jane.doe@htldornbirn.at",
   name: "Anwesende Skifahrer",
-  classFilter: ["3AHME"],
-  genderFilter: ["female"],
-  programFilter: ["Ski"],
-  skillLevelFilter: null,
-  attendingFilter: [true],
-  nameTextFilter: null,
+  filter: selection,
 };
 
 describe("savedReportFilterSchema", () => {
-  it("parses a valid saved filter", () => {
-    expect(savedReportFilterSchema.parse(validFilter)).toEqual(validFilter);
+  it("stores the selection in the shape the report filters with, not a second spelling of it", () => {
+    expect(savedReportFilterSchema.parse(saved)).toEqual(saved);
   });
 
-  it("requires a name", () => {
-    expect(savedReportFilterSchema.safeParse({ ...validFilter, name: "  " }).success).toBe(false);
+  it("requires a name, which is all the dropdown has to show it by", () => {
+    expect(savedReportFilterSchema.safeParse({ ...saved, name: "  " }).success).toBe(false);
   });
 
-  it("records the teacher who saved it, even though it is shared", () => {
-    expect(savedReportFilterSchema.safeParse({ ...validFilter, createdByUserId: "" }).success).toBe(
+  it("records the teacher who saved it, even though it is shared with all of them", () => {
+    expect(savedReportFilterSchema.safeParse({ ...saved, createdByUserId: "" }).success).toBe(
       false,
     );
   });
 
-  it.each([
-    "classFilter",
-    "genderFilter",
-    "programFilter",
-    "skillLevelFilter",
-    "attendingFilter",
-    "nameTextFilter",
-  ])("treats %s as unrestricted when null", (field) => {
-    expect(savedReportFilterSchema.safeParse({ ...validFilter, [field]: null }).success).toBe(true);
+  it("needs every category, so a filter is never half a selection", () => {
+    const tags = without("attendance");
+
+    expect(
+      savedReportFilterSchema.safeParse({ ...saved, filter: { ...selection, tags } }).success,
+    ).toBe(false);
+  });
+});
+
+describe("savedReportFilterInputSchema", () => {
+  it("takes the name and the selection, which is everything a teacher decides", () => {
+    expect(savedReportFilterInputSchema.parse({ name: "5AHIF", filter: selection })).toEqual({
+      name: "5AHIF",
+      filter: selection,
+    });
   });
 
-  it("rejects an invalid gender tag", () => {
+  it("refuses the author, which the session decides and no request may claim", () => {
     expect(
-      savedReportFilterSchema.safeParse({ ...validFilter, genderFilter: ["diverse"] }).success,
+      savedReportFilterInputSchema.safeParse({
+        name: "5AHIF",
+        filter: selection,
+        createdByUserId: "someone.else@htldornbirn.at",
+      }).success,
     ).toBe(false);
   });
 });

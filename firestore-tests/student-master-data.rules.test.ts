@@ -167,7 +167,14 @@ describe("/studentMasterData", () => {
 
 /** Saved report filters are shared among teachers (US-13) and are no business of a student's. */
 describe("/savedReportFilters", () => {
-  const filter = { createdByUserId: TEACHER_UPN, name: "5AHIF", classFilter: ["5AHIF"] };
+  const filter = {
+    createdByUserId: TEACHER_UPN,
+    name: "5AHIF",
+    filter: {
+      name: "",
+      tags: { class: ["5AHIF"], gender: [], program: [], skillLevel: [], attendance: [] },
+    },
+  };
 
   beforeEach(async () => await seed("savedReportFilters", "filter1", filter));
 

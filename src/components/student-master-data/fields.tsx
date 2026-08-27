@@ -9,6 +9,7 @@ import * as React from "react";
 import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { YES_NO_LABELS } from "@/lib/student-master-data/answer-labels";
 import {
   Select,
   SelectContent,
@@ -195,6 +196,6 @@ export function RadioField<TValues extends FieldValues, TOption extends string |
 
 /** "Nein" first, because that is where an unanswered registration starts (US-11). */
 export const YES_NO = [
-  { value: false, label: "Nein" },
-  { value: true, label: "Ja" },
+  { value: false, label: YES_NO_LABELS.false },
+  { value: true, label: YES_NO_LABELS.true },
 ] as const;

@@ -6,6 +6,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
+import { rosterStudent } from "@/test/roster-student";
 
 const useSeasons = vi.fn();
 const useRoster = vi.fn();
@@ -22,20 +23,17 @@ vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
 
 const { StatisticsView } = await import("./statistics-view");
 
-function student(lastName: string, overrides: Partial<RosterStudent> = {}): RosterStudent {
-  return {
+function student(
+  lastName: string,
+  overrides: Partial<Omit<RosterStudent, "record">> = {},
+): RosterStudent {
+  return rosterStudent({
     id: `record-${lastName}`,
     userId: `${lastName}@student.htldornbirn.at`,
     firstName: "Vorname",
     lastName,
-    class: "5AHIF",
-    gender: "female",
-    program: "Ski",
-    skillLevel: "Profi",
-    isAttending: true,
-    eventId: null,
     ...overrides,
-  };
+  });
 }
 
 const season = {
