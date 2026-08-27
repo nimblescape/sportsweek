@@ -15,7 +15,7 @@ const REPORT: ReportExport = {
   students: [rosterStudent({ id: "r1", firstName: "Anna", lastName: "Müller-Groß" })],
   fields: reportFieldsOf(["class", "contact"]),
   context: { eventNames: new Map() },
-  provenance: { filterName: null, exportedAt: new Date(2026, 7, 27, 14, 35) },
+  provenance: { reportName: null, exportedAt: new Date(2026, 7, 27, 14, 35) },
 };
 
 const fileNames: string[] = [];
@@ -69,7 +69,7 @@ describe("downloadReportPdf", () => {
   it("names it after the saved filter whose selection is being exported", async () => {
     await downloadReportPdf({
       ...REPORT,
-      provenance: { ...REPORT.provenance, filterName: "Nur 5BHIF" },
+      provenance: { ...REPORT.provenance, reportName: "Nur 5BHIF" },
     });
 
     expect(fileNames).toEqual(["Nur 5BHIF - 2026-08-27 14-35.pdf"]);

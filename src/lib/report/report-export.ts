@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 
-/** What both exports call themselves, and what names one that no saved filter names (US-17). */
+/** What both exports call themselves, and what names one that is no saved report (US-17). */
 export const REPORT_TITLE = "Sportsweek Report";
 
 /**
@@ -12,8 +12,8 @@ export const REPORT_TITLE = "Sportsweek Report";
  * it was taken, and which slice of the season it holds.
  */
 export type ReportProvenance = {
-  /** The saved filter the shown selection matches, or null where it matches none. */
-  filterName: string | null;
+  /** The saved report the page matched, or null where it matched none. */
+  reportName: string | null;
   exportedAt: Date;
 };
 
@@ -27,7 +27,7 @@ export function germanDateTime(at: Date): string {
 
 /** One wording for the PDF's footer and the workbook's overview sheet alike. */
 export const exportedAtLine = (at: Date) => `Erstellt am ${germanDateTime(at)}`;
-export const filterLine = (name: string) => `Filter: ${name}`;
+export const reportLine = (name: string) => `Bericht: ${name}`;
 
 /** Year first, so a folder of exports sorts into the order they were taken in (US-17). */
 function fileStamp(at: Date): string {
@@ -35,18 +35,18 @@ function fileStamp(at: Date): string {
   return `${date} ${twoDigits(at.getHours())}-${twoDigits(at.getMinutes())}`;
 }
 
-// A saved filter's name is text a teacher typed, and a path separator in it is not part of a name.
+// A saved report's name is text a teacher typed, and a path separator in it is not part of a name.
 const NOT_IN_A_FILE_NAME = /[\p{Cc}/\\:*?"<>|]/gu;
 
 /**
- * What the download is called: the saved filter whose selection is shown, or the report's own
- * title where none is, then the moment it was taken (US-17).
+ * What the download is called: the saved report on screen, or the report's own title where it is
+ * none of them, then the moment it was taken (US-17).
  */
 export function exportFileName(
-  { filterName, exportedAt }: ReportProvenance,
+  { reportName, exportedAt }: ReportProvenance,
   extension: string,
 ): string {
-  const cleaned = (filterName ?? "").replace(NOT_IN_A_FILE_NAME, " ").replace(/\s+/g, " ").trim();
+  const cleaned = (reportName ?? "").replace(NOT_IN_A_FILE_NAME, " ").replace(/\s+/g, " ").trim();
   const base = cleaned === "" ? REPORT_TITLE : cleaned;
 
   return `${base} - ${fileStamp(exportedAt)}.${extension}`;

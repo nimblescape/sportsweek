@@ -143,14 +143,14 @@ entity "StudentMasterData" as studentMasterData {
   weightKg : number <<nullable>>
 }
 
-entity "SavedReportFilter" as savedReportFilter {
+entity "SavedReport" as savedReport {
   PK id : string
-  FK createdByUserId : string  ' the teacher who saved it, for audit only \u2014 the filter itself
+  FK createdByUserId : string  ' the teacher who saved it, for audit only \u2014 the report itself
                                ' is shared/visible to all teachers, not private (US-13)
   --
   name : string
-  ' The selection itself, stored in the shape the report filters with rather than in a second
-  ' spelling of it: a free-text name filter, plus one array of selected tags per category.
+  ' The report as it stood, stored in the shape the page works in rather than in a second
+  ' spelling of it: which students are shown, and which detail lines they show (US-13).
   ' OR within a category, AND across categories, an empty array = no restriction (US-12, US-13).
   filter.name : string
   filter.tags.class : string[]
@@ -162,6 +162,9 @@ entity "SavedReportFilter" as savedReportFilter {
   filter.tags.attendance : enum(attending, notAttending)[]
   filter.tags.event : Event.id[]
   filter.tags.completeness : enum(complete, incomplete)[]
+  ' The activated field tags of the fields tag list, by key — a key nothing offers any more
+  ' simply adds no detail line, so a report saved by an older release still opens (US-13).
+  fields : string[]
 }
 
 ' Seasons & Events (US-4)
@@ -187,6 +190,6 @@ program           .down.> studentMasterData : "a .requiredEquipment entry is cop
 user              ||--o{ studentMasterData : "owns (student)"
 
 ' Teacher views student report (US-13)
-user              ||--o{ savedReportFilter : "saves (teacher)"
+user              ||--o{ savedReport : "saves (teacher)"
 
 @enduml

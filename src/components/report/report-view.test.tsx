@@ -15,7 +15,7 @@ const useRoster = vi.fn();
 const useEvents = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
-const useSavedFilters = vi.fn();
+const useSavedReports = vi.fn();
 const apiRequest = vi.fn();
 const downloadReportPdf = vi.fn();
 const downloadReportWorkbook = vi.fn();
@@ -27,7 +27,7 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (key: string) => useMasterData(key),
   usePrograms: () => usePrograms(),
 }));
-vi.mock("@/lib/report/use-saved-filters", () => ({ useSavedFilters: () => useSavedFilters() }));
+vi.mock("@/lib/report/use-saved-reports", () => ({ useSavedReports: () => useSavedReports() }));
 vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
   apiRequest: (...args: unknown[]) => apiRequest(...args),
@@ -91,7 +91,7 @@ beforeEach(() => {
     loading: false,
     error: null,
   });
-  useSavedFilters.mockReturnValue({ filters: [], loading: false, error: null });
+  useSavedReports.mockReturnValue({ reports: [], loading: false, error: null });
   apiRequest.mockResolvedValue(null);
   downloadReportPdf.mockResolvedValue(undefined);
   downloadReportWorkbook.mockResolvedValue(undefined);
@@ -281,60 +281,65 @@ describe("the fields tag list", () => {
   });
 });
 
-describe("the saved filters", () => {
+describe("the saved reports", () => {
   const saved = {
-    id: "f1",
+    id: "r1",
     name: "Nur 5BHIF",
     createdByUserId: "jane.doe@htldornbirn.at",
     filter: toggleTag(EMPTY_FILTER, "class", "5BHIF"),
+    fields: ["class"],
   };
 
-  it("applies a saved selection to the report", async () => {
-    useSavedFilters.mockReturnValue({ filters: [saved], loading: false, error: null });
+  it("puts both selections back on screen when its tag is pressed", async () => {
+    useSavedReports.mockReturnValue({ reports: [saved], loading: false, error: null });
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Gespeicherte Filter" }));
-    await userEvent.click(screen.getByRole("option", { name: "Nur 5BHIF" }));
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
 
     expect(rows()).toHaveLength(1);
     expect(rowOf("Berger")).toBeInTheDocument();
+    expect(within(rowOf("Berger")).getByRole("term")).toHaveTextContent("Klasse:");
   });
 
-  it("saves the selection the teacher is looking at, under the name they type", async () => {
+  it("saves the report the teacher is looking at, under the name they type", async () => {
     render(<ReportView />);
 
     await userEvent.click(screen.getByRole("button", { name: "Klasse: 5BHIF" }));
-    await userEvent.click(screen.getByRole("button", { name: "Filter speichern" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Name des Filters" }), "Nur 5BHIF");
+    await activate("Klasse");
+    await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Name des Berichts" }), "Nur 5BHIF");
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/report-filters", {
+    expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports", {
       method: "POST",
-      body: { name: "Nur 5BHIF", filter: toggleTag(EMPTY_FILTER, "class", "5BHIF") },
+      body: {
+        name: "Nur 5BHIF",
+        filter: toggleTag(EMPTY_FILTER, "class", "5BHIF"),
+        fields: ["class"],
+      },
     });
   });
 
   it("renames and deletes through the endpoints that own those writes", async () => {
-    useSavedFilters.mockReturnValue({ filters: [saved], loading: false, error: null });
+    useSavedReports.mockReturnValue({ reports: [saved], loading: false, error: null });
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Gespeicherte Filter" }));
 
-    await userEvent.click(screen.getByRole("button", { name: "Filter Nur 5BHIF umbenennen" }));
-    const field = screen.getByRole("textbox", { name: "Name des Filters" });
+    await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF umbenennen" }));
+    const field = screen.getByRole("textbox", { name: "Name des Berichts" });
     await userEvent.clear(field);
     await userEvent.type(field, "5BHIF");
     await userEvent.click(screen.getByRole("button", { name: "Umbenennen" }));
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/report-filters/f1", {
+    expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", {
       method: "PATCH",
       body: { name: "5BHIF" },
     });
 
-    await userEvent.click(screen.getByRole("button", { name: "Filter Nur 5BHIF löschen" }));
-    await userEvent.click(screen.getByRole("button", { name: "Löschen bestätigen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF löschen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Löschen von Nur 5BHIF bestätigen" }));
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/report-filters/f1", { method: "DELETE" });
+    expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", { method: "DELETE" });
   });
 });
 
@@ -417,9 +422,9 @@ describe("exporting", () => {
     expect(report.fields.map((it: { key: string }) => it.key)).toEqual(["class"]);
   });
 
-  it("names the export after the saved filter the report is showing", async () => {
-    useSavedFilters.mockReturnValue({
-      filters: [{ id: "f1", createdByUserId: "t", name: "Alle", filter: EMPTY_FILTER }],
+  it("names the export after the saved report the page is showing", async () => {
+    useSavedReports.mockReturnValue({
+      reports: [{ id: "r1", createdByUserId: "t", name: "Alle", filter: EMPTY_FILTER, fields: [] }],
       loading: false,
       error: null,
     });
@@ -427,15 +432,15 @@ describe("exporting", () => {
     render(<ReportView />);
     await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
 
-    expect(pressed(downloadReportPdf).provenance.filterName).toBe("Alle");
+    expect(pressed(downloadReportPdf).provenance.reportName).toBe("Alle");
   });
 
-  it("leaves the export unnamed while the selection matches no saved filter", async () => {
+  it("leaves the export unnamed while the page matches no saved report", async () => {
     render(<ReportView />);
     await userEvent.click(screen.getByRole("button", { name: "Excel exportieren" }));
 
-    const { filterName, exportedAt } = pressed(downloadReportWorkbook).provenance;
-    expect(filterName).toBeNull();
+    const { reportName, exportedAt } = pressed(downloadReportWorkbook).provenance;
+    expect(reportName).toBeNull();
     expect(exportedAt).toBeInstanceOf(Date);
   });
 

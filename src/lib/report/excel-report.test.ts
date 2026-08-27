@@ -20,7 +20,7 @@ const BENE = rosterStudent({
 
 const context = { eventNames: new Map([["event1", "Woche 1"]]) };
 const PROVENANCE: ReportProvenance = {
-  filterName: null,
+  reportName: null,
   exportedAt: new Date(2026, 7, 27, 14, 35),
 };
 
@@ -85,11 +85,11 @@ describe("reportWorkbook", () => {
 
   it("names the saved filter on the overview, and names none where there is none", () => {
     const named = workbook([ANNA], reportFieldsOf([]), {
-      filterName: "Nur 5BHIF",
+      reportName: "Nur 5BHIF",
       exportedAt: PROVENANCE.exportedAt,
     });
 
-    expect(named.getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBe("Filter: Nur 5BHIF");
+    expect(named.getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBe("Bericht: Nur 5BHIF");
     expect(workbook().getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBeNull();
   });
 

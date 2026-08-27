@@ -73,8 +73,8 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    /** Saved report filters are shared among all teachers, not private to who saved them (US-13). */
-    match /savedReportFilters/{filterId} {
+    /** Saved reports are shared among all teachers, not private to who saved them (US-13). */
+    match /savedReports/{reportId} {
       allow read: if isTeacher();
       allow write: if false;
     }
