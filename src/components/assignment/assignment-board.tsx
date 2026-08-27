@@ -33,6 +33,9 @@ import {
 } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { AssignmentCard, DraggedTag, studentTagName } from "./assignment-card";
+
+const NOTHING_CARRIED: ReadonlySet<string> = new Set();
+
 /**
  * A drop counts only where the pointer actually is, so releasing between two cards cancels
  * instead of snapping to the nearer one. A keyboard drag has no pointer, and then the nearest
@@ -94,14 +97,15 @@ export function AssignmentBoard({
   const [filters, setFilters] = useState<Readonly<Record<string, StudentFilter>>>({});
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // What a pointer or keyboard is carrying, and whether an overlay is drawing it.
+  // What a drag is carrying: the ids to fade where they stand, and the tags to draw under the
+  // pointer. The tag that was grabbed is one of them, "Alle" included — it travels too.
   const [drag, setDrag] = useState<{
-    students: readonly RosterStudent[];
+    ids: ReadonlySet<string>;
+    names: readonly string[];
     overlay: boolean;
   } | null>(null);
 
-  // Every tag a drag is carrying is faded where it stands, not just the one under the pointer.
-  const carried = new Set(drag?.students.map((student) => student.id));
+  const carried = drag?.ids ?? NOTHING_CARRIED;
 
   const sensors = useSensors(
     // A short distance threshold, so a tap on a row is not mistaken for the start of a drag.
@@ -153,8 +157,16 @@ export function AssignmentBoard({
     const source = groups.find((group) => group.id === from);
     if (!source) return;
 
+    const students = carriedBy(active, source, filters[source.id], picked);
+    const grabbed = String(active.data.current?.name ?? "");
+
     setDrag({
-      students: carriedBy(active, source, filters[source.id], picked),
+      ids: new Set([String(active.id), ...students.map((student) => student.id)]),
+      // The grabbed tag leads, and the rest follow in the order the card lists them.
+      names: [
+        grabbed,
+        ...students.filter((student) => student.id !== active.id).map(studentTagName),
+      ],
       // A keyboard drag has no pointer for an overlay to follow, and the tags it would copy are
       // still on screen where the teacher left them.
       overlay: !(activatorEvent instanceof KeyboardEvent),
@@ -201,9 +213,9 @@ export function AssignmentBoard({
         {drag?.overlay ? (
           <DragOverlay dropAnimation={null}>
             <ul className="flex w-max max-w-xs flex-wrap gap-1.5 opacity-80">
-              {drag.students.map((student) => (
-                <li key={student.id}>
-                  <DraggedTag name={studentTagName(student)} />
+              {drag.names.map((name) => (
+                <li key={name}>
+                  <DraggedTag name={name} />
                 </li>
               ))}
             </ul>

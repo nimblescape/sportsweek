@@ -150,7 +150,7 @@ export function AssignmentCard({
                     name={ALL_LABEL}
                     label={ALL_NAME}
                     picked={allPicked}
-                    carried={false}
+                    carried={carried.has(allDragId(group.id))}
                     onToggle={() => onToggleAll(shown, allPicked)}
                   />
                 )}
@@ -231,7 +231,11 @@ function Row({
   carried: boolean;
   onToggle: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: dragId, data });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: dragId,
+    // The overlay is drawn from this, so it can name the tag without looking the student up again.
+    data: { ...data, name },
+  });
 
   /**
    * The whole row is what a pointer drags; the handle is what a keyboard drags. Splitting the
