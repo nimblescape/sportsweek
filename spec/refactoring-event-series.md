@@ -834,9 +834,22 @@ series up is one place rather than three.
 - The QR code is rendered **in the browser**, never fetched from an image service. A token in a
   URL handed to a third party is a token that third party holds, and holding the token is the
   whole of what enrols somebody.
-- It is shown with the class name beside it, so a teacher projecting one cannot show the wrong
-  class's code to a room — which would enrol thirty students into the wrong class, the exact
-  mistake US-23 took away from them.
+- **It is shown on a blank surface with nothing else on it.** The code is centred, sized to the
+  screen it is being shown on, and the only other thing present is a cross that closes the view.
+  No heading, no class name and no application chrome: the header tag row would otherwise name
+  every event series the school runs to a room full of students, and the navigation would show
+  them a teacher's tools.
+- The blankness is also what makes it scan. A projector has poor contrast and a phone camera
+  focuses on whatever it finds first, so a quiet field around the code is the difference between a
+  class scanning it once and a class scanning it three times.
+- Escape closes the view as well as the cross, and the cross carries an accessible name — it is
+  the one control on the surface, and a control nobody can name is one a screen reader cannot
+  offer.
+- **Which class the code belongs to is settled before it is shown, not beside it.** The control
+  that opens the view sits in that class's own card (US-23), which is where the name is. Showing
+  it on the projection surface as well was the earlier proposal here and is withdrawn: everything
+  on that surface is read by thirty people who have no business reading it. What is left is a
+  teacher who can project the wrong class's code, and US-28 is what undoes that.
 - **A projected code is more exposed than a mailed link**, and that is accepted rather than
   overlooked: anyone in the room, or looking through the door, can scan it. What it costs is a
   registration that should not exist, which US-28 deletes and a regenerated link (US-23) stops
