@@ -305,6 +305,7 @@ As a teacher, I can export the report as a PDF so that I have a paginated docume
 **Acceptance criteria:**
 
 - An export button exists on the report page, next to the print button of US-13, labelled "PDF exportieren".
+- What it produces is a PDF file (`.pdf`), handed to the teacher as a download. Opening a window to print from is what the print button of US-13 already does; this one exists to produce something that can be filed, attached or sent as it is.
 - The export contains exactly the students the filter tag list leaves and exactly the detail lines the fields tag list activates (see US-13). It is the report as it currently stands on screen, not a second report with rules of its own.
 - The document keeps the master-detail structure of the report: one master line per student, with that student's detail lines indented below it.
 - A student is one block that is never split across a page boundary — a master line always sits on the same page as the detail lines belonging to it, so a page never opens with answers whose owner was named on the page before. Only a block taller than a whole page may break, because there is no page it would fit on.
@@ -322,6 +323,7 @@ As a teacher, I can export the report as an Excel file so that I can sort, group
 **Acceptance criteria:**
 
 - An export button exists on the report page, beside the print and PDF export buttons (see US-13, US-17), labelled "Excel exportieren".
+- What it produces is an Excel workbook file (`.xlsx`), handed to the teacher as a download.
 - The export holds exactly the students the filter tag list leaves and exactly the fields the fields tag list activates (see US-13) — the same scope the PDF export has.
 - The workbook has two sheets: "Overview", which says what the export is, and "Report", which holds the students. What a PDF can put in a header and a footer on every page has nowhere to go in a table, and a row of provenance above the header row would be a row that sorting and filtering have to be told to skip.
 - The "Overview" sheet carries the HTL logo, and below it the report title "Sportsweek Report", the date and time at which the export was made, and — where the shown students are the selection of a saved filter (see US-13) — that filter's name. A selection matching no saved filter is left unnamed rather than described tag by tag, as in the PDF.
