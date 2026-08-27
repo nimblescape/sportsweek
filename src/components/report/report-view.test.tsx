@@ -153,7 +153,7 @@ describe("ReportView", () => {
   it("offers the attendance category the assignment dialog has no use for (US-13)", async () => {
     render(<ReportView />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Teilnahme: nimmt teil" }));
+    await userEvent.click(screen.getByRole("button", { name: "Teilnahme: Nimmt teil" }));
 
     expect(rows()).toHaveLength(1);
     expect(rowOf("Muster")).toBeInTheDocument();
@@ -317,7 +317,7 @@ describe("the fields tag list", () => {
     await activate("Klasse");
     expect(rows()).toHaveLength(2);
 
-    await userEvent.click(screen.getByRole("button", { name: "Teilnahme: nimmt teil" }));
+    await userEvent.click(screen.getByRole("button", { name: "Teilnahme: Nimmt teil" }));
     expect(rows()).toHaveLength(1);
     expect(detailsOf("Muster")).toEqual(["Klasse:"]);
   });
@@ -464,7 +464,7 @@ describe("exporting", () => {
 
   it("hands the PDF the students the filter leaves and the fields that are activated", async () => {
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Teilnahme: nimmt teil" }));
+    await userEvent.click(screen.getByRole("button", { name: "Teilnahme: Nimmt teil" }));
     await activate("Klasse");
     await userEvent.click(screen.getByRole("button", { name: "PDF" }));
 
