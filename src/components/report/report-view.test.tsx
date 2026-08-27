@@ -218,6 +218,22 @@ describe("the fields tag list", () => {
     expect(detailsOf("Muster")).toEqual([]);
   });
 
+  /** What "Alle" is to the students, "Keine" is to the detail lines. */
+  it("clears every activated field at once, and is pressed while none is", async () => {
+    render(<ReportView />);
+    const none = () => screen.getByRole("button", { name: "Keine" });
+    expect(none()).toHaveAttribute("aria-pressed", "true");
+
+    await activate("Klasse");
+    await activate("Kontaktdaten");
+    expect(none()).toHaveAttribute("aria-pressed", "false");
+
+    await userEvent.click(none());
+
+    expect(detailsOf("Muster")).toEqual([]);
+    expect(none()).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("gives a grouped tag one detail line per field in the group (US-13)", async () => {
     render(<ReportView />);
 
