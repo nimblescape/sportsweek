@@ -281,7 +281,7 @@ function SavedReportTag({
         disabled={pending}
         onPointerDown={listeners?.onPointerDown as React.PointerEventHandler | undefined}
         onClick={onOpen}
-        className="focus-visible:ring-ring/50 max-w-60 touch-none truncate rounded-md px-1.5 outline-none focus-visible:ring-3 disabled:opacity-50"
+        className="focus-visible:ring-ring/50 max-w-60 cursor-grab touch-none truncate rounded-md px-1.5 outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50"
       >
         {report.name}
       </button>
