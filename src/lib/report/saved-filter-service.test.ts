@@ -44,12 +44,25 @@ describe("createSavedFilter", () => {
     expect(firestore.count("savedReportFilters")).toBe(0);
   });
 
-  it("rejects a selection naming a category the report does not filter by", async () => {
-    const filter = { ...selection, tags: { nonsense: ["x"] } } as never;
+  it("keeps only the categories the report filters by, so a stray one cannot be stored", async () => {
+    const filter = { ...selection, tags: { ...selection.tags, nonsense: ["x"] } } as never;
 
-    await expect(createSavedFilter({ name: "5AHIF", filter }, TEACHER)).rejects.toBeInstanceOf(
-      ServiceError,
+    const saved = await createSavedFilter({ name: "5AHIF", filter }, TEACHER);
+
+    expect(firestore.get("savedReportFilters", saved.id)).toMatchObject({ filter: selection });
+  });
+
+  it("reads a category that did not exist yet as no restriction from it", async () => {
+    const tags = Object.fromEntries(
+      Object.entries(selection.tags).filter(([category]) => category !== "event"),
     );
+
+    const saved = await createSavedFilter(
+      { name: "5AHIF", filter: { ...selection, tags } as never },
+      TEACHER,
+    );
+
+    expect(saved.filter.tags.event).toEqual([]);
   });
 });
 

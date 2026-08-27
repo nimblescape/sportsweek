@@ -11,18 +11,23 @@ import { NO_ANSWER, REPORT_FIELD_TAGS, reportFieldsOf } from "./report-fields";
 
 const keys = REPORT_FIELD_TAGS.map((tag) => tag.key);
 
+const EVENT_NAMES = new Map([["event1", "Woche 1"]]);
+const context = { eventNames: EVENT_NAMES };
+
 const lineFor = (label: string, record: StudentMasterData) => {
   const field = REPORT_FIELD_TAGS.flatMap((tag) => tag.fields).find(
     (candidate) => candidate.label === label,
   );
   if (!field) throw new Error(`No report field labelled ${label}`);
-  return field.valueOf(record);
+  return field.valueOf(record, context);
 };
 
 describe("REPORT_FIELD_TAGS", () => {
   it("offers every field US-13 lists, in the order it lists them", () => {
     expect(keys).toEqual([
+      "completeness",
       "attendance",
+      "event",
       "class",
       "gender",
       "dateOfBirth",
@@ -138,5 +143,22 @@ describe("a field's value", () => {
     expect(lineFor("Geburtsdatum", studentRecord({ dateOfBirth: null }))).toBeNull();
     expect(lineFor("Krankheiten oder Allergien", studentRecord({ healthNotes: null }))).toBeNull();
     expect(NO_ANSWER).toBe("keine Angabe");
+  });
+
+  it("states whether the registration is still missing answers (US-11, US-13)", () => {
+    expect(lineFor("Anmeldung", studentRecord())).toBe("Vollständig");
+    expect(lineFor("Anmeldung", studentRecord({ isIncomplete: true }))).toBe("Unvollständig");
+  });
+
+  it("names the event a student is assigned to, since the record points at it by id", () => {
+    expect(lineFor("Event", studentRecord({ eventId: "event1" }))).toBe("Woche 1");
+  });
+
+  it("leaves the event unanswered while nobody has assigned them a week yet", () => {
+    expect(lineFor("Event", studentRecord({ eventId: null }))).toBeNull();
+  });
+
+  it("leaves it unanswered too when the event it points at is gone", () => {
+    expect(lineFor("Event", studentRecord({ eventId: "deleted" }))).toBeNull();
   });
 });

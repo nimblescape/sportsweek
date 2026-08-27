@@ -11,7 +11,6 @@ export type RosterStudent = FilterableStudent & {
   /** The master data record, which is what an assignment is written to (US-12). */
   id: string;
   userId: string;
-  eventId: string | null;
   /** On the report's master line, where it is the one contact detail always shown (US-13). */
   email: string;
   /**
@@ -58,6 +57,7 @@ export function joinRoster(
           program: record.program,
           skillLevel: record.skillLevel,
           isAttending: record.isAttendingSportsWeek,
+          isIncomplete: record.isIncomplete,
           eventId: record.eventId,
         },
       ];

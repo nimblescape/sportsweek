@@ -157,8 +157,11 @@ entity "SavedReportFilter" as savedReportFilter {
   filter.tags.gender : enum(male, female)[]
   filter.tags.program : string[]
   filter.tags.skillLevel : string[]
-  filter.tags.attendance : enum(attending, notAttending)[]  ' US-13 only — the assignment dialog
-                                                            ' has no such category (US-12)
+  ' The three below are US-13 only — the assignment dialog has no use for any of them: its
+  ' cards are already one per event, and it lists only the students who are attending (US-12).
+  filter.tags.attendance : enum(attending, notAttending)[]
+  filter.tags.event : Event.id[]
+  filter.tags.completeness : enum(complete, incomplete)[]
 }
 
 ' Seasons & Events (US-4)

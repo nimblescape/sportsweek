@@ -17,8 +17,10 @@ const BENE = rosterStudent({
   class: "5BHIF",
 });
 
+const context = { eventNames: new Map([["event1", "Woche 1"]]) };
+
 const html = (students = [ANNA, BENE], fields = reportFieldsOf([])) =>
-  printableReportHtml(students, fields, { heading: "Bericht – Saison 2026" });
+  printableReportHtml(students, fields, { heading: "Bericht – Saison 2026", context });
 
 describe("printableReportHtml", () => {
   it("is a document of its own, in the language the report is written in", () => {
@@ -78,6 +80,7 @@ describe("printableReportHtml", () => {
 
     const printed = printableReportHtml([injected], reportFieldsOf(["health"]), {
       heading: "Bericht",
+      context,
     });
 
     expect(printed).not.toContain("<script>alert(1)</script>");
@@ -88,8 +91,16 @@ describe("printableReportHtml", () => {
   it("says a field is unanswered rather than printing an empty line", () => {
     const blank = rosterStudent({ id: "r5" }, { healthNotes: null });
 
-    expect(printableReportHtml([blank], reportFieldsOf(["health"]), { heading: "B" })).toContain(
-      "keine Angabe",
+    expect(
+      printableReportHtml([blank], reportFieldsOf(["health"]), { heading: "B", context }),
+    ).toContain("keine Angabe");
+  });
+
+  it("names the event a student is assigned to, which the record holds only by id", () => {
+    const assigned = rosterStudent({ id: "r6", eventId: "event1" });
+
+    expect(html([assigned], reportFieldsOf(["event"]))).toContain(
+      "<dt>Event:</dt><dd>Woche 1</dd>",
     );
   });
 });

@@ -6,7 +6,12 @@
 
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import type { StudentMasterData } from "@/lib/schemas/student-master-data";
-import { GENDER_LABELS, RELATIONSHIP_LABELS, yesNo } from "@/lib/student-master-data/answer-labels";
+import {
+  COMPLETENESS_LABELS,
+  GENDER_LABELS,
+  RELATIONSHIP_LABELS,
+  yesNo,
+} from "@/lib/student-master-data/answer-labels";
 
 /**
  * What the report says about a registration that still has answers outstanding. It reads the
@@ -18,11 +23,17 @@ export const INCOMPLETE_REGISTRATION_HINT = "Anmeldung unvollständig";
 /** A field a student has not answered is said to be unanswered, never left as a blank line. */
 export const NO_ANSWER = "keine Angabe";
 
+/**
+ * What a field needs beyond the registration itself. Only the event does: a record points at
+ * one by id, because unlike the teacher-maintained lists it is a genuine reference (US-11).
+ */
+export type ReportFieldContext = { eventNames: ReadonlyMap<string, string> };
+
 export type ReportField = {
   key: string;
   label: string;
   /** Null is "not answered"; the placeholder is the reader's business, not the field's. */
-  valueOf: (record: StudentMasterData) => string | null;
+  valueOf: (record: StudentMasterData, context: ReportFieldContext) => string | null;
 };
 
 /**
@@ -83,7 +94,14 @@ const answer = (key: string, label: string, valueOf: ReportField["valueOf"]): Re
  * and the e-mail address are not here, because the master line always carries them.
  */
 export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
+  answer("completeness", "Anmeldung", (record) =>
+    record.isIncomplete ? COMPLETENESS_LABELS.incomplete : COMPLETENESS_LABELS.complete,
+  ),
   answer("attendance", "Teilnahme", (record) => yesNo(record.isAttendingSportsWeek)),
+  // An event a teacher has since deleted reads as unanswered, which is what the student is.
+  answer("event", "Event", (record, { eventNames }) =>
+    record.eventId === null ? null : (eventNames.get(record.eventId) ?? null),
+  ),
   answer("class", "Klasse", (record) => record.class),
   answer("gender", "Geschlecht", (record) =>
     record.gender === null ? null : GENDER_LABELS[record.gender],

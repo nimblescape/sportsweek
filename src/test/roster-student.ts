@@ -66,6 +66,7 @@ export function rosterStudent(
     program: "Ski",
     skillLevel: "Profi",
     isAttending: true,
+    isIncomplete: answers.isIncomplete ?? false,
     eventId: null,
     ...overrides,
   } satisfies Omit<RosterStudent, "record">;
@@ -77,6 +78,7 @@ export function rosterStudent(
       userId: row.userId,
       eventId: row.eventId,
       isAttendingSportsWeek: row.isAttending,
+      isIncomplete: row.isIncomplete,
       class: row.class,
       gender: row.gender,
       program: row.program,

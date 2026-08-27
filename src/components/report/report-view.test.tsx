@@ -12,6 +12,7 @@ import { rosterStudent } from "@/test/roster-student";
 
 const useSeasons = vi.fn();
 const useRoster = vi.fn();
+const useEvents = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
 const useSavedFilters = vi.fn();
@@ -19,6 +20,7 @@ const apiRequest = vi.fn();
 
 vi.mock("@/lib/seasons/use-seasons", () => ({ useSeasons: () => useSeasons() }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
+vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (key: string) => useMasterData(key),
   usePrograms: () => usePrograms(),
@@ -69,6 +71,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   useSeasons.mockReturnValue({ seasons: [season], loading: false, error: null });
   useRoster.mockReturnValue({ students: [BENE, ANNA], loading: false, error: null });
+  useEvents.mockReturnValue({
+    events: [{ id: "event1", seasonId: "s1", name: "Woche 1", position: 0 }],
+    loading: false,
+    error: null,
+  });
   useMasterData.mockImplementation((key: string) =>
     key === "classes" ? listOf("5AHIF", "5BHIF") : listOf("Profi"),
   );
@@ -145,6 +152,31 @@ describe("ReportView", () => {
     expect(rows()).toHaveLength(1);
     expect(rowOf("Berger")).toBeInTheDocument();
   });
+
+  it("filters by the event a student is assigned to", async () => {
+    const assigned = student("Dora", "Dorn", { eventId: "event1" });
+    useRoster.mockReturnValue({ students: [assigned, ANNA], loading: false, error: null });
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Event: Woche 1" }));
+
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Dorn")).toBeInTheDocument();
+  });
+
+  it("filters by whether a registration is still missing answers", async () => {
+    const chasing = rosterStudent(
+      { id: "record-Cerny", firstName: "Clara", lastName: "Cerny", isIncomplete: true },
+      { isIncomplete: true },
+    );
+    useRoster.mockReturnValue({ students: [chasing, ANNA], loading: false, error: null });
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Anmeldung: unvollständig" }));
+
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Cerny")).toBeInTheDocument();
+  });
 });
 
 const detailsOf = (lastName: string) =>
@@ -218,6 +250,23 @@ describe("the fields tag list", () => {
     await userEvent.click(screen.getByRole("button", { name: "Teilnahme: nimmt teil" }));
     expect(rows()).toHaveLength(1);
     expect(detailsOf("Muster")).toEqual(["Klasse:"]);
+  });
+
+  it("names the event a student is assigned to, which the record holds only by id", async () => {
+    const assigned = student("Dora", "Dorn", { eventId: "event1" });
+    useRoster.mockReturnValue({ students: [assigned], loading: false, error: null });
+
+    render(<ReportView />);
+    await activate("Event");
+
+    expect(within(rowOf("Dorn")).getByRole("definition")).toHaveTextContent("Woche 1");
+  });
+
+  it("states whether a registration is still missing answers", async () => {
+    render(<ReportView />);
+    await activate("Anmeldung");
+
+    expect(within(rowOf("Muster")).getByRole("definition")).toHaveTextContent("Vollständig");
   });
 });
 

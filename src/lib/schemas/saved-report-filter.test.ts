@@ -37,12 +37,23 @@ describe("savedReportFilterSchema", () => {
     );
   });
 
-  it("needs every category, so a filter is never half a selection", () => {
-    const tags = without("attendance");
+  it("reads a category added after a filter was saved as no restriction from it", () => {
+    const tags = without("event");
+
+    const parsed = savedReportFilterSchema.parse({
+      ...saved,
+      filter: { ...selection, tags },
+    });
+
+    expect(parsed.filter.tags.event).toEqual([]);
+  });
+
+  it("keeps only the categories the report filters by", () => {
+    const tags = { ...selection.tags, favouriteColour: ["red"] };
 
     expect(
-      savedReportFilterSchema.safeParse({ ...saved, filter: { ...selection, tags } }).success,
-    ).toBe(false);
+      savedReportFilterSchema.parse({ ...saved, filter: { ...selection, tags } }).filter,
+    ).toEqual(selection);
   });
 });
 

@@ -26,3 +26,9 @@ export const RELATIONSHIP_LABELS: Record<Relationship, string> = {
 export const YES_NO_LABELS = { false: "Nein", true: "Ja" } as const;
 
 export const yesNo = (value: boolean): string => YES_NO_LABELS[value ? "true" : "false"];
+
+/** Not an answer a student gives, but the flag the server derives from them (US-11, US-13). */
+export const COMPLETENESS_LABELS = {
+  complete: "Vollständig",
+  incomplete: "Unvollständig",
+} as const;

@@ -3,7 +3,12 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { INCOMPLETE_REGISTRATION_HINT, NO_ANSWER, type ReportField } from "./report-fields";
+import {
+  INCOMPLETE_REGISTRATION_HINT,
+  NO_ANSWER,
+  type ReportField,
+  type ReportFieldContext,
+} from "./report-fields";
 import type { RosterStudent } from "@/lib/students/roster";
 
 /** What a teacher is told when the browser refuses to open the print window (US-13). */
@@ -41,12 +46,16 @@ const PRINT_STYLES = `
   dd { margin: 0; }
 `;
 
-function detailLines(student: RosterStudent, fields: readonly ReportField[]): string {
+function detailLines(
+  student: RosterStudent,
+  fields: readonly ReportField[],
+  context: ReportFieldContext,
+): string {
   if (fields.length === 0) return "";
 
   const rows = fields
     .map((field) => {
-      const value = field.valueOf(student.record) ?? NO_ANSWER;
+      const value = field.valueOf(student.record, context) ?? NO_ANSWER;
       return `<div><dt>${escape(field.label)}:</dt><dd>${escape(value)}</dd></div>`;
     })
     .join("");
@@ -54,14 +63,18 @@ function detailLines(student: RosterStudent, fields: readonly ReportField[]): st
   return `<dl>${rows}</dl>`;
 }
 
-function studentBlock(student: RosterStudent, fields: readonly ReportField[]): string {
+function studentBlock(
+  student: RosterStudent,
+  fields: readonly ReportField[],
+  context: ReportFieldContext,
+): string {
   const name = escape(`${student.firstName} ${student.lastName}`);
   const email = `<span class="email">(${escape(student.email)})</span>`;
   const incomplete = student.record.isIncomplete
     ? ` <span class="incomplete">${INCOMPLETE_REGISTRATION_HINT}</span>`
     : "";
 
-  return `<li><p class="name">${name} ${email}${incomplete}</p>${detailLines(student, fields)}</li>`;
+  return `<li><p class="name">${name} ${email}${incomplete}</p>${detailLines(student, fields, context)}</li>`;
 }
 
 /**
@@ -76,9 +89,9 @@ function studentBlock(student: RosterStudent, fields: readonly ReportField[]): s
 export function printableReportHtml(
   students: readonly RosterStudent[],
   fields: readonly ReportField[],
-  { heading }: { heading: string },
+  { heading, context }: { heading: string; context: ReportFieldContext },
 ): string {
-  const body = students.map((student) => studentBlock(student, fields)).join("");
+  const body = students.map((student) => studentBlock(student, fields, context)).join("");
 
   return [
     "<!doctype html>",

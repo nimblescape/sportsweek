@@ -85,14 +85,13 @@ describe("POST /api/report-filters", () => {
     expect(createSavedFilter).not.toHaveBeenCalled();
   });
 
-  it("rejects a selection that is missing a category", async () => {
+  it("fills in a category that did not exist when the filter was saved", async () => {
     const tags = Object.fromEntries(
-      Object.entries(selection.tags).filter(([category]) => category !== "attendance"),
+      Object.entries(selection.tags).filter(([category]) => category !== "event"),
     );
 
-    const response = await POST(postRequest({ name: "5AHIF", filter: { ...selection, tags } }));
+    await POST(postRequest({ name: "5AHIF", filter: { ...selection, tags } }));
 
-    expect(response.status).toBe(400);
-    expect(createSavedFilter).not.toHaveBeenCalled();
+    expect(createSavedFilter).toHaveBeenCalledWith({ name: "5AHIF", filter: selection }, TEACHER);
   });
 });

@@ -10,11 +10,13 @@ import { rosterStudent } from "@/test/roster-student";
 
 const useSeasons = vi.fn();
 const useRoster = vi.fn();
+const useEvents = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
 
 vi.mock("@/lib/seasons/use-seasons", () => ({ useSeasons: () => useSeasons() }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
+vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (key: string) => useMasterData(key),
   usePrograms: () => usePrograms(),
@@ -59,6 +61,7 @@ beforeEach(() => {
     loading: false,
     error: null,
   });
+  useEvents.mockReturnValue({ events: [], loading: false, error: null });
   useMasterData.mockImplementation((key: string) =>
     key === "classes" ? listOf("5AHIF", "5BHIF") : listOf("Profi"),
   );

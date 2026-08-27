@@ -29,10 +29,14 @@ const filterUrl = (id: string) => `/api/report-filters/${encodeURIComponent(id)}
 /**
  * The student report of US-13, scoped to the active season and listing everyone registered for
  * it — including the students who answered "no", which is what sets it apart from the assignment
- * dialog and is why its filter carries an attendance category.
+ * dialog and is why its filter carries categories the board has no use for.
  */
 export function ReportView() {
-  const { season, loading, error, students, filterGroups } = useSeasonRoster({ attendance: true });
+  const { season, loading, error, students, events, filterGroups } = useSeasonRoster({
+    attendance: true,
+    completeness: true,
+    events: true,
+  });
   const { filters: savedFilters } = useSavedFilters();
   const [filter, setFilter] = useState(EMPTY_FILTER);
   const [activeFields, setActiveFields] = useState<string[]>([]);
@@ -43,6 +47,11 @@ export function ReportView() {
 
   const shown = useMemo(() => filterStudents(students, filter), [students, filter]);
   const fields = useMemo(() => reportFieldsOf(activeFields), [activeFields]);
+  // A record points at its event by id, so the detail line needs the season's events to name it.
+  const context = useMemo(
+    () => ({ eventNames: new Map(events.map((event) => [event.id, event.name])) }),
+    [events],
+  );
 
   // Writes go through handlers because the author is the session's, not the request's (US-13);
   // the list itself comes back from the subscription rather than from these answers.
@@ -72,7 +81,7 @@ export function ReportView() {
     setPrintError(null);
     const heading = season === null ? "Bericht" : `Bericht – Saison ${season.name}`;
     popup.document.open();
-    popup.document.write(printableReportHtml(shown, fields, { heading }));
+    popup.document.write(printableReportHtml(shown, fields, { heading, context }));
     popup.document.close();
   }
 
@@ -131,7 +140,7 @@ export function ReportView() {
 
           <Card>
             <CardContent>
-              <ReportList students={shown} fields={fields} />
+              <ReportList students={shown} fields={fields} context={context} />
             </CardContent>
           </Card>
         </>

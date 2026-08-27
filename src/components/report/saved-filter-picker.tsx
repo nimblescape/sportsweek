@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { StudentFilter } from "@/lib/filters/student-filter";
+import { sameFilter } from "@/lib/filters/student-filter";
 import { savedReportFilterSchema, type SavedReportFilter } from "@/lib/schemas/saved-report-filter";
 import { useHoverCapability } from "@/lib/ui/use-hover-capability";
 
@@ -46,6 +47,10 @@ export function SavedFilterPicker({
   const [editing, setEditing] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<string | null>(null);
   const container = React.useRef<HTMLDivElement>(null);
+
+  // Derived, not remembered: the name goes as soon as a tag is changed, because by then the
+  // report is no longer showing what was saved.
+  const selected = filters.find((candidate) => sameFilter(candidate.filter, current)) ?? null;
 
   const close = React.useCallback(() => {
     setPanel("none");
@@ -95,7 +100,7 @@ export function SavedFilterPicker({
         aria-expanded={panel === "list"}
         onClick={() => setPanel(panel === "list" ? "none" : "list")}
       >
-        {LIST_LABEL}
+        {selected === null ? LIST_LABEL : `${LIST_LABEL}: ${selected.name}`}
         <ChevronDown aria-hidden data-icon="inline-end" />
       </Button>
 
@@ -119,6 +124,7 @@ export function SavedFilterPicker({
                 <li key={filter.id} role="none">
                   <FilterRow
                     filter={filter}
+                    selected={filter.id === selected?.id}
                     editing={editing === filter.id}
                     confirming={confirming === filter.id}
                     onApply={() => {
@@ -171,6 +177,7 @@ export function SavedFilterPicker({
 
 type FilterRowProps = {
   filter: SavedReportFilter;
+  selected: boolean;
   editing: boolean;
   confirming: boolean;
   onApply: () => void;
@@ -183,6 +190,7 @@ type FilterRowProps = {
 
 function FilterRow({
   filter,
+  selected,
   editing,
   confirming,
   onApply,
@@ -220,10 +228,13 @@ function FilterRow({
       <button
         type="button"
         role="option"
-        aria-selected={false}
+        aria-selected={selected}
         tabIndex={-1}
         onClick={onApply}
-        className="focus-visible:ring-ring/50 min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-sm outline-none focus-visible:ring-3"
+        className={cn(
+          "focus-visible:ring-ring/50 min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-sm outline-none focus-visible:ring-3",
+          selected && "font-medium",
+        )}
       >
         {filter.name}
       </button>

@@ -38,11 +38,11 @@ const onSave = vi.fn();
 const onRename = vi.fn();
 const onDelete = vi.fn();
 
-function setup(filters: SavedReportFilter[] = FILTERS) {
+function setup(filters: SavedReportFilter[] = FILTERS, current: StudentFilter = selection) {
   render(
     <SavedFilterPicker
       filters={filters}
-      current={selection}
+      current={current}
       onApply={onApply}
       onSave={onSave}
       onRename={onRename}
@@ -51,7 +51,7 @@ function setup(filters: SavedReportFilter[] = FILTERS) {
   );
 }
 
-const open = () => userEvent.click(screen.getByRole("button", { name: "Gespeicherte Filter" }));
+const open = () => userEvent.click(screen.getByRole("button", { name: /^Gespeicherte Filter/ }));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -102,6 +102,32 @@ describe("SavedFilterPicker", () => {
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+  });
+});
+
+describe("naming what is currently shown", () => {
+  it("names the saved filter whose selection the report is showing", () => {
+    setup(FILTERS, FILTERS[0].filter);
+
+    expect(screen.getByRole("button", { name: "Gespeicherte Filter: 5AHIF" })).toBeInTheDocument();
+  });
+
+  it("marks that entry as the selected one in the list", async () => {
+    setup(FILTERS, FILTERS[0].filter);
+    await open();
+
+    expect(screen.getByRole("option", { name: "5AHIF" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("option", { name: "Alle Mädchen" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+  });
+
+  /** Derived rather than remembered, so it cannot go on claiming a filter that no longer applies. */
+  it("stops naming one as soon as the teacher changes a tag", () => {
+    setup(FILTERS, toggleTag(FILTERS[0].filter, "gender", "male"));
+
+    expect(screen.getByRole("button", { name: "Gespeicherte Filter" })).toBeInTheDocument();
   });
 });
 
