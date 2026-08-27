@@ -50,6 +50,8 @@ type AssignmentCardProps = {
   filter: StudentFilter;
   onFilterChange: (next: StudentFilter) => void;
   picked: readonly string[];
+  /** The ids a drag is currently carrying, all of which are faded where they stand. */
+  carried: ReadonlySet<string>;
   onToggle: (recordId: string) => void;
   onToggleAll: (students: readonly RosterStudent[], allPicked: boolean) => void;
 };
@@ -72,6 +74,7 @@ export function AssignmentCard({
   filter,
   onFilterChange,
   picked,
+  carried,
   onToggle,
   onToggleAll,
 }: AssignmentCardProps) {
@@ -147,6 +150,7 @@ export function AssignmentCard({
                     name={ALL_LABEL}
                     label={ALL_NAME}
                     picked={allPicked}
+                    carried={false}
                     onToggle={() => onToggleAll(shown, allPicked)}
                   />
                 )}
@@ -157,6 +161,7 @@ export function AssignmentCard({
                     data={{ group: group.id }}
                     name={studentTagName(student)}
                     picked={picked.includes(student.id)}
+                    carried={carried.has(student.id)}
                     onToggle={() => onToggle(student.id)}
                   />
                 ))}
@@ -215,6 +220,7 @@ function Row({
   name,
   label,
   picked,
+  carried,
   onToggle,
 }: {
   dragId: string;
@@ -222,13 +228,10 @@ function Row({
   name: string;
   label?: string;
   picked: boolean;
+  carried: boolean;
   onToggle: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: dragId,
-    // The overlay is drawn from this, so it can name the tag without looking the student up again.
-    data: { ...data, name },
-  });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: dragId, data });
 
   /**
    * The whole row is what a pointer drags; the handle is what a keyboard drags. Splitting the
@@ -255,7 +258,7 @@ function Row({
   }
 
   return (
-    <li ref={setNodeRef} className={cn(isDragging && "opacity-40")}>
+    <li ref={setNodeRef} className={cn((isDragging || carried) && "opacity-40")}>
       <div className={cn(TAG_BOX, picked && TAG_PICKED)}>
         <button
           type="button"

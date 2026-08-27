@@ -94,8 +94,14 @@ export function AssignmentBoard({
   const [filters, setFilters] = useState<Readonly<Record<string, StudentFilter>>>({});
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // The names of the tags under the pointer, which is all the overlay needs to draw them.
-  const [dragged, setDragged] = useState<string[] | null>(null);
+  // What a pointer or keyboard is carrying, and whether an overlay is drawing it.
+  const [drag, setDrag] = useState<{
+    students: readonly RosterStudent[];
+    overlay: boolean;
+  } | null>(null);
+
+  // Every tag a drag is carrying is faded where it stands, not just the one under the pointer.
+  const carried = new Set(drag?.students.map((student) => student.id));
 
   const sensors = useSensors(
     // A short distance threshold, so a tap on a row is not mistaken for the start of a drag.
@@ -128,7 +134,7 @@ export function AssignmentBoard({
   }
 
   function handleDragEnd({ active, over }: DragEndEvent) {
-    setDragged(null);
+    setDrag(null);
     const from = active.data.current?.group as string | undefined;
     // No target, or the card it started in: a cancelled drag changes nothing.
     if (!over || from === undefined || over.id === from) return;
@@ -142,19 +148,17 @@ export function AssignmentBoard({
     );
   }
 
-  /** The names of what a drag is carrying, or null while nothing is under a pointer. */
   function startDrag({ active, activatorEvent }: DragStartEvent) {
     const from = active.data.current?.group as string | undefined;
     const source = groups.find((group) => group.id === from);
+    if (!source) return;
 
-    // A keyboard drag has no pointer for an overlay to follow, and the tags it would copy are
-    // still on screen where the teacher left them.
-    if (activatorEvent instanceof KeyboardEvent || !source) {
-      setDragged(null);
-      return;
-    }
-
-    setDragged(carriedBy(active, source, filters[source.id], picked).map(studentTagName));
+    setDrag({
+      students: carriedBy(active, source, filters[source.id], picked),
+      // A keyboard drag has no pointer for an overlay to follow, and the tags it would copy are
+      // still on screen where the teacher left them.
+      overlay: !(activatorEvent instanceof KeyboardEvent),
+    });
   }
 
   return (
@@ -169,7 +173,7 @@ export function AssignmentBoard({
         sensors={sensors}
         collisionDetection={dropTarget}
         onDragStart={startDrag}
-        onDragCancel={() => setDragged(null)}
+        onDragCancel={() => setDrag(null)}
         onDragEnd={handleDragEnd}
       >
         <div className="flex flex-col gap-3">
@@ -185,6 +189,7 @@ export function AssignmentBoard({
               filter={filters[group.id] ?? EMPTY_FILTER}
               onFilterChange={(next) => setFilters((current) => ({ ...current, [group.id]: next }))}
               picked={picked}
+              carried={carried}
               onToggle={togglePicked}
               onToggleAll={toggleAll}
             />
@@ -193,17 +198,17 @@ export function AssignmentBoard({
 
         {/* Mounted only while a pointer is carrying something: an overlay measures itself, and
             one standing by with nothing in it would answer for where the drag is. */}
-        {dragged === null ? null : (
+        {drag?.overlay ? (
           <DragOverlay dropAnimation={null}>
             <ul className="flex w-max max-w-xs flex-wrap gap-1.5 opacity-80">
-              {dragged.map((name) => (
-                <li key={name}>
-                  <DraggedTag name={name} />
+              {drag.students.map((student) => (
+                <li key={student.id}>
+                  <DraggedTag name={studentTagName(student)} />
                 </li>
               ))}
             </ul>
           </DragOverlay>
-        )}
+        ) : null}
       </DndContext>
     </div>
   );
