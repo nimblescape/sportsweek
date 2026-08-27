@@ -9,6 +9,8 @@ import * as React from "react";
 import { CrudList, type CrudItem } from "@/components/master-data/crud-list";
 import { apiRequest } from "@/lib/api/client";
 import {
+  ARCHIVED_DATA_KEEPS_NAME_HINT,
+  ARCHIVED_DATA_UNCHANGED_HINT,
   categoryOf,
   CHILD_IN_USE_HINT,
   type MasterDataCategoryKey,
@@ -63,14 +65,12 @@ export function MasterDataView({
       }
       deleteNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird aus der Liste entfernt. Bereits gespeicherte
-          Schüler:innendaten bleiben unverändert.
+          <strong>{item.name}</strong> wird aus der Liste entfernt. {ARCHIVED_DATA_UNCHANGED_HINT}
         </>
       )}
       editNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird umbenannt. Bereits gespeicherte Schüler:innendaten
-          behalten den bisherigen Namen.
+          <strong>{item.name}</strong> wird umbenannt. {ARCHIVED_DATA_KEEPS_NAME_HINT}
         </>
       )}
     />

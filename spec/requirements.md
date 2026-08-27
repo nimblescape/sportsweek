@@ -134,7 +134,7 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 
 Unless a story below says otherwise, every list in this section follows the same edit/remove restriction: an item can only be edited or removed if it is not currently selected by any master data record (US-11) belonging to a non-archived season (US-4); when blocked by this rule, a hint is shown: "This item is still in use in a non-archived season. Archive that season to edit or remove it."
 
-Removing an item and renaming one both leave records that already hold it exactly as they are — a record in an archived season keeps the name it was given. Both dialogs say so before the teacher confirms, since neither consequence is visible from the list.
+Removing an item and renaming one both leave the records that already hold it exactly as they are, and those records can only belong to an archived season — the rule above is what allowed the edit in the first place. Both dialogs say so before the teacher confirms: a removed item stays in that data, and a renamed one keeps the name it was given there.
 
 Every list in this section also enforces unique names: two items of the same category cannot share a name, compared ignoring surrounding whitespace and letter case. The same name may of course appear in two different categories (e.g. a class and a program). Required equipment items (US-5) are unique within their program — two different programs may each require a helmet. A rejected name is reported on the name field itself, in German, and nothing is saved.
 
