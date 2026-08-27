@@ -34,6 +34,15 @@ const FILTER_LABEL = "Bericht";
 
 const reportUrl = (id: string) => `/api/saved-reports/${encodeURIComponent(id)}`;
 
+/** Two tag rows sit under each other and decide different things, so each says which it is. */
+function CardHeading({ children }: { children: string }) {
+  return (
+    <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+      {children}
+    </h2>
+  );
+}
+
 /**
  * The student report of US-13, scoped to the active season and listing everyone registered for
  * it — including the students who answered "no", which is what sets it apart from the assignment
@@ -197,6 +206,7 @@ export function ReportView() {
 
           <Card>
             <CardContent>
+              <CardHeading>Filter</CardHeading>
               <FilterTagList
                 label={FILTER_LABEL}
                 groups={filterGroups}
@@ -208,6 +218,7 @@ export function ReportView() {
 
           <Card>
             <CardContent>
+              <CardHeading>Datenfelder</CardHeading>
               <FieldTagList value={activeFields} onChange={setActiveFields} />
             </CardContent>
           </Card>
