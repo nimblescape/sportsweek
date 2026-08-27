@@ -41,6 +41,7 @@ export function ProgramEquipmentView({ programId }: { programId: string }) {
       loading={loading}
       error={error}
       blockedIds={blockedIds}
+      usagePending={report.loading}
       onSubmit={(name, item) =>
         save(
           item === null ? [...equipment, name] : equipment.map((e) => (e === item.id ? name : e)),
@@ -51,7 +52,7 @@ export function ProgramEquipmentView({ programId }: { programId: string }) {
       deleteNote={(item) => (
         <>
           <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.
-          Bereits gespeicherte Schülerdaten bleiben unverändert.
+          Bereits gespeicherte Schüler:innendaten bleiben unverändert.
         </>
       )}
     >

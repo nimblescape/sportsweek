@@ -169,7 +169,7 @@ describe("DeleteSeasonDialog", () => {
             error: {
               code: "CONFLICT",
               message:
-                "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.",
+                "Eine Saison mit Schüler:innendaten kann nur gelöscht werden, wenn sie archiviert ist.",
             },
           }),
           { status: 409, headers: { "content-type": "application/json" } },
@@ -182,7 +182,7 @@ describe("DeleteSeasonDialog", () => {
     await userEvent.click(deleteButton());
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.",
+      "Eine Saison mit Schüler:innendaten kann nur gelöscht werden, wenn sie archiviert ist.",
     );
     expect(onDeleted).not.toHaveBeenCalled();
   });

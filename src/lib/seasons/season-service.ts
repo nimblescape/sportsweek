@@ -129,7 +129,7 @@ export async function updateSeason(id: string, update: SeasonUpdate): Promise<Se
       if (masterData.empty) {
         throw new ServiceError(
           ErrorCode.Conflict,
-          "Eine Saison ohne Schülerdaten kann nicht archiviert werden.",
+          "Eine Saison ohne Schüler:innendaten kann nicht archiviert werden.",
         );
       }
       hasStudentData = true;
@@ -183,7 +183,7 @@ export async function deleteSeason(id: string): Promise<void> {
   if (!season.isArchived && !masterDataSnapshot.empty) {
     throw new ServiceError(
       ErrorCode.Conflict,
-      "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.",
+      "Eine Saison mit Schüler:innendaten kann nur gelöscht werden, wenn sie archiviert ist.",
     );
   }
 

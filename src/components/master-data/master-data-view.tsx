@@ -41,6 +41,7 @@ export function MasterDataView({
       loading={loading}
       error={error}
       blockedIds={report.blockedIds}
+      usagePending={report.loading}
       undeletableIds={new Set(Object.keys(report.blockedEquipment))}
       undeletableHint={CHILD_IN_USE_HINT}
       fixedItems={fixedItems}
@@ -63,7 +64,7 @@ export function MasterDataView({
       deleteNote={(item) => (
         <>
           <strong>{item.name}</strong> wird aus der Liste entfernt. Bereits gespeicherte
-          Schülerdaten bleiben unverändert.
+          Schüler:innendaten bleiben unverändert.
         </>
       )}
     />

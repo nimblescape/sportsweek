@@ -9,33 +9,12 @@ import { adminDb } from "@/lib/firebase/admin";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { reservationKey } from "./reservation-key";
 
-/**
- * Reduces a name to the form used for comparison: trimmed and case-folded, so "Montafon",
- * " montafon " and "MONTAFON" all count as the same name (US-4, US-5 to US-10).
- *
- * Deliberately not accent-folding — "Grün" and "Grun" are different words in German, and
- * treating them as one would reject legitimate names.
- */
-export function normalizeName(name: string): string {
-  return name.trim().toLocaleLowerCase("de-AT");
-}
-
-/**
- * The set a name has to be unique within: "seasons" covers every season, while
- * "events:<seasonId>" keeps events unique only inside their own season.
- */
-export function scopeOf(collection: string, parentId?: string): string {
-  return parentId === undefined ? collection : `${collection}:${parentId}`;
-}
-
-/** A slash would split the value into a subcollection path, so it cannot survive in an id. */
-function reservationId(scope: string, name: string): string {
-  return `${scope}|${normalizeName(name)}`.replaceAll("/", "\u2215");
-}
+export { normalizeName, scopeOf } from "./reservation-key";
 
 export function reservationRef(scope: string, name: string) {
-  return adminDb.collection(COLLECTIONS.reservedNames).doc(reservationId(scope, name));
+  return adminDb.collection(COLLECTIONS.reservedNames).doc(reservationKey(scope, name));
 }
 
 type Reservation = { scope: string; name: string; ownerId: string };

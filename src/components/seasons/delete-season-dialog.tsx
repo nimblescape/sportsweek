@@ -63,8 +63,8 @@ export function DeleteSeasonDialog({ open, season, onClose, onDeleted }: DeleteS
           <TriangleAlert aria-hidden className="text-destructive mt-0.5 size-4 shrink-0" />
           <span>
             Die Saison <strong className="text-foreground">{season.name}</strong> wird mit allen
-            Events und allen Stammdaten der Schülerinnen und Schüler gelöscht. Das kann nicht
-            rückgängig gemacht werden.
+            Events und allen Stammdaten der Schüler:innen gelöscht. Das kann nicht rückgängig
+            gemacht werden.
           </span>
         </span>
       }

@@ -125,7 +125,7 @@ describe("SeasonList — row actions", () => {
 
     expect(
       screen.getByRole("button", { name: "Saison Wintersportwoche 2026 löschen" }),
-    ).toHaveAccessibleDescription(/schülerdaten/i);
+    ).toHaveAccessibleDescription(/schüler:innendaten/i);
   });
 
   it("allows deleting an archived season, even though it still has student data", async () => {
@@ -255,7 +255,7 @@ describe("SeasonList — row actions", () => {
 
     expect(
       screen.getByRole("button", { name: "Saison Wintersportwoche 2024 archivieren" }),
-    ).toHaveAccessibleDescription(/schülerdaten/i);
+    ).toHaveAccessibleDescription(/schüler:innendaten/i);
   });
 
   it("allows unarchiving a season with no student data, since that rule only gates archiving", () => {
@@ -379,12 +379,46 @@ describe("SeasonList — tooltips", () => {
 
   it("explains on hover why deleting is unavailable, which the sr-only hint cannot do", async () => {
     renderList();
-    const hint = "Eine Saison mit Schülerdaten kann nur gelöscht werden, wenn sie archiviert ist.";
+    const hint =
+      "Eine Saison mit Schüler:innendaten kann nur gelöscht werden, wenn sie archiviert ist.";
     // One sr-only copy already exists per disabled row; hovering adds the visible one.
     const before = screen.getAllByText(hint).length;
 
     await userEvent.hover(
       screen.getByRole("button", { name: "Saison Wintersportwoche 2026 löschen" }).parentElement!,
+    );
+
+    await waitFor(() => expect(screen.getAllByText(hint)).toHaveLength(before + 1));
+    expect(screen.getAllByText(hint).some((node) => !node.className.includes("sr-only"))).toBe(
+      true,
+    );
+  });
+
+  it("explains on hover why the active season cannot be archived", async () => {
+    renderList();
+    const hint =
+      "Eine aktive Saison muss zuerst deaktiviert werden, damit sie archiviert werden kann.";
+    const before = screen.getAllByText(hint).length;
+
+    await userEvent.hover(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2026 archivieren" })
+        .parentElement!,
+    );
+
+    await waitFor(() => expect(screen.getAllByText(hint)).toHaveLength(before + 1));
+    expect(screen.getAllByText(hint).some((node) => !node.className.includes("sr-only"))).toBe(
+      true,
+    );
+  });
+
+  it("explains on hover why a season without student data cannot be archived", async () => {
+    renderList();
+    const hint = "Eine Saison ohne Schüler:innendaten kann nicht archiviert werden.";
+    const before = screen.getAllByText(hint).length;
+
+    await userEvent.hover(
+      screen.getByRole("button", { name: "Saison Wintersportwoche 2024 archivieren" })
+        .parentElement!,
     );
 
     await waitFor(() => expect(screen.getAllByText(hint)).toHaveLength(before + 1));

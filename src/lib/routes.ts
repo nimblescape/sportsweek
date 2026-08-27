@@ -10,11 +10,17 @@ export const ROUTES = {
   appRoot: "/app",
   report: "/app/report",
   assignment: "/app/assignment",
+  statistics: "/app/statistics",
   masterData: "/app/master-data",
   studentMasterData: "/app/my-master-data",
 } as const;
 
-export const TEACHER_ONLY_PREFIXES = [ROUTES.report, ROUTES.assignment, ROUTES.masterData] as const;
+export const TEACHER_ONLY_PREFIXES = [
+  ROUTES.report,
+  ROUTES.assignment,
+  ROUTES.statistics,
+  ROUTES.masterData,
+] as const;
 
 // A teacher has no master data record of their own, so this page is student-only (US-15).
 export const STUDENT_ONLY_PREFIXES = [ROUTES.studentMasterData] as const;

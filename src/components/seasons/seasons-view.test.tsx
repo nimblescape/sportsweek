@@ -253,7 +253,7 @@ describe("SeasonsView — deleting", () => {
     stubFetch(() =>
       Promise.resolve(
         new Response(
-          JSON.stringify({ error: { code: "CONFLICT", message: "Hat noch Schülerdaten." } }),
+          JSON.stringify({ error: { code: "CONFLICT", message: "Hat noch Schüler:innendaten." } }),
           { status: 409, headers: { "content-type": "application/json" } },
         ),
       ),
@@ -262,7 +262,7 @@ describe("SeasonsView — deleting", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Saison Winter 2024 löschen" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Hat noch Schülerdaten.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Hat noch Schüler:innendaten.");
   });
 });
 

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { stubRowLayout } from "@/test/stub-row-layout";
-import { CHILD_IN_USE_HINT, IN_USE_HINT } from "@/lib/master-data/categories";
+import { CHILD_IN_USE_HINT, IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
 
 const useMasterData = vi.fn();
 const useUsageReport = vi.fn();
@@ -49,7 +49,11 @@ const conflict = (message: string) =>
 beforeEach(() => {
   stubRowLayout();
   useMasterData.mockReturnValue({ items, loading: false, error: null });
-  useUsageReport.mockReturnValue({ blockedIds: new Set<string>(), blockedEquipment: {} });
+  useUsageReport.mockReturnValue({
+    blockedIds: new Set<string>(),
+    blockedEquipment: {},
+    loading: false,
+  });
 });
 
 afterEach(() => {
@@ -290,7 +294,11 @@ describe("MasterDataView — while a write is in flight", () => {
 
 describe("MasterDataView — the in-use restriction", () => {
   beforeEach(() =>
-    useUsageReport.mockReturnValue({ blockedIds: new Set(["c1"]), blockedEquipment: {} }),
+    useUsageReport.mockReturnValue({
+      blockedIds: new Set(["c1"]),
+      blockedEquipment: {},
+      loading: false,
+    }),
   );
 
   it("disables editing and deleting for an item still in use", () => {
@@ -325,6 +333,7 @@ describe("MasterDataView — an item whose own list is in use", () => {
     useUsageReport.mockReturnValue({
       blockedIds: new Set<string>(),
       blockedEquipment: { c1: ["Helm"] },
+      loading: false,
     }),
   );
 
@@ -344,6 +353,35 @@ describe("MasterDataView — an item whose own list is in use", () => {
     renderView();
 
     expect(screen.getAllByText(CHILD_IN_USE_HINT).length).toBeGreaterThan(0);
+  });
+});
+
+describe("MasterDataView — while the in-use check is still running", () => {
+  beforeEach(() =>
+    useUsageReport.mockReturnValue({
+      blockedIds: new Set<string>(),
+      blockedEquipment: {},
+      loading: true,
+    }),
+  );
+
+  it("starts out disabled, rather than offering the controls and taking them back", () => {
+    renderView();
+
+    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Klasse 3AHIT löschen" })).toBeDisabled();
+  });
+
+  it("says what is being checked", () => {
+    renderView();
+
+    expect(screen.getAllByText(USAGE_PENDING_HINT).length).toBeGreaterThan(0);
+  });
+
+  it("leaves ordering alone, which no usage can block", () => {
+    renderView();
+
+    expect(screen.getByRole("button", { name: "3AHIT verschieben" })).toBeEnabled();
   });
 });
 
@@ -378,7 +416,11 @@ describe("MasterDataView — per-row actions", () => {
   });
 
   it("leaves the extra action reachable for an item the in-use guard blocks", () => {
-    useUsageReport.mockReturnValue({ blockedIds: new Set(["c1"]), blockedEquipment: {} });
+    useUsageReport.mockReturnValue({
+      blockedIds: new Set(["c1"]),
+      blockedEquipment: {},
+      loading: false,
+    });
     renderView({
       renderRowAction: (item: { id: string; name: string }) => (
         <a href={`/detail/${item.id}`}>Details zu {item.name}</a>
@@ -398,7 +440,11 @@ describe("MasterDataView — ordering", () => {
   });
 
   it("offers the handle even for an item the in-use guard blocks, since ordering is always allowed", () => {
-    useUsageReport.mockReturnValue({ blockedIds: new Set(["c1"]), blockedEquipment: {} });
+    useUsageReport.mockReturnValue({
+      blockedIds: new Set(["c1"]),
+      blockedEquipment: {},
+      loading: false,
+    });
     renderView();
 
     expect(screen.getByRole("button", { name: "3AHIT verschieben" })).toBeEnabled();

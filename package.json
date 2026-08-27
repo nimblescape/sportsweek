@@ -15,6 +15,10 @@
     "start": "next start",
     "lint": "eslint",
     "rules:development": "firebase deploy --only firestore:rules,firestore:indexes,storage --project htld-sportsweek-development",
+    "purge:development": "tsx scripts/purge-environment.mts development",
+    "purge:staging": "tsx scripts/purge-environment.mts staging",
+    "seed:development": "tsx scripts/seed-students.mts development",
+    "seed:staging": "tsx scripts/seed-students.mts staging",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "license:check": "node scripts/check-license-headers.mjs",
@@ -66,6 +70,7 @@
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "~6.0.3",
     "vitest": "^4.1.11",
     "yaml": "^2.9.0"

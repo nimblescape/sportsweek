@@ -61,9 +61,9 @@ describe("ImpersonationDialog", () => {
   it("offers the already known users by UPN alone", async () => {
     renderDialog();
 
-    const dropdown = await screen.findByLabelText("Bestehende Benutzer");
+    const dropdown = await screen.findByLabelText("Bestehende Benutzer:innen");
     expect([...dropdown.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
-      "Neuer Benutzer",
+      "Neue Person",
       ...KNOWN_USERS.map((entry) => entry.upn),
     ]);
   });
@@ -71,7 +71,7 @@ describe("ImpersonationDialog", () => {
   it("fills the form from the picked user", async () => {
     const { user } = renderDialog();
 
-    const dropdown = await screen.findByLabelText("Bestehende Benutzer");
+    const dropdown = await screen.findByLabelText("Bestehende Benutzer:innen");
     await user.selectOptions(dropdown, "zoe.zimmer@student.htldornbirn.at");
 
     expect(screen.getByLabelText("Vorname")).toHaveValue("Zoe");

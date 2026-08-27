@@ -73,9 +73,12 @@ beforeEach(async () => {
 });
 
 /**
- * A student's own record is theirs to read and nobody else's. It carries everything it needs —
- * the emergency contact and the rented equipment are fields of it, so there is no child document
- * whose ownership would have to be worked out separately.
+ * A student's own record is theirs to read and no other student's. It carries everything it
+ * needs — the emergency contact and the rented equipment are fields of it, so there is no child
+ * document whose ownership would have to be worked out separately.
+ *
+ * A teacher reads all of them, which is what the assignment dialog (US-12) and the report
+ * (US-13) are: a view of every registration in the active season at once.
  *
  * Writes are closed for the reason they are everywhere else: a save carries invariants rules
  * cannot run a query for — it belongs to *the* active season, answering "no" gives up the event
@@ -103,6 +106,19 @@ describe("/studentMasterData", () => {
     await assertSucceeds(
       newcomer.collection("studentMasterData").where("userId", "==", NEWCOMER_UPN).get(),
     );
+  });
+
+  /**
+   * The whole collection, because a teacher plans across it: the assignment dialog counts every
+   * class and every event of the active season (US-12) and the report lists every student
+   * (US-13). Both watch it live, so the tables follow an assignment the moment it is stored.
+   */
+  it("lets a teacher query every record, which is what the assignment dialog subscribes to", async () => {
+    await assertSucceeds(teacher().collection("studentMasterData").get());
+  });
+
+  it("lets a teacher read a single record", async () => {
+    await assertSucceeds(teacher().collection("studentMasterData").doc(FOREIGN_RECORD).get());
   });
 
   it("denies a student reading another student's record", async () => {
