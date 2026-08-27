@@ -263,14 +263,18 @@ function Row({
   }
 
   return (
-    <li ref={setNodeRef} className={cn((isDragging || carried) && "opacity-40")}>
+    <li
+      ref={setNodeRef}
+      className={cn((isDragging || carried) && "opacity-40", isDragging && "cursor-grabbing")}
+    >
       <div className={cn(TAG_BOX, picked && TAG_PICKED)}>
         <button
           type="button"
           aria-label={`${label ?? name} verschieben`}
           className={cn(
             TAG_GRIP,
-            "hover:text-foreground focus-visible:ring-ring/50 cursor-grab touch-none rounded-l-md transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing",
+            "hover:text-foreground focus-visible:ring-ring/50 cursor-grab touch-none rounded-l-md transition-colors outline-none focus-visible:ring-3",
+            isDragging && "cursor-grabbing",
           )}
           {...attributes}
           onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined}

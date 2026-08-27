@@ -256,7 +256,9 @@ function SavedReportTag({
           size: "lg",
         }),
         "gap-0.5 px-1",
-        isDragging && "relative z-10 opacity-80",
+        // The handle offers the grab; the tag itself is pressed, and only says so once a drag is
+        // really under way.
+        isDragging && "relative z-10 cursor-grabbing opacity-80",
       )}
     >
       {/* The whole tag is what a pointer drags; the grip is what a keyboard drags. Splitting the
@@ -266,7 +268,10 @@ function SavedReportTag({
         type="button"
         aria-label={`${report.name} verschieben`}
         disabled={pending}
-        className="focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-0.5 outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50"
+        className={cn(
+          "focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-0.5 outline-none focus-visible:ring-3 disabled:cursor-default disabled:opacity-50",
+          isDragging && "cursor-grabbing",
+        )}
         {...attributes}
         onKeyDown={listeners?.onKeyDown as React.KeyboardEventHandler | undefined}
       >
@@ -281,7 +286,7 @@ function SavedReportTag({
         disabled={pending}
         onPointerDown={listeners?.onPointerDown as React.PointerEventHandler | undefined}
         onClick={onOpen}
-        className="focus-visible:ring-ring/50 max-w-60 cursor-grab touch-none truncate rounded-md px-1.5 outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50"
+        className="focus-visible:ring-ring/50 max-w-60 touch-none truncate rounded-md px-1.5 outline-none focus-visible:ring-3 disabled:opacity-50"
       >
         {report.name}
       </button>
