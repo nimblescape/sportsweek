@@ -44,7 +44,7 @@ type AssignmentCardProps = {
   skillLevels: readonly string[];
   /** The columns the group was counted with, so the filtered figures line up with it. */
   columns: readonly SkillColumn[];
-  /** Everyone registered for the season, taking part or not — what "Teilnahme" is measured against. */
+  /** Everyone registered for the event series, taking part or not — what "Teilnahme" is measured against. */
   registered: readonly RosterStudent[];
   filterGroups: readonly FilterGroup[];
   filter: StudentFilter;
@@ -86,7 +86,7 @@ export function AssignmentCard({
   const allPicked = shown.every((student) => picked.includes(student.id));
   const pickedShown = shown.filter((student) => picked.includes(student.id)).length;
   const counts = countFiltered ? attendingCounts(shown, columns) : group;
-  // Always the season's whole roster rather than the board, which holds no one who stays at
+  // Always the event series' whole roster rather than the board, which holds no one who stays at
   // home; the filter narrows it alongside the numerator so both answer the same question.
   const measuredAgainst = countFiltered ? filterStudents(registered, filter) : registered;
 

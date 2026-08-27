@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname() }));
 const { TeacherNav } = await import("@/components/layout/teacher-nav");
 
 const SUB_ITEMS = [
-  "Saisonen",
+  "Eventreihen",
   "Programme",
   "Klassen",
   "Leistungsstufen",

@@ -9,39 +9,44 @@ import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { eventSchema, seasonSchema, type Season } from "@/lib/schemas/season";
-import { studentMasterDataSchema } from "@/lib/schemas/student-master-data";
-import { activeSeasonOf, NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
+import { eventSchema, eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
+import { registrationSchema } from "@/lib/schemas/registration";
+import {
+  activeEventSeriesOf,
+  NO_ACTIVE_EVENT_SERIES_HINT,
+} from "@/lib/event-series/event-series-state";
 
 /** The two answers the assignment turns on, derived so a rename cannot pass this by. */
-const assignableSchema = studentMasterDataSchema.pick({
-  seasonId: true,
+const assignableSchema = registrationSchema.pick({
+  eventSeriesId: true,
   isAttendingSportsWeek: true,
 });
 
-async function requireActiveSeason(): Promise<Season> {
+async function requireActiveEventSeries(): Promise<EventSeries> {
   const snapshot = await adminDb
-    .collection(COLLECTIONS.seasons)
+    .collection(COLLECTIONS.eventSeries)
     .where("isActive", "==", true)
     .get();
 
-  const active = activeSeasonOf(
-    snapshot.docs.map((season) => seasonSchema.parse({ id: season.id, ...season.data() })),
+  const active = activeEventSeriesOf(
+    snapshot.docs.map((eventSeries) =>
+      eventSeriesSchema.parse({ id: eventSeries.id, ...eventSeries.data() }),
+    ),
   );
 
-  if (!active) throw new ServiceError(ErrorCode.Conflict, NO_ACTIVE_SEASON_HINT);
+  if (!active) throw new ServiceError(ErrorCode.Conflict, NO_ACTIVE_EVENT_SERIES_HINT);
   return active;
 }
 
-async function requireEventOfSeason(eventId: string, seasonId: string): Promise<void> {
+async function requireEventOfEventSeries(eventId: string, eventSeriesId: string): Promise<void> {
   const snapshot = await adminDb.collection(COLLECTIONS.events).doc(eventId).get();
   if (!snapshot.exists) {
     throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es nicht.");
   }
 
   const event = eventSchema.parse({ id: eventId, ...snapshot.data() });
-  if (event.seasonId !== seasonId) {
-    throw new ServiceError(ErrorCode.Conflict, "Dieses Event gehört nicht zur aktiven Saison.");
+  if (event.eventSeriesId !== eventSeriesId) {
+    throw new ServiceError(ErrorCode.Conflict, "Dieses Event gehört nicht zur aktiven Eventreihe.");
   }
 }
 
@@ -59,11 +64,11 @@ export async function assignStudents(
   recordIds: readonly string[],
   eventId: string | null,
 ): Promise<void> {
-  const season = await requireActiveSeason();
-  if (eventId !== null) await requireEventOfSeason(eventId, season.id);
+  const eventSeries = await requireActiveEventSeries();
+  if (eventId !== null) await requireEventOfEventSeries(eventId, eventSeries.id);
 
   const references = recordIds.map((recordId) =>
-    adminDb.collection(COLLECTIONS.studentMasterData).doc(recordId),
+    adminDb.collection(COLLECTIONS.registrations).doc(recordId),
   );
 
   // All in flight together. Read one after the other, moving a class was as many round trips as
@@ -76,10 +81,10 @@ export async function assignStudents(
     }
 
     const record = assignableSchema.parse(snapshot.data());
-    if (record.seasonId !== season.id) {
+    if (record.eventSeriesId !== eventSeries.id) {
       throw new ServiceError(
         ErrorCode.Conflict,
-        "Nur Anmeldungen der aktiven Saison können zugeteilt werden.",
+        "Nur Anmeldungen der aktiven Eventreihe können zugeteilt werden.",
       );
     }
     if (eventId !== null && !record.isAttendingSportsWeek) {

@@ -60,7 +60,7 @@ export function requireTeacherIdentityOrResponse(): Promise<IdentifiedOutcome> {
 
 /**
  * Roles are hierarchical everywhere else, but not here: a teacher keeps no master data of their
- * own (US-15), so admitting one would create a record for a season they are not registered in.
+ * own (US-15), so admitting one would create a record for an event series they are not registered in.
  */
 export function requireStudentOrResponse(): Promise<IdentifiedOutcome> {
   return requireIdentity("student");

@@ -54,11 +54,11 @@ async function seed(collection: string, id: string, data: Record<string, unknown
 
 /**
  * Every teacher-maintained collection follows one model: anyone signed in may read, because
- * student master data selects from these lists, and nobody may write from the client.
+ * registration selects from these lists, and nobody may write from the client.
  *
  * Writes are closed because the invariants these collections carry cannot be expressed in
  * rules at all — rules can `get()` a known path but cannot run a query, so "is this name
- * already taken?" (US-4 to US-10), "is exactly one season active?" (US-4) and "is this item
+ * already taken?" (US-4 to US-10), "is exactly one event series active?" (US-4) and "is this item
  * still in use?" (US-5 to US-10) are all unreachable here. They are enforced in transactions
  * in the Route Handlers instead, and leaving a second, unchecked way in would make those
  * guarantees worthless.
@@ -70,8 +70,8 @@ const READABLE_COLLECTIONS: [string, Record<string, unknown>][] = [
   ["busPickupPoints", { name: "Dornbirn" }],
   ["foodOptions", { name: "Vegetarisch" }],
   ["seasonPassOptions", { name: "Montafon Card" }],
-  ["seasons", { name: "Winter 2026", isActive: false, isArchived: false }],
-  ["events", { seasonId: "s1", name: "Montafon" }],
+  ["eventSeries", { name: "Winter 2026", isActive: false, isArchived: false }],
+  ["events", { eventSeriesId: "s1", name: "Montafon" }],
 ];
 
 describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
@@ -158,29 +158,29 @@ describe.each([
 });
 
 describe("invariants that rules cannot express are not left half-guarded", () => {
-  it("stops a teacher marking a second season active from the client", async () => {
-    await seed("seasons", "a", { name: "Winter 2026", isActive: true, isArchived: false });
-    await seed("seasons", "b", { name: "Winter 2027", isActive: false, isArchived: false });
+  it("stops a teacher marking a second event series active from the client", async () => {
+    await seed("eventSeries", "a", { name: "Winter 2026", isActive: true, isArchived: false });
+    await seed("eventSeries", "b", { name: "Winter 2027", isActive: false, isArchived: false });
 
-    await assertFails(teacher().collection("seasons").doc("b").update({ isActive: true }));
+    await assertFails(teacher().collection("eventSeries").doc("b").update({ isActive: true }));
   });
 
-  it("stops a teacher creating a duplicate season name from the client", async () => {
-    await seed("seasons", "a", { name: "Winter 2026", isActive: false, isArchived: false });
+  it("stops a teacher creating a duplicate event series name from the client", async () => {
+    await seed("eventSeries", "a", { name: "Winter 2026", isActive: false, isArchived: false });
 
     await assertFails(
       teacher()
-        .collection("seasons")
+        .collection("eventSeries")
         .doc("b")
         .set({ name: "Winter 2026", isActive: false, isArchived: false }),
     );
   });
 
   it("stops a teacher creating a duplicate event name from the client", async () => {
-    await seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+    await seed("events", "e1", { eventSeriesId: "s1", name: "Montafon" });
 
     await assertFails(
-      teacher().collection("events").doc("e2").set({ seasonId: "s1", name: "Montafon" }),
+      teacher().collection("events").doc("e2").set({ eventSeriesId: "s1", name: "Montafon" }),
     );
   });
 });

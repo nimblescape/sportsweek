@@ -7,23 +7,23 @@
 
 import { useState } from "react";
 import { assignmentGroups } from "@/lib/assignment/statistics";
-import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
+import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
-import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
+import { NO_ACTIVE_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { PageHeading } from "@/components/layout/page-heading";
 import { AssignmentBoard } from "./assignment-board";
 
 /**
- * The assignment dialog of US-12, scoped to the active season: a board of cards — one per week,
+ * The assignment dialog of US-12, scoped to the active event series: a board of cards — one per week,
  * plus the students who have no week yet — a teacher drags students between.
  *
  * Every figure is computed from the same live roster the cards are drawn from, so an assignment
  * shows up as soon as the subscription brings the record back.
  */
 export function AssignmentView() {
-  const { season, loading, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useSeasonRoster(); // prettier-ignore
+  const { eventSeries, loading, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(); // prettier-ignore
   const [saving, setSaving] = useState(false);
 
   // Answered by the one spinner in the header, so this view places none of its own.
@@ -53,16 +53,16 @@ export function AssignmentView() {
         </p>
       )}
 
-      {season === null ? (
+      {eventSeries === null ? (
         <p role="status" className="text-muted-foreground text-sm">
-          {NO_ACTIVE_SEASON_HINT}
+          {NO_ACTIVE_EVENT_SERIES_HINT}
         </p>
       ) : (
         <BusyRegion busy={saving}>
           <div className="flex flex-col gap-4">
             {events.length === 0 ? (
               <p role="status" className="text-muted-foreground text-sm">
-                Für diese Saison gibt es noch keine Events.
+                Für diese Eventreihe gibt es noch keine Events.
               </p>
             ) : (
               <AssignmentBoard

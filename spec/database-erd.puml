@@ -18,39 +18,39 @@ entity "User" as user {
   role : enum(teacher, student)  ' auto-assigned from UPN domain at creation (US-3)
 }
 
-entity "Season" as season {
+entity "EventSeries" as eventSeries {
   PK id : string
   --
   name : string
-  isActive : boolean  ' at most one season may be true at any point in time; activating one
-                      ' clears the flag on the previously active season in the same
+  isActive : boolean  ' at most one event series may be true at any point in time; activating one
+                      ' clears the flag on the previously active event series in the same
                       ' transaction, and deactivating leaves none active (US-4)
-  isArchived : boolean  ' archived seasons are hidden from the teacher's list (US-4);
-                        ' this is the only persisted archive flag — StudentMasterData's
-                        ' archived state is computed via its seasonId, never stored redundantly
-  hasStudentData : boolean  ' mirrors "a StudentMasterData record exists for this season", so the
-                            ' client can enable/disable archive and delete without reading a
-                            ' collection it may not read; the server re-checks and decides (US-4)
+  isArchived : boolean  ' archived event series are hidden from the teacher's list (US-4);
+                        ' this is the only persisted archive flag — Registration's
+                        ' archived state is computed via its eventSeriesId, never stored redundantly
+  hasRegistrations : boolean  ' mirrors "a Registration record exists for this event series", so the
+                              ' client can enable/disable archive and delete without reading a
+                              ' collection it may not read; the server re-checks and decides (US-4)
   position : number  ' teacher-defined order, not alphabetical (see Ordering)
   --
   ' Displayed state is derived, not stored: active (isActive), archived (isArchived),
-  ' or inactive (neither). A season with no student data can be deleted in any state but
-  ' cannot be archived; one with student data must be archived before it can be deleted.
-  ' Deleting cascades to its events and to all StudentMasterData records for that season (US-4).
+  ' or inactive (neither). An event series with no registrations can be deleted in any state but
+  ' cannot be archived; one with registrations must be archived before it can be deleted.
+  ' Deleting cascades to its events and to all Registration records for that event series (US-4).
 }
 
 entity "Event" as event {
   PK id : string
-  FK seasonId : string
+  FK eventSeriesId : string
   --
   name : string
-  position : number  ' teacher-defined order within the season (see Ordering)
+  position : number  ' teacher-defined order within the event series (see Ordering)
 }
 
 entity "Program" as program {
   PK id : string
   --
-  name : string  ' e.g. Ski, Snowboard, Alternativ (US-5); only editable/removable if unused by a non-archived season's master data
+  name : string  ' e.g. Ski, Snowboard, Alternativ (US-5); only editable/removable if unused by a non-archived event series' registrations
   requiredEquipment : string[]  ' e.g. ski, ski boots, poles, helmet (US-5); stored on the program
                                 ' itself rather than as records of their own — an item has no
                                 ' identity outside the program and is referenced from nowhere.
@@ -64,7 +64,7 @@ entity "Program" as program {
 entity "ClassOption" as classOption {
   PK id : string
   --
-  name : string  ' Klasse (US-6); only editable/removable if unused by a non-archived season's master data
+  name : string  ' Klasse (US-6); only editable/removable if unused by a non-archived event series' registrations
   position : number  ' teacher-defined order (see Ordering)
 }
 
@@ -88,7 +88,7 @@ entity "FoodOption" as foodOption {
   name : string  ' Alles, Vegetarisch, Vegan, Kein Schweinefleisch (US-9)
   position : number  ' teacher-defined order (see Ordering)
   ' note: the fixed "other" option is not a row here — it is always available
-  ' and cannot be edited/removed; see StudentMasterData.foodOtherText
+  ' and cannot be edited/removed; see Registration.foodOtherText
 }
 
 entity "SeasonPassOption" as seasonPassOption {
@@ -98,10 +98,10 @@ entity "SeasonPassOption" as seasonPassOption {
   position : number  ' teacher-defined order (see Ordering)
 }
 
-entity "StudentMasterData" as studentMasterData {
+entity "Registration" as registration {
   PK id : string
   FK userId : string
-  FK seasonId : string  ' genuine FK — the only real reference among the "selected value" fields (US-11)
+  FK eventSeriesId : string  ' genuine FK — the only real reference among the "selected value" fields (US-11)
   --
   isIncomplete : boolean  ' whether answers are still outstanding (US-11); recomputed by the server
                           ' on every save and never sent by the client. Denormalised so the report
@@ -167,27 +167,27 @@ entity "SavedReport" as savedReport {
   fields : string[]
 }
 
-' Seasons & Events (US-4)
-season ||--o{ event : "contains"
-season ||--o{ studentMasterData : "registered in (US-11)"
-event  |o--o{ studentMasterData : "assigned to (US-12); removing an event unassigns its students"
+' Event series & Events (US-4)
+eventSeries ||--o{ event : "contains"
+eventSeries ||--o{ registration : "registered in (US-11)"
+event  |o--o{ registration : "assigned to (US-12); removing an event unassigns its students"
 
 ' Sports Week Master Data teacher-maintained lists (US-5 .. US-10)
 ' Program.requiredEquipment is an attribute, not an entity — there is no relationship to draw.
-' So are StudentMasterData.emergencyContact and .rentedEquipment.
+' So are Registration.emergencyContact and .rentedEquipment.
 
-' The dotted lines below are NOT foreign keys — they indicate that a StudentMasterData
+' The dotted lines below are NOT foreign keys — they indicate that a Registration
 ' field is a plain-text copy of a list item's name at the time it was selected (US-11).
-program           .down.> studentMasterData : "value copied to .program"
-classOption       .down.> studentMasterData : "value copied to .class"
-skillLevel        .down.> studentMasterData : "value copied to .skillLevel"
-busPickupPoint    .down.> studentMasterData : "value copied to .busPickupPoint"
-seasonPassOption  .down.> studentMasterData : "value copied to .seasonPassOption"
-foodOption        .down.> studentMasterData : "value copied to .foodOption"
-program           .down.> studentMasterData : "a .requiredEquipment entry is copied to .rentedEquipment"
+program           .down.> registration : "value copied to .program"
+classOption       .down.> registration : "value copied to .class"
+skillLevel        .down.> registration : "value copied to .skillLevel"
+busPickupPoint    .down.> registration : "value copied to .busPickupPoint"
+seasonPassOption  .down.> registration : "value copied to .seasonPassOption"
+foodOption        .down.> registration : "value copied to .foodOption"
+program           .down.> registration : "a .requiredEquipment entry is copied to .rentedEquipment"
 
-' Student edits own master data (US-11)
-user              ||--o{ studentMasterData : "owns (student)"
+' Student edits own registration (US-11)
+user              ||--o{ registration : "owns (student)"
 
 ' Teacher views student report (US-13)
 user              ||--o{ savedReport : "saves (teacher)"

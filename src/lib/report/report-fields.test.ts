@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
-import type { StudentMasterData } from "@/lib/schemas/student-master-data";
+import type { Registration } from "@/lib/schemas/registration";
 import { studentRecord } from "@/test/roster-student";
 import { NO_ANSWER, REPORT_FIELD_TAGS, reportFieldsOf } from "./report-fields";
 
@@ -14,7 +14,7 @@ const keys = REPORT_FIELD_TAGS.map((tag) => tag.key);
 const EVENT_NAMES = new Map([["event1", "Woche 1"]]);
 const context = { eventNames: EVENT_NAMES };
 
-const lineFor = (label: string, record: StudentMasterData) => {
+const lineFor = (label: string, record: Registration) => {
   const field = REPORT_FIELD_TAGS.flatMap((tag) => tag.fields).find(
     (candidate) => candidate.label === label,
   );

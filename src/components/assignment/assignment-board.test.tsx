@@ -330,7 +330,7 @@ describe("AssignmentBoard — what the figures count", () => {
   });
 
   // Filtering to a class asks what that class did, so the students of it who stay at home have
-  // to be in the denominator; measuring against the whole season would answer another question.
+  // to be in the denominator; measuring against the whole event series would answer another question.
   it("measures a filtered card against the registered students the same filter leaves", async () => {
     setup([BENE, ANNA, CLARA, DORA, ELIAS]);
 

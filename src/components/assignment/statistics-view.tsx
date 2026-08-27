@@ -6,20 +6,20 @@
 "use client";
 
 import { classOverview } from "@/lib/assignment/statistics";
-import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
+import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { useBusyWhile } from "@/lib/api/busy";
-import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
+import { NO_ACTIVE_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { PageHeading } from "@/components/layout/page-heading";
 import { ClassCards } from "./class-cards";
 
 /**
- * How the classes of the active season stand (US-12): one card per maintained class, counting
+ * How the classes of the active event series stand (US-12): one card per maintained class, counting
  * the students who answered "no" alongside the ones who are coming. It is a page of its own
  * rather than a header on the board, because reading a class and assigning a week are two
  * things a teacher does at different times.
  */
 export function StatisticsView() {
-  const { season, loading, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useSeasonRoster(); // prettier-ignore
+  const { eventSeries, loading, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(); // prettier-ignore
 
   // Answered by the one spinner in the header, so this view places none of its own.
   useBusyWhile(loading);
@@ -34,9 +34,9 @@ export function StatisticsView() {
         </p>
       )}
 
-      {season === null ? (
+      {eventSeries === null ? (
         <p role="status" className="text-muted-foreground text-sm">
-          {NO_ACTIVE_SEASON_HINT}
+          {NO_ACTIVE_EVENT_SERIES_HINT}
         </p>
       ) : (
         <ClassCards

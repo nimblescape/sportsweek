@@ -25,7 +25,7 @@ type Reservation = { scope: string; name: string; ownerId: string };
  * Firestore has no unique constraint, but document ids are unique by construction, so this
  * turns "is this name free?" into a single-document read. That matters for more than elegance:
  * the obvious alternative — querying the siblings inside the transaction — makes Firestore lock
- * the index range it scans, so two teachers adding events to *different* seasons block each
+ * the index range it scans, so two teachers adding events to *different* event series block each
  * other. Measured against the emulator that took ~20s; this takes milliseconds, because two
  * different names are two different documents and never contend.
  *

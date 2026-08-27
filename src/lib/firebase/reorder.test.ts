@@ -98,10 +98,10 @@ describe("reorderCollection", () => {
 describe("reorderCollection — scoped to a parent", () => {
   beforeEach(() =>
     seed("events", {
-      a: { seasonId: "s1", name: "A", position: 0 },
-      b: { seasonId: "s1", name: "B", position: 1 },
-      x: { seasonId: "s2", name: "X", position: 0 },
-      y: { seasonId: "s2", name: "Y", position: 1 },
+      a: { eventSeriesId: "s1", name: "A", position: 0 },
+      b: { eventSeriesId: "s1", name: "B", position: 1 },
+      x: { eventSeriesId: "s2", name: "X", position: 0 },
+      y: { eventSeriesId: "s2", name: "Y", position: 1 },
     }),
   );
 
@@ -109,7 +109,7 @@ describe("reorderCollection — scoped to a parent", () => {
     await reorderCollection({
       collection: "events",
       orderedIds: ["b", "a"],
-      scope: { field: "seasonId", value: "s1" },
+      scope: { field: "eventSeriesId", value: "s1" },
     });
 
     expect(positionsOf("events")).toEqual({ b: 0, a: 1, x: 0, y: 1 });
@@ -120,7 +120,7 @@ describe("reorderCollection — scoped to a parent", () => {
       reorderCollection({
         collection: "events",
         orderedIds: ["a", "x"],
-        scope: { field: "seasonId", value: "s1" },
+        scope: { field: "eventSeriesId", value: "s1" },
       }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });

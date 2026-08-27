@@ -11,7 +11,7 @@ import { Dialog } from "./dialog";
 function renderDialog(props: Partial<React.ComponentProps<typeof Dialog>> = {}) {
   const onClose = vi.fn();
   render(
-    <Dialog open title="Saison löschen" onClose={onClose} {...props}>
+    <Dialog open title="Eventreihe löschen" onClose={onClose} {...props}>
       <p>Inhalt</p>
     </Dialog>,
   );
@@ -37,7 +37,7 @@ describe("Dialog", () => {
   it("labels the dialog with its title", () => {
     renderDialog();
 
-    expect(screen.getByRole("dialog")).toHaveAccessibleName("Saison löschen");
+    expect(screen.getByRole("dialog")).toHaveAccessibleName("Eventreihe löschen");
   });
 
   it("stays out of the accessibility tree while closed", () => {

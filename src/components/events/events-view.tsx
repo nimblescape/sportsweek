@@ -22,9 +22,9 @@ import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
-import { eventSchema, type Event } from "@/lib/schemas/season";
+import { eventSchema, type Event } from "@/lib/schemas/event-series";
 import { useEvents } from "@/lib/events/use-events";
-import { useSeasons } from "@/lib/seasons/use-seasons";
+import { useEventSeries } from "@/lib/event-series/use-event-series";
 import { PageHeading } from "@/components/layout/page-heading";
 
 const formSchema = z.object({ name: eventSchema.shape.name });
@@ -37,32 +37,32 @@ const UNASSIGNS_STUDENTS_HINT =
 type OpenDialog =
   { kind: "none" } | { kind: "form"; event: Event | null } | { kind: "delete"; event: Event };
 
-export function EventsView({ seasonId }: { seasonId: string }) {
-  const { events, loading, error } = useEvents(seasonId);
-  const { seasons } = useSeasons();
+export function EventsView({ eventSeriesId }: { eventSeriesId: string }) {
+  const { events, loading, error } = useEvents(eventSeriesId);
+  const { eventSeries: allEventSeries } = useEventSeries();
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
   const { busyId, pending, run } = useRowAction();
 
   useBusyWhile(loading);
 
-  const season = seasons.find((candidate) => candidate.id === seasonId) ?? null;
+  const eventSeries = allEventSeries.find((candidate) => candidate.id === eventSeriesId) ?? null;
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <Link
-        href="/app/master-data/seasons"
+        href="/app/master-data/event-series"
         className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
       >
         <ArrowLeft aria-hidden className="size-4" />
-        Alle Saisonen
+        Alle Eventreihen
       </Link>
 
       <BusyRegion busy={pending}>
         <div className="flex flex-col gap-4">
           <PageHeading
             actions={
-              /* An archived season is read-only, so nothing new can be attached to it (US-4). */
-              season?.isArchived ? null : (
+              /* An archived event series is read-only, so nothing new can be attached to it (US-4). */
+              eventSeries?.isArchived ? null : (
                 <Button onClick={() => setDialog({ kind: "form", event: null })}>
                   <Plus aria-hidden data-icon="inline-start" />
                   Neues Event
@@ -70,20 +70,20 @@ export function EventsView({ seasonId }: { seasonId: string }) {
               )
             }
           >
-            Events – {season?.name ?? "Saison"}
+            Events – {eventSeries?.name ?? "Eventreihe"}
           </PageHeading>
 
           <EventList
             events={events}
             loading={loading}
             error={error}
-            readOnly={season?.isArchived ?? false}
+            readOnly={eventSeries?.isArchived ?? false}
             busyEventId={busyId}
             onEdit={(event) => setDialog({ kind: "form", event })}
             onDelete={(event) => setDialog({ kind: "delete", event })}
             onReorder={(order) =>
               run(null, () =>
-                apiRequest("/api/events", { method: "PATCH", body: { seasonId, order } }),
+                apiRequest("/api/events", { method: "PATCH", body: { eventSeriesId, order } }),
               ).then(() => {})
             }
           />
@@ -96,7 +96,7 @@ export function EventsView({ seasonId }: { seasonId: string }) {
           onSubmit={(name, event) =>
             run(event?.id ?? null, () =>
               event === null
-                ? apiRequest("/api/events", { method: "POST", body: { seasonId, name } })
+                ? apiRequest("/api/events", { method: "POST", body: { eventSeriesId, name } })
                 : apiRequest(`/api/events/${event.id}`, { method: "PATCH", body: { name } }),
             ).then(() => {})
           }
@@ -156,7 +156,7 @@ function EventList({
     return (
       <Card>
         <p className="text-muted-foreground px-(--card-spacing) text-sm">
-          Diese Saison hat noch keine Events.
+          Diese Eventreihe hat noch keine Events.
         </p>
       </Card>
     );
@@ -167,7 +167,7 @@ function EventList({
       <SortableList
         items={events}
         onReorder={onReorder}
-        // An archived season is read-only, so its order is frozen along with everything else.
+        // An archived event series is read-only, so its order is frozen along with everything else.
         disabled={readOnly}
         busyId={busyEventId}
         className="[&>li]:border-border [&>li]:border-b [&>li:last-child]:border-b-0"
@@ -335,7 +335,7 @@ function DeleteEventDialog({
     >
       <p className="text-sm">
         Das Event <strong>{event.name}</strong> wird gelöscht. {UNASSIGNS_STUDENTS_HINT} Ihre
-        Stammdaten bleiben erhalten.
+        Anmeldung bleibt erhalten.
       </p>
       {error ? (
         <p role="alert" className="text-destructive mt-2 text-sm">

@@ -4,11 +4,11 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { FilterableStudent } from "@/lib/filters/student-filter";
-import type { StudentMasterData } from "@/lib/schemas/student-master-data";
+import type { Registration } from "@/lib/schemas/registration";
 import type { User } from "@/lib/schemas/user";
 
 export type RosterStudent = FilterableStudent & {
-  /** The master data record, which is what an assignment is written to (US-12). */
+  /** The registration, which is what an assignment is written to (US-12). */
   id: string;
   userId: string;
   /** On the report's master line, where it is the one contact detail always shown (US-13). */
@@ -18,7 +18,7 @@ export type RosterStudent = FilterableStudent & {
    * (US-13). The fields above it are the projection the filter is written against, so a row
    * answers both questions without the two views joining the same records twice.
    */
-  record: StudentMasterData;
+  record: Registration;
 };
 
 const byName = new Intl.Collator("de-AT").compare;
@@ -31,7 +31,7 @@ const byName = new Intl.Collator("de-AT").compare;
  * maintain (see Ordering), but the students in them are looked up by name.
  */
 export function joinRoster(
-  records: readonly StudentMasterData[],
+  records: readonly Registration[],
   users: readonly User[],
 ): RosterStudent[] {
   const byId = new Map(users.map((user) => [user.id, user]));

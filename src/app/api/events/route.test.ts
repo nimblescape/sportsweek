@@ -33,30 +33,30 @@ beforeEach(() => {
   reorderEvents.mockReset();
   createEvent.mockReset();
   getUserWithRole.mockResolvedValue({ uid: "u1", email: "t@htldornbirn.at", role: "teacher" });
-  createEvent.mockResolvedValue({ id: "e1", seasonId: "s1", name: "Montafon" });
+  createEvent.mockResolvedValue({ id: "e1", eventSeriesId: "s1", name: "Montafon" });
 });
 
 describe("POST /api/events", () => {
-  it("creates the event under its season", async () => {
-    const response = await POST(postRequest({ seasonId: "s1", name: "Montafon" }));
+  it("creates the event under its event series", async () => {
+    const response = await POST(postRequest({ eventSeriesId: "s1", name: "Montafon" }));
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({
-      event: { id: "e1", seasonId: "s1", name: "Montafon" },
+      event: { id: "e1", eventSeriesId: "s1", name: "Montafon" },
     });
-    expect(createEvent).toHaveBeenCalledWith({ seasonId: "s1", name: "Montafon" });
+    expect(createEvent).toHaveBeenCalledWith({ eventSeriesId: "s1", name: "Montafon" });
   });
 
   it("rejects a student with 403", async () => {
     getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x", role: "student" });
 
-    const response = await POST(postRequest({ seasonId: "s1", name: "Montafon" }));
+    const response = await POST(postRequest({ eventSeriesId: "s1", name: "Montafon" }));
 
     expect(response.status).toBe(403);
     expect(createEvent).not.toHaveBeenCalled();
   });
 
-  it("rejects a missing season reference", async () => {
+  it("rejects a missing event series reference", async () => {
     const response = await POST(postRequest({ name: "Montafon" }));
 
     expect(response.status).toBe(400);
@@ -64,7 +64,7 @@ describe("POST /api/events", () => {
   });
 
   it("rejects a blank name with the shared envelope", async () => {
-    const response = await POST(postRequest({ seasonId: "s1", name: "  " }));
+    const response = await POST(postRequest({ eventSeriesId: "s1", name: "  " }));
 
     expect(response.status).toBe(400);
     const body = await response.json();
@@ -72,10 +72,10 @@ describe("POST /api/events", () => {
     expect(body.error.details).toBeDefined();
   });
 
-  it("maps an unknown season onto 404", async () => {
+  it("maps an unknown event series onto 404", async () => {
     createEvent.mockRejectedValue(new ServiceError("NOT_FOUND", "Gibt es nicht."));
 
-    const response = await POST(postRequest({ seasonId: "ghost", name: "Montafon" }));
+    const response = await POST(postRequest({ eventSeriesId: "ghost", name: "Montafon" }));
 
     expect(response.status).toBe(404);
   });
@@ -89,14 +89,14 @@ describe("PATCH /api/events", () => {
     });
   }
 
-  it("reorders within the season it was given", async () => {
-    const response = await PATCH(patchRequest({ seasonId: "s1", order: ["e2", "e1"] }));
+  it("reorders within the event series it was given", async () => {
+    const response = await PATCH(patchRequest({ eventSeriesId: "s1", order: ["e2", "e1"] }));
 
     expect(response.status).toBe(204);
     expect(reorderEvents).toHaveBeenCalledWith("s1", ["e2", "e1"]);
   });
 
-  it("requires the season, so one season cannot renumber another's events", async () => {
+  it("requires the event series, so one event series cannot renumber another's events", async () => {
     const response = await PATCH(patchRequest({ order: ["e1"] }));
 
     expect(response.status).toBe(400);
@@ -110,7 +110,7 @@ describe("PATCH /api/events", () => {
       role: "student",
     });
 
-    const response = await PATCH(patchRequest({ seasonId: "s1", order: ["e1"] }));
+    const response = await PATCH(patchRequest({ eventSeriesId: "s1", order: ["e1"] }));
 
     expect(response.status).toBe(403);
     expect(reorderEvents).not.toHaveBeenCalled();

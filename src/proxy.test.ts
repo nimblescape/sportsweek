@@ -48,7 +48,7 @@ describe("proxy", () => {
     expect(proxy(makeRequest("/app", asStudent)).status).toBe(200);
   });
 
-  it.each(["/app/report", "/app/assignment", "/app/master-data/seasons"])(
+  it.each(["/app/report", "/app/assignment", "/app/master-data/event-series"])(
     "lets a teacher reach %s",
     (pathname) => {
       const response = proxy(makeRequest(pathname, asTeacher));
@@ -56,7 +56,7 @@ describe("proxy", () => {
     },
   );
 
-  it.each(["/app/report", "/app/assignment", "/app/master-data/seasons"])(
+  it.each(["/app/report", "/app/assignment", "/app/master-data/event-series"])(
     "redirects a student away from %s",
     (pathname) => {
       const response = proxy(makeRequest(pathname, asStudent));
@@ -65,12 +65,12 @@ describe("proxy", () => {
     },
   );
 
-  it("lets a student reach their own master data", () => {
-    expect(proxy(makeRequest("/app/my-master-data", asStudent)).status).toBe(200);
+  it("lets a student reach their own registration", () => {
+    expect(proxy(makeRequest("/app/my-registration", asStudent)).status).toBe(200);
   });
 
-  it("redirects a teacher away from the student master data page", () => {
-    const response = proxy(makeRequest("/app/my-master-data", asTeacher));
+  it("redirects a teacher away from the registration page", () => {
+    const response = proxy(makeRequest("/app/my-registration", asTeacher));
     expect(response.status).toBe(307);
     expect(locationOf(response)).toBe("/app");
   });

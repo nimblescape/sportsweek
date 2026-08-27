@@ -33,7 +33,7 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 - Identifiers, types, files and comments are English, whatever language the interface speaks.
 - Files are kebab-case; a component file is named after the component it exports
   (`equipment-checklist.tsx` → `EquipmentChecklist`).
-- Hooks read as questions or nouns (`useSeasons`, `useRowAction`), predicates start with `is`
+- Hooks read as questions or nouns (`useEventSeries`, `useRowAction`), predicates start with `is`
   or `has` (`isRegistrationIncomplete`, `hasUniqueNames`).
 
 ## Formatting is Prettier's job

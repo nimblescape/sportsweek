@@ -8,22 +8,22 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const useEvents = vi.fn();
-const useSeasons = vi.fn();
+const useEventSeries = vi.fn();
 
 vi.mock("@/lib/events/use-events", () => ({
   useEvents: (...args: unknown[]) => useEvents(...args),
 }));
 
-vi.mock("@/lib/seasons/use-seasons", () => ({
-  useSeasons: () => useSeasons(),
+vi.mock("@/lib/event-series/use-event-series", () => ({
+  useEventSeries: () => useEventSeries(),
 }));
 
 const { EventsView } = await import("./events-view");
 
-const season = { id: "s1", name: "Winter 2026", isActive: true, isArchived: false };
+const eventSeries = { id: "s1", name: "Winter 2026", isActive: true, isArchived: false };
 const events = [
-  { id: "e1", seasonId: "s1", name: "Montafon" },
-  { id: "e2", seasonId: "s1", name: "Lech" },
+  { id: "e1", eventSeriesId: "s1", name: "Montafon" },
+  { id: "e2", eventSeriesId: "s1", name: "Lech" },
 ];
 
 function stubFetch(implementation: (...args: unknown[]) => unknown) {
@@ -34,7 +34,7 @@ function stubFetch(implementation: (...args: unknown[]) => unknown) {
 
 const created = () =>
   Promise.resolve(
-    new Response(JSON.stringify({ event: { id: "e3", seasonId: "s1", name: "Neu" } }), {
+    new Response(JSON.stringify({ event: { id: "e3", eventSeriesId: "s1", name: "Neu" } }), {
       status: 201,
       headers: { "content-type": "application/json" },
     }),
@@ -44,32 +44,32 @@ const noContent = () => Promise.resolve(new Response(null, { status: 204 }));
 
 afterEach(() => vi.unstubAllGlobals());
 
-function renderView(overrides: { events?: typeof events; seasons?: unknown[] } = {}) {
+function renderView(overrides: { events?: typeof events; eventSeries?: unknown[] } = {}) {
   useEvents.mockReturnValue({ events: overrides.events ?? events, loading: false, error: null });
-  useSeasons.mockReturnValue({
-    seasons: overrides.seasons ?? [season],
+  useEventSeries.mockReturnValue({
+    eventSeries: overrides.eventSeries ?? [eventSeries],
     loading: false,
     error: null,
   });
-  render(<EventsView seasonId="s1" />);
+  render(<EventsView eventSeriesId="s1" />);
 }
 
 describe("EventsView", () => {
-  it("names the season the events belong to", () => {
+  it("names the event series the events belong to", () => {
     stubFetch(created);
     renderView();
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Winter 2026");
   });
 
-  it("scopes the subscription to the season, so other seasons never leak in", () => {
+  it("scopes the subscription to the event series, so other event series never leak in", () => {
     stubFetch(created);
     renderView();
 
     expect(useEvents).toHaveBeenCalledWith("s1");
   });
 
-  it("lists the events of the season", () => {
+  it("lists the events of the event series", () => {
     stubFetch(created);
     renderView();
 
@@ -77,26 +77,26 @@ describe("EventsView", () => {
     expect(screen.getByText("Lech")).toBeInTheDocument();
   });
 
-  it("says so when the season has no events yet", () => {
+  it("says so when the event series has no events yet", () => {
     stubFetch(created);
     renderView({ events: [] });
 
     expect(screen.getByText(/noch keine events/i)).toBeInTheDocument();
   });
 
-  it("links back to the season list", () => {
+  it("links back to the event series list", () => {
     stubFetch(created);
     renderView();
 
-    expect(screen.getByRole("link", { name: /saisonen/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /eventreihen/i })).toHaveAttribute(
       "href",
-      "/app/master-data/seasons",
+      "/app/master-data/event-series",
     );
   });
 });
 
 describe("EventsView — adding", () => {
-  it("creates an event in this season", async () => {
+  it("creates an event in this event series", async () => {
     const fetchMock = stubFetch(created);
     renderView();
 
@@ -109,7 +109,7 @@ describe("EventsView — adding", () => {
         "/api/events",
         expect.objectContaining({
           method: "POST",
-          body: JSON.stringify({ seasonId: "s1", name: "Kaunertal" }),
+          body: JSON.stringify({ eventSeriesId: "s1", name: "Kaunertal" }),
         }),
       ),
     );
@@ -238,10 +238,10 @@ describe("EventsView — while a write is in flight", () => {
   });
 });
 
-describe("EventsView — archived season", () => {
-  it("does not offer adding events to an archived season", () => {
+describe("EventsView — archived event series", () => {
+  it("does not offer adding events to an archived event series", () => {
     stubFetch(created);
-    renderView({ seasons: [{ ...season, isActive: false, isArchived: true }] });
+    renderView({ eventSeries: [{ ...eventSeries, isActive: false, isArchived: true }] });
 
     expect(screen.queryByRole("button", { name: "Neues Event" })).not.toBeInTheDocument();
   });
@@ -274,7 +274,7 @@ describe("EventsView — duplicate event names", () => {
         JSON.stringify({
           error: {
             code: "CONFLICT",
-            message: 'Den Namen „Montafon" gibt es in dieser Saison bereits.',
+            message: 'Den Namen „Montafon" gibt es in dieser Eventreihe bereits.',
           },
         }),
         { status: 409, headers: { "content-type": "application/json" } },
@@ -290,7 +290,9 @@ describe("EventsView — duplicate event names", () => {
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Name")).toHaveAccessibleDescription(/gibt es in dieser Saison/),
+      expect(screen.getByLabelText("Name")).toHaveAccessibleDescription(
+        /gibt es in dieser Eventreihe/,
+      ),
     );
   });
 
@@ -302,7 +304,7 @@ describe("EventsView — duplicate event names", () => {
     await userEvent.type(screen.getByLabelText("Name"), "Montafon");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
-    await screen.findByText(/gibt es in dieser Saison/);
+    await screen.findByText(/gibt es in dieser Eventreihe/);
     expect(screen.getByLabelText("Name")).toHaveValue("Montafon");
   });
 });

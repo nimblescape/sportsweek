@@ -13,7 +13,7 @@ type Reorder = {
   collection: string;
   /** The ids in the order the teacher dropped them into. */
   orderedIds: readonly string[];
-  /** Restricts renumbering to one parent's items, e.g. the events of a single season. */
+  /** Restricts renumbering to one parent's items, e.g. the events of a single event series. */
   scope?: { field: string; value: string };
 };
 

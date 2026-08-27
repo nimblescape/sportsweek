@@ -11,7 +11,7 @@ import {
   type ReportField,
   type ReportFieldContext,
 } from "@/lib/report/report-fields";
-import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
+import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
 
 type ReportListProps = {

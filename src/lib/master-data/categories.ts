@@ -32,7 +32,7 @@ export type MasterDataCategory = {
 };
 
 /**
- * The six teacher-maintained lists, keyed by the URL segment under /app/master-data. Seasons
+ * The six teacher-maintained lists, keyed by the URL segment under /app/master-data. EventSeries
  * are not here: they carry active/archived state of their own and keep their dedicated view.
  */
 export const MASTER_DATA_CATEGORIES = {
@@ -102,11 +102,11 @@ export const MASTER_DATA_CATEGORIES = {
 export type MasterDataCategoryKey = keyof typeof MASTER_DATA_CATEGORIES;
 
 /**
- * The master data menu, in the order it is shown (US-4 to US-10). Seasons lead and are not a
+ * The master data menu, in the order it is shown (US-4 to US-10). EventSeries lead and are not a
  * category, so they are the one entry named here rather than derived.
  */
 export const MASTER_DATA_SECTIONS = [
-  { href: "/app/master-data/seasons", label: "Saisonen" },
+  { href: "/app/master-data/event-series", label: "Eventreihen" },
   ...Object.entries(MASTER_DATA_CATEGORIES).map(([key, category]) => ({
     href: `/app/master-data/${key}`,
     label: category.labels.title,
@@ -118,13 +118,13 @@ export const MASTER_DATA_SECTIONS = [
  * sentence on the controls it disables, and must not pull the Admin SDK in to do so.
  */
 export const IN_USE_HINT =
-  "Dieser Eintrag wird in den Schüler:innendaten einer nicht archivierten Saison noch " +
-  "verwendet. Archiviere diese Saison, um ihn zu bearbeiten oder zu löschen.";
+  "Dieser Eintrag wird in den Anmeldungen einer nicht archivierten Eventreihe noch " +
+  "verwendet. Archiviere diese Eventreihe, um ihn zu bearbeiten oder zu löschen.";
 
 /** Deleting a program takes its equipment with it, so a rented item holds the program back too. */
 export const CHILD_IN_USE_HINT =
-  "Ausrüstung dieses Programms wird in den Schüler:innendaten einer nicht archivierten Saison " +
-  "noch verwendet. Archiviere diese Saison, um das Programm zu löschen.";
+  "Ausrüstung dieses Programms wird in den Anmeldungen einer nicht archivierten Eventreihe " +
+  "noch verwendet. Archiviere diese Eventreihe, um das Programm zu löschen.";
 
 /**
  * Shown while the answer is still on its way. The controls stay disabled until it arrives, so
@@ -132,19 +132,19 @@ export const CHILD_IN_USE_HINT =
  * and withdrawing them a moment later, offers something the list already knows it may refuse.
  */
 export const USAGE_PENDING_HINT =
-  "Es wird noch geprüft, ob dieser Eintrag in Schüler:innendaten verwendet wird.";
+  "Es wird noch geprüft, ob dieser Eintrag in Anmeldungen verwendet wird.";
 
 /**
  * What is left behind when an item is removed or renamed — and it is only ever archived data,
  * because the in-use rule above is what allowed the edit in the first place: an entry a
- * non-archived season still holds cannot be touched at all.
+ * non-archived event series still holds cannot be touched at all.
  */
 export const ARCHIVED_DATA_UNCHANGED_HINT =
-  "Bereits gespeicherte Schüler:innendaten in archivierten Saisonen bleiben unverändert.";
+  "Bereits gespeicherte Anmeldungen in archivierten Eventreihen bleiben unverändert.";
 
 /** The records hold the name itself, so an archived one goes on holding the one it was given. */
 export const ARCHIVED_DATA_KEEPS_NAME_HINT =
-  "Bereits gespeicherte Schüler:innendaten in archivierten Saisonen behalten den bisherigen Namen.";
+  "Bereits gespeicherte Anmeldungen in archivierten Eventreihen behalten den bisherigen Namen.";
 
 /** Labels for the equipment list a program carries, which is a field rather than a category. */
 export const EQUIPMENT_LABELS = {

@@ -17,9 +17,9 @@ const ANNA = "s1__anna@student.htldornbirn.at";
 const BENE = "s1__bene@student.htldornbirn.at";
 
 function seedRecord(id: string, fields: Record<string, unknown> = {}) {
-  firestore.seed("studentMasterData", id, {
+  firestore.seed("registrations", id, {
     userId: id.split("__")[1],
-    seasonId: "s1",
+    eventSeriesId: "s1",
     eventId: null,
     isAttendingSportsWeek: true,
     ...fields,
@@ -28,27 +28,27 @@ function seedRecord(id: string, fields: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   firestore.reset();
-  firestore.seed("seasons", "s1", {
+  firestore.seed("eventSeries", "s1", {
     name: "2026",
     isActive: true,
     isArchived: false,
-    hasStudentData: true,
+    hasRegistrations: true,
     position: 0,
   });
-  firestore.seed("seasons", "s0", {
+  firestore.seed("eventSeries", "s0", {
     name: "2025",
     isActive: false,
     isArchived: true,
-    hasStudentData: true,
+    hasRegistrations: true,
     position: 1,
   });
-  firestore.seed("events", "event1", { seasonId: "s1", name: "Montafon", position: 0 });
-  firestore.seed("events", "event2", { seasonId: "s0", name: "Gardasee", position: 0 });
+  firestore.seed("events", "event1", { eventSeriesId: "s1", name: "Montafon", position: 0 });
+  firestore.seed("events", "event2", { eventSeriesId: "s0", name: "Gardasee", position: 0 });
   seedRecord(ANNA);
   seedRecord(BENE);
 });
 
-const eventOf = (id: string) => firestore.get("studentMasterData", id)?.eventId;
+const eventOf = (id: string) => firestore.get("registrations", id)?.eventId;
 
 describe("assignStudents", () => {
   it("writes the event onto every record it was given", async () => {
@@ -67,7 +67,7 @@ describe("assignStudents", () => {
   });
 
   it("moves a student to another event by unassigning and assigning again", async () => {
-    firestore.seed("events", "event3", { seasonId: "s1", name: "Bregenzerwald", position: 1 });
+    firestore.seed("events", "event3", { eventSeriesId: "s1", name: "Bregenzerwald", position: 1 });
     await assignStudents([ANNA], "event1");
 
     await assignStudents([ANNA], null);
@@ -79,9 +79,9 @@ describe("assignStudents", () => {
   it("changes nothing but the assignment", async () => {
     await assignStudents([ANNA], "event1");
 
-    expect(firestore.get("studentMasterData", ANNA)).toMatchObject({
+    expect(firestore.get("registrations", ANNA)).toMatchObject({
       userId: "anna@student.htldornbirn.at",
-      seasonId: "s1",
+      eventSeriesId: "s1",
       isAttendingSportsWeek: true,
     });
   });
@@ -105,7 +105,7 @@ describe("assignStudents", () => {
     await expect(assignStudents([ANNA], "ghost")).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("refuses an event of another season, so a season cannot borrow one", async () => {
+  it("refuses an event of another event series, so an event series cannot borrow one", async () => {
     await expect(assignStudents([ANNA], "event2")).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
@@ -113,10 +113,10 @@ describe("assignStudents", () => {
     await expect(assignStudents(["ghost"], "event1")).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("refuses a registration of a season that is no longer the active one", async () => {
-    firestore.seed("studentMasterData", "s0__anna@student.htldornbirn.at", {
+  it("refuses a registration of an event series that is no longer the active one", async () => {
+    firestore.seed("registrations", "s0__anna@student.htldornbirn.at", {
       userId: "anna@student.htldornbirn.at",
-      seasonId: "s0",
+      eventSeriesId: "s0",
       eventId: null,
       isAttendingSportsWeek: true,
     });
@@ -134,12 +134,12 @@ describe("assignStudents", () => {
     expect(eventOf(ANNA)).toBeNull();
   });
 
-  it("refuses to work while no season is active", async () => {
-    firestore.seed("seasons", "s1", {
+  it("refuses to work while no event series is active", async () => {
+    firestore.seed("eventSeries", "s1", {
       name: "2026",
       isActive: false,
       isArchived: false,
-      hasStudentData: true,
+      hasRegistrations: true,
       position: 0,
     });
 
@@ -161,7 +161,7 @@ describe("assignStudents", () => {
     vi.spyOn(FakeDocumentReference.prototype, "get").mockImplementation(async function (
       this: FakeDocumentReference,
     ) {
-      const isRecord = this.collectionPath === "studentMasterData";
+      const isRecord = this.collectionPath === "registrations";
       if (isRecord) started.push(this.id);
 
       const snapshot = await read.call(this);

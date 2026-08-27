@@ -38,28 +38,28 @@ function seedProgram(id: string, name: string, requiredEquipment: string[] = [])
   seedItem("programs", id, name, { requiredEquipment });
 }
 
-function seedUsedIn(seasonId: string, isArchived: boolean, fields: Record<string, unknown>) {
-  firestore.seed("seasons", seasonId, {
-    name: `Saison ${seasonId}`,
+function seedUsedIn(eventSeriesId: string, isArchived: boolean, fields: Record<string, unknown>) {
+  firestore.seed("eventSeries", eventSeriesId, {
+    name: `Eventreihe ${eventSeriesId}`,
     isActive: false,
     isArchived,
-    hasStudentData: true,
+    hasRegistrations: true,
   });
-  firestore.seed("studentMasterData", `r-${seasonId}`, {
+  firestore.seed("registrations", `r-${eventSeriesId}`, {
     userId: "u1",
-    seasonId,
+    eventSeriesId,
     class: "3AHIT",
     ...fields,
   });
 }
 
 /** Rentals are a field of the record, so this adds to the list the seeded record already carries. */
-function seedRental(seasonId: string, itemName: string) {
-  const id = `r-${seasonId}`;
-  const record = firestore.get("studentMasterData", id) ?? {};
+function seedRental(eventSeriesId: string, itemName: string) {
+  const id = `r-${eventSeriesId}`;
+  const record = firestore.get("registrations", id) ?? {};
   const rented = Array.isArray(record.rentedEquipment) ? record.rentedEquipment : [];
 
-  firestore.seed("studentMasterData", id, { ...record, rentedEquipment: [...rented, itemName] });
+  firestore.seed("registrations", id, { ...record, rentedEquipment: [...rented, itemName] });
 }
 
 describe("createMasterDataItem", () => {
@@ -254,7 +254,7 @@ describe("updateMasterDataItem", () => {
     });
   });
 
-  it("blocks an item still selected in a non-archived season", async () => {
+  it("blocks an item still selected in a non-archived event series", async () => {
     seedItem("classOptions", "c1", "3AHIT");
     seedUsedIn("open", false, {});
 
@@ -265,7 +265,7 @@ describe("updateMasterDataItem", () => {
     expect(firestore.get("classOptions", "c1")).toMatchObject({ name: "3AHIT" });
   });
 
-  it("allows an item selected only in archived seasons", async () => {
+  it("allows an item selected only in archived event series", async () => {
     seedItem("classOptions", "c1", "3AHIT");
     seedUsedIn("done", true, {});
 
@@ -303,7 +303,7 @@ describe("updateMasterDataItem — required equipment", () => {
     ).resolves.toMatchObject({ requiredEquipment: ["Helm", "Stöcke"] });
   });
 
-  it("refuses to remove an entry a student of an open season still rents", async () => {
+  it("refuses to remove an entry a student of an open event series still rents", async () => {
     seedProgram("ski", "Ski", ["Helm", "Stöcke"]);
     seedUsedIn("open", false, { program: "Snowboard" });
     seedRental("open", "Helm");
@@ -316,7 +316,7 @@ describe("updateMasterDataItem — required equipment", () => {
     });
   });
 
-  it("refuses to rename an entry a student of an open season still rents", async () => {
+  it("refuses to rename an entry a student of an open event series still rents", async () => {
     seedProgram("ski", "Ski", ["Helm"]);
     seedUsedIn("open", false, { program: "Ski" });
     seedRental("open", "Helm");
@@ -336,7 +336,7 @@ describe("updateMasterDataItem — required equipment", () => {
     ).resolves.toMatchObject({ requiredEquipment: ["HELM"] });
   });
 
-  it("removes an entry rented only in archived seasons", async () => {
+  it("removes an entry rented only in archived event series", async () => {
     seedProgram("ski", "Ski", ["Helm"]);
     seedUsedIn("done", true, { program: "Ski" });
     seedRental("done", "Helm");
@@ -379,7 +379,7 @@ describe("deleteMasterDataItem", () => {
     });
   });
 
-  it("blocks an item still selected in a non-archived season", async () => {
+  it("blocks an item still selected in a non-archived event series", async () => {
     seedItem("classOptions", "c1", "3AHIT");
     seedUsedIn("open", false, {});
 
@@ -398,7 +398,7 @@ describe("deleteMasterDataItem", () => {
     expect(firestore.count("programs")).toBe(0);
   });
 
-  it("refuses to delete a program whose equipment a student of an open season still rents", async () => {
+  it("refuses to delete a program whose equipment a student of an open event series still rents", async () => {
     seedProgram("ski", "Ski", ["Helm"]);
     seedUsedIn("open", false, { program: "Snowboard" });
     seedRental("open", "Helm");
@@ -410,7 +410,7 @@ describe("deleteMasterDataItem", () => {
     expect(firestore.count("programs")).toBe(1);
   });
 
-  it("deletes a program whose equipment is only rented in archived seasons", async () => {
+  it("deletes a program whose equipment is only rented in archived event series", async () => {
     seedProgram("ski", "Ski", ["Helm"]);
     seedUsedIn("done", true, { program: "Ski" });
     seedRental("done", "Helm");
@@ -437,6 +437,6 @@ describe("deleteMasterDataItem", () => {
 
     await deleteMasterDataItem("programs", "ski");
 
-    expect(firestore.get("studentMasterData", "r-done")).toMatchObject({ program: "Ski" });
+    expect(firestore.get("registrations", "r-done")).toMatchObject({ program: "Ski" });
   });
 });

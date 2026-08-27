@@ -26,7 +26,7 @@ export function byPosition(a: Positioned, b: Positioned): number {
 /**
  * Folds an order made on a filtered list back into the full one.
  *
- * The season list can hide archived seasons, so a teacher may reorder only part of it. Sending
+ * The event series list can hide archived event series, so a teacher may reorder only part of it. Sending
  * just the visible ids would push everything hidden to the end; instead the reordered items are
  * dealt back into the slots the visible items already occupied, leaving the hidden ones where
  * they were.

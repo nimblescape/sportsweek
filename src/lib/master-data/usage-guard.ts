@@ -12,23 +12,26 @@ import { COLLECTIONS } from "@/lib/schemas/collections";
 import { IN_USE_HINT, type MasterDataCategory } from "./categories";
 
 /**
- * Master data records of seasons that are still open. Archiving is what signs a season's data
- * off (US-4), so it is the season's flag — never a flag on the record — that decides whether the
+ * Master data records of event series that are still open. Archiving is what signs an event series' data
+ * off (US-4), so it is the event series' flag — never a flag on the record — that decides whether the
  * values it snapshotted are still binding (US-5 to US-10).
  */
 async function openRecords() {
-  const seasons = await adminDb
-    .collection(COLLECTIONS.seasons)
+  const eventSeries = await adminDb
+    .collection(COLLECTIONS.eventSeries)
     .where("isArchived", "==", false)
     .get();
 
-  const perSeason = await Promise.all(
-    seasons.docs.map((season) =>
-      adminDb.collection(COLLECTIONS.studentMasterData).where("seasonId", "==", season.id).get(),
+  const perEventSeries = await Promise.all(
+    eventSeries.docs.map((eventSeries) =>
+      adminDb
+        .collection(COLLECTIONS.registrations)
+        .where("eventSeriesId", "==", eventSeries.id)
+        .get(),
     ),
   );
 
-  return perSeason.flatMap((snapshot) => snapshot.docs);
+  return perEventSeries.flatMap((snapshot) => snapshot.docs);
 }
 
 function normalizedNames(values: unknown[]): string[] {
@@ -78,7 +81,7 @@ export async function assertNotInUse(category: MasterDataCategory, name: string)
   }
 }
 
-/** Rejects as soon as one of `names` is still rented by a student of an open season (US-5). */
+/** Rejects as soon as one of `names` is still rented by a student of an open event series (US-5). */
 export async function assertEquipmentNotInUse(names: readonly string[]): Promise<void> {
   if (names.length === 0) return;
 
@@ -92,7 +95,7 @@ export type MasterDataUsageReport = {
   /** In use itself, so it can be neither edited nor deleted. */
   blockedIds: string[];
   /**
-   * Per item id, the entries of its own equipment list a student of an open season still rents,
+   * Per item id, the entries of its own equipment list a student of an open event series still rents,
    * spelled exactly as the item stores them. An item with entries here cannot be deleted, since
    * deleting it would take them along — but it can still be renamed (US-5).
    */

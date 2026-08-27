@@ -10,7 +10,7 @@
  */
 export const COLLECTIONS = {
   users: "users",
-  seasons: "seasons",
+  eventSeries: "eventSeries",
   events: "events",
   programs: "programs",
   classOptions: "classOptions",
@@ -20,7 +20,7 @@ export const COLLECTIONS = {
   seasonPassOptions: "seasonPassOptions",
   // The emergency contact and the rented equipment are fields of this record rather than
   // collections of their own: neither exists apart from it, and nothing else refers to them.
-  studentMasterData: "studentMasterData",
+  registrations: "registrations",
   savedReports: "savedReports",
   /** Name reservations: the document id is the name, which is how uniqueness is enforced. */
   reservedNames: "reservedNames",

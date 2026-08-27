@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
-import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
+import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
 
 /**
  * The one filter the assignment dialog (US-12) and the report (US-13) both use. It is written

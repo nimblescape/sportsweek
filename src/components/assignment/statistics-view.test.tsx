@@ -8,13 +8,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
 
-const useSeasons = vi.fn();
+const useEventSeries = vi.fn();
 const useRoster = vi.fn();
 const useEvents = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
 
-vi.mock("@/lib/seasons/use-seasons", () => ({ useSeasons: () => useSeasons() }));
+vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
 vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
@@ -38,12 +38,12 @@ function student(
   });
 }
 
-const season = {
+const eventSeries = {
   id: "s1",
   name: "2026",
   isActive: true,
   isArchived: false,
-  hasStudentData: true,
+  hasRegistrations: true,
   position: 0,
 };
 
@@ -55,7 +55,7 @@ const listOf = (...names: string[]) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useSeasons.mockReturnValue({ seasons: [season], loading: false, error: null });
+  useEventSeries.mockReturnValue({ eventSeries: [eventSeries], loading: false, error: null });
   useRoster.mockReturnValue({
     students: [student("Muster"), student("Cerny", { isAttending: false })],
     loading: false,
@@ -80,7 +80,7 @@ describe("StatisticsView", () => {
     expect(screen.getByRole("heading", { name: "Statistik", level: 1 })).toBeInTheDocument();
   });
 
-  it("shows a card per maintained class, counting the registrations of the active season", () => {
+  it("shows a card per maintained class, counting the registrations of the active event series", () => {
     render(<StatisticsView />);
 
     expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
@@ -88,18 +88,18 @@ describe("StatisticsView", () => {
     expect(screen.getByRole("group", { name: "5BHIF" })).toBeInTheDocument();
   });
 
-  it("says so while no season is active, since there is nothing to count", () => {
-    useSeasons.mockReturnValue({ seasons: [], loading: false, error: null });
+  it("says so while no event series is active, since there is nothing to count", () => {
+    useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: null });
 
     render(<StatisticsView />);
 
-    expect(screen.getByText("Es ist keine Saison aktiv.")).toBeInTheDocument();
+    expect(screen.getByText("Es ist keine Eventreihe aktiv.")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "5AHIF" })).not.toBeInTheDocument();
   });
 
-  it("reports two active seasons rather than taking the page down with it", () => {
-    useSeasons.mockReturnValue({
-      seasons: [season, { ...season, id: "s2" }],
+  it("reports two active event series rather than taking the page down with it", () => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [eventSeries, { ...eventSeries, id: "s2" }],
       loading: false,
       error: null,
     });

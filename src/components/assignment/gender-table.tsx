@@ -10,7 +10,7 @@ const cell = "border-border border-b px-3 py-1.5";
 /**
  * The figures a card carries that are not per program (US-12). "Teilnahme" is the counted
  * students over everyone registered, so on the unassigned card — before anything has been
- * assigned — it is the season's own participation rate, and it falls as students are placed
+ * assigned — it is the event series' own participation rate, and it falls as students are placed
  * into weeks; on a class card the denominator is that class's own registrations.
  */
 export function GenderTable({
