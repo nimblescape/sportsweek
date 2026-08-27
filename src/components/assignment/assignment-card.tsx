@@ -30,7 +30,7 @@ import { GenderTable } from "./gender-table";
 import { SkillMatrix } from "./skill-matrix";
 
 /** Picks everyone the filter leaves; not a student, so it is dragged under an id of its own. */
-const ALL_LABEL = "Alle";
+export const ALL_LABEL = "Alle";
 const ALL_NAME = "Alle auswählen";
 export const allDragId = (groupId: string) => `all:${groupId}`;
 
@@ -150,7 +150,8 @@ export function AssignmentCard({
                     name={ALL_LABEL}
                     label={ALL_NAME}
                     picked={allPicked}
-                    carried={carried.has(allDragId(group.id))}
+                    // It stands for everyone the filter leaves, so it travels whenever they all do.
+                    carried={shown.every((student) => carried.has(student.id))}
                     onToggle={() => onToggleAll(shown, allPicked)}
                   />
                 )}

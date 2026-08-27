@@ -32,7 +32,7 @@ import {
   type StudentFilter,
 } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
-import { AssignmentCard, DraggedTag, studentTagName } from "./assignment-card";
+import { ALL_LABEL, AssignmentCard, DraggedTag, studentTagName } from "./assignment-card";
 
 const NOTHING_CARRIED: ReadonlySet<string> = new Set();
 
@@ -159,11 +159,17 @@ export function AssignmentBoard({
 
     const students = carriedBy(active, source, filters[source.id], picked);
     const grabbed = String(active.data.current?.name ?? "");
+    // Where everything the card shows is going, the tag that stands for all of them goes too.
+    const carrying = new Set(students.map((student) => student.id));
+    const takesAll = filterStudentsOf(source, filters[source.id]).every((student) =>
+      carrying.has(student.id),
+    );
 
     setDrag({
-      ids: new Set([String(active.id), ...students.map((student) => student.id)]),
+      ids: new Set([String(active.id), ...carrying]),
       // The grabbed tag leads, and the rest follow in the order the card lists them.
       names: [
+        ...(takesAll && grabbed !== ALL_LABEL ? [ALL_LABEL] : []),
         grabbed,
         ...students.filter((student) => student.id !== active.id).map(studentTagName),
       ],
