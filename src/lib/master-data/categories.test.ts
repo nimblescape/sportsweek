@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import {
+  ANSWER_LABELS,
   MASTER_DATA_CATEGORIES,
   MASTER_DATA_SECTIONS,
   masterDataCategorySchema,
@@ -60,7 +61,27 @@ describe("MASTER_DATA_CATEGORIES", () => {
       expect(category.labels.title).not.toBe("");
       expect(category.labels.singular).not.toBe("");
       expect(category.labels.add).toMatch(/^Neue/);
+      expect(category.labels.answer).not.toBe("");
     }
+  });
+});
+
+describe("ANSWER_LABELS", () => {
+  it("names every list's answer, under the field that stores it", () => {
+    expect(ANSWER_LABELS).toEqual({
+      class: "Klasse",
+      program: "Programm",
+      skillLevel: "Leistungsstufe",
+      busPickupPoint: "Zustiegsstelle",
+      foodOption: "Verpflegung",
+      seasonPassOption: "Skipass",
+    });
+  });
+
+  /** One adds an option to a "Verpflegungsoption" list and answers a question about "Verpflegung". */
+  it("is not simply the singular, which names a row rather than the answer", () => {
+    expect(MASTER_DATA_CATEGORIES["food-options"].labels.singular).toBe("Verpflegungsoption");
+    expect(ANSWER_LABELS.foodOption).toBe("Verpflegung");
   });
 });
 
@@ -82,7 +103,7 @@ describe("MASTER_DATA_SECTIONS", () => {
       "Leistungsstufen",
       "Zustiegsstellen",
       "Verpflegung",
-      "Saisonkarten",
+      "Skipässe",
     ]);
   });
 

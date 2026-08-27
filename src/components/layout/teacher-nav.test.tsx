@@ -20,7 +20,7 @@ const SUB_ITEMS = [
   "Leistungsstufen",
   "Zustiegsstellen",
   "Verpflegung",
-  "Saisonkarten",
+  "Skipässe",
 ];
 
 describe("TeacherNav", () => {
