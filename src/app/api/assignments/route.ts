@@ -9,7 +9,7 @@ import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@
 import { assignStudents } from "@/lib/assignment/assignment-service";
 import { MAX_WRITES_PER_BATCH } from "@/lib/firebase/batch";
 import { documentIdSchema } from "@/lib/schemas/common";
-import { studentMasterDataSchema } from "@/lib/schemas/student-master-data";
+import { registrationSchema } from "@/lib/schemas/registration";
 
 /**
  * One call moves the teacher's whole selection (US-12), so the ids are a list. Bounded because
@@ -21,7 +21,7 @@ const assignSchema = z.strictObject({
     .min(1, "Es ist niemand ausgewählt.")
     .max(MAX_WRITES_PER_BATCH, `Höchstens ${MAX_WRITES_PER_BATCH} Anmeldungen auf einmal.`),
   // Null unassigns: moving between events is unassign, then assign, and nothing else (US-12).
-  eventId: studentMasterDataSchema.shape.eventId,
+  eventId: registrationSchema.shape.eventId,
 });
 
 export async function PATCH(request: Request) {

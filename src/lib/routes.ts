@@ -12,7 +12,7 @@ export const ROUTES = {
   assignment: "/app/assignment",
   statistics: "/app/statistics",
   masterData: "/app/master-data",
-  studentMasterData: "/app/my-master-data",
+  myRegistration: "/app/my-registration",
 } as const;
 
 export const TEACHER_ONLY_PREFIXES = [
@@ -22,11 +22,11 @@ export const TEACHER_ONLY_PREFIXES = [
   ROUTES.masterData,
 ] as const;
 
-// A teacher has no master data record of their own, so this page is student-only (US-15).
-export const STUDENT_ONLY_PREFIXES = [ROUTES.studentMasterData] as const;
+// A teacher never registers for an event series, so this page is student-only (US-15).
+export const STUDENT_ONLY_PREFIXES = [ROUTES.myRegistration] as const;
 
 export function homeFor(role: UserRole): string {
-  return role === "teacher" ? ROUTES.report : ROUTES.studentMasterData;
+  return role === "teacher" ? ROUTES.report : ROUTES.myRegistration;
 }
 
 export function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {

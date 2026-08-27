@@ -23,27 +23,24 @@ import {
   programSchema,
   type Program,
 } from "@/lib/schemas/master-data";
-import { seasonSchema, type Season } from "@/lib/schemas/season";
-import {
-  studentMasterDataSchema,
-  type StudentMasterDataInput,
-} from "@/lib/schemas/student-master-data";
+import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
+import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
 import { userRoleSchema, userSchema } from "@/lib/schemas/user";
-import { activeSeasonOf } from "@/lib/seasons/season-state";
+import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
 import { reservationKey, scopeOf } from "@/lib/firebase/reservation-key";
-import { isRegistrationIncomplete } from "@/lib/student-master-data/completeness";
-import { EMPTY_REGISTRATION, recordIdFor } from "@/lib/student-master-data/registration";
+import { isRegistrationIncomplete } from "@/lib/registration/completeness";
+import { EMPTY_REGISTRATION, recordIdFor } from "@/lib/registration/registration";
 import { apphostingValue, fail } from "./environment.mjs";
 
 /** Where invented students are allowed. Production is absent by construction, not by a check. */
 const SEEDABLE_ENVIRONMENTS = ["development", "staging"] as const;
 
 /**
- * What a purged environment gets so there is somewhere to put students. None of a season, its
+ * What a purged environment gets so there is somewhere to put students. None of an event series, its
  * events or the classes are among the master data defaults the app seeds itself — US-6 starts
  * the class list empty — so a fresh project has none until a teacher types them in.
  */
-const DEFAULT_SEASON_NAME = "2026/2027";
+const DEFAULT_EVENT_SERIES_NAME = "2026/2027";
 const DEFAULT_CLASS_NAMES = ["2aWI", "2bWI", "2cWI"] as const;
 const DEFAULT_EVENT_NAMES = ["Woche 1", "Woche 2", "Woche 3"] as const;
 
@@ -205,7 +202,7 @@ function createPerson(gender: Gender, taken: Set<string>): Person {
   }
 }
 
-function emergencyContact(person: Person): StudentMasterDataInput["emergencyContact"] {
+function emergencyContact(person: Person): RegistrationInput["emergencyContact"] {
   const relationship = pick(["mother", "father", "other"] as const);
   const firstName = relationship === "father" ? pick(MALE_FIRST_NAMES) : pick(FEMALE_FIRST_NAMES);
 
@@ -231,7 +228,7 @@ function registrationOf(
   className: string,
   program: Program | null,
   lists: Lists,
-): StudentMasterDataInput {
+): RegistrationInput {
   // Gender belongs to the person rather than to the sports week, so it is answered either way;
   // everything the form hides behind "Nimmst du teil?" stays unanswered for the rest.
   if (program === null) {
@@ -290,7 +287,7 @@ async function inBatches(
  * since the fixed seed hands the same addresses back to the same people on the next run.
  */
 async function purgeStudents(db: Firestore): Promise<{ records: number; users: number }> {
-  const records = await db.collection(COLLECTIONS.studentMasterData).get();
+  const records = await db.collection(COLLECTIONS.registrations).get();
   const users = await db
     .collection(COLLECTIONS.users)
     .where("role", "==", userRoleSchema.enum.student)
@@ -334,31 +331,31 @@ async function createNamed(
 }
 
 /** Activating an existing one rather than adding a second: the name may only be claimed once. */
-async function ensureActiveSeason(db: Firestore): Promise<Season> {
-  const seasons = (await db.collection(COLLECTIONS.seasons).get()).docs.map((doc) =>
-    seasonSchema.parse({ id: doc.id, ...doc.data() }),
+async function ensureActiveEventSeries(db: Firestore): Promise<EventSeries> {
+  const eventSeries = (await db.collection(COLLECTIONS.eventSeries).get()).docs.map((doc) =>
+    eventSeriesSchema.parse({ id: doc.id, ...doc.data() }),
   );
 
-  const active = activeSeasonOf(seasons);
+  const active = activeEventSeriesOf(eventSeries);
   if (active) return active;
 
-  const existing = seasons.find(
-    (season) => season.name === DEFAULT_SEASON_NAME && !season.isArchived,
+  const existing = eventSeries.find(
+    (eventSeries) => eventSeries.name === DEFAULT_EVENT_SERIES_NAME && !eventSeries.isArchived,
   );
   if (existing) {
-    await db.collection(COLLECTIONS.seasons).doc(existing.id).update({ isActive: true });
+    await db.collection(COLLECTIONS.eventSeries).doc(existing.id).update({ isActive: true });
     return { ...existing, isActive: true };
   }
 
   const fields = {
     isActive: true,
     isArchived: false,
-    hasStudentData: false,
-    position: seasons.length,
+    hasRegistrations: false,
+    position: eventSeries.length,
   };
-  const id = await createNamed(db, COLLECTIONS.seasons, DEFAULT_SEASON_NAME, fields);
+  const id = await createNamed(db, COLLECTIONS.eventSeries, DEFAULT_EVENT_SERIES_NAME, fields);
 
-  return { id, name: DEFAULT_SEASON_NAME, ...fields };
+  return { id, name: DEFAULT_EVENT_SERIES_NAME, ...fields };
 }
 
 async function ensureClasses(db: Firestore): Promise<string[]> {
@@ -372,13 +369,16 @@ async function ensureClasses(db: Firestore): Promise<string[]> {
   return [...DEFAULT_CLASS_NAMES];
 }
 
-/** Event names are unique only within their own season, hence the season id as the scope. */
-async function ensureEvents(db: Firestore, seasonId: string): Promise<void> {
-  const existing = await db.collection(COLLECTIONS.events).where("seasonId", "==", seasonId).get();
+/** Event names are unique only within their own event series, hence the event series id as the scope. */
+async function ensureEvents(db: Firestore, eventSeriesId: string): Promise<void> {
+  const existing = await db
+    .collection(COLLECTIONS.events)
+    .where("eventSeriesId", "==", eventSeriesId)
+    .get();
   if (!existing.empty) return;
 
   for (const [position, name] of DEFAULT_EVENT_NAMES.entries()) {
-    await createNamed(db, COLLECTIONS.events, name, { seasonId, position }, seasonId);
+    await createNamed(db, COLLECTIONS.events, name, { eventSeriesId, position }, eventSeriesId);
   }
 }
 
@@ -427,9 +427,9 @@ async function main(): Promise<void> {
   };
 
   // After the checks above: a project this script cannot fill is left exactly as it was found.
-  const season = await ensureActiveSeason(db);
+  const eventSeries = await ensureActiveEventSeries(db);
   const classNames = await ensureClasses(db);
-  await ensureEvents(db, season.id);
+  await ensureEvents(db, eventSeries.id);
 
   const purged = await purgeStudents(db);
   console.log(
@@ -455,10 +455,10 @@ async function main(): Promise<void> {
       const registration = registrationOf(person, className, chosen[index], lists);
 
       const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, role: "student" }); // prettier-ignore
-      const record = studentMasterDataSchema.parse({
-        id: recordIdFor(season.id, person.upn),
+      const record = registrationSchema.parse({
+        id: recordIdFor(eventSeries.id, person.upn),
         userId: person.upn,
-        seasonId: season.id,
+        eventSeriesId: eventSeries.id,
         // Unassigned on purpose: putting students into events is what the board is for (US-12).
         eventId: null,
         isIncomplete: isRegistrationIncomplete(registration),
@@ -469,7 +469,7 @@ async function main(): Promise<void> {
       const { id: recordId, ...recordFields } = record;
       writes.push((batch) => batch.set(db.collection(COLLECTIONS.users).doc(userId), userFields));
       writes.push((batch) =>
-        batch.set(db.collection(COLLECTIONS.studentMasterData).doc(recordId), recordFields),
+        batch.set(db.collection(COLLECTIONS.registrations).doc(recordId), recordFields),
       );
     }
 
@@ -483,14 +483,16 @@ async function main(): Promise<void> {
     );
   }
 
-  // Mirrors what a student's own save does, so the seasons view knows it may no longer be deleted.
+  // Mirrors what a student's own save does, so the event series view knows it may no longer be deleted.
   writes.push((batch) =>
-    batch.update(db.collection(COLLECTIONS.seasons).doc(season.id), { hasStudentData: true }),
+    batch.update(db.collection(COLLECTIONS.eventSeries).doc(eventSeries.id), {
+      hasRegistrations: true,
+    }),
   );
 
   await inBatches(db, writes);
 
-  console.log(`Seeded ${taken.size} students into "${season.name}":`);
+  console.log(`Seeded ${taken.size} students into "${eventSeries.name}":`);
   for (const line of summary) console.log(line);
 }
 

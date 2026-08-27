@@ -72,7 +72,7 @@ type AssignmentBoardProps = {
   skillLevels: readonly string[];
   /** The columns the groups were counted with; a card recounts with them when its filter applies. */
   columns: readonly SkillColumn[];
-  /** Everyone registered for the season, taking part or not — what "Teilnahme" is measured against. */
+  /** Everyone registered for the event series, taking part or not — what "Teilnahme" is measured against. */
   registered: readonly RosterStudent[];
   filterGroups: readonly FilterGroup[];
   /** Given the students to move and the week to move them to, or null to take the week away. */

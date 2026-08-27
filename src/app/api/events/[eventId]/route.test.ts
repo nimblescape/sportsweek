@@ -35,7 +35,7 @@ beforeEach(() => {
   updateEvent.mockReset();
   deleteEvent.mockReset();
   getUserWithRole.mockResolvedValue({ uid: "u1", email: "t@htldornbirn.at", role: "teacher" });
-  updateEvent.mockResolvedValue({ id: "e1", seasonId: "s1", name: "Montafon Nord" });
+  updateEvent.mockResolvedValue({ id: "e1", eventSeriesId: "s1", name: "Montafon Nord" });
   deleteEvent.mockResolvedValue(undefined);
 });
 
@@ -47,8 +47,8 @@ describe("PATCH /api/events/[eventId]", () => {
     expect(updateEvent).toHaveBeenCalledWith("e1", { name: "Montafon Nord" });
   });
 
-  it("refuses to move the event to another season", async () => {
-    const response = await PATCH(patchRequest({ name: "X", seasonId: "s2" }), context);
+  it("refuses to move the event to another event series", async () => {
+    const response = await PATCH(patchRequest({ name: "X", eventSeriesId: "s2" }), context);
 
     expect(response.status).toBe(400);
     expect(updateEvent).not.toHaveBeenCalled();

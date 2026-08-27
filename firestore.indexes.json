@@ -4,7 +4,7 @@
       "collectionGroup": "events",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "seasonId", "order": "ASCENDING" },
+        { "fieldPath": "eventSeriesId", "order": "ASCENDING" },
         { "fieldPath": "name", "order": "ASCENDING" }
       ]
     }

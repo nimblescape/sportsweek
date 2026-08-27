@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it, vi } from "vitest";
-import type { StudentMasterData } from "@/lib/schemas/student-master-data";
+import type { Registration } from "@/lib/schemas/registration";
 import type { User } from "@/lib/schemas/user";
 import { joinRoster } from "./roster";
 
@@ -12,11 +12,11 @@ function user(id: string, firstName: string, lastName: string): User {
   return { id, firstName, lastName, email: id, role: "student" };
 }
 
-function record(userId: string, overrides: Partial<StudentMasterData> = {}): StudentMasterData {
+function record(userId: string, overrides: Partial<Registration> = {}): Registration {
   return {
     id: `s1__${userId}`,
     userId,
-    seasonId: "s1",
+    eventSeriesId: "s1",
     eventId: null,
     isIncomplete: false,
     isAttendingSportsWeek: true,

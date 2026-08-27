@@ -237,7 +237,7 @@ describe("SignInCard", () => {
 
   it.each([
     ["teacher", "/app/report"],
-    ["student", "/app/my-master-data"],
+    ["student", "/app/my-registration"],
   ])("sends a %s straight to their own start page", async (role, expected) => {
     respondWith(200, { status: "ok", role });
 

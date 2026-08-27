@@ -141,7 +141,7 @@ const NOTHING_BLOCKED: UsageReport = {
 
 /**
  * What the in-use guard blocks (US-5 to US-10). The answer is a cross-collection question — is
- * this value still named by a record whose season is not archived — so it comes from a
+ * this value still named by a record whose event series is not archived — so it comes from a
  * teacher-guarded handler rather than a subscription. Fetching once is enough: it only moves
  * when a student edits their master data, which cannot happen from this view.
  */

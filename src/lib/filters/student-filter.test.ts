@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
+import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
 import {
   ATTENDANCE_VALUES,
   COMPLETENESS_VALUES,
@@ -243,7 +243,7 @@ describe("filterGroups", () => {
     ]);
   });
 
-  it("offers the events of the season as tags, in the order the teacher set them", () => {
+  it("offers the events of the event series as tags, in the order the teacher set them", () => {
     const events = [
       { id: "event1", name: "Woche 1" },
       { id: "event2", name: "Woche 2" },

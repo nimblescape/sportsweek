@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { FileDown, FileSpreadsheet } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
-import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
+import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { EMPTY_FILTER, filterStudents, filterSummary, scopeFilterToGroups } from "@/lib/filters/student-filter"; // prettier-ignore
 import { offeredFieldTags, reportFieldsOf } from "@/lib/report/report-fields";
 import {
@@ -20,7 +20,7 @@ import {
 } from "@/lib/report/report-download";
 import { matchingSavedReport } from "@/lib/report/saved-reports";
 import { useSavedReports } from "@/lib/report/use-saved-reports";
-import { NO_ACTIVE_SEASON_HINT } from "@/lib/seasons/season-state";
+import { NO_ACTIVE_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,12 +44,12 @@ function CardHeading({ children }: { children: string }) {
 }
 
 /**
- * The student report of US-13, scoped to the active season and listing everyone registered for
+ * The student report of US-13, scoped to the active event series and listing everyone registered for
  * it — including the students who answered "no", which is what sets it apart from the assignment
  * dialog and is why its filter carries categories the board has no use for.
  */
 export function ReportView() {
-  const { season, loading, error, students, events, filterGroups } = useSeasonRoster({
+  const { eventSeries, loading, error, students, events, filterGroups } = useEventSeriesRoster({
     attendance: true,
     completeness: true,
     events: true,
@@ -70,7 +70,7 @@ export function ReportView() {
     () => ({ filter, fields: activeFields }),
     [filter, activeFields],
   );
-  // A record points at its event by id, so the detail line needs the season's events to name it.
+  // A record points at its event by id, so the detail line needs the event series' events to name it.
   const context = useMemo(
     () => ({ eventNames: new Map(events.map((event) => [event.id, event.name])) }),
     [events],
@@ -151,7 +151,7 @@ export function ReportView() {
               type="button"
               variant="outline"
               onClick={() => exportReport(downloadReportPdf)}
-              disabled={season === null || exporting}
+              disabled={eventSeries === null || exporting}
             >
               <FileDown aria-hidden data-icon="inline-start" />
               PDF
@@ -160,7 +160,7 @@ export function ReportView() {
               type="button"
               variant="outline"
               onClick={() => exportReport(downloadReportWorkbook)}
-              disabled={season === null || exporting}
+              disabled={eventSeries === null || exporting}
             >
               <FileSpreadsheet aria-hidden data-icon="inline-start" />
               Excel
@@ -183,9 +183,9 @@ export function ReportView() {
         </p>
       )}
 
-      {season === null ? (
+      {eventSeries === null ? (
         <p role="status" className="text-muted-foreground text-sm">
-          {NO_ACTIVE_SEASON_HINT}
+          {NO_ACTIVE_EVENT_SERIES_HINT}
         </p>
       ) : (
         <>

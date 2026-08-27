@@ -59,12 +59,12 @@ describe("optionalText", () => {
 
 describe("documentIdSchema", () => {
   it("accepts a plain id", () => {
-    expect(documentIdSchema.safeParse("season-1").success).toBe(true);
+    expect(documentIdSchema.safeParse("event series-1").success).toBe(true);
   });
 
   it.each([
     ["an empty id", ""],
-    ["a path instead of an id", "seasons/season-1"],
+    ["a path instead of an id", "event series/event series-1"],
   ])("rejects %s", (_case, value) => {
     expect(documentIdSchema.safeParse(value).success).toBe(false);
   });

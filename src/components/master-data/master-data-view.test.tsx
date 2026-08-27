@@ -327,7 +327,7 @@ describe("MasterDataView — the in-use restriction", () => {
     expect(screen.getByRole("button", { name: "Klasse 3AHIT löschen" })).toBeDisabled();
   });
 
-  it("explains that the season has to be archived first", () => {
+  it("explains that the event series has to be archived first", () => {
     renderView();
 
     expect(screen.getAllByText(IN_USE_HINT).length).toBeGreaterThan(0);

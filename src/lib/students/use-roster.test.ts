@@ -40,7 +40,7 @@ const doc = (id: string, data: unknown): Doc => ({ id, data: () => data });
 
 const storedRecord = (overrides: Record<string, unknown> = {}) => ({
   userId: ANNA,
-  seasonId: "s1",
+  eventSeriesId: "s1",
   eventId: null,
   isIncomplete: false,
   isAttendingSportsWeek: true,
@@ -80,14 +80,11 @@ beforeEach(() => {
 });
 
 describe("useRoster", () => {
-  it("reads the registrations of the season it was given", () => {
+  it("reads the registrations of the event series it was given", () => {
     renderHook(() => useRoster("s1"));
     signIn();
 
-    expect(subscription("studentMasterData")[0]).toEqual([
-      "studentMasterData",
-      "where:seasonId=s1",
-    ]);
+    expect(subscription("registrations")[0]).toEqual(["registrations", "where:eventSeriesId=s1"]);
   });
 
   it("reads the users it needs the names from, and only the students among them", () => {
@@ -101,7 +98,7 @@ describe("useRoster", () => {
     const { result } = renderHook(() => useRoster("s1"));
     signIn();
 
-    emit("studentMasterData", [doc(`s1__${ANNA}`, storedRecord())]);
+    emit("registrations", [doc(`s1__${ANNA}`, storedRecord())]);
     emit("users", [doc(ANNA, storedUser)]);
 
     await waitFor(() =>
@@ -116,19 +113,17 @@ describe("useRoster", () => {
     const { result } = renderHook(() => useRoster("s1"));
     signIn();
 
-    emit("studentMasterData", [doc(`s1__${ANNA}`, storedRecord())]);
+    emit("registrations", [doc(`s1__${ANNA}`, storedRecord())]);
 
     expect(result.current.loading).toBe(true);
     expect(result.current.students).toEqual([]);
   });
 
-  it("reads no registrations while no season is active, and says so by not loading", () => {
+  it("reads no registrations while no event series is active, and says so by not loading", () => {
     const { result } = renderHook(() => useRoster(null));
     signIn();
 
-    expect(onSnapshot.mock.calls.some(([q]) => (q as string[])[0] === "studentMasterData")).toBe(
-      false,
-    );
+    expect(onSnapshot.mock.calls.some(([q]) => (q as string[])[0] === "registrations")).toBe(false);
     expect(result.current.loading).toBe(false);
     expect(result.current.students).toEqual([]);
   });
@@ -138,8 +133,8 @@ describe("useRoster", () => {
     const { result } = renderHook(() => useRoster("s1"));
     signIn();
 
-    emit("studentMasterData", [
-      doc("broken", { userId: ANNA, seasonId: "s1" }),
+    emit("registrations", [
+      doc("broken", { userId: ANNA, eventSeriesId: "s1" }),
       doc(`s1__${ANNA}`, storedRecord()),
     ]);
     emit("users", [doc(ANNA, storedUser)]);

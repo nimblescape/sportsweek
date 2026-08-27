@@ -193,7 +193,7 @@ describe("ProgramEquipmentView", () => {
     expect(bodyOf(fetchMock)).toEqual({ requiredEquipment: ["Stöcke"] });
   });
 
-  it("disables an entry a student of an open season still rents", () => {
+  it("disables an entry a student of an open event series still rents", () => {
     useUsageReport.mockReturnValue({
       blockedIds: new Set<string>(),
       blockedEquipment: { ski: ["Helm"] },

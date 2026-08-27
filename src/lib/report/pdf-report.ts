@@ -16,7 +16,7 @@ import {
   subtitleLines,
   type ReportProvenance,
 } from "./report-export";
-import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
+import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
 
 const PAGE_MARGIN = 40;

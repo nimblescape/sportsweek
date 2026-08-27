@@ -6,10 +6,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@/lib/api/handler";
-import { eventSchema } from "@/lib/schemas/season";
+import { eventSchema } from "@/lib/schemas/event-series";
 import { deleteEvent, updateEvent } from "@/lib/events/event-service";
 
-// Strict on purpose: `seasonId` is absent, so an event can never be moved between seasons.
+// Strict on purpose: `eventSeriesId` is absent, so an event can never be moved between event series.
 const updateEventSchema = z.strictObject({ name: eventSchema.shape.name });
 
 type Context = { params: Promise<{ eventId: string }> };

@@ -11,7 +11,7 @@ import { releaseName, reservationRef, reserveName, scopeOf } from "@/lib/firebas
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { eventSchema, seasonSchema, type Event } from "@/lib/schemas/season";
+import { eventSchema, eventSeriesSchema, type Event } from "@/lib/schemas/event-series";
 
 const nameSchema = eventSchema.shape.name;
 
@@ -30,62 +30,62 @@ function eventDoc(id: string) {
   return adminDb.collection(COLLECTIONS.events).doc(id);
 }
 
-async function requireOpenSeason(seasonId: string) {
-  const snapshot = await adminDb.collection(COLLECTIONS.seasons).doc(seasonId).get();
+async function requireOpenEventSeries(eventSeriesId: string) {
+  const snapshot = await adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId).get();
   if (!snapshot.exists) {
-    throw new ServiceError(ErrorCode.NotFound, "Diese Saison gibt es nicht.");
+    throw new ServiceError(ErrorCode.NotFound, "Diese Eventreihe gibt es nicht.");
   }
 
-  const season = seasonSchema.parse({ id: seasonId, ...snapshot.data() });
-  if (season.isArchived) {
+  const eventSeries = eventSeriesSchema.parse({ id: eventSeriesId, ...snapshot.data() });
+  if (eventSeries.isArchived) {
     throw new ServiceError(
       ErrorCode.Conflict,
-      "Zu einer archivierten Saison können keine Events hinzugefügt werden.",
+      "Zu einer archivierten Eventreihe können keine Events hinzugefügt werden.",
     );
   }
 }
 
-export async function createEvent(input: { seasonId: string; name: string }): Promise<Event> {
+export async function createEvent(input: { eventSeriesId: string; name: string }): Promise<Event> {
   const name = parseName(input.name);
-  await requireOpenSeason(input.seasonId);
+  await requireOpenEventSeries(input.eventSeriesId);
 
-  // A new event goes to the end of its season's order (see Ordering).
+  // A new event goes to the end of its event series' order (see Ordering).
   const position = (
     await adminDb
       .collection(COLLECTIONS.events)
-      .where("seasonId", "==", input.seasonId)
+      .where("eventSeriesId", "==", input.eventSeriesId)
       .count()
       .get()
   ).data().count;
 
-  // Scoped to the season, so two seasons may both hold a "Montafon".
+  // Scoped to the event series, so two event series may both hold a "Montafon".
   return adminDb.runTransaction(async (transaction) => {
     const reference = adminDb.collection(COLLECTIONS.events).doc();
     await reserveName(transaction, {
-      scope: scopeOf(COLLECTIONS.events, input.seasonId),
+      scope: scopeOf(COLLECTIONS.events, input.eventSeriesId),
       name,
       ownerId: reference.id,
     });
 
-    const data = { seasonId: input.seasonId, name, position };
+    const data = { eventSeriesId: input.eventSeriesId, name, position };
     transaction.set(reference, data);
     return { id: reference.id, ...data };
   });
 }
 
-/** Ordering is per season, so one season's list can never renumber another's (see Ordering). */
+/** Ordering is per event series, so one event series' list can never renumber another's (see Ordering). */
 export async function reorderEvents(
-  seasonId: string,
+  eventSeriesId: string,
   orderedIds: readonly string[],
 ): Promise<void> {
   await reorderCollection({
     collection: COLLECTIONS.events,
     orderedIds,
-    scope: { field: "seasonId", value: seasonId },
+    scope: { field: "eventSeriesId", value: eventSeriesId },
   });
 }
 
-/** Only the name is editable — an event never moves between seasons (US-4). */
+/** Only the name is editable — an event never moves between event series (US-4). */
 export async function updateEvent(id: string, update: { name: string }): Promise<Event> {
   const name = parseName(update.name);
 
@@ -99,7 +99,7 @@ export async function updateEvent(id: string, update: { name: string }): Promise
 
     const current = eventSchema.parse({ id, ...snapshot.data() });
 
-    const scope = scopeOf(COLLECTIONS.events, current.seasonId);
+    const scope = scopeOf(COLLECTIONS.events, current.eventSeriesId);
     if (name !== current.name) {
       await reserveName(transaction, { scope, name, ownerId: id });
       releaseName(transaction, { scope, name: current.name });
@@ -124,7 +124,7 @@ export async function deleteEvent(id: string): Promise<void> {
   const current = eventSchema.parse({ id, ...snapshot.data() });
 
   const assigned = await adminDb
-    .collection(COLLECTIONS.studentMasterData)
+    .collection(COLLECTIONS.registrations)
     .where("eventId", "==", id)
     .get();
 
@@ -134,6 +134,6 @@ export async function deleteEvent(id: string): Promise<void> {
   await commitInChunks(operations);
 
   // Frees the name for reuse; otherwise a deleted event would keep blocking it.
-  const nameRef = reservationRef(scopeOf(COLLECTIONS.events, current.seasonId), current.name);
+  const nameRef = reservationRef(scopeOf(COLLECTIONS.events, current.eventSeriesId), current.name);
   await adminDb.batch().delete(nameRef).delete(reference).commit();
 }

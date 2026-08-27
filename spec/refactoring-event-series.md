@@ -53,6 +53,7 @@ event series, labelled "Eventreihe".
 | A registration is a snapshot nothing may disturb         | A registration is kept in step with the lists its series offers                      |
 | `savedReports` collection, shared by every season        | Saved reports belong to one event series                                             |
 | Registration joins `users` for the student's name        | Registration carries the name, so a report is one read                               |
+| `studentMasterData`, which was never master data         | `registrations`, which is what a student's answers are                               |
 | `studentMasterData.eventId` points at an event document  | `registration.event` names the event, like every other list value                    |
 | One season is active; students write to that one         | Each series is open to students or not; several may be open at once                  |
 | Registration opens when a teacher activates a season     | A series is opened by generating its invitation link                                 |
@@ -820,10 +821,10 @@ rules suite against the emulator, and the problems the editor reports on the fil
 The deploy order is the one Q9 sets out: a new index first, a widening rule before or with its
 code, a narrowing rule after it.
 
-The environments are reset rather than migrated (Q18), and there are exactly two moments where
-they have to be: after slice 2, which changes where master data lives, and after slice 4, which
-changes where a registration lives and what its id is. Both are a purge and a reseed with the
-scripts that already exist.
+The environments are reset rather than migrated (Q18), and the moments where they have to be are
+the ones that move stored data: slice 1, which renames two collections; slice 2, which changes
+where master data lives; and slice 4, which changes where a registration lives and what its id
+is. Each is a purge and a reseed with the scripts that already exist.
 
 ### 1. Rename only
 
@@ -836,6 +837,19 @@ and the pages beneath `master-data/seasons/`, together with `seasonId` wherever 
 the `events` index, in the reservation scope, in the seeding script, and in the rules file's copy
 of the collection names. `useSeasonRoster` becomes `useEventSeriesRoster`; "Saison" and "Saisons"
 become "Eventreihe" and "Eventreihen" (Q2).
+
+**`studentMasterData` becomes `registrations` in the same slice**, because it is the same mistake
+and fixing it twice would be worse than fixing it once. What a student fills in was never master
+data — master data is the maintained lists a teacher keeps, and the record beside them is one
+student's answers for one event series. The module already knew: `EMPTY_REGISTRATION`,
+`toRegistrationInput` and `REGISTRATION_NOT_OPEN_HINT` are its own vocabulary, and US-26 calls
+the entity a registration throughout. So `src/lib/student-master-data/` becomes
+`src/lib/registration/`, `studentMasterDataSchema` becomes `registrationSchema`,
+`/app/my-master-data` becomes `/app/my-registration`, and the mirror `hasStudentData` becomes
+`hasRegistrations` — the name US-28 gives it when it finally has to go back down.
+
+The German follows: "Meine Stammdaten" becomes **"Meine Anmeldung"**. "Stammdaten" survives where
+it is still true — the teacher's maintained lists — which is the whole point of the distinction.
 
 **"Saisonkarte" does not move.** `seasonPassOptions`, its label and its route segment stay exactly
 as they are, for the reason given under Naming. It is also what proves the rename was done by

@@ -21,7 +21,7 @@ afterEach(() => vi.unstubAllGlobals());
 /** Returns whatever apiRequest threw, so the assertion can be made on the error itself. */
 async function captureFailure(): Promise<unknown> {
   try {
-    await apiRequest("/api/seasons", { method: "POST", body: {} });
+    await apiRequest("/api/event-series", { method: "POST", body: {} });
     throw new Error("apiRequest was expected to fail");
   } catch (caught) {
     return caught;
@@ -37,20 +37,20 @@ function jsonResponse(body: unknown, status = 200) {
 
 describe("apiRequest", () => {
   it("returns the parsed body on success", async () => {
-    stubFetch(() => Promise.resolve(jsonResponse({ season: { id: "s1" } }, 201)));
+    stubFetch(() => Promise.resolve(jsonResponse({ eventSeries: { id: "s1" } }, 201)));
 
     await expect(
-      apiRequest("/api/seasons", { method: "POST", body: { name: "X" } }),
-    ).resolves.toEqual({ season: { id: "s1" } });
+      apiRequest("/api/event-series", { method: "POST", body: { name: "X" } }),
+    ).resolves.toEqual({ eventSeries: { id: "s1" } });
   });
 
   it("sends the body as JSON", async () => {
     const fetchMock = stubFetch(() => Promise.resolve(jsonResponse({})));
 
-    await apiRequest("/api/seasons", { method: "POST", body: { name: "X" } });
+    await apiRequest("/api/event-series", { method: "POST", body: { name: "X" } });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/seasons",
+      "/api/event-series",
       expect.objectContaining({
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -62,19 +62,19 @@ describe("apiRequest", () => {
   it("resolves to null for a 204, which carries no body", async () => {
     stubFetch(() => Promise.resolve(new Response(null, { status: 204 })));
 
-    await expect(apiRequest("/api/seasons/s1", { method: "DELETE" })).resolves.toBeNull();
+    await expect(apiRequest("/api/event-series/s1", { method: "DELETE" })).resolves.toBeNull();
   });
 
   it("surfaces the server's German message so it can be shown as-is", async () => {
     stubFetch(() =>
       Promise.resolve(
-        jsonResponse({ error: { code: "CONFLICT", message: "Nur archivierte Saisonen." } }, 409),
+        jsonResponse({ error: { code: "CONFLICT", message: "Nur archivierte Eventreihen." } }, 409),
       ),
     );
 
-    await expect(apiRequest("/api/seasons/s1", { method: "DELETE" })).rejects.toMatchObject({
+    await expect(apiRequest("/api/event-series/s1", { method: "DELETE" })).rejects.toMatchObject({
       code: "CONFLICT",
-      message: "Nur archivierte Saisonen.",
+      message: "Nur archivierte Eventreihen.",
     });
   });
 

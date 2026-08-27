@@ -9,12 +9,12 @@ export const REPORT_TITLE = "Sportsweek Report";
 
 /**
  * What a copy of the report says about itself once it has left the screen (US-17, US-18): when
- * it was taken, and which slice of the season it holds.
+ * it was taken, and which slice of the event series it holds.
  */
 export type ReportProvenance = {
   /** The saved report the page matched, or null where it matched none. */
   reportName: string | null;
-  /** What the filter tag list leaves, in words, or null where it leaves the whole season. */
+  /** What the filter tag list leaves, in words, or null where it leaves the whole event series. */
   filterSummary: string | null;
   exportedAt: Date;
 };

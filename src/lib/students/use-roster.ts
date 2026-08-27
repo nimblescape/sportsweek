@@ -10,7 +10,7 @@ import { collection, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { subscribeWithRecovery } from "@/lib/firebase/live-query";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { studentMasterDataSchema, type StudentMasterData } from "@/lib/schemas/student-master-data";
+import { registrationSchema, type Registration } from "@/lib/schemas/registration";
 import { userSchema, type User } from "@/lib/schemas/user";
 import { joinRoster, type RosterStudent } from "./roster";
 
@@ -21,30 +21,33 @@ type RosterState = {
 };
 
 /**
- * Every registration of one season, with the names to show them under (US-12, US-13).
+ * Every registration of one event series, with the names to show them under (US-12, US-13).
  *
  * A live read rather than a handler: a teacher may read the collection outright (see
  * firestore.rules), and it is the subscription that makes the overview tables follow an
  * assignment the moment it is stored.
  */
-export function useRoster(seasonId: string | null): RosterState {
-  const [records, setRecords] = useState<StudentMasterData[] | null>(null);
+export function useRoster(eventSeriesId: string | null): RosterState {
+  const [records, setRecords] = useState<Registration[] | null>(null);
   const [users, setUsers] = useState<User[] | null>(null);
   const [recordError, setRecordError] = useState<string | null>(null);
   const [userError, setUserError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (seasonId === null) return;
+    if (eventSeriesId === null) return;
 
-    return subscribeWithRecovery<StudentMasterData>({
-      label: COLLECTIONS.studentMasterData,
+    return subscribeWithRecovery<Registration>({
+      label: COLLECTIONS.registrations,
       buildQuery: () =>
-        query(collection(db, COLLECTIONS.studentMasterData), where("seasonId", "==", seasonId)),
+        query(
+          collection(db, COLLECTIONS.registrations),
+          where("eventSeriesId", "==", eventSeriesId),
+        ),
       parse: (id, data) => {
-        const parsed = studentMasterDataSchema.safeParse({ id, ...data });
+        const parsed = registrationSchema.safeParse({ id, ...data });
         if (!parsed.success) {
           console.error(
-            `${COLLECTIONS.studentMasterData}/${id} does not match the schema`,
+            `${COLLECTIONS.registrations}/${id} does not match the schema`,
             parsed.error,
           );
           return null;
@@ -54,7 +57,7 @@ export function useRoster(seasonId: string | null): RosterState {
       onData: setRecords,
       onError: setRecordError,
     });
-  }, [seasonId]);
+  }, [eventSeriesId]);
 
   // Only the students: a teacher keeps no registration of their own (US-15), so their record
   // could never be joined to one.
@@ -84,7 +87,7 @@ export function useRoster(seasonId: string | null): RosterState {
 
   return {
     students,
-    loading: seasonId !== null && (records === null || users === null),
+    loading: eventSeriesId !== null && (records === null || users === null),
     error: recordError ?? userError,
   };
 }

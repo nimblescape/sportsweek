@@ -1,0 +1,29 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
+import { z } from "zod";
+import { documentIdSchema, requiredText } from "./common";
+import { positionSchema } from "./position";
+
+// The displayed state (active / archived / inactive) is derived from these two flags, never stored.
+export const eventSeriesSchema = z.object({
+  id: documentIdSchema,
+  name: requiredText(120),
+  isActive: z.boolean(),
+  isArchived: z.boolean(),
+  // Denormalized from registration so clients — who cannot read that collection directly
+  // (see firestore.rules) — can tell whether archiving/deleting is allowed without a round trip.
+  hasRegistrations: z.boolean(),
+  position: positionSchema,
+});
+export type EventSeries = z.infer<typeof eventSeriesSchema>;
+
+export const eventSchema = z.object({
+  id: documentIdSchema,
+  eventSeriesId: documentIdSchema,
+  name: requiredText(120),
+  position: positionSchema,
+});
+export type Event = z.infer<typeof eventSchema>;

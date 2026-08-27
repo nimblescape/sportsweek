@@ -147,14 +147,14 @@ export type MasterDataUpdate = { name?: string; requiredEquipment?: readonly str
 /**
  * Renaming is gated by the in-use guard: master data records keep a plain-text snapshot of the
  * value they selected (US-11), so a rename would silently orphan every record still pointing at
- * the old text. Archiving the season is what releases the item again (US-5 to US-10).
+ * the old text. Archiving the event series is what releases the item again (US-5 to US-10).
  *
  * The equipment list is held to the same rule, one entry at a time: adding is always fine, but
  * an entry that disappears — removed outright or renamed away — must not be one a student of an
- * open season still rents. The list is rewritten whole, so the check is a set difference.
+ * open event series still rents. The list is rewritten whole, so the check is a set difference.
  *
  * Both guards run ahead of the transaction rather than inside it. They scan the master data of
- * every open season, and a transactional query locks the index range it scans — which is what
+ * every open event series, and a transactional query locks the index range it scans — which is what
  * made an earlier sibling-query approach to unique names collapse under concurrency.
  */
 export async function updateMasterDataItem(
@@ -212,7 +212,7 @@ export async function updateMasterDataItem(
 
 /**
  * A program's required equipment goes with it, since the list lives on the program itself — so
- * the same restriction applies: an entry a student of an open season still rents cannot be
+ * the same restriction applies: an entry a student of an open event series still rents cannot be
  * removed on its own, and deleting the program must not be a way around that. Master data
  * records keep their snapshots either way (US-11).
  */

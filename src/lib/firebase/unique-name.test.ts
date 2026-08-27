@@ -37,7 +37,7 @@ describe("normalizeName", () => {
 
 describe("scopeOf", () => {
   it("uses the collection alone when a name must be globally unique", () => {
-    expect(scopeOf("seasons")).toBe("seasons");
+    expect(scopeOf("eventSeries")).toBe("eventSeries");
   });
 
   it("includes the parent when a name is only unique inside it", () => {
@@ -51,27 +51,27 @@ describe("scopeOf", () => {
 
 describe("reservationRef", () => {
   it("puts the name into the document id, which is what makes it unique", () => {
-    expect(reservationRef("seasons", "Winter 2026").id).toBe("seasons|winter 2026");
+    expect(reservationRef("eventSeries", "Winter 2026").id).toBe("eventSeries|winter 2026");
   });
 
   it("gives names differing only in case the same id", () => {
-    expect(reservationRef("seasons", "WINTER 2026").id).toBe(
-      reservationRef("seasons", "  winter 2026 ").id,
+    expect(reservationRef("eventSeries", "WINTER 2026").id).toBe(
+      reservationRef("eventSeries", "  winter 2026 ").id,
     );
   });
 
   it("keeps a slash out of the id, which would otherwise split the path", () => {
-    expect(reservationRef("seasons", "2026/2027").id).not.toContain("/");
+    expect(reservationRef("eventSeries", "2026/2027").id).not.toContain("/");
   });
 
   it("still keeps two different slashed names apart", () => {
-    expect(reservationRef("seasons", "2026/2027").id).not.toBe(
-      reservationRef("seasons", "2027/2028").id,
+    expect(reservationRef("eventSeries", "2026/2027").id).not.toBe(
+      reservationRef("eventSeries", "2027/2028").id,
     );
   });
 });
 
-const reserve = (name: string, ownerId: string, scope = "seasons") =>
+const reserve = (name: string, ownerId: string, scope = "eventSeries") =>
   firestore.runTransaction((transaction) =>
     reserveName(transaction as never, { scope, name, ownerId }),
   );
@@ -84,7 +84,7 @@ describe("reserveName", () => {
   it("records the owner, so a rename can tell its own claim apart", async () => {
     await reserve("Winter 2026", "s1");
 
-    expect(firestore.get("reservedNames", "seasons|winter 2026")).toMatchObject({
+    expect(firestore.get("reservedNames", "eventSeries|winter 2026")).toMatchObject({
       ownerId: "s1",
       name: "Winter 2026",
     });
@@ -140,7 +140,7 @@ describe("reserveName", () => {
 });
 
 describe("reserveName — scoped to a parent", () => {
-  it("rejects a duplicate inside the same season", async () => {
+  it("rejects a duplicate inside the same event series", async () => {
     await reserve("Montafon", "e1", scopeOf("events", "s1"));
 
     await expect(reserve("Montafon", "e2", scopeOf("events", "s1"))).rejects.toBeInstanceOf(
@@ -148,7 +148,7 @@ describe("reserveName — scoped to a parent", () => {
     );
   });
 
-  it("allows the same name in a different season", async () => {
+  it("allows the same name in a different event series", async () => {
     await reserve("Montafon", "e1", scopeOf("events", "s1"));
 
     await expect(reserve("Montafon", "e2", scopeOf("events", "s2"))).resolves.toBeUndefined();
@@ -168,7 +168,7 @@ describe("releaseName", () => {
     await reserve("Winter 2026", "s1");
 
     await firestore.runTransaction(async (transaction) =>
-      releaseName(transaction as never, { scope: "seasons", name: "Winter 2026" }),
+      releaseName(transaction as never, { scope: "eventSeries", name: "Winter 2026" }),
     );
 
     await expect(reserve("Winter 2026", "s2")).resolves.toBeUndefined();
@@ -178,7 +178,7 @@ describe("releaseName", () => {
     await reserve("Winter 2026", "s1");
 
     await firestore.runTransaction(async (transaction) =>
-      releaseName(transaction as never, { scope: "seasons", name: "Winter 2026" }),
+      releaseName(transaction as never, { scope: "eventSeries", name: "Winter 2026" }),
     );
 
     expect(firestore.count("reservedNames")).toBe(0);
@@ -188,7 +188,7 @@ describe("releaseName", () => {
     await reserve("Winter 2026", "s1");
 
     await firestore.runTransaction(async (transaction) =>
-      releaseName(transaction as never, { scope: "seasons", name: "  WINTER 2026 " }),
+      releaseName(transaction as never, { scope: "eventSeries", name: "  WINTER 2026 " }),
     );
 
     expect(firestore.count("reservedNames")).toBe(0);

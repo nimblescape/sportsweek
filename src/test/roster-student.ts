@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import type { StudentMasterData } from "@/lib/schemas/student-master-data";
+import type { Registration } from "@/lib/schemas/registration";
 import type { RosterStudent } from "@/lib/students/roster";
 
 /**
@@ -11,11 +11,11 @@ import type { RosterStudent } from "@/lib/students/roster";
  * Twenty-four fields is too many to repeat per test file, and a fixture that drifts from the
  * schema fails as a type error in one place rather than in five.
  */
-export function studentRecord(overrides: Partial<StudentMasterData> = {}): StudentMasterData {
+export function studentRecord(overrides: Partial<Registration> = {}): Registration {
   return {
     id: "record1",
     userId: "anna@student.htldornbirn.at",
-    seasonId: "s1",
+    eventSeriesId: "s1",
     eventId: null,
     isIncomplete: false,
     isAttendingSportsWeek: true,
@@ -53,7 +53,7 @@ export function studentRecord(overrides: Partial<StudentMasterData> = {}): Stude
  */
 export function rosterStudent(
   overrides: Partial<Omit<RosterStudent, "record">> = {},
-  answers: Partial<StudentMasterData> = {},
+  answers: Partial<Registration> = {},
 ): RosterStudent {
   const row = {
     id: "record1",

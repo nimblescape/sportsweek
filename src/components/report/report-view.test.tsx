@@ -10,7 +10,7 @@ import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
 
-const useSeasons = vi.fn();
+const useEventSeries = vi.fn();
 const useRoster = vi.fn();
 const useEvents = vi.fn();
 const useMasterData = vi.fn();
@@ -20,7 +20,7 @@ const apiRequest = vi.fn();
 const downloadReportPdf = vi.fn();
 const downloadReportWorkbook = vi.fn();
 
-vi.mock("@/lib/seasons/use-seasons", () => ({ useSeasons: () => useSeasons() }));
+vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
 vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
@@ -59,12 +59,12 @@ function student(
 const ANNA = student("Anna", "Muster");
 const BENE = student("Bene", "Berger", { isAttending: false, class: "5BHIF" });
 
-const season = {
+const eventSeries = {
   id: "s1",
   name: "2026",
   isActive: true,
   isArchived: false,
-  hasStudentData: true,
+  hasRegistrations: true,
   position: 0,
 };
 
@@ -76,10 +76,10 @@ const listOf = (...names: string[]) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useSeasons.mockReturnValue({ seasons: [season], loading: false, error: null });
+  useEventSeries.mockReturnValue({ eventSeries: [eventSeries], loading: false, error: null });
   useRoster.mockReturnValue({ students: [BENE, ANNA], loading: false, error: null });
   useEvents.mockReturnValue({
-    events: [{ id: "event1", seasonId: "s1", name: "Woche 1", position: 0 }],
+    events: [{ id: "event1", eventSeriesId: "s1", name: "Woche 1", position: 0 }],
     loading: false,
     error: null,
   });
@@ -102,12 +102,12 @@ const rowOf = (lastName: string) =>
   rows().find((row) => row.textContent?.includes(lastName)) as HTMLElement;
 
 describe("ReportView", () => {
-  it("says so while no season is active, since there is nobody to report on", () => {
-    useSeasons.mockReturnValue({ seasons: [], loading: false, error: null });
+  it("says so while no event series is active, since there is nobody to report on", () => {
+    useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: null });
 
     render(<ReportView />);
 
-    expect(screen.getByText("Es ist keine Saison aktiv.")).toBeInTheDocument();
+    expect(screen.getByText("Es ist keine Eventreihe aktiv.")).toBeInTheDocument();
   });
 
   it("lists everyone registered, including the students who stay at home (US-13)", () => {
@@ -463,7 +463,7 @@ describe("exporting", () => {
     expect(exportedAt).toBeInstanceOf(Date);
   });
 
-  it("describes the filter alongside it, so a copy says which slice of the season it holds", async () => {
+  it("describes the filter alongside it, so a copy says which slice of the event series it holds", async () => {
     render(<ReportView />);
     await userEvent.click(screen.getByRole("button", { name: "Klasse: 5BHIF" }));
     await userEvent.click(screen.getByRole("button", { name: "PDF" }));
@@ -481,8 +481,8 @@ describe("exporting", () => {
     expect(screen.getByRole("alert")).not.toHaveTextContent("no fonts");
   });
 
-  it("offers no export while no season is active", () => {
-    useSeasons.mockReturnValue({ seasons: [], loading: false, error: null });
+  it("offers no export while no event series is active", () => {
+    useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: null });
 
     render(<ReportView />);
 

@@ -22,8 +22,8 @@ export function normalizeName(name: string): string {
 }
 
 /**
- * The set a name has to be unique within: "seasons" covers every season, while
- * "events:<seasonId>" keeps events unique only inside their own season.
+ * The set a name has to be unique within: "eventSeries" covers every event series, while
+ * "events:<eventSeriesId>" keeps events unique only inside their own event series.
  */
 export function scopeOf(collection: string, parentId?: string): string {
   return parentId === undefined ? collection : `${collection}:${parentId}`;

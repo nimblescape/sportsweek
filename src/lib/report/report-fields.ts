@@ -5,13 +5,13 @@
  */
 
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
-import type { StudentMasterData } from "@/lib/schemas/student-master-data";
+import type { Registration } from "@/lib/schemas/registration";
 import {
   COMPLETENESS_LABELS,
   GENDER_LABELS,
   RELATIONSHIP_LABELS,
   yesNo,
-} from "@/lib/student-master-data/answer-labels";
+} from "@/lib/registration/answer-labels";
 
 /** A field a student has not answered is said to be unanswered, never left as a blank line. */
 export const NO_ANSWER = "keine Angabe";
@@ -29,7 +29,7 @@ export type ReportField = {
   key: string;
   label: string;
   /** Null is "not answered"; the placeholder is the reader's business, not the field's. */
-  valueOf: (record: StudentMasterData, context: ReportFieldContext) => string | null;
+  valueOf: (record: Registration, context: ReportFieldContext) => string | null;
 };
 
 /**
@@ -49,13 +49,13 @@ function germanDate(iso: string): string {
   return `${day}.${month}.${year}`;
 }
 
-function contactName(record: StudentMasterData): string | null {
+function contactName(record: Registration): string | null {
   const { firstName, lastName } = record.emergencyContact;
   const name = [firstName, lastName].filter((part) => part !== null).join(" ");
   return name === "" ? null : name;
 }
 
-function relationshipOf(record: StudentMasterData): string | null {
+function relationshipOf(record: Registration): string | null {
   const { relationship, relationshipOtherText } = record.emergencyContact;
   if (relationship === null) return null;
   // What the student typed is the answer; "Sonstiges" only stands in until they have typed it.
@@ -63,7 +63,7 @@ function relationshipOf(record: StudentMasterData): string | null {
   return RELATIONSHIP_LABELS[relationship];
 }
 
-function foodOf(record: StudentMasterData): string | null {
+function foodOf(record: Registration): string | null {
   if (record.foodOption === null) return null;
   if (record.foodOption !== FOOD_OPTION_OTHER) return record.foodOption;
 

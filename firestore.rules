@@ -59,16 +59,16 @@ service cloud.firestore {
      * is no child document whose ownership would have to be worked out separately.
      *
      * A teacher reads the whole collection, because planning is what it is for: the assignment
-     * dialog counts every class and every event of the active season (US-12) and the report
+     * dialog counts every class and every event of the active event series (US-12) and the report
      * lists every student (US-13). Checked first, so a list is answered without touching
      * `resource`, which a list has none of until a document is returned.
      *
      * Writes are closed for the reason the collections below are: a save carries invariants
-     * rules cannot run a query for — it belongs to *the* active season, answering "no" gives up
-     * the event assignment (US-12), and the season's `hasStudentData` mirror follows it (US-4).
-     * The teacher's assignment goes the same way, through a handler that owns `eventId`.
+     * rules cannot run a query for — it belongs to *the* active event series, answering "no" gives
+     * up the event assignment (US-12), and the event series' `hasRegistrations` mirror follows it
+     * (US-4). The teacher's assignment goes the same way, through a handler that owns `eventId`.
      */
-    match /studentMasterData/{recordId} {
+    match /registrations/{recordId} {
       allow read: if isTeacher() || (isSignedIn() && resource.data.userId == upn());
       allow write: if false;
     }
@@ -80,14 +80,14 @@ service cloud.firestore {
     }
 
     /**
-     * Every teacher-maintained collection: anyone signed in may read, because student master
-     * data selects from these lists and the teacher views subscribe to them live. Nobody
-     * writes from the client.
+     * Every teacher-maintained collection: anyone signed in may read, because a registration
+     * selects from these lists and the teacher views subscribe to them live. Nobody writes
+     * from the client.
      *
      * Writes are closed rather than merely restricted to teachers, because the invariants
      * these collections carry cannot be expressed here at all. Rules can `get()` a known
      * path but cannot run a query, so "is this name already taken?" (US-4 to US-10), "is
-     * at most one season active?" (US-4), "is this item still in use?" (US-5 to US-10) and
+     * at most one event series active?" (US-4), "is this item still in use?" (US-5 to US-10) and
      * the cascade on delete (US-4) are all out of reach. They are enforced in transactions
      * in the Route Handlers, which use the Admin SDK and bypass these rules — leaving a
      * second, unchecked way in would make those guarantees worthless.
@@ -97,7 +97,7 @@ service cloud.firestore {
      */
     match /{collection}/{itemId} {
       allow read: if isSignedIn() && collection in [
-        'seasons', 'events', 'programs',
+        'eventSeries', 'events', 'programs',
         'classOptions', 'skillLevels', 'busPickupPoints', 'foodOptions', 'seasonPassOptions'
       ];
 

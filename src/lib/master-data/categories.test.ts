@@ -22,7 +22,7 @@ describe("MASTER_DATA_CATEGORIES", () => {
     }
   });
 
-  it("matches each category against the field student master data snapshots it into", () => {
+  it("matches each category against the field registration snapshots it into", () => {
     expect(MASTER_DATA_CATEGORIES.classes.usage).toEqual({ kind: "masterData", field: "class" });
     expect(MASTER_DATA_CATEGORIES.programs.usage).toEqual({ kind: "masterData", field: "program" });
     expect(MASTER_DATA_CATEGORIES["skill-levels"].usage).toEqual({
@@ -65,10 +65,10 @@ describe("MASTER_DATA_CATEGORIES", () => {
 });
 
 describe("MASTER_DATA_SECTIONS", () => {
-  it("leads with seasons and adds nothing beyond the categories", () => {
+  it("leads with event series and adds nothing beyond the categories", () => {
     expect(MASTER_DATA_SECTIONS[0]).toEqual({
-      href: "/app/master-data/seasons",
-      label: "Saisonen",
+      href: "/app/master-data/event-series",
+      label: "Eventreihen",
     });
     expect(MASTER_DATA_SECTIONS).toHaveLength(Object.keys(MASTER_DATA_CATEGORIES).length + 1);
   });

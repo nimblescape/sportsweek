@@ -65,14 +65,14 @@ export async function POST(request: Request) {
   const denied = await requireTeacherOrResponse();
   if (denied) return denied;
 
-  const body = await parseJsonBody(request, createSeasonSchema);
+  const body = await parseJsonBody(request, createEventSeriesSchema);
   if (!body.ok) return body.response;
 
   try {
-    const season = await createSeason(body.data);
-    return NextResponse.json({ season }, { status: 201 });
+    const eventSeries = await createEventSeries(body.data);
+    return NextResponse.json({ eventSeries }, { status: 201 });
   } catch (error) {
-    return handleServiceFailure(error, "Creating a season");
+    return handleServiceFailure(error, "Creating an event series");
   }
 }
 ```

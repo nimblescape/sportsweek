@@ -14,7 +14,8 @@ process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
 process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "sportsweek-unique-integration";
 
 const { adminDb } = await import("@/lib/firebase/admin");
-const { createSeason, updateSeason, deleteSeason } = await import("@/lib/seasons/season-service");
+const { createEventSeries, updateEventSeries, deleteEventSeries } =
+  await import("@/lib/event-series/event-series-service");
 const { createEvent, deleteEvent } = await import("@/lib/events/event-service");
 
 async function wipe(collection: string) {
@@ -23,7 +24,7 @@ async function wipe(collection: string) {
 }
 
 // reservedNames has to go too: a leftover reservation blocks the name it still holds.
-const COLLECTIONS_UNDER_TEST = ["seasons", "events", "reservedNames"];
+const COLLECTIONS_UNDER_TEST = ["eventSeries", "events", "reservedNames"];
 
 async function reset() {
   for (const collection of COLLECTIONS_UNDER_TEST) await wipe(collection);
@@ -35,75 +36,77 @@ afterAll(reset);
 const settledReasons = (results: PromiseSettledResult<unknown>[]) =>
   results.flatMap((r) => (r.status === "rejected" ? [r.reason] : []));
 
-describe("season name uniqueness against a real Firestore", () => {
+describe("event series name uniqueness against a real Firestore", () => {
   it("rejects a duplicate created one after the other", async () => {
-    await createSeason({ name: "Winter 2026" });
+    await createEventSeries({ name: "Winter 2026" });
 
-    await expect(createSeason({ name: "Winter 2026" })).rejects.toMatchObject({
+    await expect(createEventSeries({ name: "Winter 2026" })).rejects.toMatchObject({
       code: "CONFLICT",
     });
   });
 
   it("lets exactly one of two simultaneous creates win", async () => {
     const results = await Promise.allSettled([
-      createSeason({ name: "Winter 2026" }),
-      createSeason({ name: "Winter 2026" }),
+      createEventSeries({ name: "Winter 2026" }),
+      createEventSeries({ name: "Winter 2026" }),
     ]);
 
-    const snapshot = await adminDb.collection("seasons").get();
+    const snapshot = await adminDb.collection("eventSeries").get();
     expect(snapshot.size).toBe(1);
     expect(settledReasons(results)).toHaveLength(1);
   });
 
   it("holds under a burst of simultaneous creates", async () => {
-    const attempts = Array.from({ length: 8 }, () => createSeason({ name: "Winter 2026" }));
+    const attempts = Array.from({ length: 8 }, () => createEventSeries({ name: "Winter 2026" }));
 
     await Promise.allSettled(attempts);
 
-    const snapshot = await adminDb.collection("seasons").get();
+    const snapshot = await adminDb.collection("eventSeries").get();
     expect(snapshot.size).toBe(1);
   });
 
   it("still lets genuinely different names through concurrently", async () => {
     await Promise.all([
-      createSeason({ name: "Winter 2026" }),
-      createSeason({ name: "Winter 2027" }),
-      createSeason({ name: "Winter 2028" }),
+      createEventSeries({ name: "Winter 2026" }),
+      createEventSeries({ name: "Winter 2027" }),
+      createEventSeries({ name: "Winter 2028" }),
     ]);
 
-    const snapshot = await adminDb.collection("seasons").get();
+    const snapshot = await adminDb.collection("eventSeries").get();
     expect(snapshot.size).toBe(3);
   });
 
   it("treats a case-only difference as the same name under contention", async () => {
     await Promise.allSettled([
-      createSeason({ name: "Winter 2026" }),
-      createSeason({ name: "WINTER 2026" }),
+      createEventSeries({ name: "Winter 2026" }),
+      createEventSeries({ name: "WINTER 2026" }),
     ]);
 
-    const snapshot = await adminDb.collection("seasons").get();
+    const snapshot = await adminDb.collection("eventSeries").get();
     expect(snapshot.size).toBe(1);
   });
 
   it("refuses a rename onto a name taken in the meantime", async () => {
-    const first = await createSeason({ name: "Winter 2026" });
-    await createSeason({ name: "Winter 2027" });
+    const first = await createEventSeries({ name: "Winter 2026" });
+    await createEventSeries({ name: "Winter 2027" });
 
-    await expect(updateSeason(first.id, { name: "Winter 2027" })).rejects.toMatchObject({
+    await expect(updateEventSeries(first.id, { name: "Winter 2027" })).rejects.toMatchObject({
       code: "CONFLICT",
     });
   });
 });
 
 describe("event name uniqueness against a real Firestore", () => {
-  it("does not serialise writes to unrelated seasons", async () => {
-    const seasons = await Promise.all(
-      Array.from({ length: 4 }, (_, i) => createSeason({ name: `Saison ${i}` })),
+  it("does not serialise writes to unrelated event series", async () => {
+    const eventSeries = await Promise.all(
+      Array.from({ length: 4 }, (_, i) => createEventSeries({ name: `Eventreihe ${i}` })),
     );
 
     const started = Date.now();
     await Promise.all(
-      seasons.map((season) => createEvent({ seasonId: season.id, name: "Montafon" })),
+      eventSeries.map((eventSeries) =>
+        createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
+      ),
     );
     const elapsed = Date.now() - started;
 
@@ -112,27 +115,27 @@ describe("event name uniqueness against a real Firestore", () => {
     expect(elapsed).toBeLessThan(3000);
   });
 
-  it("lets exactly one of two simultaneous creates win within a season", async () => {
-    const season = await createSeason({ name: "Winter 2026" });
+  it("lets exactly one of two simultaneous creates win within an event series", async () => {
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
 
     await Promise.allSettled([
-      createEvent({ seasonId: season.id, name: "Montafon" }),
-      createEvent({ seasonId: season.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
     ]);
 
     const snapshot = await adminDb.collection("events").get();
     expect(snapshot.size).toBe(1);
   });
 
-  it("allows the same name concurrently in two different seasons", async () => {
+  it("allows the same name concurrently in two different event series", async () => {
     const [a, b] = await Promise.all([
-      createSeason({ name: "Winter 2026" }),
-      createSeason({ name: "Winter 2027" }),
+      createEventSeries({ name: "Winter 2026" }),
+      createEventSeries({ name: "Winter 2027" }),
     ]);
 
     await Promise.all([
-      createEvent({ seasonId: a.id, name: "Montafon" }),
-      createEvent({ seasonId: b.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: a.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: b.id, name: "Montafon" }),
     ]);
 
     const snapshot = await adminDb.collection("events").get();
@@ -142,39 +145,41 @@ describe("event name uniqueness against a real Firestore", () => {
 
 describe("names are freed again when their owner goes", () => {
   it("frees an event name when the event is deleted", async () => {
-    const season = await createSeason({ name: "Winter 2026" });
-    const event = await createEvent({ seasonId: season.id, name: "Montafon" });
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
+    const event = await createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" });
 
     await deleteEvent(event.id);
 
-    await expect(createEvent({ seasonId: season.id, name: "Montafon" })).resolves.toBeTruthy();
+    await expect(
+      createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
+    ).resolves.toBeTruthy();
   });
 
   it("frees the old name after a rename", async () => {
-    const season = await createSeason({ name: "Winter 2026" });
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
 
-    await updateSeason(season.id, { name: "Winter 2027" });
+    await updateEventSeries(eventSeries.id, { name: "Winter 2027" });
 
-    await expect(createSeason({ name: "Winter 2026" })).resolves.toBeTruthy();
+    await expect(createEventSeries({ name: "Winter 2026" })).resolves.toBeTruthy();
   });
 
-  it("frees the season name and every event name when a season is deleted", async () => {
-    const season = await createSeason({ name: "Winter 2026" });
-    await createEvent({ seasonId: season.id, name: "Montafon" });
-    await createEvent({ seasonId: season.id, name: "Lech" });
+  it("frees the event series name and every event name when an event series is deleted", async () => {
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
+    await createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" });
+    await createEvent({ eventSeriesId: eventSeries.id, name: "Lech" });
 
-    await deleteSeason(season.id);
+    await deleteEventSeries(eventSeries.id);
 
-    const reused = await createSeason({ name: "Winter 2026" });
-    await expect(createEvent({ seasonId: reused.id, name: "Montafon" })).resolves.toBeTruthy();
-    await expect(createEvent({ seasonId: reused.id, name: "Lech" })).resolves.toBeTruthy();
+    const reused = await createEventSeries({ name: "Winter 2026" });
+    await expect(createEvent({ eventSeriesId: reused.id, name: "Montafon" })).resolves.toBeTruthy();
+    await expect(createEvent({ eventSeriesId: reused.id, name: "Lech" })).resolves.toBeTruthy();
   });
 
-  it("leaves no reservation behind after a season cascade", async () => {
-    const season = await createSeason({ name: "Winter 2026" });
-    await createEvent({ seasonId: season.id, name: "Montafon" });
+  it("leaves no reservation behind after an event series cascade", async () => {
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
+    await createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" });
 
-    await deleteSeason(season.id);
+    await deleteEventSeries(eventSeries.id);
 
     const snapshot = await adminDb.collection("reservedNames").get();
     expect(snapshot.size).toBe(0);

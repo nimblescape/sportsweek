@@ -124,7 +124,7 @@ export function classOverview(
 
 /**
  * The cards a teacher drags between: the students with no week yet, then one card per week of
- * the season, in the order the teacher put the weeks in (US-12).
+ * the event series, in the order the teacher put the weeks in (US-12).
  *
  * A student who answered "no" appears in none of them — only someone who is coming can be
  * assigned — which is why the class cards above are the one place they are counted.

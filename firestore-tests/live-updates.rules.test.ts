@@ -9,7 +9,7 @@ import { initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 
 /**
- * Reproduces what the browser actually does: a client-SDK listener on the seasons/events
+ * Reproduces what the browser actually does: a client-SDK listener on the event series/events
  * query while the server writes through privileged access. Rules-only tests cannot catch a
  * listener that is allowed to read yet never receives the push.
  */
@@ -79,10 +79,10 @@ function collectSnapshots(builtQuery: ReturnType<typeof query>) {
   };
 }
 
-describe("seasons list stays live", () => {
+describe("event series list stays live", () => {
   it("delivers a first snapshot", async () => {
     const listener = collectSnapshots(
-      query(collection(teacherDb() as never, "seasons"), orderBy("name", "desc")),
+      query(collection(teacherDb() as never, "eventSeries"), orderBy("name", "desc")),
     );
 
     await listener.waitFor((emission) => emission.ids.length === 0);
@@ -90,14 +90,14 @@ describe("seasons list stays live", () => {
     listener.unsubscribe();
   });
 
-  it("pushes a season created by the server, without resubscribing", async () => {
+  it("pushes an event series created by the server, without resubscribing", async () => {
     const listener = collectSnapshots(
-      query(collection(teacherDb() as never, "seasons"), orderBy("name", "desc")),
+      query(collection(teacherDb() as never, "eventSeries"), orderBy("name", "desc")),
     );
     await listener.waitFor((emission) => emission.ids.length === 0);
 
     await serverWrite((db) =>
-      db.collection("seasons").doc("new").set({
+      db.collection("eventSeries").doc("new").set({
         name: "2026/2027",
         isActive: false,
         isArchived: false,
@@ -110,18 +110,18 @@ describe("seasons list stays live", () => {
 
   it("pushes a deletion too", async () => {
     await serverWrite((db) =>
-      db.collection("seasons").doc("gone").set({
+      db.collection("eventSeries").doc("gone").set({
         name: "2025/2026",
         isActive: false,
         isArchived: false,
       }),
     );
     const listener = collectSnapshots(
-      query(collection(teacherDb() as never, "seasons"), orderBy("name", "desc")),
+      query(collection(teacherDb() as never, "eventSeries"), orderBy("name", "desc")),
     );
     await listener.waitFor((emission) => emission.ids.includes("gone"));
 
-    await serverWrite((db) => db.collection("seasons").doc("gone").delete());
+    await serverWrite((db) => db.collection("eventSeries").doc("gone").delete());
 
     await listener.waitFor((emission) => !emission.ids.includes("gone"));
     listener.unsubscribe();
@@ -129,39 +129,39 @@ describe("seasons list stays live", () => {
 });
 
 describe("events list stays live", () => {
-  it("pushes an event created by the server for the season being viewed", async () => {
+  it("pushes an event created by the server for the event series being viewed", async () => {
     const listener = collectSnapshots(
       query(
         collection(teacherDb() as never, "events"),
-        where("seasonId", "==", "s1"),
+        where("eventSeriesId", "==", "s1"),
         orderBy("name"),
       ),
     );
     await listener.waitFor((emission) => emission.ids.length === 0);
 
     await serverWrite((db) =>
-      db.collection("events").doc("e1").set({ seasonId: "s1", name: "Montafon" }),
+      db.collection("events").doc("e1").set({ eventSeriesId: "s1", name: "Montafon" }),
     );
 
     await listener.waitFor((emission) => emission.ids.includes("e1"));
     listener.unsubscribe();
   });
 
-  it("ignores an event created for a different season", async () => {
+  it("ignores an event created for a different event series", async () => {
     const listener = collectSnapshots(
       query(
         collection(teacherDb() as never, "events"),
-        where("seasonId", "==", "s1"),
+        where("eventSeriesId", "==", "s1"),
         orderBy("name"),
       ),
     );
     await listener.waitFor((emission) => emission.ids.length === 0);
 
     await serverWrite((db) =>
-      db.collection("events").doc("other").set({ seasonId: "s2", name: "Lech" }),
+      db.collection("events").doc("other").set({ eventSeriesId: "s2", name: "Lech" }),
     );
     await serverWrite((db) =>
-      db.collection("events").doc("mine").set({ seasonId: "s1", name: "Montafon" }),
+      db.collection("events").doc("mine").set({ eventSeriesId: "s1", name: "Montafon" }),
     );
 
     const emission = await listener.waitFor((e) => e.ids.includes("mine"));

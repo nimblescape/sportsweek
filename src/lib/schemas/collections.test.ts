@@ -11,7 +11,7 @@ describe("COLLECTIONS", () => {
     expect(Object.keys(COLLECTIONS).sort()).toEqual(
       [
         "users",
-        "seasons",
+        "eventSeries",
         "events",
         "programs",
         "classOptions",
@@ -21,7 +21,7 @@ describe("COLLECTIONS", () => {
         "seasonPassOptions",
         // Emergency contact and rented equipment are fields of this record, not collections of
         // their own: neither has an identity outside it, and nothing else refers to them (US-11).
-        "studentMasterData",
+        "registrations",
         "savedReports",
         // Not an entity of its own: one document per claimed name, which is how uniqueness
         // is enforced (US-4 to US-10). See lib/firebase/unique-name.ts.

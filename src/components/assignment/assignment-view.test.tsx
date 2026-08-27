@@ -10,7 +10,7 @@ import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
 import { stubBoardLayout } from "@/test/stub-board-layout";
 
-const useSeasons = vi.fn();
+const useEventSeries = vi.fn();
 const useEvents = vi.fn();
 const useRoster = vi.fn();
 const useMasterData = vi.fn();
@@ -18,7 +18,7 @@ const usePrograms = vi.fn();
 const apiRequest = vi.fn();
 const useBusyWhile = vi.fn();
 
-vi.mock("@/lib/seasons/use-seasons", () => ({ useSeasons: () => useSeasons() }));
+vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
 vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
@@ -51,12 +51,12 @@ const ANNA = student("Anna", "Muster");
 const BENE = student("Bene", "Berger", { eventId: "event1" });
 const CLARA = student("Clara", "Cerny", { isAttending: false });
 
-const season = {
+const eventSeries = {
   id: "s1",
   name: "2026",
   isActive: true,
   isArchived: false,
-  hasStudentData: true,
+  hasRegistrations: true,
   position: 0,
 };
 
@@ -69,11 +69,11 @@ const listOf = (...names: string[]) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   stubBoardLayout();
-  useSeasons.mockReturnValue({ seasons: [season], loading: false, error: null });
+  useEventSeries.mockReturnValue({ eventSeries: [eventSeries], loading: false, error: null });
   useEvents.mockReturnValue({
     events: [
-      { id: "event1", seasonId: "s1", name: "Montafon", position: 0 },
-      { id: "event2", seasonId: "s1", name: "Gardasee", position: 1 },
+      { id: "event1", eventSeriesId: "s1", name: "Montafon", position: 0 },
+      { id: "event2", eventSeriesId: "s1", name: "Gardasee", position: 1 },
     ],
     loading: false,
     error: null,
@@ -104,12 +104,12 @@ async function drag(from: string, row: string, direction: "{ArrowDown}" | "{Arro
 }
 
 describe("AssignmentView", () => {
-  it("says so while no season is active, since there is nothing to assign", () => {
-    useSeasons.mockReturnValue({ seasons: [], loading: false, error: null });
+  it("says so while no event series is active, since there is nothing to assign", () => {
+    useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: null });
 
     render(<AssignmentView />);
 
-    expect(screen.getByText("Es ist keine Saison aktiv.")).toBeInTheDocument();
+    expect(screen.getByText("Es ist keine Eventreihe aktiv.")).toBeInTheDocument();
   });
 
   /** How the classes stand is a page of its own now; this one is the board and nothing else. */
@@ -176,7 +176,7 @@ describe("AssignmentView", () => {
     settle();
   });
 
-  it("tells the teacher when a season has no events to assign to yet", () => {
+  it("tells the teacher when an event series has no events to assign to yet", () => {
     useEvents.mockReturnValue({ events: [], loading: false, error: null });
 
     render(<AssignmentView />);
