@@ -219,6 +219,17 @@ describe("AssignmentBoard", () => {
     await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Berger"], "event1"));
   });
 
+  it("offers no 'Alle' where a card holds one student, who is already their own everyone", () => {
+    setup();
+
+    expect(
+      card("Montafon").queryByRole("button", { name: "Alle auswählen" }),
+    ).not.toBeInTheDocument();
+    expect(
+      card("Nicht zugeteilt").getByRole("button", { name: "Alle auswählen" }),
+    ).toBeInTheDocument();
+  });
+
   it("moves everyone the filter leaves when 'Alle' is dragged", async () => {
     setup();
 

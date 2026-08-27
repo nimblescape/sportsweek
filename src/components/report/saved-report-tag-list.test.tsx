@@ -207,6 +207,15 @@ describe("saving the report as it stands", () => {
     expect(saveButton()).toBeInTheDocument();
   });
 
+  it("lets go of the marked tag the moment a new report is being named", async () => {
+    setup();
+    await userEvent.click(tag("5AHIF"));
+
+    await userEvent.click(saveButton() as HTMLElement);
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("refuses a blank name rather than saving a report nothing can be opened by", async () => {
     setup();
 
@@ -284,14 +293,12 @@ describe("bringing the marked report up to date", () => {
 });
 
 describe("while a write is out", () => {
-  it("closes an open name form when a control in a tag is pressed", async () => {
-    const { change } = setup();
-    await userEvent.click(tag("5AHIF"));
-    change({ ...CURRENT, fields: [] });
+  it("closes an open name form when a tag is pressed", async () => {
+    setup();
     await userEvent.click(screen.getByRole("button", { name: "Bericht speichern" }));
     expect(nameField()).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF aktualisieren" }));
+    await userEvent.click(tag("5AHIF"));
 
     expect(nameField()).not.toBeInTheDocument();
   });

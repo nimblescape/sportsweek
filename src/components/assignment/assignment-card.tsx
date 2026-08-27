@@ -136,7 +136,7 @@ export function AssignmentCard({
                   `flex-1` starts it from nothing, so the names never decide how tall the card
                   is — it takes the height the other two areas set, and scrolls inside it. */}
               <ul className="flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-y-auto">
-                {shown.length > 0 && (
+                {shown.length > 1 && (
                   <Row
                     dragId={allDragId(group.id)}
                     data={{ group: group.id, all: true }}

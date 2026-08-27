@@ -143,6 +143,8 @@ export function SavedReportTagList({
           disabled={pending}
           onClick={() => {
             setConfirming(null);
+            // Naming a new report is a move away from the one that was open, not a change to it.
+            setMarkedId(null);
             setEditing({ kind: "save" });
           }}
         >
