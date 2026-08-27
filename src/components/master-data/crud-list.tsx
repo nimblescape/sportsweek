@@ -22,12 +22,13 @@ import { PageHeading } from "@/components/layout/page-heading";
 import { ApiRequestError } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
-import { namedListItemSchema } from "@/lib/schemas/master-data";
+import { listItemNameSchema } from "@/lib/schemas/master-data";
 import { IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
 
-const formSchema = z.object({ name: namedListItemSchema.shape.name });
+const formSchema = z.object({ name: listItemNameSchema });
 type FormValues = z.infer<typeof formSchema>;
 
+/** An item has no id of its own: its name is what identifies it within its list (US-21). */
 export type CrudItem = { id: string; name: string };
 
 export type CrudLabels = {

@@ -4,17 +4,26 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { z } from "zod";
-import { COLLECTIONS } from "@/lib/schemas/collections";
+import type { EventSeries } from "@/lib/schemas/event-series";
 
 /**
- * How an item is recognised as still in use (US-5 to US-10). Master data stores plain-text
- * snapshots rather than references (US-11), so "in use" is a name match, not a join — and the
+ * How an item is recognised as still in use (US-5 to US-10). A registration stores the name it
+ * selected rather than a reference (US-11), so "in use" is a name match, not a join — and the
  * field to match differs per category.
  */
 export type MasterDataUsage = { kind: "masterData"; field: string };
 
+/**
+ * Which fields of the event series document hold a maintained list — derived, so a list added to
+ * the schema is offerable here and a field renamed there stops compiling (US-21).
+ */
+export type EventSeriesListField = {
+  [Key in keyof EventSeries]: EventSeries[Key] extends readonly unknown[] ? Key : never;
+}[keyof EventSeries];
+
 export type MasterDataCategory = {
-  collection: string;
+  /** The event series document field this list is stored in; there is no collection (US-21). */
+  field: EventSeriesListField;
   usage: MasterDataUsage;
   /**
    * Set only for a category whose items carry a list of their own. Its entries are matched
@@ -44,7 +53,7 @@ export type MasterDataCategory = {
  */
 export const MASTER_DATA_CATEGORIES = {
   classes: {
-    collection: COLLECTIONS.classOptions,
+    field: "classOptions",
     usage: { kind: "masterData", field: "class" },
     labels: {
       title: "Klassen",
@@ -55,7 +64,7 @@ export const MASTER_DATA_CATEGORIES = {
     },
   },
   programs: {
-    collection: COLLECTIONS.programs,
+    field: "programs",
     usage: { kind: "masterData", field: "program" },
     equipmentField: "requiredEquipment",
     labels: {
@@ -67,7 +76,7 @@ export const MASTER_DATA_CATEGORIES = {
     },
   },
   "skill-levels": {
-    collection: COLLECTIONS.skillLevels,
+    field: "skillLevels",
     usage: { kind: "masterData", field: "skillLevel" },
     labels: {
       title: "Leistungsstufen",
@@ -78,7 +87,7 @@ export const MASTER_DATA_CATEGORIES = {
     },
   },
   "season-pass-options": {
-    collection: COLLECTIONS.seasonPassOptions,
+    field: "seasonPassOptions",
     usage: { kind: "masterData", field: "seasonPassOption" },
     labels: {
       title: "Zugangskarten",
@@ -89,7 +98,7 @@ export const MASTER_DATA_CATEGORIES = {
     },
   },
   "bus-pickup-points": {
-    collection: COLLECTIONS.busPickupPoints,
+    field: "busPickupPoints",
     usage: { kind: "masterData", field: "busPickupPoint" },
     labels: {
       title: "Zustiegsstellen",
@@ -100,7 +109,7 @@ export const MASTER_DATA_CATEGORIES = {
     },
   },
   "food-options": {
-    collection: COLLECTIONS.foodOptions,
+    field: "foodOptions",
     usage: { kind: "masterData", field: "foodOption" },
     labels: {
       title: "Verpflegung",

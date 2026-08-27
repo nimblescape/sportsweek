@@ -24,7 +24,7 @@ export function ProgramsView() {
       renderRowAction={(program, { disabled }) => (
         <Tooltip label="Benötigte Ausrüstung">
           <Link
-            href={`/app/master-data/programs/${program.id}`}
+            href={`/app/master-data/programs?equipment=${encodeURIComponent(program.name)}`}
             aria-label={`Benötigte Ausrüstung für ${program.name}`}
             // A link has no disabled state of its own, so a write running on this program has to
             // be spelled out for the pointer, the keyboard and assistive technology separately.

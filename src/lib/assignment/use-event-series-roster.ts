@@ -10,7 +10,6 @@ import { skillColumns, type SkillColumn } from "@/lib/assignment/statistics";
 import { useEvents } from "@/lib/events/use-events";
 import { filterGroups, type FilterGroup } from "@/lib/filters/student-filter";
 import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
-import type { NamedListItem } from "@/lib/schemas/master-data";
 import type { Event, EventSeries } from "@/lib/schemas/event-series";
 import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
@@ -25,7 +24,7 @@ export type EventSeriesRoster = {
   /** Everyone registered for the active event series, taking part or not. */
   students: RosterStudent[];
   events: Event[];
-  classes: NamedListItem[];
+  classes: string[];
   columns: SkillColumn[];
   programNames: string[];
   skillLevelNames: string[];
@@ -38,7 +37,7 @@ type EventSeriesRosterOptions = {
   completeness?: boolean;
   equipmentRental?: boolean;
   health?: boolean;
-  /** Bus pickup point, season pass and food together — three lists nothing else subscribes to. */
+  /** Bus pickup point, season pass and food together — three categories nothing else offers. */
   answerLists?: boolean;
   events?: boolean;
 };
@@ -90,10 +89,7 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
     [programs, skillLevels.items],
   );
   const programNames = useMemo(() => programs.map((program) => program.name), [programs]);
-  const skillLevelNames = useMemo(
-    () => skillLevels.items.map((item) => item.name),
-    [skillLevels.items],
-  );
+  const skillLevelNames = skillLevels.items;
   const groups = useMemo(
     () =>
       filterGroups(

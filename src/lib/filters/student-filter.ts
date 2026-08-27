@@ -153,9 +153,10 @@ export type FilterGroup = {
  * no longer exists cannot be seen and cannot be unpressed, but it still restricts — and it
  * restricts to nobody, so the report would open empty with nothing on screen to explain it.
  *
- * A category offering nothing at all is a different case and keeps its tags: an empty list has
- * not answered the question. It is what a subscription looks like before it has delivered, and
- * dropping against it would strip a report the moment it is opened and then call it changed.
+ * A category that offers nothing at all is not among `groups` either, because an empty list is a
+ * question nobody was asked (US-21), so its tags go the same way. Telling that apart from a list
+ * that has not arrived yet is the caller's job: one document carries every list, so a view waits
+ * for it rather than scoping against a series it has not read.
  */
 export function scopeFilterToGroups(
   filter: StudentFilter,
@@ -171,7 +172,6 @@ export function scopeFilterToGroups(
       FILTER_CATEGORIES.map((category) => {
         const values = offered.get(category);
         if (values === undefined) return [category, []];
-        if (values.size === 0) return [category, filter.tags[category]];
         return [category, filter.tags[category].filter((value) => values.has(value))];
       }),
     ) as StudentFilter["tags"],
@@ -258,16 +258,16 @@ function hasHealthNote(student: FilterableStudent): boolean {
 }
 
 /** A list value is stored as the plain text it was chosen as (US-11), so it is its own tag. */
-const asOptions = (items: readonly { name: string }[]): FilterOption[] =>
-  items.map((item) => ({ value: item.name, label: item.name }));
+const asOptions = (names: readonly string[]): FilterOption[] =>
+  names.map((name) => ({ value: name, label: name }));
 
 type MaintainedLists = {
-  classes: readonly { name: string }[];
+  classes: readonly string[];
   programs: readonly { name: string }[];
-  skillLevels: readonly { name: string }[];
-  busPickupPoints?: readonly { name: string }[];
-  seasonPassOptions?: readonly { name: string }[];
-  foodOptions?: readonly { name: string }[];
+  skillLevels: readonly string[];
+  busPickupPoints?: readonly string[];
+  seasonPassOptions?: readonly string[];
+  foodOptions?: readonly string[];
 };
 
 /**
@@ -292,6 +292,9 @@ type FilterGroupOptions = {
  * has a use for — it is the one view that also lists the students who stay at home, whose cards
  * are not already one per event, and that says whose registration is still missing answers
  * (US-13). They are pushed in the order the report's fields row lists the same answers.
+ *
+ * A category whose list is empty is left out altogether, because an empty list is a question the
+ * student was never asked (US-21) — so there is nothing to filter by and no tag to offer.
  */
 export function filterGroups(
   lists: MaintainedLists,
@@ -308,6 +311,11 @@ export function filterGroups(
 ): FilterGroup[] {
   const groups: FilterGroup[] = [];
 
+  /** Offered only where the list behind it has entries, which is the whole of the US-21 rule. */
+  const pushList = (category: FilterCategory, label: string, options: FilterOption[]) => {
+    if (options.length > 0) groups.push({ category, label, options });
+  };
+
   if (attendance) {
     groups.push({ category: "attendance", label: "Teilnahme", options: ATTENDANCE_OPTIONS });
   }
@@ -319,10 +327,12 @@ export function filterGroups(
     });
   }
 
-  groups.push(
-    { category: "class", label: ANSWER_LABELS.class, options: asOptions(lists.classes) },
-    { category: "gender", label: "Geschlecht", options: GENDER_OPTIONS },
-    { category: "program", label: ANSWER_LABELS.program, options: asOptions(lists.programs) },
+  pushList("class", ANSWER_LABELS.class, asOptions(lists.classes));
+  groups.push({ category: "gender", label: "Geschlecht", options: GENDER_OPTIONS });
+  pushList(
+    "program",
+    ANSWER_LABELS.program,
+    asOptions(lists.programs.map((program) => program.name)),
   );
 
   // Between the program and the skill level, where the fields row keeps the same answer.
@@ -334,36 +344,29 @@ export function filterGroups(
     });
   }
 
-  groups.push({
-    category: "skillLevel",
-    label: ANSWER_LABELS.skillLevel,
-    options: asOptions(lists.skillLevels),
-  });
+  pushList("skillLevel", ANSWER_LABELS.skillLevel, asOptions(lists.skillLevels));
 
   if (seasonPassOption) {
-    groups.push({
-      category: "seasonPassOption",
-      label: ANSWER_LABELS.seasonPassOption,
-      options: asOptions(lists.seasonPassOptions ?? []),
-    });
+    pushList(
+      "seasonPassOption",
+      ANSWER_LABELS.seasonPassOption,
+      asOptions(lists.seasonPassOptions ?? []),
+    );
   }
   if (busPickupPoint) {
-    groups.push({
-      category: "busPickupPoint",
-      label: ANSWER_LABELS.busPickupPoint,
-      options: asOptions(lists.busPickupPoints ?? []),
-    });
+    pushList("busPickupPoint", ANSWER_LABELS.busPickupPoint, asOptions(lists.busPickupPoints ?? []));
   }
   if (foodOption) {
-    groups.push({
-      category: "foodOption",
-      label: ANSWER_LABELS.foodOption,
-      // The free-text choice is offered to students without being a row a teacher keeps (US-9).
-      options: [
-        ...asOptions(lists.foodOptions ?? []),
-        { value: FOOD_OPTION_OTHER, label: FOOD_OPTION_OTHER_LABEL },
-      ],
-    });
+    const food = lists.foodOptions ?? [];
+    // The free-text choice is offered to students without being a row a teacher keeps (US-9) —
+    // and an answer cannot summon its own question, so it goes with the list (US-21).
+    pushList(
+      "foodOption",
+      ANSWER_LABELS.foodOption,
+      food.length === 0
+        ? []
+        : [...asOptions(food), { value: FOOD_OPTION_OTHER, label: FOOD_OPTION_OTHER_LABEL }],
+    );
   }
   if (health) {
     groups.push({ category: "health", label: HEALTH_LABEL, options: HEALTH_OPTIONS });

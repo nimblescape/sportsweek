@@ -4,10 +4,11 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import "server-only";
+import type { Transaction } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { reorderCollection } from "@/lib/firebase/reorder";
-import { releaseName, reservationRef, reserveName, scopeOf } from "@/lib/firebase/unique-name";
+import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
@@ -28,6 +29,34 @@ function parseName(value: string): string {
 
 function eventDoc(id: string) {
   return adminDb.collection(COLLECTIONS.events).doc(id);
+}
+
+/**
+ * Unique within its own event series, so two series may both hold a "Montafon" (US-4). The
+ * comparison ignores surrounding whitespace and letter case, which a Firestore equality does
+ * not — hence the stored `nameKey`, derived here and never sent by a client.
+ *
+ * The query shares the write's transaction, so Firestore locks the index range it scans and a
+ * second create racing the first waits and then sees it. Reads precede writes, so this runs
+ * before the document is written.
+ */
+async function assertNameIsFree(
+  transaction: Transaction,
+  { eventSeriesId, name, ownerId }: { eventSeriesId: string; name: string; ownerId?: string },
+): Promise<string> {
+  const nameKey = normalizeName(name);
+  const taken = await transaction.get(
+    adminDb
+      .collection(COLLECTIONS.events)
+      .where("eventSeriesId", "==", eventSeriesId)
+      .where("nameKey", "==", nameKey)
+      .limit(2),
+  );
+
+  if (taken.docs.some((doc) => doc.id !== ownerId)) {
+    throw new ServiceError(ErrorCode.Conflict, `Den Namen „${name.trim()}" gibt es hier bereits.`);
+  }
+  return nameKey;
 }
 
 async function requireOpenEventSeries(eventSeriesId: string) {
@@ -61,13 +90,12 @@ export async function createEvent(input: { eventSeriesId: string; name: string }
   // Scoped to the event series, so two event series may both hold a "Montafon".
   return adminDb.runTransaction(async (transaction) => {
     const reference = adminDb.collection(COLLECTIONS.events).doc();
-    await reserveName(transaction, {
-      scope: scopeOf(COLLECTIONS.events, input.eventSeriesId),
+    const nameKey = await assertNameIsFree(transaction, {
+      eventSeriesId: input.eventSeriesId,
       name,
-      ownerId: reference.id,
     });
 
-    const data = { eventSeriesId: input.eventSeriesId, name, position };
+    const data = { eventSeriesId: input.eventSeriesId, name, nameKey, position };
     transaction.set(reference, data);
     return { id: reference.id, ...data };
   });
@@ -99,13 +127,15 @@ export async function updateEvent(id: string, update: { name: string }): Promise
 
     const current = eventSchema.parse({ id, ...snapshot.data() });
 
-    const scope = scopeOf(COLLECTIONS.events, current.eventSeriesId);
     if (name !== current.name) {
-      await reserveName(transaction, { scope, name, ownerId: id });
-      releaseName(transaction, { scope, name: current.name });
+      await assertNameIsFree(transaction, {
+        eventSeriesId: current.eventSeriesId,
+        name,
+        ownerId: id,
+      });
     }
 
-    transaction.update(reference, { name });
+    transaction.update(reference, { name, nameKey: normalizeName(name) });
     return { ...current, name };
   });
 }
@@ -121,8 +151,6 @@ export async function deleteEvent(id: string): Promise<void> {
     throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es nicht.");
   }
 
-  const current = eventSchema.parse({ id, ...snapshot.data() });
-
   const assigned = await adminDb
     .collection(COLLECTIONS.registrations)
     .where("eventId", "==", id)
@@ -133,7 +161,5 @@ export async function deleteEvent(id: string): Promise<void> {
   );
   await commitInChunks(operations);
 
-  // Frees the name for reuse; otherwise a deleted event would keep blocking it.
-  const nameRef = reservationRef(scopeOf(COLLECTIONS.events, current.eventSeriesId), current.name);
-  await adminDb.batch().delete(nameRef).delete(reference).commit();
+  await reference.delete();
 }

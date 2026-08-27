@@ -51,13 +51,13 @@ export const asPercent = (share: number) => `${Math.round(share * 100)} %`;
  */
 export function skillColumns(
   programs: readonly { name: string }[],
-  skillLevels: readonly { name: string }[],
+  skillLevels: readonly string[],
 ): SkillColumn[] {
   return programs.flatMap((program) =>
     skillLevels.map((skillLevel) => ({
-      key: skillColumnKey(program.name, skillLevel.name),
+      key: skillColumnKey(program.name, skillLevel),
       program: program.name,
-      skillLevel: skillLevel.name,
+      skillLevel,
     })),
   );
 }
@@ -113,10 +113,10 @@ export function classFigures(
  */
 export function classOverview(
   students: readonly RosterStudent[],
-  classes: readonly { name: string }[],
+  classes: readonly string[],
   columns: readonly SkillColumn[],
 ): ClassGroup[] {
-  return classes.map(({ name }) => {
+  return classes.map((name) => {
     const registered = students.filter((student) => student.class === name);
     return { class: name, students: registered, ...classFigures(registered, columns) };
   });

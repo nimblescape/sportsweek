@@ -38,9 +38,9 @@ async function requireOpenRegistration(): Promise<EventSeries> {
     ),
   );
 
-  const classes = await adminDb.collection(COLLECTIONS.classOptions).limit(1).get();
+  const classes = active?.classOptions ?? [];
 
-  if (!active || classes.empty) {
+  if (!active || classes.length === 0) {
     throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
   }
   return active;
