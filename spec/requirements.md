@@ -323,11 +323,12 @@ As a teacher, I can export the report as an Excel file so that I can sort, group
 
 - An export button exists on the report page, beside the print and PDF export buttons (see US-13, US-17), labelled "Excel exportieren".
 - The export holds exactly the students the filter tag list leaves and exactly the fields the fields tag list activates (see US-13) — the same scope the PDF export has.
-- The workbook has a single sheet, named "Sportsweek Report".
-- The report is tabular here rather than master-detail: one row per student, one column per field. The master-detail shape would put a student's answers underneath their name in a single column, which is precisely the shape a spreadsheet cannot sort, filter or total.
+- The workbook has two sheets: "Overview", which says what the export is, and "Report", which holds the students. What a PDF can put in a header and a footer on every page has nowhere to go in a table, and a row of provenance above the header row would be a row that sorting and filtering have to be told to skip.
+- The "Overview" sheet carries the HTL logo, and below it the report title "Sportsweek Report", the date and time at which the export was made, and — where the shown students are the selection of a saved filter (see US-13) — that filter's name. A selection matching no saved filter is left unnamed rather than described tag by tag, as in the PDF.
+- The "Report" sheet is tabular rather than master-detail: one row per student, one column per field. The master-detail shape would put a student's answers underneath their name in a single column, which is precisely the shape a spreadsheet cannot sort, filter or total.
 - The leftmost columns are the fields every student has and the report always shows — first name, last name and e-mail address (see US-1) — each in a column of its own. They are followed by one column per activated field, in the order the fields tag list lists them.
 - A tag standing for a group of fields — contact data, body measurements, health/medication (see US-13) — spreads into one column per field rather than one column holding all of them, because a cell that holds several values can be read but not sorted or counted.
-- The first row is a header row naming each column with its field's label, so the sheet still says what it holds once it has left the application.
+- The first row of the "Report" sheet is a header row naming each column with its field's label, so the sheet still says what it holds once it has left the application. Nothing precedes it, which is what lets a teacher select the sheet and sort or filter it without first excluding anything.
 - The mark for a registration still missing answers is not a column of its own: it is the "Registrierung" field of the fields tag list (see US-13), and appears when the teacher activates it.
 - A field a student has not answered leaves its cell empty, rather than carrying the wording the report and the PDF put in its place, since an empty cell is what a spreadsheet itself counts as missing.
 
