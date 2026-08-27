@@ -6,7 +6,6 @@
 "use client";
 
 import {
-  useId,
   useRef,
   useState,
   type KeyboardEventHandler,
@@ -26,7 +25,7 @@ import {
 import { filterStudents, type FilterGroup, type StudentFilter } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { cn } from "@/lib/utils";
-import { AREA, AREAS, AreaTitle } from "./card-areas";
+import { AREA, AREAS, AreaTitle, FilteredTag } from "./card-areas";
 import { GenderTable } from "./gender-table";
 import { SkillMatrix } from "./skill-matrix";
 
@@ -74,7 +73,6 @@ export function AssignmentCard({
 }: AssignmentCardProps) {
   const [expanded, setExpanded] = useState(true);
   const [countFiltered, setCountFiltered] = useState(false);
-  const countFilteredId = useId();
   const { setNodeRef, isOver } = useDroppable({ id: group.id });
 
   const shown = filterStudents(group.students, filter);
@@ -164,21 +162,11 @@ export function AssignmentCard({
             <section className={AREA}>
               <AreaTitle
                 aside={
-                  <label
-                    htmlFor={countFilteredId}
-                    className="text-muted-foreground flex shrink-0 items-center gap-1.5 text-xs"
-                  >
-                    <input
-                      id={countFilteredId}
-                      type="checkbox"
-                      checked={countFiltered}
-                      // Every card offers this one, so the name says which card's it is.
-                      aria-label={`${group.title}: Gefiltert`}
-                      onChange={(event) => setCountFiltered(event.target.checked)}
-                      className="accent-primary size-3.5"
-                    />
-                    Gefiltert
-                  </label>
+                  <FilteredTag
+                    card={group.title}
+                    pressed={countFiltered}
+                    onPress={() => setCountFiltered(!countFiltered)}
+                  />
                 }
               >
                 Statistik

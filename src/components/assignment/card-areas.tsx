@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { ReactNode } from "react";
+import { Tag } from "@/components/ui/tag";
 
 /**
  * Each area gets a surface of its own, so three columns of content read as three areas rather
@@ -26,5 +27,32 @@ export function AreaTitle({ children, aside }: { children: string; aside?: React
       </h3>
       {aside}
     </div>
+  );
+}
+
+const FILTERED_LABEL = "Gefiltert";
+
+/**
+ * Whether the card's figures count everyone it holds or only what its filter leaves. A tag
+ * rather than a checkbox, because pressing tags is how everything else on this page is chosen.
+ */
+export function FilteredTag({
+  card,
+  pressed,
+  onPress,
+}: {
+  /** Every card offers this one, so the name says which card's it is. */
+  card: string;
+  pressed: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Tag
+      label={`${card}: ${FILTERED_LABEL}`}
+      text={FILTERED_LABEL}
+      size="sm"
+      pressed={pressed}
+      onPress={onPress}
+    />
   );
 }

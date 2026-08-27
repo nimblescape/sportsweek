@@ -165,7 +165,7 @@ describe("ClassCards — the figures", () => {
     setup([student({ program: "Ski" }), student({ program: "Snowboard" })]);
 
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Programm: Ski" }));
-    await userEvent.click(card("5AHIF").getByRole("checkbox", { name: "5AHIF: Gefiltert" }));
+    await userEvent.click(card("5AHIF").getByRole("button", { name: "5AHIF: Gefiltert" }));
 
     expect(cellsOf(figures("5AHIF"))).toEqual(["0", "1", "1", "100 %"]);
   });
