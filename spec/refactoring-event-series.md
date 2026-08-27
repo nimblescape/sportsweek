@@ -814,27 +814,133 @@ are no users to keep served, and no slice has to survive contact with a running 
 is kept deployable anyway, because that is what stops a half-finished shape being excused by the
 slice that was going to follow it.
 
-1. **Rename only.** `seasons` to `eventSeries` in code, routes, labels and the ERD. No shape
-   change, no behaviour change. This is the diff nobody needs to read closely, and keeping it
-   separate is what makes the ones that follow readable.
-2. **Master data into the document.** The seven lists move, `position` and the ids go, uniqueness
-   moves in-document, the six subscriptions collapse into one, `reservedNames` shrinks. The
-   in-use rule stays for now, so no behaviour changes yet.
-3. **The cascade, and withdrawing the in-use rule.** US-24, US-25 and US-27 land together with
-   the deletion of `usage-guard.ts` and everything that explained it. This is also the slice that
-   introduces the **`functions/` codebase** (Q15) — its own dependency tree, its CI steps, its
-   deploy workflow and the widened deploy permissions that come with it — and the slice that needs
-   the concurrency tests.
-4. **Self-contained registrations.** US-26: the name fields, the event by name, the `users` rule
-   narrowed, the join deleted.
-5. **Dropping the active season.** US-20's header selection, the invitation of US-23 and the new
-   `isOpenToStudents` flag land together. None of the three is any use without the others:
-   removing the old exclusive `isActive` before the header can select a series and the link can
-   open one would leave registration with no way to open at all.
-6. **Creating from a copy.** US-22's source choice, which needs everything above: the lists have
-   to be in the document to be copied, and the invitation link has to exist to be left behind.
-7. **Removing a registration.** US-28, which needs the invitation links of slice 5 to have a
-   reason to exist, and gives `hasRegistrations` its first false transition.
+Two things hold for every slice and are not repeated under each. The gate is the one already
+written down — the unit tests, the lint, the type check, the formatter, the licence check and the
+rules suite against the emulator, and the problems the editor reports on the files that changed.
+The deploy order is the one Q9 sets out: a new index first, a widening rule before or with its
+code, a narrowing rule after it.
+
+The environments are reset rather than migrated (Q18), and there are exactly two moments where
+they have to be: after slice 2, which changes where master data lives, and after slice 4, which
+changes where a registration lives and what its id is. Both are a purge and a reseed with the
+scripts that already exist.
+
+### 1. Rename only
+
+`seasons` becomes `eventSeries` in the code, the collection, the routes, the labels and the ERD.
+No shape change and no behaviour change: this is the diff nobody needs to read closely, and
+keeping it separate is what makes the ones that follow readable.
+
+What moves is the whole of `src/lib/seasons/`, `src/components/seasons/`, `src/app/api/seasons/`
+and the pages beneath `master-data/seasons/`, together with `seasonId` wherever it appears — in
+the `events` index, in the reservation scope, in the seeding script, and in the rules file's copy
+of the collection names. `useSeasonRoster` becomes `useEventSeriesRoster`; "Saison" and "Saisons"
+become "Eventreihe" and "Eventreihen" (Q2).
+
+**"Saisonkarte" does not move.** `seasonPassOptions`, its label and its route segment stay exactly
+as they are, for the reason given under Naming. It is also what proves the rename was done by
+reading rather than by replacing: afterwards the word "season" survives in that one list and
+nowhere else.
+
+### 2. Master data into the document
+
+The seven lists become ordered arrays on the event series document (US-21). `position` and the
+item ids go, since an array has an order and a name is an identity; the six `useMasterData`
+subscriptions and the `useEvents` one collapse into a single subscription to a single document;
+and every list write becomes one transaction on it, taking the intent rather than the list the
+client happened to be holding.
+
+The in-use rule of US-5 to US-10 **stays** for this slice, rewritten against the new storage, so
+that nothing a teacher can do changes yet. Withdrawing it is slice 3b, where the cascade that
+makes withdrawing it safe arrives.
+
+Three things are finished here rather than left half-done:
+
+- **`reservedNames` goes entirely** (Q14), not merely shrinks. Master data uniqueness moves into
+  the document, and event series names move to a transactional equality query on the derived
+  `nameKey` in the same slice — so the collection has no callers left at the end of it. Keeping
+  it alive for one caller would be worse than either shape: a mechanism nobody can see the point
+  of, guarded by tests that no longer describe a rule anyone relies on.
+- **Seeding leaves the application** (Q9). `seed-defaults.ts` and the `seedState` collection are
+  deleted whole, the well-known defaults move into the seeding script, and signing in stops
+  writing master data as a side effect.
+- **An empty list asks no question** (US-21, Q22), with the consequences that have to move with
+  it: completeness computed against the series' lists, the report offering only the fields its
+  series asks for, and the statistics leaving out what has no dimensions.
+
+### 3a. The functions codebase
+
+The `functions/` codebase arrives on its own, carrying nothing but the trigger's guard clause and
+the test that proves it returns on a document with no pending cascade.
+
+It is separate from 3b because of what it costs rather than what it does: its own dependency tree
+and lockfile, a second install and test run in CI, the functions and eventarc emulators beside
+the firestore one, a deploy workflow, and **a widening of what the deploy identity may reach** —
+Cloud Build, Artifact Registry, Cloud Run and service-account-user, where deploying rules needs
+almost none of it. That is the largest real cost of Q15 and the part to review rather than copy
+from a template, and it is not reviewable buried under the cascade.
+
+### 3b. The cascade, and withdrawing the in-use rule
+
+US-24, US-25 and US-27 land together, and the in-use machinery goes with them: `usage-guard.ts`,
+`GET /api/master-data/[category]`, `useUsageReport`, and the five hints that explained the rule.
+
+The saved reports move into the event series document in this slice rather than the last, because
+what makes their cascade cheap is being in the same transaction as the edit that caused it
+(US-25) — moving them earlier would mean writing that cascade twice.
+
+What survives of the old restriction is one refusal: a class held by any registration of that
+series cannot be removed (Q16). It needs none of the deleted machinery, being a reduce over
+registrations a teacher already reads.
+
+This is the slice that needs the concurrency tests, and the invariant of US-24 is the one worth
+writing first: after any edit to a non-archived series, every list value on every registration is
+either unanswered or one the series currently offers.
+
+### 4. Self-contained registrations
+
+US-26: the name and e-mail fields, the event held by name, the `users` join deleted, and the
+`users` read rule narrowed to a caller's own record. A registration becomes a document beneath
+the series it belongs to, keyed by the student's UPN, so which series it is in is where it is
+stored rather than a field it carries.
+
+This is the slice where the deploy order matters: the collection group index goes first, and the
+narrowed `users` rule goes last. Deploying that rule early denies the release still running.
+
+### 5. Dropping the active season
+
+US-20's header selection, the invitation of US-23 and the new `isOpenToStudents` flag land
+together. None of the three is any use without the others: removing the old exclusive `isActive`
+before the header can select a series and the link can open one would leave registration with no
+way to open at all.
+
+It is also the slice that carries Q8's decision into the routes. The selection lives in the URL,
+so every teacher route gains an event series segment and `proxy.ts` stops matching teacher pages
+by a fixed prefix — which is the largest churn in the slice and the reason it is not sharing a
+pull request with anything else.
+
+### 6. Creating from a copy, and provisioning
+
+US-22's source choice, which needs everything above: the lists have to be in the document to be
+copied, and the invitation link has to exist to be left behind.
+
+The provisioning scripts follow in the same slice, because what production is seeded with is a
+template and templates do not exist until now: `seed-students.mts` becomes `seed-environment.mts`
+with the mapping of Q9, and `purge-environment.mts` trades its closed list of environments for
+the typed-back project id.
+
+### 7. Removing a registration
+
+US-28, which needs the invitation links of slice 5 to have a reason to exist, and which gives
+`hasRegistrations` its first false transition.
+
+### 8. The two documents become one
+
+US-19 to US-28 are folded into `spec/requirements.md` by topic and by number, US-4, US-5 to US-10
+and US-11 are rewritten as the table above says, the ERD is brought into line, and this document
+is deleted. It is a slice rather than a footnote because the merge is where the stale wording in
+US-12 is finally fixed, and because a refactoring document left lying beside the requirements it
+has already replaced is the next reader's first wrong turn.
 
 ## Open questions and inconsistencies
 
