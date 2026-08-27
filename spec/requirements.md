@@ -9,6 +9,7 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 ## General
 
 - All UI text is in German.
+- Every tag in a tag list starts with a capital letter, so that a wrapping row of them reads as a row of labels rather than as one sentence broken across several.
 - All UI must be responsive, supporting desktop, tablet, and mobile screen sizes.
 
 ## Design Guidelines
@@ -368,7 +369,7 @@ As a teacher, I see a dashboard when I log in so that I can navigate to the diff
 - A header row is shown at the top of the dashboard: the application title "Sportsweek" on the left, and a logout button on the right.
 - Below the header, the remaining area is split into a left-side navigation zone and a content area on the right.
 - The left-side navigation contains, from top to bottom: Report (see US-13), Assignment (see US-12), and Master data.
-- The Master data navigation item has a sub-item for each teacher-maintained category (see US-4 through US-10).
+- The Master data navigation item has a sub-item for each teacher-maintained category (see US-4 through US-10), in this order: event series, classes, programs, skill levels, bus pickup points, food/diet options, season passes. Classes come first because a class is asked of every student whether they attend or not (see US-11), so it is the list a teacher fills in before any other. The order is stated here rather than left to follow the story numbers, which are stable identifiers and not a running order.
 - Selecting the Master data navigation item expands its sub-items; deselecting it collapses them again.
 
 ### US-15: Student navigation

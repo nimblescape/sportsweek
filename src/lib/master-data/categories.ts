@@ -32,10 +32,21 @@ export type MasterDataCategory = {
 };
 
 /**
- * The six teacher-maintained lists, keyed by the URL segment under /app/master-data. EventSeries
- * are not here: they carry active/archived state of their own and keep their dedicated view.
+ * The six teacher-maintained lists, keyed by the URL segment under /app/master-data, in the order
+ * the menu shows them. EventSeries are not here: they carry active/archived state of their own and
+ * keep their dedicated view.
  */
 export const MASTER_DATA_CATEGORIES = {
+  classes: {
+    collection: COLLECTIONS.classOptions,
+    usage: { kind: "masterData", field: "class" },
+    labels: {
+      title: "Klassen",
+      singular: "Klasse",
+      add: "Neue Klasse",
+      empty: "Es gibt noch keine Klasse.",
+    },
+  },
   programs: {
     collection: COLLECTIONS.programs,
     usage: { kind: "masterData", field: "program" },
@@ -45,16 +56,6 @@ export const MASTER_DATA_CATEGORIES = {
       singular: "Programm",
       add: "Neues Programm",
       empty: "Es gibt noch kein Programm.",
-    },
-  },
-  classes: {
-    collection: COLLECTIONS.classOptions,
-    usage: { kind: "masterData", field: "class" },
-    labels: {
-      title: "Klassen",
-      singular: "Klasse",
-      add: "Neue Klasse",
-      empty: "Es gibt noch keine Klasse.",
     },
   },
   "skill-levels": {

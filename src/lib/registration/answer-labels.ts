@@ -22,6 +22,12 @@ export const RELATIONSHIP_LABELS: Record<Relationship, string> = {
   other: "Sonstiges",
 };
 
+/** How the attendance answer reads where it names a group of students or a tag that selects one. */
+export const ATTENDANCE_LABELS = {
+  attending: "Nimmt teil",
+  notAttending: "Nimmt nicht teil",
+} as const;
+
 /** "Nein" first, because that is where an unanswered registration starts (US-11). */
 export const YES_NO_LABELS = { false: "Nein", true: "Ja" } as const;
 

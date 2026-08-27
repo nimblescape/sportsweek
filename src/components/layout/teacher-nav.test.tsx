@@ -15,8 +15,8 @@ const { TeacherNav } = await import("@/components/layout/teacher-nav");
 
 const SUB_ITEMS = [
   "Eventreihen",
-  "Programme",
   "Klassen",
+  "Programme",
   "Leistungsstufen",
   "Zustiegsstellen",
   "Verpflegung",

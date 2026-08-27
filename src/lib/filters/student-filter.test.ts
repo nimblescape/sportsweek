@@ -514,12 +514,12 @@ describe("filterSummary", () => {
   it("lists the tags chosen, grouped by the category they were chosen in", () => {
     const filter = withTags(["class", "5AHIF"], ["class", "5BHIF"], ["gender", "female"]);
 
-    expect(filterSummary(filter, GROUPS)).toBe("5AHIF, 5BHIF \u00b7 weiblich");
+    expect(filterSummary(filter, GROUPS)).toBe("5AHIF, 5BHIF \u00b7 Weiblich");
   });
 
   it("leaves out a category nothing is chosen in, which restricts nothing", () => {
     expect(filterSummary(withTags(["attendance", ATTENDANCE_VALUES.attending]), GROUPS)).toBe(
-      "nimmt teil",
+      "Nimmt teil",
     );
   });
 

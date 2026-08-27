@@ -73,6 +73,19 @@ describe("MASTER_DATA_SECTIONS", () => {
     expect(MASTER_DATA_SECTIONS).toHaveLength(Object.keys(MASTER_DATA_CATEGORIES).length + 1);
   });
 
+  /** A student is asked their class before their program, and the menu is read in that order. */
+  it("puts the menu in the order a teacher works through it", () => {
+    expect(MASTER_DATA_SECTIONS.map((section) => section.label)).toEqual([
+      "Eventreihen",
+      "Klassen",
+      "Programme",
+      "Leistungsstufen",
+      "Zustiegsstellen",
+      "Verpflegung",
+      "Saisonkarten",
+    ]);
+  });
+
   it("links each category under its own key, labelled with the title it already carries", () => {
     for (const [key, category] of Object.entries(MASTER_DATA_CATEGORIES)) {
       expect(MASTER_DATA_SECTIONS).toContainEqual({

@@ -16,14 +16,15 @@ import {
   type FilterGroup,
   type StudentFilter,
 } from "@/lib/filters/student-filter";
+import { ATTENDANCE_LABELS } from "@/lib/registration/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
 import { cn } from "@/lib/utils";
 import { AREA, AREAS, AreaTitle, FilteredTag } from "./card-areas";
 import { GenderTable } from "./gender-table";
 import { SkillMatrix } from "./skill-matrix";
 
-const ATTENDING_LABEL = "Nimmt teil";
-const NOT_ATTENDING_LABEL = "Nimmt nicht teil";
+const ATTENDING_LABEL = ATTENDANCE_LABELS.attending;
+const NOT_ATTENDING_LABEL = ATTENDANCE_LABELS.notAttending;
 
 type ClassCardsProps = {
   rows: readonly ClassGroup[];

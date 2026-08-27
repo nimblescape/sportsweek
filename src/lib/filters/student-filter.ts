@@ -7,9 +7,11 @@ import { z } from "zod";
 import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import {
+  ATTENDANCE_LABELS,
   EQUIPMENT_RENTAL_LABEL,
   EQUIPMENT_RENTAL_NEEDED_LABEL,
   EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
+  GENDER_LABELS,
   HEALTH_LABEL,
   HEALTH_NOTED_LABEL,
   INCOMPLETE_REGISTRATION_HINT,
@@ -194,13 +196,13 @@ export function filterSummary(
 }
 
 const GENDER_OPTIONS: readonly FilterOption[] = [
-  { value: "male", label: "männlich" },
-  { value: "female", label: "weiblich" },
+  { value: "male", label: GENDER_LABELS.male },
+  { value: "female", label: GENDER_LABELS.female },
 ];
 
 const ATTENDANCE_OPTIONS: readonly FilterOption[] = [
-  { value: ATTENDANCE_VALUES.attending, label: "nimmt teil" },
-  { value: ATTENDANCE_VALUES.notAttending, label: "nimmt nicht teil" },
+  { value: ATTENDANCE_VALUES.attending, label: ATTENDANCE_LABELS.attending },
+  { value: ATTENDANCE_VALUES.notAttending, label: ATTENDANCE_LABELS.notAttending },
 ];
 
 /**
