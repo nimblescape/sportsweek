@@ -396,6 +396,13 @@ its lists with a Wintersportwoche.
   inside a season's row; they are maintained like any other list, for the selected series.
 - An item's identity is its name. There is no id beside it, because the name is already unique
   within its list, and because the values registrations and saved reports hold are names.
+- Which item a request means is therefore the name it carries, compared the one way the
+  application compares names — trimmed and case-folded. That is what makes a stale request fail
+  loudly rather than quietly: a name that has since been changed matches nothing and is refused,
+  where a position would have matched whatever had moved into it.
+- A name is not a path segment, since one may contain a slash. Where a URL has to name an item it
+  does so in a search parameter, percent-encoded — which is reversible, so distinct names stay
+  distinct and no name a teacher might type is refused for the sake of a tidy address.
 - The array order is the teacher-defined order (see Ordering). No item carries a `position`.
 - Uniqueness within a list is decided in the document rather than through a reservation: the
   whole list is present in the transaction that writes it, so a duplicate is a comparison and not
@@ -955,11 +962,22 @@ renamed on its own account — which is exactly the kind of change that leaves a
 
 ### 2. Master data into the document
 
-The seven lists become ordered arrays on the event series document (US-21). `position` and the
-item ids go, since an array has an order and a name is an identity; the six `useMasterData`
-subscriptions and the `useEvents` one collapse into a single subscription to a single document;
-and every list write becomes one transaction on it, taking the intent rather than the list the
-client happened to be holding.
+Six of the seven lists become ordered arrays on the event series document (US-21). `position` and
+the item ids go, since an array has an order and a name is an identity; the six `useMasterData`
+subscriptions collapse into a single subscription to a single document; and every list write
+becomes one transaction on it, taking the intent rather than the list the client happened to be
+holding.
+
+**Events are the seventh and follow in slice 4**, because an array entry has no id for
+`registration.eventId` to point at — so the moment the collection goes, the event a registration
+is assigned to has to be held by name. That is slice 4's work (US-26), and it takes the filter
+tag and `ReportFieldContext` with it (US-25). Moving events here would drag all of it forward and
+bury the change this slice is about.
+
+The pages follow the same reasoning. The header selection that says which series a teacher is
+working in is slice 5, so until then the six lists are the **active** series' lists, and the
+events of any series stay where they already are — on that series' own page, which is the one
+place in the application that already carries an event series id.
 
 What the category definitions own is the base this starts from and is carried through unchanged:
 the menu order that the report fields, the filter categories and the registration form all
@@ -1023,6 +1041,11 @@ US-26: the name and e-mail fields, the event held by name, the `users` join dele
 `users` read rule narrowed to a caller's own record. A registration becomes a document beneath
 the series it belongs to, keyed by the student's UPN, so which series it is in is where it is
 stored rather than a field it carries.
+
+**Events join the document here**, as the seventh list, because holding the event by name is what
+lets them: an array entry has no id, so the collection cannot go until nothing points at one.
+The event filter tag becomes a name in the same slice and `ReportFieldContext` goes with it
+(US-25) — it exists only to translate an id back into the name everything else already speaks.
 
 This is the slice where the deploy order matters: the collection group index goes first, and the
 narrowed `users` rule goes last. Deploying that rule early denies the release still running.
