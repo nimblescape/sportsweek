@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { EQUIPMENT_RENTAL_LABEL } from "@/lib/registration/answer-labels";
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import type { Registration } from "@/lib/schemas/registration";
 import { studentRecord } from "@/test/roster-student";
@@ -133,9 +134,9 @@ describe("a field's value", () => {
 
   it("lists the rented equipment, and says so when nothing is rented", () => {
     expect(
-      lineFor("Ausrüstung zum Ausleihen", studentRecord({ rentedEquipment: ["Ski", "Helm"] })),
+      lineFor(EQUIPMENT_RENTAL_LABEL, studentRecord({ rentedEquipment: ["Ski", "Helm"] })),
     ).toBe("Ski, Helm");
-    expect(lineFor("Ausrüstung zum Ausleihen", studentRecord())).toBe("Nein");
+    expect(lineFor(EQUIPMENT_RENTAL_LABEL, studentRecord())).toBe("Nein");
   });
 
   it("leaves an unanswered field to the placeholder rather than inventing one", () => {

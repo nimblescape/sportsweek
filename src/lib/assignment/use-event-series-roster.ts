@@ -33,7 +33,15 @@ export type EventSeriesRoster = {
 };
 
 /** Which of the report-only tag categories to offer; the board has a use for none of them. */
-type EventSeriesRosterOptions = { attendance?: boolean; completeness?: boolean; events?: boolean };
+type EventSeriesRosterOptions = {
+  attendance?: boolean;
+  completeness?: boolean;
+  equipmentRental?: boolean;
+  health?: boolean;
+  /** Bus pickup point, season pass and food together — three lists nothing else subscribes to. */
+  answerLists?: boolean;
+  events?: boolean;
+};
 
 /**
  * The active event series and everything the views built on it count: the roster, its events, the
@@ -44,7 +52,14 @@ type EventSeriesRosterOptions = { attendance?: boolean; completeness?: boolean; 
  * The options add the tag categories only the report has a use for (US-13).
  */
 export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): EventSeriesRoster {
-  const { attendance = false, completeness = false, events: eventTags = false } = options;
+  const {
+    attendance = false,
+    completeness = false,
+    equipmentRental = false,
+    health = false,
+    answerLists = false,
+    events: eventTags = false,
+  } = options;
   const { eventSeries, loading: eventSeriesLoading, error: eventSeriesError } = useEventSeries();
 
   // Two active event series is a data defect a teacher cannot act on here, so it is reported rather
@@ -65,6 +80,9 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
   const { events, loading: eventsLoading } = useEvents(active.eventSeries?.id ?? "");
   const classes = useMasterData("classes");
   const skillLevels = useMasterData("skill-levels");
+  const busPickupPoints = useMasterData("bus-pickup-points");
+  const seasonPassOptions = useMasterData("season-pass-options");
+  const foodOptions = useMasterData("food-options");
   const { programs } = usePrograms();
 
   const columns = useMemo(
@@ -79,10 +97,40 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
   const groups = useMemo(
     () =>
       filterGroups(
-        { classes: classes.items, programs, skillLevels: skillLevels.items },
-        { attendance, completeness, ...(eventTags ? { events } : {}) },
+        {
+          classes: classes.items,
+          programs,
+          skillLevels: skillLevels.items,
+          busPickupPoints: busPickupPoints.items,
+          seasonPassOptions: seasonPassOptions.items,
+          foodOptions: foodOptions.items,
+        },
+        {
+          attendance,
+          completeness,
+          equipmentRental,
+          health,
+          busPickupPoint: answerLists,
+          seasonPassOption: answerLists,
+          foodOption: answerLists,
+          ...(eventTags ? { events } : {}),
+        },
       ),
-    [attendance, completeness, eventTags, events, classes.items, programs, skillLevels.items],
+    [
+      attendance,
+      completeness,
+      equipmentRental,
+      health,
+      answerLists,
+      eventTags,
+      events,
+      classes.items,
+      programs,
+      skillLevels.items,
+      busPickupPoints.items,
+      seasonPassOptions.items,
+      foodOptions.items,
+    ],
   );
 
   return {

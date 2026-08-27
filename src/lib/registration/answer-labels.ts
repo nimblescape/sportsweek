@@ -39,3 +39,19 @@ export const COMPLETENESS_LABELS = {
  * wording, because three ways of saying it would be three things to keep in step.
  */
 export const INCOMPLETE_REGISTRATION_HINT = "Registrierung unvollständig";
+
+/**
+ * What renting is called wherever it is named: the detail line listing what a student rents, the
+ * answer still owed when they have said they need something, and the report's tag for each of the
+ * two ways the question can be answered (US-11, US-13).
+ */
+export const EQUIPMENT_RENTAL_LABEL = "Leihausrüstung";
+export const EQUIPMENT_RENTAL_NEEDED_LABEL = "Leihausrüstung benötigt";
+export const EQUIPMENT_RENTAL_NOT_NEEDED_LABEL = "Leihausrüstung nicht benötigt";
+
+/**
+ * The two health answers are read as one question — is there anything to look out for — so the
+ * report's tag names both halves rather than the category they sit under (US-11, US-13).
+ */
+export const HEALTH_LABEL = "Gesundheit";
+export const HEALTH_NOTED_LABEL = "Krankheit oder Medikamente";

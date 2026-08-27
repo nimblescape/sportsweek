@@ -4,11 +4,23 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
+import {
+  EQUIPMENT_RENTAL_LABEL,
+  EQUIPMENT_RENTAL_NEEDED_LABEL,
+  EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
+  HEALTH_LABEL,
+  HEALTH_NOTED_LABEL,
+  INCOMPLETE_REGISTRATION_HINT,
+} from "@/lib/registration/answer-labels";
+import { REPORT_FIELD_TAGS } from "@/lib/report/report-fields";
+import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import {
   ATTENDANCE_VALUES,
   COMPLETENESS_VALUES,
   EMPTY_FILTER,
+  EQUIPMENT_RENTAL_VALUES,
+  FIELD_TAG_KEY_BY_CATEGORY,
+  HEALTH_VALUES,
   clearTags,
   filterGroups,
   filterStudents,
@@ -32,6 +44,12 @@ function student(overrides: Partial<FilterableStudent> = {}): FilterableStudent 
     isAttending: true,
     eventId: null,
     isIncomplete: false,
+    equipmentRentalNeeded: false,
+    healthNotes: null,
+    hasMedication: false,
+    busPickupPoint: "Dornbirn",
+    seasonPassOption: "Keine",
+    foodOption: "Alles",
     ...overrides,
   };
 }
@@ -135,6 +153,56 @@ describe("matchesFilter", () => {
     expect(matchesFilter(chasing, incomplete)).toBe(true);
     expect(matchesFilter(ANNA, incomplete)).toBe(false);
   });
+
+  it("filters by whether equipment is rented at all, not by which items (US-11, US-13)", () => {
+    const renting = student({ equipmentRentalNeeded: true });
+    const needed = withTags(["equipmentRental", EQUIPMENT_RENTAL_VALUES.needed]);
+    const notNeeded = withTags(["equipmentRental", EQUIPMENT_RENTAL_VALUES.notNeeded]);
+
+    expect(matchesFilter(renting, needed)).toBe(true);
+    expect(matchesFilter(ANNA, needed)).toBe(false);
+    expect(matchesFilter(ANNA, notNeeded)).toBe(true);
+  });
+
+  // Unanswered, or a programme that asks for no equipment at all, which stores the same null.
+  it("leaves a student who was never asked about renting out of both rental tags", () => {
+    const unasked = student({ equipmentRentalNeeded: null });
+
+    expect(matchesFilter(unasked, withTags(["equipmentRental", EQUIPMENT_RENTAL_VALUES.needed]))).toBe(false); // prettier-ignore
+    expect(matchesFilter(unasked, withTags(["equipmentRental", EQUIPMENT_RENTAL_VALUES.notNeeded]))).toBe(false); // prettier-ignore
+  });
+
+  it("finds a student with a health note written down (US-11, US-13)", () => {
+    const noted = withTags(["health", HEALTH_VALUES.noted]);
+
+    expect(matchesFilter(student({ healthNotes: "Asthma" }), noted)).toBe(true);
+    expect(matchesFilter(ANNA, noted)).toBe(false);
+  });
+
+  it("finds a student who carries medication, whether or not anything is written down", () => {
+    const noted = withTags(["health", HEALTH_VALUES.noted]);
+
+    expect(matchesFilter(student({ hasMedication: true }), noted)).toBe(true);
+    expect(matchesFilter(student({ healthNotes: "Asthma", hasMedication: true }), noted)).toBe(
+      true,
+    );
+  });
+
+  // A field a student opened and left blank is a field with nothing written in it.
+  it("treats a health note of nothing but space as nothing written down", () => {
+    const noted = withTags(["health", HEALTH_VALUES.noted]);
+
+    expect(matchesFilter(student({ healthNotes: "   " }), noted)).toBe(false);
+    expect(matchesFilter(student({ hasMedication: null }), noted)).toBe(false);
+  });
+
+  it("filters by the answers taken from a teacher's own lists (US-8, US-9, US-10)", () => {
+    expect(matchesFilter(ANNA, withTags(["busPickupPoint", "Dornbirn"]))).toBe(true);
+    expect(matchesFilter(ANNA, withTags(["busPickupPoint", "Bregenz"]))).toBe(false);
+    expect(matchesFilter(ANNA, withTags(["seasonPassOption", "Keine"]))).toBe(true);
+    expect(matchesFilter(ANNA, withTags(["foodOption", "Alles"]))).toBe(true);
+    expect(matchesFilter(student({ foodOption: null }), withTags(["foodOption", "Alles"]))).toBe(false); // prettier-ignore
+  });
 });
 
 describe("toggleTag", () => {
@@ -222,6 +290,19 @@ describe("filterGroups", () => {
     classes: [{ name: "5AHIF" }, { name: "5BHIF" }],
     programs: [{ name: "Ski" }, { name: "Snowboard" }],
     skillLevels: [{ name: "Keine Vorkenntnisse" }],
+    busPickupPoints: [{ name: "Dornbirn" }, { name: "Bregenz" }],
+    seasonPassOptions: [{ name: "Keine" }],
+    foodOptions: [{ name: "Alles" }, { name: "Vegetarisch" }],
+  };
+  const everything = {
+    attendance: true,
+    completeness: true,
+    equipmentRental: true,
+    health: true,
+    busPickupPoint: true,
+    seasonPassOption: true,
+    foodOption: true,
+    events: [{ id: "event1", name: "Woche 1" }],
   };
 
   it("offers class, gender, program and skill level, in that order", () => {
@@ -233,13 +314,13 @@ describe("filterGroups", () => {
     ]);
   });
 
-  it("appends attendance only where it is asked for, as the report does (US-13)", () => {
+  it("offers attendance only where it is asked for, as the report does (US-13)", () => {
     expect(filterGroups(lists, { attendance: true }).map((group) => group.category)).toEqual([
+      "attendance",
       "class",
       "gender",
       "program",
       "skillLevel",
-      "attendance",
     ]);
   });
 
@@ -259,19 +340,107 @@ describe("filterGroups", () => {
   });
 
   // The board's cards are one per event already, so filtering by event inside one says nothing.
-  it("leaves the event and completeness categories out unless they are asked for", () => {
-    expect(filterGroups(lists).map((group) => group.category)).not.toContain("event");
-    expect(filterGroups(lists).map((group) => group.category)).not.toContain("completeness");
+  it("leaves the report's own categories out unless they are asked for", () => {
+    const offered = filterGroups(lists).map((group) => group.category);
+
+    for (const category of [
+      "attendance",
+      "event",
+      "equipmentRental",
+      "busPickupPoint",
+      "seasonPassOption",
+      "foodOption",
+      "health",
+      "completeness",
+    ]) {
+      expect(offered).not.toContain(category);
+    }
   });
 
-  it("puts the report's own categories after the four US-12 gives", () => {
-    const events = [{ id: "event1", name: "Woche 1" }];
+  /**
+   * The filter row and the fields row are read one under the other, so a teacher looking for the
+   * same answer in both finds it in the same place.
+   */
+  it("orders the categories the way the fields row orders the same answers (US-13)", () => {
+    const fieldOrder = REPORT_FIELD_TAGS.map((tag) => tag.key);
+    const shown = filterGroups(lists, everything).map(
+      (group) => FIELD_TAG_KEY_BY_CATEGORY[group.category],
+    );
 
-    expect(
-      filterGroups(lists, { attendance: true, completeness: true, events }).map(
-        (group) => group.category,
-      ),
-    ).toEqual(["class", "gender", "program", "skillLevel", "attendance", "event", "completeness"]);
+    expect(shown).toEqual(fieldOrder.filter((key) => shown.includes(key)));
+  });
+
+  it("offers every category once the report asks for them all", () => {
+    expect(filterGroups(lists, everything).map((group) => group.category)).toEqual([
+      "attendance",
+      "event",
+      "class",
+      "gender",
+      "program",
+      "skillLevel",
+      "equipmentRental",
+      "busPickupPoint",
+      "seasonPassOption",
+      "foodOption",
+      "health",
+      "completeness",
+    ]);
+  });
+
+  it("takes the three answer lists from the teacher's own master data (US-8, US-9, US-10)", () => {
+    const groups = filterGroups(lists, everything);
+    const optionsOf = (category: string) =>
+      groups.find((group) => group.category === category)?.options;
+
+    expect(optionsOf("busPickupPoint")).toEqual([
+      { value: "Dornbirn", label: "Dornbirn" },
+      { value: "Bregenz", label: "Bregenz" },
+    ]);
+    expect(optionsOf("seasonPassOption")).toEqual([{ value: "Keine", label: "Keine" }]);
+  });
+
+  /** "Sonstiges" is offered to students without being a row a teacher maintains (US-9). */
+  it("ends the food tags with the free-text option the list itself never holds", () => {
+    const [food] = filterGroups(lists, everything).filter(
+      (group) => group.category === "foodOption",
+    );
+
+    expect(food.options).toEqual([
+      { value: "Alles", label: "Alles" },
+      { value: "Vegetarisch", label: "Vegetarisch" },
+      { value: FOOD_OPTION_OTHER, label: FOOD_OPTION_OTHER_LABEL },
+    ]);
+  });
+
+  /** Nothing to look out for is simply everyone else, so only the one tag is offered. */
+  it("offers a single health tag, naming what it gathers rather than the category", () => {
+    const [health] = filterGroups(lists, { health: true }).filter(
+      (group) => group.category === "health",
+    );
+
+    expect(health.label).toBe(HEALTH_LABEL);
+    expect(health.options).toEqual([{ value: HEALTH_VALUES.noted, label: HEALTH_NOTED_LABEL }]);
+  });
+
+  /** Both tags are worded so they read on their own, in a row that carries no headings. */
+  it("offers renting and not renting as the two equipment tags (US-11, US-13)", () => {
+    const [rental] = filterGroups(lists, { equipmentRental: true }).filter(
+      (group) => group.category === "equipmentRental",
+    );
+
+    expect(rental.label).toBe(EQUIPMENT_RENTAL_LABEL);
+    expect(rental.options).toEqual([
+      {
+        value: EQUIPMENT_RENTAL_VALUES.needed,
+        label: EQUIPMENT_RENTAL_NEEDED_LABEL,
+        name: EQUIPMENT_RENTAL_NEEDED_LABEL,
+      },
+      {
+        value: EQUIPMENT_RENTAL_VALUES.notNeeded,
+        label: EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
+        name: EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
+      },
+    ]);
   });
 
   /** There is nothing to chase about a complete registration, so only the one tag is offered. */

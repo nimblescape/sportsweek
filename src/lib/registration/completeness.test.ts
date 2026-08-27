@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { RegistrationInput } from "@/lib/schemas/registration";
+import { EQUIPMENT_RENTAL_LABEL } from "./answer-labels";
 import { isRegistrationIncomplete, missingAnswers } from "./completeness";
 import { EMPTY_REGISTRATION } from "./registration";
 
@@ -103,7 +104,7 @@ describe("missingAnswers", () => {
       "Schuhgröße",
       "Körpergröße",
       "Gewicht",
-      "Ausrüstung zum Ausleihen",
+      EQUIPMENT_RENTAL_LABEL,
     ]);
   });
 

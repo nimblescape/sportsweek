@@ -5,29 +5,72 @@
  */
 import { z } from "zod";
 import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
-import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
+import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
+import {
+  EQUIPMENT_RENTAL_LABEL,
+  EQUIPMENT_RENTAL_NEEDED_LABEL,
+  EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
+  HEALTH_LABEL,
+  HEALTH_NOTED_LABEL,
+  INCOMPLETE_REGISTRATION_HINT,
+} from "@/lib/registration/answer-labels";
 
 /**
  * The one filter the assignment dialog (US-12) and the report (US-13) both use. It is written
  * once because both describe the same behaviour, and it is kept plain — strings and arrays,
  * nothing derived — so the report can save a selection and restore it later (US-13).
+ *
+ * The order is the one the report's fields row lists the same answers in, so a teacher reading
+ * the two rows one under the other finds an answer in the same place in both.
  */
 export const FILTER_CATEGORIES = [
+  "attendance",
+  "event",
   "class",
   "gender",
   "program",
   "skillLevel",
-  "attendance",
-  "event",
+  "equipmentRental",
+  "busPickupPoint",
+  "seasonPassOption",
+  "foodOption",
+  "health",
   "completeness",
 ] as const;
 export type FilterCategory = (typeof FILTER_CATEGORIES)[number];
+
+/**
+ * Which field tag of the report each category shows the same answer as. Declarative rather than
+ * inferred, because two of them are not spelled alike: the equipment category filters on whether
+ * anything is rented while the field lists what is, and the food field folds its free text in.
+ * The test that holds the two rows in the same order reads it from here.
+ */
+export const FIELD_TAG_KEY_BY_CATEGORY: Record<FilterCategory, string> = {
+  attendance: "attendance",
+  event: "event",
+  class: "class",
+  gender: "gender",
+  program: "program",
+  skillLevel: "skillLevel",
+  equipmentRental: "rentedEquipment",
+  busPickupPoint: "busPickupPoint",
+  seasonPassOption: "seasonPassOption",
+  foodOption: "food",
+  health: "health",
+  completeness: "completeness",
+};
 
 /** Attendance is an answer, not a list value, so its two tags need values of their own (US-11). */
 export const ATTENDANCE_VALUES = { attending: "attending", notAttending: "notAttending" } as const;
 
 /** So is whether a registration is still missing answers, which is a flag rather than a list. */
 export const COMPLETENESS_VALUES = { complete: "complete", incomplete: "incomplete" } as const;
+
+/** Renting is filtered by the yes-or-no answer alone; which items are rented is a detail line. */
+export const EQUIPMENT_RENTAL_VALUES = { needed: "needed", notNeeded: "notNeeded" } as const;
+
+/** One value per side of a question the two health answers are read as together (US-11). */
+export const HEALTH_VALUES = { noted: "noted", none: "none" } as const;
 
 export type FilterableStudent = {
   firstName: string;
@@ -40,6 +83,13 @@ export type FilterableStudent = {
   /** The event a teacher assigned them to (US-12); null means no week yet. */
   eventId: string | null;
   isIncomplete: boolean;
+  /** Null where the question was never put — unanswered, or a programme needing no equipment. */
+  equipmentRentalNeeded: boolean | null;
+  healthNotes: string | null;
+  hasMedication: boolean | null;
+  busPickupPoint: string | null;
+  seasonPassOption: string | null;
+  foodOption: string | null;
 };
 
 const FILTER_NAME_MAX = 120;
@@ -66,12 +116,17 @@ export type StudentFilter = z.infer<typeof studentFilterSchema>;
 export const EMPTY_FILTER: StudentFilter = {
   name: "",
   tags: {
+    attendance: [],
+    event: [],
     class: [],
     gender: [],
     program: [],
     skillLevel: [],
-    attendance: [],
-    event: [],
+    equipmentRental: [],
+    busPickupPoint: [],
+    seasonPassOption: [],
+    foodOption: [],
+    health: [],
     completeness: [],
   },
 };
@@ -161,6 +216,30 @@ const COMPLETENESS_OPTIONS: readonly FilterOption[] = [
   },
 ];
 
+/** Both tags name the equipment themselves, because the row they sit in carries no headings. */
+const EQUIPMENT_RENTAL_OPTIONS: readonly FilterOption[] = [
+  {
+    value: EQUIPMENT_RENTAL_VALUES.needed,
+    label: EQUIPMENT_RENTAL_NEEDED_LABEL,
+    name: EQUIPMENT_RENTAL_NEEDED_LABEL,
+  },
+  {
+    value: EQUIPMENT_RENTAL_VALUES.notNeeded,
+    label: EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
+    name: EQUIPMENT_RENTAL_NOT_NEEDED_LABEL,
+  },
+];
+
+/** One tag, not two: a teacher looks for the students to be aware of, not for the rest. */
+const HEALTH_OPTIONS: readonly FilterOption[] = [
+  { value: HEALTH_VALUES.noted, label: HEALTH_NOTED_LABEL },
+];
+
+/** Whether a student has anything health-related to be aware of, which is either answer (US-11). */
+function hasHealthNote(student: FilterableStudent): boolean {
+  return (student.healthNotes ?? "").trim() !== "" || student.hasMedication === true;
+}
+
 /** A list value is stored as the plain text it was chosen as (US-11), so it is its own tag. */
 const asOptions = (items: readonly { name: string }[]): FilterOption[] =>
   items.map((item) => ({ value: item.name, label: item.name }));
@@ -169,6 +248,9 @@ type MaintainedLists = {
   classes: readonly { name: string }[];
   programs: readonly { name: string }[];
   skillLevels: readonly { name: string }[];
+  busPickupPoints?: readonly { name: string }[];
+  seasonPassOptions?: readonly { name: string }[];
+  foodOptions?: readonly { name: string }[];
 };
 
 /**
@@ -180,25 +262,34 @@ type EventOption = { id: string; name: string };
 type FilterGroupOptions = {
   attendance?: boolean;
   completeness?: boolean;
+  equipmentRental?: boolean;
+  health?: boolean;
+  busPickupPoint?: boolean;
+  seasonPassOption?: boolean;
+  foodOption?: boolean;
   events?: readonly EventOption[];
 };
 
 /**
- * The tag row, in the order US-12 gives: class, gender, program, skill level. The report appends
- * the categories only it has a use for — it is the one view that also lists the students who
- * stay at home, whose cards are not already one per event, and that says whose registration is
- * still missing answers (US-13).
+ * The tag row. The four US-12 gives are always offered; the report adds the categories only it
+ * has a use for — it is the one view that also lists the students who stay at home, whose cards
+ * are not already one per event, and that says whose registration is still missing answers
+ * (US-13). They are pushed in the order the report's fields row lists the same answers.
  */
 export function filterGroups(
   lists: MaintainedLists,
-  { attendance, completeness, events }: FilterGroupOptions = {},
+  {
+    attendance,
+    completeness,
+    equipmentRental,
+    health,
+    busPickupPoint,
+    seasonPassOption,
+    foodOption,
+    events,
+  }: FilterGroupOptions = {},
 ): FilterGroup[] {
-  const groups: FilterGroup[] = [
-    { category: "class", label: "Klasse", options: asOptions(lists.classes) },
-    { category: "gender", label: "Geschlecht", options: GENDER_OPTIONS },
-    { category: "program", label: "Programm", options: asOptions(lists.programs) },
-    { category: "skillLevel", label: "Leistungsstufe", options: asOptions(lists.skillLevels) },
-  ];
+  const groups: FilterGroup[] = [];
 
   if (attendance) {
     groups.push({ category: "attendance", label: "Teilnahme", options: ATTENDANCE_OPTIONS });
@@ -209,6 +300,49 @@ export function filterGroups(
       label: "Event",
       options: events.map((event) => ({ value: event.id, label: event.name })),
     });
+  }
+
+  groups.push(
+    { category: "class", label: "Klasse", options: asOptions(lists.classes) },
+    { category: "gender", label: "Geschlecht", options: GENDER_OPTIONS },
+    { category: "program", label: "Programm", options: asOptions(lists.programs) },
+    { category: "skillLevel", label: "Leistungsstufe", options: asOptions(lists.skillLevels) },
+  );
+
+  if (equipmentRental) {
+    groups.push({
+      category: "equipmentRental",
+      label: EQUIPMENT_RENTAL_LABEL,
+      options: EQUIPMENT_RENTAL_OPTIONS,
+    });
+  }
+  if (busPickupPoint) {
+    groups.push({
+      category: "busPickupPoint",
+      label: "Zustiegsstelle",
+      options: asOptions(lists.busPickupPoints ?? []),
+    });
+  }
+  if (seasonPassOption) {
+    groups.push({
+      category: "seasonPassOption",
+      label: "Saisonkarte",
+      options: asOptions(lists.seasonPassOptions ?? []),
+    });
+  }
+  if (foodOption) {
+    groups.push({
+      category: "foodOption",
+      label: "Verpflegung",
+      // The free-text choice is offered to students without being a row a teacher keeps (US-9).
+      options: [
+        ...asOptions(lists.foodOptions ?? []),
+        { value: FOOD_OPTION_OTHER, label: FOOD_OPTION_OTHER_LABEL },
+      ],
+    });
+  }
+  if (health) {
+    groups.push({ category: "health", label: HEALTH_LABEL, options: HEALTH_OPTIONS });
   }
   if (completeness) {
     groups.push({
@@ -235,6 +369,19 @@ function valueOf(student: FilterableStudent, category: FilterCategory): string |
       return student.isAttending ? ATTENDANCE_VALUES.attending : ATTENDANCE_VALUES.notAttending;
     case "event":
       return student.eventId;
+    case "equipmentRental":
+      if (student.equipmentRentalNeeded === null) return null;
+      return student.equipmentRentalNeeded
+        ? EQUIPMENT_RENTAL_VALUES.needed
+        : EQUIPMENT_RENTAL_VALUES.notNeeded;
+    case "busPickupPoint":
+      return student.busPickupPoint;
+    case "seasonPassOption":
+      return student.seasonPassOption;
+    case "foodOption":
+      return student.foodOption;
+    case "health":
+      return hasHealthNote(student) ? HEALTH_VALUES.noted : HEALTH_VALUES.none;
     case "completeness":
       return student.isIncomplete ? COMPLETENESS_VALUES.incomplete : COMPLETENESS_VALUES.complete;
   }

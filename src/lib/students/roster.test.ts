@@ -81,6 +81,20 @@ describe("joinRoster", () => {
     expect(roster[0].eventId).toBe("event1");
   });
 
+  it("carries whether equipment is rented, which the report filters by (US-11, US-13)", () => {
+    const renting = joinRoster([record(ANNA.id, { equipmentRentalNeeded: true })], [ANNA]);
+    const unasked = joinRoster([record(ANNA.id, { equipmentRentalNeeded: null })], [ANNA]);
+
+    expect(renting[0].equipmentRentalNeeded).toBe(true);
+    expect(unasked[0].equipmentRentalNeeded).toBeNull();
+  });
+
+  it("carries both health answers, which the report filters on together (US-11, US-13)", () => {
+    const stored = { healthNotes: "Asthma", hasMedication: true };
+
+    expect(joinRoster([record(ANNA.id, stored)], [ANNA])[0]).toMatchObject(stored);
+  });
+
   it("carries the e-mail address, which the report's master line shows (US-13)", () => {
     const roster = joinRoster([record(ANNA.id)], [ANNA]);
 
