@@ -313,6 +313,19 @@ describe("the saved reports", () => {
     expect(rowOf("Berger")).toBeInTheDocument();
   });
 
+  /** Opening one puts back exactly what it holds, so it cannot be called changed on arrival. */
+  it("does not read as changed the moment it is opened, group tags included", async () => {
+    const grouped = { ...saved, fields: ["class", "contact"] };
+    useSavedReports.mockReturnValue({ reports: [grouped], loading: false, error: null });
+
+    render(<ReportView />);
+    const tag = screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" });
+    await userEvent.click(tag);
+
+    expect(tag).toHaveAttribute("aria-pressed", "true");
+    expect(tag).toHaveAccessibleDescription("");
+  });
+
   it("saves the report the teacher is looking at, under the name they type", async () => {
     render(<ReportView />);
 

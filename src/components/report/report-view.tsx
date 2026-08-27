@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
 import { EMPTY_FILTER, filterStudents, filterSummary, scopeFilterToGroups } from "@/lib/filters/student-filter"; // prettier-ignore
-import { reportFieldsOf } from "@/lib/report/report-fields";
+import { offeredFieldTags, reportFieldsOf } from "@/lib/report/report-fields";
 import {
   downloadReportPdf,
   downloadReportWorkbook,
@@ -71,7 +71,7 @@ export function ReportView() {
     // What the lists no longer offer is dropped rather than silently restricting the report to
     // nobody: a class renamed since the report was saved is a tag nothing can show or unpress.
     setFilter(scopeFilterToGroups(saved.filter, filterGroups));
-    setActiveFields(reportFieldsOf(saved.fields).map((field) => field.key));
+    setActiveFields(offeredFieldTags(saved.fields));
   }
 
   // Writes go through handlers because the author is the session's, not the request's (US-13);

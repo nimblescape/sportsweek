@@ -259,14 +259,16 @@ function SavedReportTag({
         isDragging && "relative z-10 opacity-80",
       )}
     >
-      {/* Dragging starts here and nowhere else, so moving a tag never opens the report it holds. */}
+      {/* The whole tag is what a pointer drags; the grip is what a keyboard drags. Splitting the
+          two leaves the tag's own press free to open the report — a drag only starts once the
+          pointer has moved, and the click that would follow one is swallowed by the sensor. */}
       <button
         type="button"
         aria-label={`${report.name} verschieben`}
         disabled={pending}
         className="focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-0.5 outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50"
         {...attributes}
-        {...listeners}
+        onKeyDown={listeners?.onKeyDown as React.KeyboardEventHandler | undefined}
       >
         <GripVertical aria-hidden className="size-3.5" />
       </button>
@@ -277,8 +279,9 @@ function SavedReportTag({
         aria-label={`Gespeicherter Bericht: ${report.name}`}
         aria-describedby={changed ? hintId : undefined}
         disabled={pending}
+        onPointerDown={listeners?.onPointerDown as React.PointerEventHandler | undefined}
         onClick={onOpen}
-        className="focus-visible:ring-ring/50 max-w-60 truncate rounded-md px-1.5 outline-none focus-visible:ring-3 disabled:opacity-50"
+        className="focus-visible:ring-ring/50 max-w-60 touch-none truncate rounded-md px-1.5 outline-none focus-visible:ring-3 disabled:opacity-50"
       >
         {report.name}
       </button>

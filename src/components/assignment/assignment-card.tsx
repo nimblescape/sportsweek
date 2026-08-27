@@ -34,6 +34,10 @@ const ALL_LABEL = "Alle";
 const ALL_NAME = "Alle auswählen";
 export const allDragId = (groupId: string) => `all:${groupId}`;
 
+/** How a student's tag reads, so a copy of it cannot come to read differently. */
+export const studentTagName = (student: Pick<RosterStudent, "firstName" | "lastName">) =>
+  `${student.lastName} ${student.firstName}`;
+
 type AssignmentCardProps = {
   group: AssignmentGroup;
   programs: readonly string[];
@@ -151,7 +155,7 @@ export function AssignmentCard({
                     key={student.id}
                     dragId={student.id}
                     data={{ group: group.id }}
-                    name={`${student.lastName} ${student.firstName}`}
+                    name={studentTagName(student)}
                     picked={picked.includes(student.id)}
                     onToggle={() => onToggle(student.id)}
                   />
