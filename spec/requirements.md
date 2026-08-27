@@ -296,7 +296,7 @@ As a teacher, I can view a report listing all students so that I have their cont
 - Next to the dropdown, a Save button lets the teacher save the current filter tag list selection under a name, entered inline (e.g. in a small popover) without leaving the report page.
 - In the dropdown, each saved filter has a rename and a delete icon, so the teacher can rename or delete it inline, directly in the dropdown, without a separate management page. On pointer-based devices (desktop) the icons appear on hover; on touch devices (tablet, mobile), where there is no hover state, the icons are always visible instead, so the feature stays usable on every supported screen size (see General).
 - Renaming a saved filter edits its name in place; deleting one requires a lightweight inline confirmation before it is removed.
-- A print button on the report page opens the report as HTML in a popup window, keeping the master-detail structure, which the teacher can then print (e.g. to PDF or any format supported by the installed printers). A paginated PDF with page furniture of its own is a separate export (see US-17).
+- A print button on the report page opens the report as HTML in a popup window, keeping the master-detail structure, which the teacher can then print (e.g. to PDF or any format supported by the installed printers). A paginated PDF with page furniture of its own is a separate export (see US-17), as is a spreadsheet (see US-18).
 
 ### US-17: Teacher exports the student report as PDF
 
@@ -311,7 +311,25 @@ As a teacher, I can export the report as a PDF so that I have a paginated docume
 - Every page carries the same header and the same footer, the first page included.
 - The header holds the HTL logo and the report title "Sportsweek Report". The title belongs to the header rather than being a heading printed once, which is what makes it repeat on every page.
 - The footer states the page's own number and the total number of pages, in the form "Seite 3 von 12".
+- The footer also states the date and time at which the export was made. A printed copy outlives the screen it was taken from, and the registrations keep changing after it, so a reader has to be able to tell how old the sheet in front of them is.
+- Where the shown students are the selection of a saved filter (see US-13), the footer names that filter as well, so a copy that shows part of the season says which part. A selection matching no saved filter is left unnamed rather than described tag by tag.
 - The students' details are not put in a URL to produce the document, for the same reason the print window is written rather than fetched (see US-13): a class full of contact details has no business in an address bar, a history entry, or any log that records one.
+
+### US-18: Teacher exports the student report as a spreadsheet
+
+As a teacher, I can export the report as an Excel file so that I can sort, group and count the registrations myself — which is the one thing a document meant for printing cannot do.
+
+**Acceptance criteria:**
+
+- An export button exists on the report page, beside the print and PDF export buttons (see US-13, US-17), labelled "Excel exportieren".
+- The export holds exactly the students the filter tag list leaves and exactly the fields the fields tag list activates (see US-13) — the same scope the PDF export has.
+- The workbook has a single sheet, named "Sportsweek Report".
+- The report is tabular here rather than master-detail: one row per student, one column per field. The master-detail shape would put a student's answers underneath their name in a single column, which is precisely the shape a spreadsheet cannot sort, filter or total.
+- The leftmost columns are the fields every student has and the report always shows — first name, last name and e-mail address (see US-1) — each in a column of its own. They are followed by one column per activated field, in the order the fields tag list lists them.
+- A tag standing for a group of fields — contact data, body measurements, health/medication (see US-13) — spreads into one column per field rather than one column holding all of them, because a cell that holds several values can be read but not sorted or counted.
+- The first row is a header row naming each column with its field's label, so the sheet still says what it holds once it has left the application.
+- The mark for a registration still missing answers is not a column of its own: it is the "Registrierung" field of the fields tag list (see US-13), and appears when the teacher activates it.
+- A field a student has not answered leaves its cell empty, rather than carrying the wording the report and the PDF put in its place, since an empty cell is what a spreadsheet itself counts as missing.
 
 ## Navigation
 
