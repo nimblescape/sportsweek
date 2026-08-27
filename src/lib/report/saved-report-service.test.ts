@@ -11,8 +11,8 @@ const firestore = new FakeFirestore();
 
 vi.mock("@/lib/firebase/admin", () => ({ adminDb: firestore }));
 
-const { createSavedReport, deleteSavedReport, renameSavedReport, reorderSavedReports, updateSavedReportSelection } =
-  await import("./saved-report-service"); // prettier-ignore
+const { createSavedReport, deleteSavedReport, reorderSavedReports, updateSavedReport } =
+  await import("./saved-report-service");
 const { ServiceError } = await import("@/lib/service-error");
 
 const TEACHER = "jane.doe@htldornbirn.at";
@@ -87,61 +87,50 @@ describe("createSavedReport", () => {
   });
 });
 
-describe("renameSavedReport", () => {
-  beforeEach(() => firestore.seed("savedReports", "r1", stored));
-
-  it("renames in place and leaves both selections exactly as they were", async () => {
-    const renamed = await renameSavedReport("r1", "5BHIF");
-
-    expect(renamed).toEqual({ id: "r1", ...stored, name: "5BHIF" });
-  });
-
-  it("lets any teacher rename one, since saved reports are shared (US-13)", async () => {
-    await expect(renameSavedReport("r1", "Alle")).resolves.toMatchObject({ name: "Alle" });
-  });
-
-  it("reports a saved report that is not there rather than creating it", async () => {
-    await expect(renameSavedReport("gone", "5BHIF")).rejects.toBeInstanceOf(ServiceError);
-    expect(firestore.count("savedReports")).toBe(1);
-  });
-
-  it("rejects a blank name", async () => {
-    await expect(renameSavedReport("r1", " ")).rejects.toBeInstanceOf(ServiceError);
-    expect(firestore.get("savedReports", "r1")).toMatchObject({ name: "5AHIF" });
-  });
-});
-
-describe("updateSavedReportSelection", () => {
-  const replacement = { filter: EMPTY_FILTER, fields: ["contact"] };
+describe("updateSavedReport", () => {
+  const replacement = { name: "5AHIF", filter: EMPTY_FILTER, fields: ["contact"] };
 
   beforeEach(() => firestore.seed("savedReports", "r1", stored));
 
-  it("replaces both selections, leaving the name and the author as they were", async () => {
-    const updated = await updateSavedReportSelection("r1", replacement);
+  it("replaces the name and both selections at once, leaving the author as it was", async () => {
+    const edit = { ...replacement, name: "5BHIF" };
 
-    expect(updated).toEqual({ id: "r1", ...stored, ...replacement });
-    expect(firestore.get("savedReports", "r1")).toEqual({ ...stored, ...replacement });
+    const updated = await updateSavedReport("r1", edit);
+
+    expect(updated).toEqual({ id: "r1", ...stored, ...edit });
+    expect(firestore.get("savedReports", "r1")).toEqual({ ...stored, ...edit });
+  });
+
+  it("lets any teacher edit one, since saved reports are shared (US-13)", async () => {
+    await expect(updateSavedReport("r1", { ...replacement, name: "Alle" })).resolves.toMatchObject({
+      name: "Alle",
+    });
   });
 
   it("keeps only the categories the report filters by, so a stray one cannot be stored", async () => {
     const filter = { ...selection, tags: { ...selection.tags, nonsense: ["x"] } } as never;
 
-    const updated = await updateSavedReportSelection("r1", { filter, fields: [] });
+    const updated = await updateSavedReport("r1", { ...replacement, filter });
 
     expect(updated.filter).toEqual(selection);
   });
 
-  it("refuses a name alongside, which is the other edit and goes its own way", async () => {
-    const edit = { ...replacement, name: "5BHIF" } as never;
+  it("refuses the author, which the session decides and no request may claim", async () => {
+    const edit = { ...replacement, createdByUserId: "someone.else@htldornbirn.at" } as never;
 
-    await expect(updateSavedReportSelection("r1", edit)).rejects.toBeInstanceOf(ServiceError);
+    await expect(updateSavedReport("r1", edit)).rejects.toBeInstanceOf(ServiceError);
     expect(firestore.get("savedReports", "r1")).toEqual(stored);
   });
 
-  it("reports a saved report that is not there rather than creating it", async () => {
-    await expect(updateSavedReportSelection("gone", replacement)).rejects.toBeInstanceOf(
+  it("rejects a blank name", async () => {
+    await expect(updateSavedReport("r1", { ...replacement, name: " " })).rejects.toBeInstanceOf(
       ServiceError,
     );
+    expect(firestore.get("savedReports", "r1")).toMatchObject({ name: "5AHIF" });
+  });
+
+  it("reports a saved report that is not there rather than creating it", async () => {
+    await expect(updateSavedReport("gone", replacement)).rejects.toBeInstanceOf(ServiceError);
     expect(firestore.count("savedReports")).toBe(1);
   });
 });

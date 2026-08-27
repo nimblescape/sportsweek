@@ -102,25 +102,27 @@ describe("savedReportInputSchema", () => {
 });
 
 describe("savedReportEditSchema", () => {
-  it("takes a new name on its own, which is what renaming a tag sends", () => {
-    expect(savedReportEditSchema.parse({ name: "5AHIF" })).toEqual({ name: "5AHIF" });
-  });
-
-  it("takes both selections on their own, which is what bringing one up to date sends", () => {
-    const edit = { filter: selection, fields: ["class"] };
+  /** Both controls send the whole report, so an edit never leaves the name and the selection apart. */
+  it("takes the name and both selections together", () => {
+    const edit = { name: "5AHIF", filter: selection, fields: ["class"] };
 
     expect(savedReportEditSchema.parse(edit)).toEqual(edit);
   });
 
-  it("refuses renaming and rewriting at once, rather than performing half of it", () => {
-    expect(
-      savedReportEditSchema.safeParse({ name: "5AHIF", filter: selection, fields: [] }).success,
-    ).toBe(false);
+  it("refuses a name on its own, which would leave the report half stored", () => {
+    expect(savedReportEditSchema.safeParse({ name: "5AHIF" }).success).toBe(false);
+  });
+
+  it("refuses the selections without the name they belong to", () => {
+    expect(savedReportEditSchema.safeParse({ filter: selection, fields: ["class"] }).success).toBe(
+      false,
+    );
   });
 
   it("refuses the author, which the session decides and no request may claim", () => {
     expect(
       savedReportEditSchema.safeParse({
+        name: "5AHIF",
         filter: selection,
         fields: [],
         createdByUserId: "someone.else@htldornbirn.at",

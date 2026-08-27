@@ -141,8 +141,23 @@ describe("the tag the teacher opened", () => {
     expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
   });
 
-  /** Letting go of a report is not asking for one, so neither tag list hears about it. */
+  /** Letting go of an untouched report is not asking for one, so neither tag list hears about it. */
   it("leaves both tag lists exactly as they are when the mark is released", async () => {
+    setup();
+    await userEvent.click(tag("5AHIF"));
+    onOpen.mockClear();
+
+    await userEvent.click(tag("5AHIF"));
+
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  /**
+   * The only way back to what was saved: a teacher who has changed a report and wants it as it
+   * was would otherwise have to remember every tag they pressed.
+   */
+  it("puts the saved report back when the tag holding it is pressed after a change", async () => {
     const { change } = setup();
     await userEvent.click(tag("5AHIF"));
     change({ ...CURRENT, fields: [] });
@@ -150,8 +165,30 @@ describe("the tag the teacher opened", () => {
 
     await userEvent.click(tag("5AHIF"));
 
+    expect(onOpen).toHaveBeenCalledWith(REPORTS[0]);
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("restores from the name alone, not from the controls beside it", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+    change({ ...CURRENT, fields: [] });
+    onOpen.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF umbenennen" }));
+
     expect(onOpen).not.toHaveBeenCalled();
-    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("restores from the name alone, not from the grip that drags the tag", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+    change({ ...CURRENT, fields: [] });
+    onOpen.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: "5AHIF verschieben" }));
+
+    expect(onOpen).not.toHaveBeenCalled();
   });
 });
 
@@ -364,7 +401,7 @@ describe("bringing the marked report up to date", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF aktualisieren" }));
 
-    expect(onUpdate).toHaveBeenCalledWith("r1", changed);
+    expect(onUpdate).toHaveBeenCalledWith("r1", { name: "5AHIF", ...changed });
   });
 });
 
@@ -414,9 +451,12 @@ describe("while a write is out", () => {
 });
 
 describe("renaming and deleting from within the tag", () => {
-  it("edits the name in place", async () => {
-    setup();
+  /** Renaming the tag a teacher is working in stores the report they are looking at with it. */
+  it("edits the name in place, storing the report as it now stands along with it", async () => {
+    const changed = { ...CURRENT, fields: ["class", "contact"] };
+    const { change } = setup();
     await userEvent.click(tag("5AHIF"));
+    change(changed);
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF umbenennen" }));
     const field = nameField() as HTMLElement;
@@ -424,7 +464,7 @@ describe("renaming and deleting from within the tag", () => {
     await userEvent.type(field, "5CHIF");
     await userEvent.click(screen.getByRole("button", { name: "Umbenennen" }));
 
-    expect(onRename).toHaveBeenCalledWith("r1", "5CHIF");
+    expect(onRename).toHaveBeenCalledWith("r1", { name: "5CHIF", ...changed });
   });
 
   it("puts the name field where the tag stood, leaving the others alone", async () => {

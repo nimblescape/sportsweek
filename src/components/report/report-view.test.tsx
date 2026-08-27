@@ -385,6 +385,26 @@ describe("the saved reports", () => {
     expect(tag).toHaveAccessibleDescription("");
   });
 
+  /** Pressing the name is the way back, and it has to undo both tag lists at once. */
+  it("puts the saved report back on screen when its changed tag is pressed again", async () => {
+    useSavedReports.mockReturnValue({ reports: [saved], loading: false, error: null });
+
+    render(<ReportView />);
+    const tag = screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" });
+    await userEvent.click(tag);
+    await userEvent.click(screen.getByRole("button", { name: "Klasse: 5AHIF" }));
+    await activate("Geschlecht");
+    expect(tag).toHaveAccessibleDescription("Geändert gegenüber dem gespeicherten Bericht.");
+
+    await userEvent.click(tag);
+
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Berger")).toBeInTheDocument();
+    expect(detailsOf("Berger")).toEqual(["Klasse:"]);
+    expect(tag).toHaveAttribute("aria-pressed", "true");
+    expect(tag).toHaveAccessibleDescription("");
+  });
+
   /**
    * A list still on its way offers nothing to check a tag against. Dropping it there would strip
    * the report of what it holds and then call it changed for the rest of the session.
@@ -433,6 +453,9 @@ describe("the saved reports", () => {
 
     render(<ReportView />);
     await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
+    // Renaming a report that has been changed stores the change with it, rather than leaving the
+    // tag reading as changed once the new name has been taken.
+    await userEvent.click(screen.getByRole("button", { name: "Klasse: 5AHIF" }));
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF umbenennen" }));
     const field = screen.getByRole("textbox", { name: "Name des Berichts" });
@@ -442,7 +465,11 @@ describe("the saved reports", () => {
 
     expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", {
       method: "PATCH",
-      body: { name: "5BHIF" },
+      body: {
+        name: "5BHIF",
+        filter: toggleTag(saved.filter, "class", "5AHIF"),
+        fields: saved.fields,
+      },
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF löschen" }));
@@ -462,7 +489,11 @@ describe("the saved reports", () => {
 
     expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", {
       method: "PATCH",
-      body: { filter: toggleTag(saved.filter, "class", "5AHIF"), fields: ["class"] },
+      body: {
+        name: saved.name,
+        filter: toggleTag(saved.filter, "class", "5AHIF"),
+        fields: ["class"],
+      },
     });
   });
 

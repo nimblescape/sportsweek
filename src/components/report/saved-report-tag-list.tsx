@@ -35,6 +35,7 @@ import { sameSelection } from "@/lib/report/saved-reports";
 import {
   savedReportSchema,
   type ReportSelection,
+  type SavedReportEdit,
   type SavedReport,
 } from "@/lib/schemas/saved-report";
 
@@ -52,8 +53,8 @@ type SavedReportTagListProps = {
   onOpen: (selection: ReportSelection) => void;
   /** Answers with the id of the report it saved, which the row then marks. */
   onSave: (name: string, selection: ReportSelection) => Promise<string | null>;
-  onUpdate: (id: string, selection: ReportSelection) => Promise<void>;
-  onRename: (id: string, name: string) => Promise<void>;
+  onUpdate: (id: string, edit: SavedReportEdit) => Promise<void>;
+  onRename: (id: string, edit: SavedReportEdit) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onReorder: (orderedIds: string[]) => Promise<void>;
 };
@@ -129,7 +130,7 @@ export function SavedReportTagList({
                   submitLabel="Umbenennen"
                   pending={pending}
                   onSubmit={async (name) => {
-                    await run(report.id, () => onRename(report.id, name));
+                    await run(report.id, () => onRename(report.id, { name, ...current }));
                     setEditing(null);
                   }}
                   onCancel={() => setEditing(null)}
@@ -145,7 +146,13 @@ export function SavedReportTagList({
                   onOpen={() => {
                     closeForms();
                     if (report.id === markedId) {
-                      // Pressing the marked tag lets go of it and leaves the two tag lists
+                      // Changed since it was opened: pressing its name puts it back, which is the
+                      // only way to undo an edit without having remembered what it undid.
+                      if (!sameSelection(report, current)) {
+                        onOpen(report);
+                        return;
+                      }
+                      // Otherwise the press lets go of the tag and leaves the two tag lists
                       // alone: what is on screen is the teacher's, not the tag's, to give back.
                       setMarkedId(null);
                       return;
@@ -155,7 +162,9 @@ export function SavedReportTagList({
                   }}
                   onUpdate={() => {
                     closeForms();
-                    return run(report.id, () => onUpdate(report.id, current));
+                    return run(report.id, () =>
+                      onUpdate(report.id, { name: report.name, ...current }),
+                    );
                   }}
                   onStartRename={() => {
                     closeForms();
