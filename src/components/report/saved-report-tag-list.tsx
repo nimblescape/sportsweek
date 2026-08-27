@@ -26,6 +26,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Check, GripVertical, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { DraggingCursor } from "@/components/ui/dragging-cursor";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useRowAction } from "@/lib/api/use-row-action";
@@ -114,6 +115,7 @@ export function SavedReportTagList({
       onDragEnd={(event) => void handleDragEnd(event)}
     >
       <SortableContext items={ordered} strategy={rectSortingStrategy}>
+        <DraggingCursor />
         <div role="group" aria-label={ROW_LABEL} className="flex flex-wrap items-center gap-1.5">
           {ordered.length === 0 && editing === null ? (
             <p className="text-muted-foreground text-sm">{EMPTY_HINT}</p>

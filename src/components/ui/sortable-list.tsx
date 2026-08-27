@@ -25,6 +25,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
+import { DraggingCursor } from "@/components/ui/dragging-cursor";
 import { useDroppedOrder } from "@/lib/ui/use-dropped-order";
 import { cn } from "@/lib/utils";
 
@@ -100,6 +101,7 @@ export function SortableList<T extends SortableItem>({
       onDragEnd={(event) => void handleDragEnd(event)}
     >
       <SortableContext items={ordered} strategy={verticalListSortingStrategy}>
+        <DraggingCursor />
         <ul className={className}>
           {ordered.map((item) => (
             <SortableRow key={item.id} item={item} disabled={item.id === busyId}>

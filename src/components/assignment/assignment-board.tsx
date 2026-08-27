@@ -32,6 +32,7 @@ import {
   type StudentFilter,
 } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
+import { DraggingCursor } from "@/components/ui/dragging-cursor";
 import { ALL_LABEL, AssignmentCard, DraggedTag, studentTagName } from "./assignment-card";
 
 const NOTHING_CARRIED: ReadonlySet<string> = new Set();
@@ -194,6 +195,7 @@ export function AssignmentBoard({
         onDragCancel={() => setDrag(null)}
         onDragEnd={handleDragEnd}
       >
+        <DraggingCursor />
         <div className="flex flex-col gap-3">
           {groups.map((group) => (
             <AssignmentCard
