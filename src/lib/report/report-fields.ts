@@ -8,6 +8,7 @@ import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master
 import type { Registration } from "@/lib/schemas/registration";
 import {
   COMPLETENESS_LABELS,
+  EQUIPMENT_RENTAL_LABEL,
   GENDER_LABELS,
   RELATIONSHIP_LABELS,
   yesNo,
@@ -127,7 +128,7 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
       field("shoeSize", "Schuhgröße", (record) => record.shoeSize),
     ],
   },
-  answer("rentedEquipment", "Ausrüstung zum Ausleihen", (record) =>
+  answer("rentedEquipment", EQUIPMENT_RENTAL_LABEL, (record) =>
     // Nothing rented is an answer in itself, not a gap: the student was asked and said no.
     record.rentedEquipment.length > 0 ? record.rentedEquipment.join(", ") : yesNo(false),
   ),

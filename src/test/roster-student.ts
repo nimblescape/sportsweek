@@ -68,6 +68,9 @@ export function rosterStudent(
     isAttending: true,
     isIncomplete: answers.isIncomplete ?? false,
     eventId: null,
+    equipmentRentalNeeded: answers.equipmentRentalNeeded ?? false,
+    healthNotes: answers.healthNotes ?? null,
+    hasMedication: answers.hasMedication ?? false,
     ...overrides,
   } satisfies Omit<RosterStudent, "record">;
 
@@ -83,6 +86,9 @@ export function rosterStudent(
       gender: row.gender,
       program: row.program,
       skillLevel: row.skillLevel,
+      equipmentRentalNeeded: row.equipmentRentalNeeded,
+      healthNotes: row.healthNotes,
+      hasMedication: row.hasMedication,
       ...answers,
     }),
   };

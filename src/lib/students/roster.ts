@@ -59,6 +59,9 @@ export function joinRoster(
           isAttending: record.isAttendingSportsWeek,
           isIncomplete: record.isIncomplete,
           eventId: record.eventId,
+          equipmentRentalNeeded: record.equipmentRentalNeeded,
+          healthNotes: record.healthNotes,
+          hasMedication: record.hasMedication,
         },
       ];
     })

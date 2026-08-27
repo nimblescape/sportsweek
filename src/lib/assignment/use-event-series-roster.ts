@@ -33,7 +33,13 @@ export type EventSeriesRoster = {
 };
 
 /** Which of the report-only tag categories to offer; the board has a use for none of them. */
-type EventSeriesRosterOptions = { attendance?: boolean; completeness?: boolean; events?: boolean };
+type EventSeriesRosterOptions = {
+  attendance?: boolean;
+  completeness?: boolean;
+  equipmentRental?: boolean;
+  health?: boolean;
+  events?: boolean;
+};
 
 /**
  * The active event series and everything the views built on it count: the roster, its events, the
@@ -44,7 +50,13 @@ type EventSeriesRosterOptions = { attendance?: boolean; completeness?: boolean; 
  * The options add the tag categories only the report has a use for (US-13).
  */
 export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): EventSeriesRoster {
-  const { attendance = false, completeness = false, events: eventTags = false } = options;
+  const {
+    attendance = false,
+    completeness = false,
+    equipmentRental = false,
+    health = false,
+    events: eventTags = false,
+  } = options;
   const { eventSeries, loading: eventSeriesLoading, error: eventSeriesError } = useEventSeries();
 
   // Two active event series is a data defect a teacher cannot act on here, so it is reported rather
@@ -80,9 +92,19 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
     () =>
       filterGroups(
         { classes: classes.items, programs, skillLevels: skillLevels.items },
-        { attendance, completeness, ...(eventTags ? { events } : {}) },
+        { attendance, completeness, equipmentRental, health, ...(eventTags ? { events } : {}) },
       ),
-    [attendance, completeness, eventTags, events, classes.items, programs, skillLevels.items],
+    [
+      attendance,
+      completeness,
+      equipmentRental,
+      health,
+      eventTags,
+      events,
+      classes.items,
+      programs,
+      skillLevels.items,
+    ],
   );
 
   return {

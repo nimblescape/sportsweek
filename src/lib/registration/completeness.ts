@@ -5,6 +5,7 @@
  */
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import type { RegistrationInput } from "@/lib/schemas/registration";
+import { EQUIPMENT_RENTAL_LABEL } from "./answer-labels";
 
 /**
  * The answers a registration needs before a teacher can plan with it, in the order the form
@@ -82,7 +83,7 @@ export function missingAnswers(input: RegistrationInput): MissingAnswer[] {
       if (isBlank(input[field])) missing.push({ path: field, label });
     }
     if (input.rentedEquipment.length === 0) {
-      missing.push({ path: "rentedEquipment", label: "Ausrüstung zum Ausleihen" });
+      missing.push({ path: "rentedEquipment", label: EQUIPMENT_RENTAL_LABEL });
     }
   }
 

@@ -5,7 +5,13 @@
  */
 import { z } from "zod";
 import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
-import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
+import {
+  EQUIPMENT_RENTAL_LABEL,
+  HEALTH_LABEL,
+  HEALTH_NOTED_LABEL,
+  INCOMPLETE_REGISTRATION_HINT,
+  NO_EQUIPMENT_RENTAL_LABEL,
+} from "@/lib/registration/answer-labels";
 
 /**
  * The one filter the assignment dialog (US-12) and the report (US-13) both use. It is written
@@ -19,6 +25,8 @@ export const FILTER_CATEGORIES = [
   "skillLevel",
   "attendance",
   "event",
+  "equipmentRental",
+  "health",
   "completeness",
 ] as const;
 export type FilterCategory = (typeof FILTER_CATEGORIES)[number];
@@ -28,6 +36,12 @@ export const ATTENDANCE_VALUES = { attending: "attending", notAttending: "notAtt
 
 /** So is whether a registration is still missing answers, which is a flag rather than a list. */
 export const COMPLETENESS_VALUES = { complete: "complete", incomplete: "incomplete" } as const;
+
+/** Renting is filtered by the yes-or-no answer alone; which items are rented is a detail line. */
+export const EQUIPMENT_RENTAL_VALUES = { needed: "needed", notNeeded: "notNeeded" } as const;
+
+/** One value per side of a question the two health answers are read as together (US-11). */
+export const HEALTH_VALUES = { noted: "noted", none: "none" } as const;
 
 export type FilterableStudent = {
   firstName: string;
@@ -40,6 +54,10 @@ export type FilterableStudent = {
   /** The event a teacher assigned them to (US-12); null means no week yet. */
   eventId: string | null;
   isIncomplete: boolean;
+  /** Null where the question was never put — unanswered, or a programme needing no equipment. */
+  equipmentRentalNeeded: boolean | null;
+  healthNotes: string | null;
+  hasMedication: boolean | null;
 };
 
 const FILTER_NAME_MAX = 120;
@@ -72,6 +90,8 @@ export const EMPTY_FILTER: StudentFilter = {
     skillLevel: [],
     attendance: [],
     event: [],
+    equipmentRental: [],
+    health: [],
     completeness: [],
   },
 };
@@ -161,6 +181,30 @@ const COMPLETENESS_OPTIONS: readonly FilterOption[] = [
   },
 ];
 
+/** Both tags name the equipment themselves, because the row they sit in carries no headings. */
+const EQUIPMENT_RENTAL_OPTIONS: readonly FilterOption[] = [
+  {
+    value: EQUIPMENT_RENTAL_VALUES.needed,
+    label: EQUIPMENT_RENTAL_LABEL,
+    name: EQUIPMENT_RENTAL_LABEL,
+  },
+  {
+    value: EQUIPMENT_RENTAL_VALUES.notNeeded,
+    label: NO_EQUIPMENT_RENTAL_LABEL,
+    name: NO_EQUIPMENT_RENTAL_LABEL,
+  },
+];
+
+/** One tag, not two: a teacher looks for the students to be aware of, not for the rest. */
+const HEALTH_OPTIONS: readonly FilterOption[] = [
+  { value: HEALTH_VALUES.noted, label: HEALTH_NOTED_LABEL },
+];
+
+/** Whether a student has anything health-related to be aware of, which is either answer (US-11). */
+function hasHealthNote(student: FilterableStudent): boolean {
+  return (student.healthNotes ?? "").trim() !== "" || student.hasMedication === true;
+}
+
 /** A list value is stored as the plain text it was chosen as (US-11), so it is its own tag. */
 const asOptions = (items: readonly { name: string }[]): FilterOption[] =>
   items.map((item) => ({ value: item.name, label: item.name }));
@@ -180,6 +224,8 @@ type EventOption = { id: string; name: string };
 type FilterGroupOptions = {
   attendance?: boolean;
   completeness?: boolean;
+  equipmentRental?: boolean;
+  health?: boolean;
   events?: readonly EventOption[];
 };
 
@@ -191,7 +237,7 @@ type FilterGroupOptions = {
  */
 export function filterGroups(
   lists: MaintainedLists,
-  { attendance, completeness, events }: FilterGroupOptions = {},
+  { attendance, completeness, equipmentRental, health, events }: FilterGroupOptions = {},
 ): FilterGroup[] {
   const groups: FilterGroup[] = [
     { category: "class", label: "Klasse", options: asOptions(lists.classes) },
@@ -209,6 +255,16 @@ export function filterGroups(
       label: "Event",
       options: events.map((event) => ({ value: event.id, label: event.name })),
     });
+  }
+  if (equipmentRental) {
+    groups.push({
+      category: "equipmentRental",
+      label: EQUIPMENT_RENTAL_LABEL,
+      options: EQUIPMENT_RENTAL_OPTIONS,
+    });
+  }
+  if (health) {
+    groups.push({ category: "health", label: HEALTH_LABEL, options: HEALTH_OPTIONS });
   }
   if (completeness) {
     groups.push({
@@ -235,6 +291,13 @@ function valueOf(student: FilterableStudent, category: FilterCategory): string |
       return student.isAttending ? ATTENDANCE_VALUES.attending : ATTENDANCE_VALUES.notAttending;
     case "event":
       return student.eventId;
+    case "equipmentRental":
+      if (student.equipmentRentalNeeded === null) return null;
+      return student.equipmentRentalNeeded
+        ? EQUIPMENT_RENTAL_VALUES.needed
+        : EQUIPMENT_RENTAL_VALUES.notNeeded;
+    case "health":
+      return hasHealthNote(student) ? HEALTH_VALUES.noted : HEALTH_VALUES.none;
     case "completeness":
       return student.isIncomplete ? COMPLETENESS_VALUES.incomplete : COMPLETENESS_VALUES.complete;
   }

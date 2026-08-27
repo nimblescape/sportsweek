@@ -4,11 +4,19 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
+import {
+  EQUIPMENT_RENTAL_LABEL,
+  HEALTH_LABEL,
+  HEALTH_NOTED_LABEL,
+  INCOMPLETE_REGISTRATION_HINT,
+  NO_EQUIPMENT_RENTAL_LABEL,
+} from "@/lib/registration/answer-labels";
 import {
   ATTENDANCE_VALUES,
   COMPLETENESS_VALUES,
   EMPTY_FILTER,
+  EQUIPMENT_RENTAL_VALUES,
+  HEALTH_VALUES,
   clearTags,
   filterGroups,
   filterStudents,
@@ -32,6 +40,9 @@ function student(overrides: Partial<FilterableStudent> = {}): FilterableStudent 
     isAttending: true,
     eventId: null,
     isIncomplete: false,
+    equipmentRentalNeeded: false,
+    healthNotes: null,
+    hasMedication: false,
     ...overrides,
   };
 }
@@ -134,6 +145,48 @@ describe("matchesFilter", () => {
 
     expect(matchesFilter(chasing, incomplete)).toBe(true);
     expect(matchesFilter(ANNA, incomplete)).toBe(false);
+  });
+
+  it("filters by whether equipment is rented at all, not by which items (US-11, US-13)", () => {
+    const renting = student({ equipmentRentalNeeded: true });
+    const needed = withTags(["equipmentRental", EQUIPMENT_RENTAL_VALUES.needed]);
+    const notNeeded = withTags(["equipmentRental", EQUIPMENT_RENTAL_VALUES.notNeeded]);
+
+    expect(matchesFilter(renting, needed)).toBe(true);
+    expect(matchesFilter(ANNA, needed)).toBe(false);
+    expect(matchesFilter(ANNA, notNeeded)).toBe(true);
+  });
+
+  // Unanswered, or a programme that asks for no equipment at all, which stores the same null.
+  it("leaves a student who was never asked about renting out of both rental tags", () => {
+    const unasked = student({ equipmentRentalNeeded: null });
+
+    expect(matchesFilter(unasked, withTags(["equipmentRental", EQUIPMENT_RENTAL_VALUES.needed]))).toBe(false); // prettier-ignore
+    expect(matchesFilter(unasked, withTags(["equipmentRental", EQUIPMENT_RENTAL_VALUES.notNeeded]))).toBe(false); // prettier-ignore
+  });
+
+  it("finds a student with a health note written down (US-11, US-13)", () => {
+    const noted = withTags(["health", HEALTH_VALUES.noted]);
+
+    expect(matchesFilter(student({ healthNotes: "Asthma" }), noted)).toBe(true);
+    expect(matchesFilter(ANNA, noted)).toBe(false);
+  });
+
+  it("finds a student who carries medication, whether or not anything is written down", () => {
+    const noted = withTags(["health", HEALTH_VALUES.noted]);
+
+    expect(matchesFilter(student({ hasMedication: true }), noted)).toBe(true);
+    expect(matchesFilter(student({ healthNotes: "Asthma", hasMedication: true }), noted)).toBe(
+      true,
+    );
+  });
+
+  // A field a student opened and left blank is a field with nothing written in it.
+  it("treats a health note of nothing but space as nothing written down", () => {
+    const noted = withTags(["health", HEALTH_VALUES.noted]);
+
+    expect(matchesFilter(student({ healthNotes: "   " }), noted)).toBe(false);
+    expect(matchesFilter(student({ hasMedication: null }), noted)).toBe(false);
   });
 });
 
@@ -262,16 +315,63 @@ describe("filterGroups", () => {
   it("leaves the event and completeness categories out unless they are asked for", () => {
     expect(filterGroups(lists).map((group) => group.category)).not.toContain("event");
     expect(filterGroups(lists).map((group) => group.category)).not.toContain("completeness");
+    expect(filterGroups(lists).map((group) => group.category)).not.toContain("equipmentRental");
+    expect(filterGroups(lists).map((group) => group.category)).not.toContain("health");
   });
 
   it("puts the report's own categories after the four US-12 gives", () => {
     const events = [{ id: "event1", name: "Woche 1" }];
 
     expect(
-      filterGroups(lists, { attendance: true, completeness: true, events }).map(
-        (group) => group.category,
-      ),
-    ).toEqual(["class", "gender", "program", "skillLevel", "attendance", "event", "completeness"]);
+      filterGroups(lists, {
+        attendance: true,
+        completeness: true,
+        equipmentRental: true,
+        health: true,
+        events,
+      }).map((group) => group.category),
+    ).toEqual([
+      "class",
+      "gender",
+      "program",
+      "skillLevel",
+      "attendance",
+      "event",
+      "equipmentRental",
+      "health",
+      "completeness",
+    ]);
+  });
+
+  /** Nothing to look out for is simply everyone else, so only the one tag is offered. */
+  it("offers a single health tag, naming what it gathers rather than the category", () => {
+    const [health] = filterGroups(lists, { health: true }).filter(
+      (group) => group.category === "health",
+    );
+
+    expect(health.label).toBe(HEALTH_LABEL);
+    expect(health.options).toEqual([{ value: HEALTH_VALUES.noted, label: HEALTH_NOTED_LABEL }]);
+  });
+
+  /** Both tags are worded so they read on their own, in a row that carries no headings. */
+  it("offers renting and not renting as the two equipment tags (US-11, US-13)", () => {
+    const [rental] = filterGroups(lists, { equipmentRental: true }).filter(
+      (group) => group.category === "equipmentRental",
+    );
+
+    expect(rental.label).toBe(EQUIPMENT_RENTAL_LABEL);
+    expect(rental.options).toEqual([
+      {
+        value: EQUIPMENT_RENTAL_VALUES.needed,
+        label: EQUIPMENT_RENTAL_LABEL,
+        name: EQUIPMENT_RENTAL_LABEL,
+      },
+      {
+        value: EQUIPMENT_RENTAL_VALUES.notNeeded,
+        label: NO_EQUIPMENT_RENTAL_LABEL,
+        name: NO_EQUIPMENT_RENTAL_LABEL,
+      },
+    ]);
   });
 
   /** There is nothing to chase about a complete registration, so only the one tag is offered. */

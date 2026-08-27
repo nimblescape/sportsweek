@@ -52,6 +52,8 @@ export function ReportView() {
   const { eventSeries, loading, error, students, events, filterGroups } = useEventSeriesRoster({
     attendance: true,
     completeness: true,
+    equipmentRental: true,
+    health: true,
     events: true,
   });
   const { reports: savedReports } = useSavedReports();

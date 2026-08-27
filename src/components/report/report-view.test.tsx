@@ -188,6 +188,34 @@ describe("ReportView", () => {
     expect(rows()).toHaveLength(1);
     expect(rowOf("Cerny")).toBeInTheDocument();
   });
+
+  it("filters by whether equipment is rented, which only the report asks (US-13)", async () => {
+    const renting = student("Dora", "Dorn", { equipmentRentalNeeded: true });
+    useRoster.mockReturnValue({ students: [renting, ANNA], loading: false, error: null });
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Ausrüstung zum Leihen" }));
+
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Dorn")).toBeInTheDocument();
+  });
+
+  it("gathers the students with a health note or medication under one tag (US-13)", async () => {
+    const asthma = student("Dora", "Dorn", { healthNotes: "Asthma" });
+    const medicated = student("Emil", "Egger", { hasMedication: true });
+    useRoster.mockReturnValue({
+      students: [asthma, medicated, ANNA],
+      loading: false,
+      error: null,
+    });
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Gesundheit: Krankheit oder Medikamente" })); // prettier-ignore
+
+    expect(rows()).toHaveLength(2);
+    expect(rowOf("Dorn")).toBeInTheDocument();
+    expect(rowOf("Egger")).toBeInTheDocument();
+  });
 });
 
 const detailsOf = (lastName: string) =>
