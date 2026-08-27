@@ -16,6 +16,9 @@ import {
 /** A field a student has not answered is said to be unanswered, never left as a blank line. */
 export const NO_ANSWER = "keine Angabe";
 
+/** What the report and its PDF say where the filter leaves nobody (US-13, US-17). */
+export const NO_STUDENTS_HINT = "Keine Schüler:innen gefunden.";
+
 /**
  * What a field needs beyond the registration itself. Only the event does: a record points at
  * one by id, because unlike the teacher-maintained lists it is a genuine reference (US-11).

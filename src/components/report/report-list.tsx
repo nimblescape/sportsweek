@@ -5,7 +5,12 @@
  */
 "use client";
 
-import { NO_ANSWER, type ReportField, type ReportFieldContext } from "@/lib/report/report-fields";
+import {
+  NO_ANSWER,
+  NO_STUDENTS_HINT,
+  type ReportField,
+  type ReportFieldContext,
+} from "@/lib/report/report-fields";
 import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/student-master-data/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
 
@@ -24,7 +29,7 @@ export function ReportList({ students, fields, context }: ReportListProps) {
   if (students.length === 0) {
     return (
       <p role="status" className="text-muted-foreground text-sm">
-        Keine Schüler:innen gefunden.
+        {NO_STUDENTS_HINT}
       </p>
     );
   }
