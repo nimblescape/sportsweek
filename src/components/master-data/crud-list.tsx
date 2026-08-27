@@ -70,6 +70,8 @@ type CrudListProps = {
   /** Receives the ids in their new order after a drag (see Ordering). */
   onReorder: (orderedIds: string[]) => void | Promise<void>;
   deleteNote: (item: CrudItem) => React.ReactNode;
+  /** What renaming this item does not do; shown while an existing one is being edited. */
+  editNote: (item: CrudItem) => React.ReactNode;
 };
 
 /**
@@ -96,6 +98,7 @@ export function CrudList({
   onDelete,
   onReorder,
   deleteNote,
+  editNote,
 }: CrudListProps) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
   const { busyId, pending, run } = useRowAction();
@@ -152,6 +155,7 @@ export function CrudList({
           key={dialog.item?.id ?? "new"}
           labels={labels}
           item={dialog.item}
+          note={dialog.item === null ? null : editNote(dialog.item)}
           onSubmit={submit}
           onClose={closeDialog}
         />
@@ -322,11 +326,13 @@ function ItemList({
 function ItemFormDialog({
   labels,
   item,
+  note,
   onSubmit,
   onClose,
 }: {
   labels: CrudLabels;
   item: CrudItem | null;
+  note: React.ReactNode;
   onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
   onClose: () => void;
 }) {
@@ -366,6 +372,9 @@ function ItemFormDialog({
   return (
     <Dialog open title={isEdit ? `${labels.singular} bearbeiten` : labels.add} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
+        {/* Renaming leaves what was already stored alone, which is worth saying before it is. */}
+        {note === null ? null : <p className="text-muted-foreground text-sm">{note}</p>}
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={nameId}>Name</Label>
           <Input

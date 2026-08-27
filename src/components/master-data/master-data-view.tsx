@@ -67,6 +67,12 @@ export function MasterDataView({
           Schüler:innendaten bleiben unverändert.
         </>
       )}
+      editNote={(item) => (
+        <>
+          <strong>{item.name}</strong> wird umbenannt. Bereits gespeicherte Schüler:innendaten
+          behalten den bisherigen Namen.
+        </>
+      )}
     />
   );
 }

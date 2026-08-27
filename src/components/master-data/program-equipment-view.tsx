@@ -55,6 +55,12 @@ export function ProgramEquipmentView({ programId }: { programId: string }) {
           Bereits gespeicherte Schüler:innendaten bleiben unverändert.
         </>
       )}
+      editNote={(item) => (
+        <>
+          <strong>{item.name}</strong> wird umbenannt. Bereits gespeicherte Schüler:innendaten
+          behalten den bisherigen Namen.
+        </>
+      )}
     >
       <Link
         href="/app/master-data/programs"
