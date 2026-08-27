@@ -5,7 +5,7 @@
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag, type StudentFilter } from "@/lib/filters/student-filter";
 import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
 import { SavedReportTagList } from "./saved-report-tag-list";
@@ -28,48 +28,42 @@ const saved = (
 const REPORTS = [saved("r1", "5AHIF"), saved("r2", "Alle Mädchen")];
 const CURRENT: ReportSelection = { filter: selection, fields: ["class"] };
 
-function stubHover(canHover: boolean) {
-  vi.spyOn(window, "matchMedia").mockImplementation(
-    (media: string) =>
-      ({
-        media,
-        matches: canHover,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-      }) as unknown as MediaQueryList,
-  );
-}
-
 const onOpen = vi.fn();
 const onSave = vi.fn();
+const onUpdate = vi.fn();
 const onRename = vi.fn();
 const onDelete = vi.fn();
 
+const row = (reports: readonly SavedReport[], current: ReportSelection) => (
+  <SavedReportTagList
+    reports={reports}
+    current={current}
+    onOpen={onOpen}
+    onSave={onSave}
+    onUpdate={onUpdate}
+    onRename={onRename}
+    onDelete={onDelete}
+  />
+);
+
 function setup(reports: SavedReport[] = REPORTS, current: ReportSelection = CURRENT) {
-  render(
-    <SavedReportTagList
-      reports={reports}
-      current={current}
-      onOpen={onOpen}
-      onSave={onSave}
-      onRename={onRename}
-      onDelete={onDelete}
-    />,
-  );
+  const { rerender } = render(row(reports, current));
+  return { change: (next: ReportSelection) => rerender(row(reports, next)) };
 }
 
 const tag = (name: string) =>
   screen.getByRole("button", { name: `Gespeicherter Bericht: ${name}` });
 
+/** The tag is the box around that button, and the box is what carries the colour. */
+const tagBox = (name: string) => tag(name).parentElement as HTMLElement;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  stubHover(true);
   onSave.mockResolvedValue(undefined);
+  onUpdate.mockResolvedValue(undefined);
   onRename.mockResolvedValue(undefined);
   onDelete.mockResolvedValue(undefined);
 });
-
-afterEach(() => vi.restoreAllMocks());
 
 describe("SavedReportTagList", () => {
   it("is a tag row like the two it saves, one tag per saved report", () => {
@@ -94,35 +88,66 @@ describe("SavedReportTagList", () => {
   });
 });
 
-describe("naming what is currently shown", () => {
-  it("presses the tag of the saved report the page is showing", () => {
+describe("the tag the teacher opened", () => {
+  it("marks nothing until a tag is pressed, even where the page already matches one", () => {
     setup();
 
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  /** Remembered rather than derived, which is what keeps its controls reachable after an edit. */
+  it("stays marked while the teacher goes on changing the report", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+
+    change({ ...CURRENT, filter: toggleTag(selection, "gender", "male") });
+
     expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "true");
-    expect(tag("Alle Mädchen")).toHaveAttribute("aria-pressed", "false");
   });
 
-  /** Derived rather than remembered, so it cannot go on claiming a report no longer on screen. */
-  it("releases it as soon as the teacher changes a filter tag", () => {
-    setup(REPORTS, { ...CURRENT, filter: toggleTag(selection, "gender", "male") });
+  it("moves the mark to whichever tag is pressed next", async () => {
+    setup();
+
+    await userEvent.click(tag("5AHIF"));
+    await userEvent.click(tag("Alle Mädchen"));
 
     expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+    expect(tag("Alle Mädchen")).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("telling an untouched saved report from a changed one", () => {
+  it("colours the marked tag differently once either tag list has been changed", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+    expect(tagBox("5AHIF")).toHaveClass("bg-primary");
+
+    change({ ...CURRENT, fields: [] });
+
+    expect(tagBox("5AHIF")).not.toHaveClass("bg-primary");
+    expect(tagBox("5AHIF")).toHaveClass("bg-secondary");
   });
 
-  /** The fields are half of what a saved report is, so changing one changes the report. */
-  it("releases it as soon as the teacher changes a field tag", () => {
-    setup(REPORTS, { ...CURRENT, fields: ["class", "contact"] });
+  /** Colour alone says nothing to a screen reader, so the tag is described as well. */
+  it("says it in words too, not in the colour alone", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+    expect(tag("5AHIF")).toHaveAccessibleDescription("");
 
-    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+    change({ ...CURRENT, fields: [] });
+
+    expect(tag("5AHIF")).toHaveAccessibleDescription(
+      "Geändert gegenüber dem gespeicherten Bericht.",
+    );
   });
 
-  it("ignores the order the tags were pressed in", () => {
-    setup([saved("r3", "Beides", selection, ["contact", "class"])], {
-      ...CURRENT,
-      fields: ["class", "contact"],
-    });
+  it("does not call a report changed for having its field tags pressed in another order", async () => {
+    const { change } = setup([saved("r3", "Beides", selection, ["contact", "class"])], CURRENT);
+    await userEvent.click(tag("Beides"));
 
-    expect(tag("Beides")).toHaveAttribute("aria-pressed", "true");
+    change({ ...CURRENT, fields: ["class", "contact"] });
+
+    expect(tagBox("Beides")).toHaveClass("bg-primary");
   });
 });
 
@@ -148,9 +173,42 @@ describe("saving the report as it stands", () => {
   });
 });
 
+describe("the controls inside a tag", () => {
+  it("offers them on the marked tag, without waiting for a hover to reveal them", async () => {
+    setup();
+    await userEvent.click(tag("5AHIF"));
+
+    for (const control of ["aktualisieren", "umbenennen", "löschen"]) {
+      expect(screen.getByRole("button", { name: `Bericht 5AHIF ${control}` })).toBeInTheDocument();
+    }
+  });
+
+  it("offers none on a tag nobody opened, so there is nothing there to press by accident", () => {
+    setup();
+
+    expect(
+      screen.queryByRole("button", { name: "Bericht 5AHIF umbenennen" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("bringing the marked report up to date", () => {
+  it("replaces what it holds with the report as it now stands", async () => {
+    const changed = { ...CURRENT, fields: ["class", "contact"] };
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+    change(changed);
+
+    await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF aktualisieren" }));
+
+    expect(onUpdate).toHaveBeenCalledWith("r1", changed);
+  });
+});
+
 describe("renaming and deleting from within the tag", () => {
   it("edits the name in place", async () => {
     setup();
+    await userEvent.click(tag("5AHIF"));
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF umbenennen" }));
     const field = screen.getByRole("textbox", { name: "Name des Berichts" });
@@ -163,6 +221,7 @@ describe("renaming and deleting from within the tag", () => {
 
   it("asks before deleting, right there in the tag", async () => {
     setup();
+    await userEvent.click(tag("5AHIF"));
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF löschen" }));
     expect(onDelete).not.toHaveBeenCalled();
@@ -173,6 +232,7 @@ describe("renaming and deleting from within the tag", () => {
 
   it("keeps the saved report when the confirmation is dismissed", async () => {
     setup();
+    await userEvent.click(tag("5AHIF"));
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF löschen" }));
     await userEvent.click(screen.getByRole("button", { name: "Löschen von 5AHIF abbrechen" }));
@@ -183,31 +243,12 @@ describe("renaming and deleting from within the tag", () => {
 
   it("asks about the tag that was pressed, not about every one of them", async () => {
     setup();
+    await userEvent.click(tag("5AHIF"));
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF löschen" }));
 
     expect(
       screen.queryByRole("button", { name: "Löschen von Alle Mädchen bestätigen" }),
     ).not.toBeInTheDocument();
-  });
-});
-
-describe("the in-tag icons", () => {
-  it("keeps them out of the way until hovered, where hovering is possible", () => {
-    stubHover(true);
-    setup();
-
-    expect(screen.getByRole("button", { name: "Bericht 5AHIF umbenennen" })).toHaveClass(
-      "opacity-0",
-    );
-  });
-
-  it("shows them permanently on a touch screen, which has no hover to reveal them", () => {
-    stubHover(false);
-    setup();
-
-    expect(screen.getByRole("button", { name: "Bericht 5AHIF umbenennen" })).not.toHaveClass(
-      "opacity-0",
-    );
   });
 });

@@ -11,6 +11,8 @@ import { COLLECTIONS } from "@/lib/schemas/collections";
 import {
   savedReportInputSchema,
   savedReportSchema,
+  savedReportSelectionSchema,
+  type ReportSelection,
   type SavedReport,
   type SavedReportInput,
 } from "@/lib/schemas/saved-report";
@@ -72,6 +74,22 @@ export async function renameSavedReport(id: string, name: string): Promise<Saved
 
   await reportDoc(id).update({ name: parsed });
   return { ...current, name: parsed };
+}
+
+/** The counterpart: what a report holds gives way to the report on screen, its name kept (US-13). */
+export async function updateSavedReportSelection(
+  id: string,
+  selection: ReportSelection,
+): Promise<SavedReport> {
+  const parsed = savedReportSelectionSchema.safeParse(selection);
+  if (!parsed.success) {
+    reject(parsed.error.issues[0]?.message ?? "Dieser Bericht lässt sich nicht speichern.");
+  }
+
+  const current = await readReport(id);
+
+  await reportDoc(id).update(parsed.data);
+  return { ...current, ...parsed.data };
 }
 
 export async function deleteSavedReport(id: string): Promise<void> {

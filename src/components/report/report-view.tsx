@@ -6,13 +6,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FileDown, FileSpreadsheet, Printer } from "lucide-react";
+import { FileDown, FileSpreadsheet } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useSeasonRoster } from "@/lib/assignment/use-season-roster";
 import { EMPTY_FILTER, filterStudents } from "@/lib/filters/student-filter";
 import { reportFieldsOf } from "@/lib/report/report-fields";
-import { POPUP_BLOCKED_HINT, printableReportHtml } from "@/lib/report/printable-report";
 import {
   downloadReportPdf,
   downloadReportWorkbook,
@@ -82,31 +81,17 @@ export function ReportView() {
     await apiRequest(reportUrl(id), { method: "PATCH", body: { name } });
   }
 
+  async function updateReport(id: string, saved: ReportSelection) {
+    await apiRequest(reportUrl(id), { method: "PATCH", body: saved });
+  }
+
   async function deleteReport(id: string) {
     await apiRequest(reportUrl(id), { method: "DELETE" });
   }
 
   /**
-   * The document is written into the window rather than fetched from a URL: a class full of
-   * contact details has no business in an address bar, a history entry or a server log.
-   */
-  function print() {
-    const popup = window.open("", "_blank");
-    if (!popup) {
-      setOutputError(POPUP_BLOCKED_HINT);
-      return;
-    }
-
-    setOutputError(null);
-    const heading = season === null ? "Bericht" : `Bericht – Saison ${season.name}`;
-    popup.document.open();
-    popup.document.write(printableReportHtml(shown, fields, { heading, context }));
-    popup.document.close();
-  }
-
-  /**
    * The saved report the page currently is, asked of the same module the tag row asks, so the
-   * file a teacher receives is named after the tag the row shows as pressed.
+   * file a teacher receives is named after a report it really holds rather than one it resembles.
    */
   const savedReportName = matchingSavedReport(savedReports, selection)?.name ?? null;
 
@@ -132,10 +117,6 @@ export function ReportView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-heading text-lg font-semibold">Bericht</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" onClick={print} disabled={season === null}>
-            <Printer aria-hidden data-icon="inline-start" />
-            Drucken
-          </Button>
           <Button
             type="button"
             variant="outline"
@@ -182,6 +163,7 @@ export function ReportView() {
                 current={selection}
                 onOpen={openReport}
                 onSave={saveReport}
+                onUpdate={updateReport}
                 onRename={renameReport}
                 onDelete={deleteReport}
               />

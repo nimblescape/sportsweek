@@ -6,23 +6,23 @@
 "use client";
 
 import * as React from "react";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { matchingSavedReport } from "@/lib/report/saved-reports";
+import { sameSelection } from "@/lib/report/saved-reports";
 import {
   savedReportSchema,
   type ReportSelection,
   type SavedReport,
 } from "@/lib/schemas/saved-report";
-import { useHoverCapability } from "@/lib/ui/use-hover-capability";
 
 const nameSchema = savedReportSchema.shape.name;
 
 const ROW_LABEL = "Gespeicherte Berichte";
 const NAME_LABEL = "Name des Berichts";
 const EMPTY_HINT = "Noch keine Berichte gespeichert.";
+const CHANGED_HINT = "Geändert gegenüber dem gespeicherten Bericht.";
 
 type SavedReportTagListProps = {
   reports: readonly SavedReport[];
@@ -30,6 +30,7 @@ type SavedReportTagListProps = {
   current: ReportSelection;
   onOpen: (selection: ReportSelection) => void;
   onSave: (name: string, selection: ReportSelection) => Promise<void>;
+  onUpdate: (id: string, selection: ReportSelection) => Promise<void>;
   onRename: (id: string, name: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 };
@@ -38,24 +39,24 @@ type Editing = { kind: "save" } | { kind: "rename"; report: SavedReport };
 
 /**
  * The saved reports of US-13, as a third tag row above the two that make one up: pressing a tag
- * puts that report back on screen, and the controls for renaming and removing it sit in the tag
- * itself rather than on a page of their own. They are shared among all teachers, so the row is
- * the same one for everybody and any teacher may edit any tag.
+ * puts that report back on screen, and the controls for keeping it sit in the tag itself rather
+ * than on a page of their own. They are shared among all teachers, so the row is the same one
+ * for everybody and any teacher may edit any tag.
  */
 export function SavedReportTagList({
   reports,
   current,
   onOpen,
   onSave,
+  onUpdate,
   onRename,
   onDelete,
 }: SavedReportTagListProps) {
   const [editing, setEditing] = React.useState<Editing | null>(null);
   const [confirming, setConfirming] = React.useState<string | null>(null);
-
-  // Derived, not remembered: the tag stops being the pressed one as soon as either row is
-  // changed, because by then the report on screen is no longer the one that was saved.
-  const selected = matchingSavedReport(reports, current);
+  // Remembered rather than derived from the selection, so the mark survives the changes a
+  // teacher then makes — which is what keeps this report's controls, and its update, reachable.
+  const [markedId, setMarkedId] = React.useState<string | null>(null);
 
   return (
     <div className="space-y-2">
@@ -67,9 +68,16 @@ export function SavedReportTagList({
             <SavedReportTag
               key={report.id}
               report={report}
-              pressed={report.id === selected?.id}
+              marked={report.id === markedId}
+              changed={report.id === markedId && !sameSelection(report, current)}
               confirming={confirming === report.id}
-              onOpen={() => onOpen(report)}
+              onOpen={() => {
+                setConfirming(null);
+                setEditing(null);
+                setMarkedId(report.id);
+                onOpen(report);
+              }}
+              onUpdate={() => onUpdate(report.id, current)}
               onStartRename={() => {
                 setConfirming(null);
                 setEditing({ kind: "rename", report });
@@ -81,6 +89,7 @@ export function SavedReportTagList({
               onDelete={async () => {
                 await onDelete(report.id);
                 setConfirming(null);
+                setMarkedId(null);
               }}
               onCancel={() => setConfirming(null)}
             />
@@ -120,55 +129,65 @@ export function SavedReportTagList({
 
 type SavedReportTagProps = {
   report: SavedReport;
-  pressed: boolean;
+  marked: boolean;
+  changed: boolean;
   confirming: boolean;
   onOpen: () => void;
+  onUpdate: () => Promise<void>;
   onStartRename: () => void;
   onStartDelete: () => void;
   onDelete: () => Promise<void>;
   onCancel: () => void;
 };
 
+// The tag carries the colour, so an icon in it neither repaints itself nor its background.
+const ICON_CLASSES = "hover:bg-transparent hover:text-inherit hover:opacity-70";
+
 function SavedReportTag({
   report,
-  pressed,
+  marked,
+  changed,
   confirming,
   onOpen,
+  onUpdate,
   onStartRename,
   onStartDelete,
   onDelete,
   onCancel,
 }: SavedReportTagProps) {
-  const canHover = useHoverCapability();
-
-  // Revealed on hover where there is one; on a touch screen there is none, and a control nobody
-  // can reveal is a control nobody has (see General). A tag being confirmed shows them anyway.
-  const iconClasses = cn(
-    // The tag carries the colour, so an icon in it neither repaints itself nor its background.
-    "hover:bg-transparent hover:text-inherit hover:opacity-70",
-    canHover &&
-      !confirming &&
-      "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
-  );
+  const hintId = React.useId();
 
   return (
     <div
       className={cn(
-        buttonVariants({ variant: pressed ? "default" : "outline", size: "lg" }),
-        "group gap-0.5 px-1",
+        // Three states, and the middle one is the point: opened, and since changed (US-13).
+        buttonVariants({
+          variant: marked ? (changed ? "secondary" : "default") : "outline",
+          size: "lg",
+        }),
+        "gap-0.5 px-1",
       )}
     >
       <button
         type="button"
-        aria-pressed={pressed}
+        aria-pressed={marked}
         aria-label={`Gespeicherter Bericht: ${report.name}`}
+        aria-describedby={changed ? hintId : undefined}
         onClick={onOpen}
         className="focus-visible:ring-ring/50 max-w-60 truncate rounded-md px-1.5 outline-none focus-visible:ring-3"
       >
         {report.name}
       </button>
 
-      {confirming ? (
+      {/* The colour says it to everybody who can see it; this says it to everybody else. */}
+      {changed ? (
+        <span id={hintId} className="sr-only">
+          {CHANGED_HINT}
+        </span>
+      ) : null}
+
+      {/* Only the marked tag is managed, so there is nothing on the others to press by accident. */}
+      {!marked ? null : confirming ? (
         <>
           <Button
             type="button"
@@ -176,7 +195,7 @@ function SavedReportTag({
             size="icon-sm"
             aria-label={`Löschen von ${report.name} bestätigen`}
             onClick={onDelete}
-            className={iconClasses}
+            className={ICON_CLASSES}
           >
             <Check aria-hidden />
           </Button>
@@ -186,7 +205,7 @@ function SavedReportTag({
             size="icon-sm"
             aria-label={`Löschen von ${report.name} abbrechen`}
             onClick={onCancel}
-            className={iconClasses}
+            className={ICON_CLASSES}
           >
             <X aria-hidden />
           </Button>
@@ -197,9 +216,19 @@ function SavedReportTag({
             type="button"
             variant="ghost"
             size="icon-sm"
+            aria-label={`Bericht ${report.name} aktualisieren`}
+            onClick={onUpdate}
+            className={ICON_CLASSES}
+          >
+            <Save aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
             aria-label={`Bericht ${report.name} umbenennen`}
             onClick={onStartRename}
-            className={iconClasses}
+            className={ICON_CLASSES}
           >
             <Pencil aria-hidden />
           </Button>
@@ -209,7 +238,7 @@ function SavedReportTag({
             size="icon-sm"
             aria-label={`Bericht ${report.name} löschen`}
             onClick={onStartDelete}
-            className={iconClasses}
+            className={ICON_CLASSES}
           >
             <Trash2 aria-hidden />
           </Button>

@@ -11,7 +11,7 @@ const firestore = new FakeFirestore();
 
 vi.mock("@/lib/firebase/admin", () => ({ adminDb: firestore }));
 
-const { createSavedReport, deleteSavedReport, renameSavedReport } =
+const { createSavedReport, deleteSavedReport, renameSavedReport, updateSavedReportSelection } =
   await import("./saved-report-service");
 const { ServiceError } = await import("@/lib/service-error");
 
@@ -91,6 +91,41 @@ describe("renameSavedReport", () => {
   it("rejects a blank name", async () => {
     await expect(renameSavedReport("r1", " ")).rejects.toBeInstanceOf(ServiceError);
     expect(firestore.get("savedReports", "r1")).toMatchObject({ name: "5AHIF" });
+  });
+});
+
+describe("updateSavedReportSelection", () => {
+  const replacement = { filter: EMPTY_FILTER, fields: ["contact"] };
+
+  beforeEach(() => firestore.seed("savedReports", "r1", stored));
+
+  it("replaces both selections, leaving the name and the author as they were", async () => {
+    const updated = await updateSavedReportSelection("r1", replacement);
+
+    expect(updated).toEqual({ id: "r1", ...stored, ...replacement });
+    expect(firestore.get("savedReports", "r1")).toEqual({ ...stored, ...replacement });
+  });
+
+  it("keeps only the categories the report filters by, so a stray one cannot be stored", async () => {
+    const filter = { ...selection, tags: { ...selection.tags, nonsense: ["x"] } } as never;
+
+    const updated = await updateSavedReportSelection("r1", { filter, fields: [] });
+
+    expect(updated.filter).toEqual(selection);
+  });
+
+  it("refuses a name alongside, which is the other edit and goes its own way", async () => {
+    const edit = { ...replacement, name: "5BHIF" } as never;
+
+    await expect(updateSavedReportSelection("r1", edit)).rejects.toBeInstanceOf(ServiceError);
+    expect(firestore.get("savedReports", "r1")).toEqual(stored);
+  });
+
+  it("reports a saved report that is not there rather than creating it", async () => {
+    await expect(updateSavedReportSelection("gone", replacement)).rejects.toBeInstanceOf(
+      ServiceError,
+    );
+    expect(firestore.count("savedReports")).toBe(1);
   });
 });
 

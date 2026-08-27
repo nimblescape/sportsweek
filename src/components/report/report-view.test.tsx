@@ -5,7 +5,7 @@
  */
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -324,6 +324,7 @@ describe("the saved reports", () => {
     useSavedReports.mockReturnValue({ reports: [saved], loading: false, error: null });
 
     render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF umbenennen" }));
     const field = screen.getByRole("textbox", { name: "Name des Berichts" });
@@ -341,60 +342,20 @@ describe("the saved reports", () => {
 
     expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", { method: "DELETE" });
   });
-});
 
-describe("printing", () => {
-  function stubPopup(popup: unknown) {
-    return vi
-      .spyOn(window, "open")
-      .mockReturnValue(popup as ReturnType<typeof window.open>) as unknown as ReturnType<
-      typeof vi.fn
-    >;
-  }
-
-  const fakePopup = () => {
-    const written: string[] = [];
-    return {
-      written,
-      document: { open: () => {}, write: (html: string) => written.push(html), close: () => {} },
-    };
-  };
-
-  afterEach(() => vi.restoreAllMocks());
-
-  it("opens a window of its own rather than putting the students in a query string", async () => {
-    const popup = fakePopup();
-    const open = stubPopup(popup);
+  it("brings the opened report up to date with the report as it now stands", async () => {
+    useSavedReports.mockReturnValue({ reports: [saved], loading: false, error: null });
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Drucken" }));
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
+    await userEvent.click(screen.getByRole("button", { name: "Klasse: 5AHIF" }));
 
-    expect(open).toHaveBeenCalledWith("", "_blank");
-    expect(popup.written.join("")).toContain("Anna Muster");
-  });
+    await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF aktualisieren" }));
 
-  it("prints the students the filter leaves and the fields that are activated", async () => {
-    const popup = fakePopup();
-    stubPopup(popup);
-
-    render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Teilnahme: nimmt teil" }));
-    await activate("Klasse");
-    await userEvent.click(screen.getByRole("button", { name: "Drucken" }));
-
-    const printed = popup.written.join("");
-    expect(printed).toContain("Anna Muster");
-    expect(printed).not.toContain("Bene Berger");
-    expect(printed).toContain("<dt>Klasse:</dt>");
-  });
-
-  it("says so when the browser blocks the window, instead of doing nothing", async () => {
-    stubPopup(null);
-
-    render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Drucken" }));
-
-    expect(screen.getByRole("alert")).toHaveTextContent("Das Druckfenster wurde blockiert.");
+    expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", {
+      method: "PATCH",
+      body: { filter: toggleTag(saved.filter, "class", "5AHIF"), fields: ["class"] },
+    });
   });
 });
 

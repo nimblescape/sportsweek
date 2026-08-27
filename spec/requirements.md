@@ -295,11 +295,12 @@ As a teacher, I can view a report listing all students so that I have their cont
 - What a teacher saves under a name is the whole report as it stands: both tag list selections together, which students are shown and which detail lines they show. Keeping the filter alone would restore half of what was set up and leave the teacher to remember the other half.
 - The saved reports are a tag list like the two they save, one tag per saved report, showing its name; they are shared among all teachers rather than private to the teacher who saved one. Pressing a tag puts that report back on screen, both tag list selections at once.
 - Beside the tags, a Save button lets the teacher save the report as it currently stands under a name, entered inline without leaving the report page.
-- The tag of the saved report currently on screen is the pressed one, and it stops being pressed as soon as either tag list is changed, because by then the report shown is no longer the one that was saved. Which order the tags were pressed in is not part of what a saved report is.
+- Pressing a tag marks it, and it stays marked while the teacher goes on changing the two tag lists — that mark is what says which saved report is being worked on, and it moves only when another tag is pressed.
+- A marked tag whose report is no longer what is on screen is shown in a different colour from one that still matches it, so a teacher can tell a saved report they have left alone from one they have since changed. Which order the tags were pressed in is no part of that comparison.
 - A saved report made before a filter category or a data field existed still opens: an entry that no longer stands for anything restricts nothing and adds no detail line, rather than making the whole saved report unreadable.
-- The controls for renaming and for deleting a saved report sit inside its own tag, so it is managed where it is shown rather than on a page of its own. On pointer-based devices (desktop) they appear on hover; on touch devices (tablet, mobile), where there is no hover state, they are always visible instead, so the feature stays usable on every supported screen size (see General).
+- The controls for updating, renaming and deleting a saved report sit inside its own tag, so it is managed where it is shown rather than on a page of its own. They are shown on the marked tag only, permanently and on every device rather than revealed by a hover a teacher has to discover (see General); an unmarked tag carries no controls at all, so there is nothing on it to press by accident.
+- Updating a saved report replaces both tag list selections it holds with the report as it currently stands, leaving its name alone. It is what a teacher reaches for after opening a saved report and adjusting it, instead of saving a second report under a second name.
 - Renaming a saved report edits its name in place; deleting one requires a lightweight inline confirmation before it is removed, asked in the tag that is about to go.
-- A print button on the report page opens the report as HTML in a popup window, keeping the master-detail structure, which the teacher can then print (e.g. to PDF or any format supported by the installed printers). A paginated PDF with page furniture of its own is a separate export (see US-17), as is a spreadsheet (see US-18).
 
 ### US-17: Teacher exports the student report as PDF
 
@@ -307,10 +308,11 @@ As a teacher, I can export the report as a PDF so that I have a paginated docume
 
 **Acceptance criteria:**
 
-- An export button exists on the report page, next to the print button of US-13, labelled "PDF exportieren".
-- What it produces is a PDF file (`.pdf`), handed to the teacher as a download. Opening a window to print from is what the print button of US-13 already does; this one exists to produce something that can be filed, attached or sent as it is.
+- An export button exists on the report page, labelled "PDF exportieren".
+- What it produces is a PDF file (`.pdf`), handed to the teacher as a download, so that what a teacher ends up holding can be filed, attached or sent as it is.
 - The file is downloaded as soon as it has been built, to wherever the browser normally puts downloads. The teacher is not asked where to put it, because the export is one press and a location dialog would make it two.
 - The file is named after the saved report on screen (see US-13), or "Sportsweek Report" where what is on screen is no saved report, followed by a dash and the date and time the export was made: `Sportsweek Report - 2026-08-27 14-35.pdf`. The date leads with the year so that a folder of exports sorts into the order they were taken in, which is the order a teacher looks for them in.
+- What names it is the saved report the screen still matches, not whichever tag is marked: a marked report the teacher has since changed names nothing, because the file would otherwise claim to be a report it is not.
 - A saved report's name is text a teacher typed, and a file name is not: whatever a file system will not accept in one — a slash, a colon — is replaced before the name is used.
 - The export contains exactly the students the filter tag list leaves and exactly the detail lines the fields tag list activates (see US-13). It is the report as it currently stands on screen, not a second report with rules of its own.
 - The document keeps the master-detail structure of the report: one master line per student, with that student's detail lines indented below it.
@@ -320,7 +322,7 @@ As a teacher, I can export the report as a PDF so that I have a paginated docume
 - Where what is on screen is a saved report (see US-13), its name is a subtitle under the title, so a copy that shows part of the season says which part on every page rather than once at the foot of one. A report matching no saved one has no subtitle rather than being described tag by tag.
 - The footer states the page's own number and the total number of pages, in the form "Seite 3 von 12".
 - The footer also states the date and time at which the export was made. A printed copy outlives the screen it was taken from, and the registrations keep changing after it, so a reader has to be able to tell how old the sheet in front of them is.
-- The students' details are not put in a URL to produce the document, for the same reason the print window is written rather than fetched (see US-13): a class full of contact details has no business in an address bar, a history entry, or any log that records one.
+- The students' details are not put in a URL to produce the document: a class full of contact details has no business in an address bar, a history entry, or any log that records one. The document is built in the browser, from what the two tag lists already hold.
 
 ### US-18: Teacher exports the student report as a spreadsheet
 
@@ -328,7 +330,7 @@ As a teacher, I can export the report as an Excel file so that I can sort, group
 
 **Acceptance criteria:**
 
-- An export button exists on the report page, beside the print and PDF export buttons (see US-13, US-17), labelled "Excel exportieren".
+- An export button exists on the report page, beside the PDF export button (see US-17), labelled "Excel exportieren".
 - What it produces is an Excel workbook file (`.xlsx`), handed to the teacher as a download.
 - The file is delivered and named exactly as the PDF export's is (see US-17), with the `.xlsx` extension: `Sportsweek Report - 2026-08-27 14-35.xlsx`.
 - The export holds exactly the students the filter tag list leaves and exactly the fields the fields tag list activates (see US-13) — the same scope the PDF export has.
