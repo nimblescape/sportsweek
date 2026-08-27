@@ -382,7 +382,7 @@ describe("exporting", () => {
     render(<ReportView />);
     await userEvent.click(screen.getByRole("button", { name: "Teilnahme: nimmt teil" }));
     await activate("Klasse");
-    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "PDF" }));
 
     const report = pressed(downloadReportPdf);
     expect(report.students.map((it: RosterStudent) => it.lastName)).toEqual(["Muster"]);
@@ -392,7 +392,7 @@ describe("exporting", () => {
   it("hands the workbook the same scope the PDF gets", async () => {
     render(<ReportView />);
     await activate("Klasse");
-    await userEvent.click(screen.getByRole("button", { name: "Excel exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Excel" }));
 
     const report = pressed(downloadReportWorkbook);
     expect(report.students.map((it: RosterStudent) => it.lastName)).toEqual(["Berger", "Muster"]);
@@ -407,14 +407,14 @@ describe("exporting", () => {
     });
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "PDF" }));
 
     expect(pressed(downloadReportPdf).provenance.reportName).toBe("Alle");
   });
 
   it("leaves the export unnamed while the page matches no saved report", async () => {
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "Excel exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Excel" }));
 
     const { reportName, filterSummary, exportedAt } = pressed(downloadReportWorkbook).provenance;
     expect(reportName).toBeNull();
@@ -425,7 +425,7 @@ describe("exporting", () => {
   it("describes the filter alongside it, so a copy says which slice of the season it holds", async () => {
     render(<ReportView />);
     await userEvent.click(screen.getByRole("button", { name: "Klasse: 5BHIF" }));
-    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "PDF" }));
 
     expect(pressed(downloadReportPdf).provenance.filterSummary).toBe("5BHIF");
   });
@@ -434,7 +434,7 @@ describe("exporting", () => {
     downloadReportPdf.mockRejectedValue(new Error("no fonts"));
 
     render(<ReportView />);
-    await userEvent.click(screen.getByRole("button", { name: "PDF exportieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "PDF" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("Der Export konnte nicht erstellt werden.");
     expect(screen.getByRole("alert")).not.toHaveTextContent("no fonts");
@@ -445,7 +445,7 @@ describe("exporting", () => {
 
     render(<ReportView />);
 
-    expect(screen.getByRole("button", { name: "PDF exportieren" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Excel exportieren" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "PDF" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Excel" })).toBeDisabled();
   });
 });

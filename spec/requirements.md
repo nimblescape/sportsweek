@@ -312,7 +312,7 @@ As a teacher, I can export the report as a PDF so that I have a paginated docume
 
 **Acceptance criteria:**
 
-- An export button exists on the report page, labelled "PDF exportieren".
+- An export button exists on the report page, labelled "PDF". The icon beside it says it is a download, so spelling out "exportieren" would only repeat what the button already shows.
 - What it produces is a PDF file (`.pdf`), handed to the teacher as a download, so that what a teacher ends up holding can be filed, attached or sent as it is.
 - The file is downloaded as soon as it has been built, to wherever the browser normally puts downloads. The teacher is not asked where to put it, because the export is one press and a location dialog would make it two.
 - The file is named after the saved report on screen (see US-13), or "Sportsweek Report" where what is on screen is no saved report, followed by a dash and the date and time the export was made: `Sportsweek Report - 2026-08-27 14-35.pdf`. The date leads with the year so that a folder of exports sorts into the order they were taken in, which is the order a teacher looks for them in.
@@ -334,7 +334,7 @@ As a teacher, I can export the report as an Excel file so that I can sort, group
 
 **Acceptance criteria:**
 
-- An export button exists on the report page, beside the PDF export button (see US-17), labelled "Excel exportieren".
+- An export button exists on the report page, beside the PDF export button (see US-17), labelled "Excel".
 - What it produces is an Excel workbook file (`.xlsx`), handed to the teacher as a download.
 - The file is delivered and named exactly as the PDF export's is (see US-17), with the `.xlsx` extension: `Sportsweek Report - 2026-08-27 14-35.xlsx`.
 - The export holds exactly the students the filter tag list leaves and exactly the fields the fields tag list activates (see US-13) — the same scope the PDF export has.

@@ -138,7 +138,7 @@ export function ReportView() {
             disabled={season === null || exporting}
           >
             <FileDown aria-hidden data-icon="inline-start" />
-            PDF exportieren
+            PDF
           </Button>
           <Button
             type="button"
@@ -147,7 +147,7 @@ export function ReportView() {
             disabled={season === null || exporting}
           >
             <FileSpreadsheet aria-hidden data-icon="inline-start" />
-            Excel exportieren
+            Excel
           </Button>
         </div>
       </div>
