@@ -145,7 +145,13 @@ export function SavedReportTagList({
                   onOpen={() => {
                     closeForms();
                     if (report.id === markedId) {
-                      // Pressing the marked tag lets go of it and leaves the two tag lists
+                      // Changed since it was opened: pressing its name puts it back, which is the
+                      // only way to undo an edit without having remembered what it undid.
+                      if (!sameSelection(report, current)) {
+                        onOpen(report);
+                        return;
+                      }
+                      // Otherwise the press lets go of the tag and leaves the two tag lists
                       // alone: what is on screen is the teacher's, not the tag's, to give back.
                       setMarkedId(null);
                       return;

@@ -385,6 +385,26 @@ describe("the saved reports", () => {
     expect(tag).toHaveAccessibleDescription("");
   });
 
+  /** Pressing the name is the way back, and it has to undo both tag lists at once. */
+  it("puts the saved report back on screen when its changed tag is pressed again", async () => {
+    useSavedReports.mockReturnValue({ reports: [saved], loading: false, error: null });
+
+    render(<ReportView />);
+    const tag = screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" });
+    await userEvent.click(tag);
+    await userEvent.click(screen.getByRole("button", { name: "Klasse: 5AHIF" }));
+    await activate("Geschlecht");
+    expect(tag).toHaveAccessibleDescription("Geändert gegenüber dem gespeicherten Bericht.");
+
+    await userEvent.click(tag);
+
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Berger")).toBeInTheDocument();
+    expect(detailsOf("Berger")).toEqual(["Klasse:"]);
+    expect(tag).toHaveAttribute("aria-pressed", "true");
+    expect(tag).toHaveAccessibleDescription("");
+  });
+
   /**
    * A list still on its way offers nothing to check a tag against. Dropping it there would strip
    * the report of what it holds and then call it changed for the rest of the session.

@@ -141,8 +141,23 @@ describe("the tag the teacher opened", () => {
     expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
   });
 
-  /** Letting go of a report is not asking for one, so neither tag list hears about it. */
+  /** Letting go of an untouched report is not asking for one, so neither tag list hears about it. */
   it("leaves both tag lists exactly as they are when the mark is released", async () => {
+    setup();
+    await userEvent.click(tag("5AHIF"));
+    onOpen.mockClear();
+
+    await userEvent.click(tag("5AHIF"));
+
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  /**
+   * The only way back to what was saved: a teacher who has changed a report and wants it as it
+   * was would otherwise have to remember every tag they pressed.
+   */
+  it("puts the saved report back when the tag holding it is pressed after a change", async () => {
     const { change } = setup();
     await userEvent.click(tag("5AHIF"));
     change({ ...CURRENT, fields: [] });
@@ -150,8 +165,30 @@ describe("the tag the teacher opened", () => {
 
     await userEvent.click(tag("5AHIF"));
 
+    expect(onOpen).toHaveBeenCalledWith(REPORTS[0]);
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("restores from the name alone, not from the controls beside it", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+    change({ ...CURRENT, fields: [] });
+    onOpen.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: "Bericht 5AHIF umbenennen" }));
+
     expect(onOpen).not.toHaveBeenCalled();
-    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("restores from the name alone, not from the grip that drags the tag", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+    change({ ...CURRENT, fields: [] });
+    onOpen.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: "5AHIF verschieben" }));
+
+    expect(onOpen).not.toHaveBeenCalled();
   });
 });
 
