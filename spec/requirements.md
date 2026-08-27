@@ -109,7 +109,7 @@ As a teacher, I can maintain seasons and, within each season, maintain events so
 - The confirmation dialog is a warning dialog (see Design Guidelines).
 - The confirmation dialog has a Delete button and a Cancel button.
 - The confirmation dialog requires the teacher to type the exact season name; the Delete button is only enabled once the entered text matches the season name being deleted.
-- A teacher can archive a season; an archived season no longer appears in the teacher's list of seasons.
+- A teacher can archive a season; an archived season no longer appears in the teacher's list of seasons. A tag above the list reveals them again, and what it is set to survives stepping into a season's events and back: reaching an old season's events is one errand, not two, and having to reveal the archive a second time on the way back would make it two.
 - A season that holds no student master data cannot be archived: archiving signs off on a season's student data, so there must be data to sign off on.
 - Each season row has an archive button, disabled for the active season (which must be deactivated first) and for any season that holds no student master data, with a hint explaining whichever reason applies.
 - A teacher can unarchive an archived season. Unarchiving is not subject to the student-data rule, so a season that somehow ended up archived without data can still be brought back.

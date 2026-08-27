@@ -19,6 +19,8 @@ import { applyVisibleOrder } from "@/lib/schemas/position";
 import type { Season } from "@/lib/schemas/season";
 import { visibleSeasons } from "@/lib/seasons/season-state";
 import { useSeasons } from "@/lib/seasons/use-seasons";
+import { useShowArchived } from "@/lib/seasons/show-archived";
+import { Tag } from "@/components/ui/tag";
 import { PageHeading } from "@/components/layout/page-heading";
 
 type OpenDialog =
@@ -26,11 +28,10 @@ type OpenDialog =
 
 export function SeasonsView() {
   const { seasons, loading, error } = useSeasons();
-  const [showArchived, setShowArchived] = React.useState(false);
+  const { showArchived, setShowArchived } = useShowArchived();
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
   const { busyId, pending, run } = useRowAction();
   const [actionError, setActionError] = React.useState<string | null>(null);
-  const toggleId = React.useId();
 
   useBusyWhile(loading);
 
@@ -76,19 +77,13 @@ export function SeasonsView() {
             Saisonen
           </PageHeading>
 
-          <label
-            htmlFor={toggleId}
-            className="text-muted-foreground flex items-center gap-2 text-sm"
-          >
-            <input
-              id={toggleId}
-              type="checkbox"
-              checked={showArchived}
-              onChange={(event) => setShowArchived(event.target.checked)}
-              className="accent-primary size-4"
+          <div>
+            <Tag
+              label="Archivierte Saisonen anzeigen"
+              pressed={showArchived}
+              onPress={() => setShowArchived(!showArchived)}
             />
-            Archivierte Saisonen anzeigen
-          </label>
+          </div>
 
           {actionError ? (
             <p role="alert" className="text-destructive text-sm">
