@@ -87,9 +87,6 @@ const answer = (key: string, label: string, valueOf: ReportField["valueOf"]): Re
  * and the e-mail address are not here, because the master line always carries them.
  */
 export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
-  answer("completeness", "Registrierung", (record) =>
-    record.isIncomplete ? COMPLETENESS_LABELS.incomplete : COMPLETENESS_LABELS.complete,
-  ),
   answer("attendance", "Teilnahme", (record) => yesNo(record.isAttendingSportsWeek)),
   // An event a teacher has since deleted reads as unanswered, which is what the student is.
   answer("event", "Event", (record, { eventNames }) =>
@@ -144,6 +141,10 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
       ),
     ],
   },
+  // Last, because it is a fact about the registration rather than one of the answers in it.
+  answer("completeness", "Registrierung", (record) =>
+    record.isIncomplete ? COMPLETENESS_LABELS.incomplete : COMPLETENESS_LABELS.complete,
+  ),
 ];
 
 /**

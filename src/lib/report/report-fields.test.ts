@@ -25,7 +25,6 @@ const lineFor = (label: string, record: StudentMasterData) => {
 describe("REPORT_FIELD_TAGS", () => {
   it("offers every field US-13 lists, in the order it lists them", () => {
     expect(keys).toEqual([
-      "completeness",
       "attendance",
       "event",
       "class",
@@ -40,6 +39,7 @@ describe("REPORT_FIELD_TAGS", () => {
       "seasonPassOption",
       "food",
       "health",
+      "completeness",
     ]);
   });
 
