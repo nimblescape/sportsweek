@@ -103,11 +103,11 @@ export const MASTER_DATA_CATEGORIES = {
     collection: COLLECTIONS.seasonPassOptions,
     usage: { kind: "masterData", field: "seasonPassOption" },
     labels: {
-      title: "Skipässe",
-      singular: "Skipass",
-      add: "Neuer Skipass",
-      empty: "Es gibt noch keinen Skipass.",
-      answer: "Skipass",
+      title: "Zugangskarten",
+      singular: "Zugangskarte",
+      add: "Neue Zugangskarte",
+      empty: "Es gibt noch keine Zugangskarte.",
+      answer: "Zugangskarte",
     },
   },
 } as const satisfies Record<string, MasterDataCategory>;

@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { ANSWER_LABELS, MASTER_DATA_CATEGORIES } from "@/lib/master-data/categories";
 import { EQUIPMENT_RENTAL_LABEL } from "@/lib/registration/answer-labels";
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import type { Registration } from "@/lib/schemas/registration";
@@ -33,15 +34,47 @@ describe("REPORT_FIELD_TAGS", () => {
       "dateOfBirth",
       "contact",
       "program",
-      "skillLevel",
-      "measurements",
       "rentedEquipment",
+      "measurements",
+      "skillLevel",
       "busPickupPoint",
-      "seasonPassOption",
       "food",
+      "seasonPassOption",
       "health",
       "completeness",
     ]);
+  });
+
+  /**
+   * The menu is where a teacher meets these lists first, so the report reads them back in the
+   * order they were filled in. Only the relative order is asserted: the fields row also carries
+   * answers no list stands behind, and they sit between these.
+   */
+  it("lists the answers a teacher's own lists supply in the menu's order (US-5 to US-10)", () => {
+    const categoryOfField: Record<string, string> = {
+      class: "classes",
+      program: "programs",
+      skillLevel: "skill-levels",
+      busPickupPoint: "bus-pickup-points",
+      food: "food-options",
+      seasonPassOption: "season-pass-options",
+    };
+
+    const shown = keys.filter((key) => key in categoryOfField).map((key) => categoryOfField[key]);
+
+    expect(shown).toEqual(Object.keys(MASTER_DATA_CATEGORIES));
+  });
+
+  /** The word belongs to the category, so a rename there reaches the report without a second edit. */
+  it("labels a list-backed field with the word its category owns", () => {
+    const labelOf = (key: string) => REPORT_FIELD_TAGS.find((tag) => tag.key === key)?.label;
+
+    expect(labelOf("class")).toBe(ANSWER_LABELS.class);
+    expect(labelOf("program")).toBe(ANSWER_LABELS.program);
+    expect(labelOf("skillLevel")).toBe(ANSWER_LABELS.skillLevel);
+    expect(labelOf("busPickupPoint")).toBe(ANSWER_LABELS.busPickupPoint);
+    expect(labelOf("food")).toBe(ANSWER_LABELS.foodOption);
+    expect(labelOf("seasonPassOption")).toBe(ANSWER_LABELS.seasonPassOption);
   });
 
   it("does not offer the e-mail address, which the master line already carries", () => {

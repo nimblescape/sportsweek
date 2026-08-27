@@ -74,7 +74,7 @@ describe("ANSWER_LABELS", () => {
       skillLevel: "Leistungsstufe",
       busPickupPoint: "Zustiegsstelle",
       foodOption: "Verpflegung",
-      seasonPassOption: "Skipass",
+      seasonPassOption: "Zugangskarte",
     });
   });
 
@@ -103,7 +103,7 @@ describe("MASTER_DATA_SECTIONS", () => {
       "Leistungsstufen",
       "Zustiegsstellen",
       "Verpflegung",
-      "Skipässe",
+      "Zugangskarten",
     ]);
   });
 

@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 
+import { ANSWER_LABELS } from "@/lib/master-data/categories";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import type { Registration } from "@/lib/schemas/registration";
 import {
@@ -96,7 +97,7 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
   answer("event", "Event", (record, { eventNames }) =>
     record.eventId === null ? null : (eventNames.get(record.eventId) ?? null),
   ),
-  answer("class", "Klasse", (record) => record.class),
+  answer("class", ANSWER_LABELS.class, (record) => record.class),
   answer("gender", "Geschlecht", (record) =>
     record.gender === null ? null : GENDER_LABELS[record.gender],
   ),
@@ -117,8 +118,12 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
       ),
     ],
   },
-  answer("program", "Programm", (record) => record.program),
-  answer("skillLevel", "Leistungsstufe", (record) => record.skillLevel),
+  answer("program", ANSWER_LABELS.program, (record) => record.program),
+  answer("rentedEquipment", EQUIPMENT_RENTAL_LABEL, (record) =>
+    // Nothing rented is an answer in itself, not a gap: the student was asked and said no.
+    record.rentedEquipment.length > 0 ? record.rentedEquipment.join(", ") : yesNo(false),
+  ),
+  // Next to the rental, which is what the shoe size and the height are asked for.
   {
     key: "measurements",
     label: "Körpermaße",
@@ -128,13 +133,10 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
       field("shoeSize", "Schuhgröße", (record) => record.shoeSize),
     ],
   },
-  answer("rentedEquipment", EQUIPMENT_RENTAL_LABEL, (record) =>
-    // Nothing rented is an answer in itself, not a gap: the student was asked and said no.
-    record.rentedEquipment.length > 0 ? record.rentedEquipment.join(", ") : yesNo(false),
-  ),
-  answer("busPickupPoint", "Zustiegsstelle", (record) => record.busPickupPoint),
-  answer("seasonPassOption", "Saisonkarte", (record) => record.seasonPassOption),
-  answer("food", "Verpflegung", foodOf),
+  answer("skillLevel", ANSWER_LABELS.skillLevel, (record) => record.skillLevel),
+  answer("busPickupPoint", ANSWER_LABELS.busPickupPoint, (record) => record.busPickupPoint),
+  answer("food", ANSWER_LABELS.foodOption, foodOf),
+  answer("seasonPassOption", ANSWER_LABELS.seasonPassOption, (record) => record.seasonPassOption),
   {
     key: "health",
     label: "Gesundheit",

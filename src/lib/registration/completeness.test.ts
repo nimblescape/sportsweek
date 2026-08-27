@@ -61,7 +61,7 @@ describe("missingAnswers", () => {
     ["skillLevel", "Leistungsstufe"],
     ["busPickupPoint", "Zustiegsstelle"],
     ["foodOption", "Verpflegung"],
-    ["seasonPassOption", "Saisonkarte"],
+    ["seasonPassOption", "Zugangskarte"],
     ["dateOfBirth", "Geburtsdatum"],
     ["gender", "Geschlecht"],
     ["phoneNumber", "Telefonnummer"],

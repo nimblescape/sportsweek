@@ -30,6 +30,7 @@ import {
 } from "@/lib/registration/registration";
 import { GENDER_LABELS, RELATIONSHIP_LABELS } from "@/lib/registration/answer-labels";
 import { missingAnswers } from "@/lib/registration/completeness";
+import { ANSWER_LABELS } from "@/lib/master-data/categories";
 import { EquipmentChecklist } from "./equipment-checklist";
 import { Field, RadioField, ReadOnlyField, SelectField, YES_NO } from "./fields";
 
@@ -190,9 +191,9 @@ export function RegistrationForm({
         <SelectField
           control={control}
           name="class"
-          label="Klasse"
+          label={ANSWER_LABELS.class}
           options={lists.classes}
-          placeholder="Klasse wählen"
+          placeholder={`${ANSWER_LABELS.class} wählen`}
           error={errors.class?.message ?? hint("class")}
         />
         <RadioField
@@ -375,25 +376,25 @@ export function RegistrationForm({
             <SelectField
               control={control}
               name="skillLevel"
-              label="Leistungsstufe"
+              label={ANSWER_LABELS.skillLevel}
               options={lists.skillLevels}
-              placeholder="Leistungsstufe wählen"
+              placeholder={`${ANSWER_LABELS.skillLevel} wählen`}
               error={errors.skillLevel?.message ?? hint("skillLevel")}
             />
             <SelectField
               control={control}
               name="seasonPassOption"
-              label="Saisonkarte"
+              label={ANSWER_LABELS.seasonPassOption}
               options={lists.seasonPassOptions}
-              placeholder="Saisonkarte wählen"
+              placeholder={`${ANSWER_LABELS.seasonPassOption} wählen`}
               error={errors.seasonPassOption?.message ?? hint("seasonPassOption")}
             />
             <SelectField
               control={control}
               name="busPickupPoint"
-              label="Zustiegsstelle"
+              label={ANSWER_LABELS.busPickupPoint}
               options={lists.busPickupPoints}
-              placeholder="Zustiegsstelle wählen"
+              placeholder={`${ANSWER_LABELS.busPickupPoint} wählen`}
               error={errors.busPickupPoint?.message ?? hint("busPickupPoint")}
             />
           </Section>
@@ -402,12 +403,12 @@ export function RegistrationForm({
             <SelectField
               control={control}
               name="foodOption"
-              label="Verpflegung"
+              label={ANSWER_LABELS.foodOption}
               options={[...lists.foodOptions, FOOD_OPTION_OTHER]}
               labelOf={(option) =>
                 option === FOOD_OPTION_OTHER ? FOOD_OPTION_OTHER_LABEL : option
               }
-              placeholder="Verpflegung wählen"
+              placeholder={`${ANSWER_LABELS.foodOption} wählen`}
               error={errors.foodOption?.message ?? hint("foodOption")}
             />
             {foodOption === FOOD_OPTION_OTHER ? (

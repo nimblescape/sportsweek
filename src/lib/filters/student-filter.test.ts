@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { ANSWER_LABELS } from "@/lib/master-data/categories";
 import {
   EQUIPMENT_RENTAL_LABEL,
   EQUIPMENT_RENTAL_NEEDED_LABEL,
@@ -377,14 +378,28 @@ describe("filterGroups", () => {
       "class",
       "gender",
       "program",
-      "skillLevel",
       "equipmentRental",
+      "skillLevel",
       "busPickupPoint",
-      "seasonPassOption",
       "foodOption",
+      "seasonPassOption",
       "health",
       "completeness",
     ]);
+  });
+
+  /** The word belongs to the category, so a rename there reaches the filter without a second edit. */
+  it("labels a list-backed category with the word its category owns", () => {
+    const groups = filterGroups(lists, everything);
+    const labelOf = (category: string) =>
+      groups.find((group) => group.category === category)?.label;
+
+    expect(labelOf("class")).toBe(ANSWER_LABELS.class);
+    expect(labelOf("program")).toBe(ANSWER_LABELS.program);
+    expect(labelOf("skillLevel")).toBe(ANSWER_LABELS.skillLevel);
+    expect(labelOf("busPickupPoint")).toBe(ANSWER_LABELS.busPickupPoint);
+    expect(labelOf("foodOption")).toBe(ANSWER_LABELS.foodOption);
+    expect(labelOf("seasonPassOption")).toBe(ANSWER_LABELS.seasonPassOption);
   });
 
   it("takes the three answer lists from the teacher's own master data (US-8, US-9, US-10)", () => {
@@ -494,6 +509,18 @@ describe("scopeFilterToGroups", () => {
     const filter = withTags(["event", "event1"]);
 
     expect(scopeFilterToGroups(filter, GROUPS).tags.event).toEqual([]);
+  });
+
+  /** An empty category has not answered — its list may still be loading — so it drops nothing. */
+  it("keeps the tags of a category that offers nothing yet", () => {
+    const loading = filterGroups(
+      { classes: [], programs: [], skillLevels: [] },
+      { busPickupPoint: true },
+    );
+    const filter = withTags(["busPickupPoint", "Bregenz"], ["class", "5AHIF"]);
+
+    expect(scopeFilterToGroups(filter, loading).tags.busPickupPoint).toEqual(["Bregenz"]);
+    expect(scopeFilterToGroups(filter, loading).tags.class).toEqual(["5AHIF"]);
   });
 
   it("leaves the name being searched for alone, which no list has to offer", () => {

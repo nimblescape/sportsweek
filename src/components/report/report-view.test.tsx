@@ -385,6 +385,30 @@ describe("the saved reports", () => {
     expect(tag).toHaveAccessibleDescription("");
   });
 
+  /**
+   * A list still on its way offers nothing to check a tag against. Dropping it there would strip
+   * the report of what it holds and then call it changed for the rest of the session.
+   */
+  it("does not read as changed when a list it filters by has not arrived yet", async () => {
+    const pickup = {
+      ...saved,
+      filter: toggleTag(EMPTY_FILTER, "busPickupPoint", "Bregenz"),
+      fields: [],
+    };
+    useSavedReports.mockReturnValue({ reports: [pickup], loading: false, error: null });
+    useMasterData.mockImplementation((key: string) => {
+      if (key === "bus-pickup-points") return { items: [], loading: true, error: null };
+      if (key === "classes") return listOf("5AHIF", "5BHIF");
+      return listOf("Profi");
+    });
+
+    render(<ReportView />);
+    const tag = screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" });
+    await userEvent.click(tag);
+
+    expect(tag).toHaveAccessibleDescription("");
+  });
+
   it("saves the report the teacher is looking at, under the name they type", async () => {
     render(<ReportView />);
 
