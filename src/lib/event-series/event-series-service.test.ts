@@ -227,6 +227,43 @@ describe("deleteEventSeries", () => {
     await expect(deleteEventSeries("ghost")).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
+  /**
+   * A teacher with nothing to select has a header offering nothing and a navigation bar with
+   * nowhere to point. Keeping one template back is what makes that state unreachable.
+   */
+  it("refuses to delete the only template", async () => {
+    seedEventSeries("s1", { isTemplate: true });
+    seedEventSeries("s2");
+
+    await expect(deleteEventSeries("s1")).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(firestore.get("eventSeries", "s1")).toBeDefined();
+  });
+
+  it("deletes a template while another one remains", async () => {
+    seedEventSeries("s1", { isTemplate: true });
+    seedEventSeries("s2", { isTemplate: true });
+
+    await deleteEventSeries("s1");
+
+    expect(firestore.get("eventSeries", "s1")).toBeUndefined();
+  });
+
+  /** Archiving hides a series from every screen, so an archived template is not one to fall back on. */
+  it("refuses to delete the only unarchived template", async () => {
+    seedEventSeries("s1", { isTemplate: true });
+    seedEventSeries("s2", { isTemplate: true, isArchived: true });
+
+    await expect(deleteEventSeries("s1")).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("deletes the last series that is not a template", async () => {
+    seedEventSeries("s1");
+
+    await deleteEventSeries("s1");
+
+    expect(firestore.get("eventSeries", "s1")).toBeUndefined();
+  });
+
   it("deletes an archived event series", async () => {
     seedEventSeries("s1", { isArchived: true });
 

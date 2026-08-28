@@ -23,6 +23,14 @@ export const ARCHIVED_IS_READ_ONLY_HINT =
   "Eine archivierte Eventreihe kann nicht bearbeitet werden. Bitte zuerst aus dem Archiv holen.";
 
 /**
+ * Why the last template stays. Everything a teacher sees is scoped to a selection, so a school
+ * with no event series at all has a header offering nothing and a navigation bar pointing nowhere.
+ * One template held back keeps that state out of reach.
+ */
+export const LAST_TEMPLATE_HINT =
+  "Die letzte Vorlage kann nicht gelöscht werden, damit immer eine Eventreihe zur Auswahl steht.";
+
+/**
  * What the list says about a series (US-19) — derived from the stored flags, never persisted.
  *
  * The order is a precedence rather than a preference: archiving closes a series and takes away

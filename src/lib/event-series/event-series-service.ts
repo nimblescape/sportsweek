@@ -8,7 +8,10 @@ import type { Transaction } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { reorderCollection } from "@/lib/firebase/reorder";
-import { ARCHIVED_IS_READ_ONLY_HINT } from "@/lib/event-series/event-series-state";
+import {
+  ARCHIVED_IS_READ_ONLY_HINT,
+  LAST_TEMPLATE_HINT,
+} from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
@@ -234,6 +237,15 @@ export async function deleteEventSeries(id: string): Promise<void> {
   }
 
   const eventSeries = eventSeriesSchema.parse({ id, ...snapshot.data() });
+
+  if (eventSeries.isTemplate && !eventSeries.isArchived) {
+    const templates = await adminDb
+      .collection(COLLECTIONS.eventSeries)
+      .where("isTemplate", "==", true)
+      .where("isArchived", "==", false)
+      .get();
+    if (templates.size <= 1) throw new ServiceError(ErrorCode.Conflict, LAST_TEMPLATE_HINT);
+  }
 
   const registrationsSnapshot = await adminDb.collection(registrationPath(id)).get();
 

@@ -108,6 +108,29 @@ describe("EventSeriesList — row actions", () => {
     ).toHaveAccessibleDescription(/anmeldungen/i);
   });
 
+  /** Every teacher view is scoped to a selection, so the last one has to stay (US-19, US-22). */
+  it("disables deleting the only unarchived template, and says why", () => {
+    renderList();
+
+    const control = screen.getByRole("button", { name: "Eventreihe Wintersportwochen löschen" });
+
+    expect(control).toBeDisabled();
+    expect(control).toHaveAccessibleDescription(/letzte vorlage/i);
+  });
+
+  it("allows deleting a template while another one remains", () => {
+    renderList({
+      eventSeries: [
+        ...allEventSeries,
+        { id: "s6", ...storedEventSeries({ name: "Sommersportwochen", isTemplate: true }) },
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Eventreihe Wintersportwochen löschen" }),
+    ).not.toBeDisabled();
+  });
+
   it("allows deleting an archived event series, even though it still has registrations", async () => {
     const { onDelete } = renderList();
 

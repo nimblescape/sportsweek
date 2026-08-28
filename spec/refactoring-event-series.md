@@ -273,8 +273,13 @@ actually runs, and so that two of them can be prepared at once.
   morning holds none. Several may exist, one per kind of week the school runs.
 - The server refuses to open a template to students, as it refuses to open an archived series —
   one rule shape, two reasons. It also refuses to write a registration into one.
-- A template can always be deleted, because it can never hold registrations and so can never trip
-  the rule that makes deleting wait for archiving.
+- A template can be deleted like any other series, because it can never hold registrations and so
+  can never trip the rule that makes deleting wait for archiving — **except while it is the last
+  unarchived one**. Every teacher view is scoped to a selection, so a school with no event series
+  at all has a header offering nothing and a navigation bar pointing nowhere. Holding one template
+  back is what puts that state out of reach, and provisioning creates it, so a school starts with
+  one and can never get rid of it. Archiving a template does not count as keeping it, since an
+  archived series is on no screen to be selected from.
 - "Template" and "archived" are independent flags answering different questions, so an archived
   template behaves like any archived series.
 - **Event series names are unique**, compared ignoring surrounding whitespace and letter case, as
@@ -366,7 +371,8 @@ header, so that every page I open is about that series and no page has to ask me
   from it: the teacher asked a different question about the same view, not for a different view.
 - With no event series at all both rows are gone and every teacher view shows an explicit empty
   state pointing at the event series list, in place of the "no active season" states US-12 and
-  US-13 show today.
+  US-13 show today. That state is reachable only before a school has been provisioned: the last
+  unarchived template cannot be deleted, so once there is one there is always one.
 - A series that is archived or deleted by another teacher while it is selected leaves the
   selection empty rather than leaving a stale series on screen, and says so.
 - Students never see either row. They manage no series and reach a registration through an

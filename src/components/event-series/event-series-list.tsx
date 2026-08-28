@@ -12,7 +12,11 @@ import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { EventSeries } from "@/lib/schemas/event-series";
-import { EVENT_SERIES_STATE_LABELS, eventSeriesState } from "@/lib/event-series/event-series-state";
+import {
+  EVENT_SERIES_STATE_LABELS,
+  eventSeriesState,
+  LAST_TEMPLATE_HINT,
+} from "@/lib/event-series/event-series-state";
 
 const ARCHIVE_NO_DATA_HINT = "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.";
 const DELETE_HINT =
@@ -63,6 +67,9 @@ export function EventSeriesList({
     );
   }
 
+  // Counted over the whole list rather than per row, so a row can tell whether it is the last one.
+  const unarchivedTemplates = eventSeries.filter((one) => one.isTemplate && !one.isArchived).length;
+
   return (
     <Card className="[--card-spacing:--spacing(0)]">
       <SortableList
@@ -77,7 +84,14 @@ export function EventSeriesList({
           // Mirrors event-series-service.ts: archiving needs registrations to sign off on, and
           // deleting still-unarchived data needs it gone first (US-19).
           const archivingDisabled = !eventSeries.isArchived && !eventSeries.hasRegistrations;
-          const deletingDisabled = !eventSeries.isArchived && eventSeries.hasRegistrations;
+          const deleteHint = !eventSeries.isArchived
+            ? eventSeries.hasRegistrations
+              ? DELETE_HINT
+              : eventSeries.isTemplate && unarchivedTemplates === 1
+                ? LAST_TEMPLATE_HINT
+                : null
+            : null;
+          const deletingDisabled = deleteHint !== null;
           const busy = busyEventSeriesId === eventSeries.id;
 
           return (
@@ -150,7 +164,7 @@ export function EventSeriesList({
 
                 {/* Wrapped in a span because a disabled button emits no pointer events, and the
                     reason it is disabled is exactly what needs explaining here (US-19). */}
-                <Tooltip label={deletingDisabled ? DELETE_HINT : "Löschen"}>
+                <Tooltip label={deleteHint ?? "Löschen"}>
                   <span className="inline-flex">
                     <Button
                       variant="ghost"
@@ -166,11 +180,11 @@ export function EventSeriesList({
                   </span>
                 </Tooltip>
 
-                {deletingDisabled ? (
+                {deleteHint === null ? null : (
                   <span id={deleteHintId} className="sr-only">
-                    {DELETE_HINT}
+                    {deleteHint}
                   </span>
-                ) : null}
+                )}
               </div>
             </div>
           );
