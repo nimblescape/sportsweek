@@ -81,6 +81,21 @@ describe("TeacherNav", () => {
     expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s7/report");
   });
 
+  /**
+   * The cookie is read once, by a layout above the series id that does not render again while the
+   * teacher moves about below it — so on the first visit, before anything was remembered, it is
+   * null and stays null. What the bar saw in the URL is the more recent answer.
+   */
+  it("keeps pointing at the series it was last in after leaving it for the list", () => {
+    pathname.mockReturnValue("/app/s1/report");
+    const { rerender } = render(<TeacherNav />);
+
+    pathname.mockReturnValue("/app/event-series");
+    rerender(<TeacherNav />);
+
+    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s1/report");
+  });
+
   it("shows the master data sub-items whatever the route is, since they never fold away", () => {
     render(<TeacherNav />);
 

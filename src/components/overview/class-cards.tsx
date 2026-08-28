@@ -13,7 +13,11 @@ import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
-import { invitationLink, INVITATION_LINK_LABEL } from "@/lib/invitations/invitation-link";
+import {
+  invitationLink,
+  INVITATION_LINK_LABEL,
+  INVITATION_QR_LABEL,
+} from "@/lib/invitations/invitation-link";
 import { InvitationQr } from "./invitation-qr";
 import { classFigures, type ClassGroup, type SkillColumn } from "@/lib/assignment/statistics";
 import {
@@ -155,11 +159,11 @@ function ClassCard({
                   </Button>
                 </Tooltip>
 
-                <Tooltip label="QR-Code zeigen">
+                <Tooltip label={`${INVITATION_QR_LABEL} anzeigen`}>
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={`QR-Code für ${row.class} zeigen`}
+                    aria-label={`${INVITATION_QR_LABEL} für ${row.class} anzeigen`}
                     onClick={() => withLink(() => invitations.linkFor(row.class), setShownCode)}
                   >
                     <QrCode aria-hidden />

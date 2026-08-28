@@ -39,7 +39,13 @@ function itemClasses(active: boolean) {
  */
 export function TeacherNav({ lastEventSeriesId = null }: { lastEventSeriesId?: string | null }) {
   const pathname = usePathname();
-  const eventSeriesId = selectedEventSeriesIdFrom(pathname) ?? lastEventSeriesId;
+  const inUrl = selectedEventSeriesIdFrom(pathname);
+  // The cookie is read by a layout above the series id, which does not render again while the
+  // teacher moves about below it — so on a first visit it is null and stays null until a reload.
+  const [lastSeen, setLastSeen] = useState(lastEventSeriesId);
+  if (inUrl !== null && inUrl !== lastSeen) setLastSeen(inUrl);
+
+  const eventSeriesId = inUrl ?? lastSeen;
   const masterData = eventSeriesId === null ? null : eventSeriesRoutes(eventSeriesId).masterData;
   const inMasterData =
     pathname === ROUTES.eventSeries ||
@@ -54,7 +60,7 @@ export function TeacherNav({ lastEventSeriesId = null }: { lastEventSeriesId?: s
   return (
     <nav
       aria-label="Hauptnavigation"
-      className={cn("flex flex-col gap-1 p-3 md:h-full", collapsed ? "md:w-16" : "md:w-56")}
+      className={cn("flex flex-col gap-1 p-3", collapsed ? "md:w-16" : "md:w-56")}
     >
       {(eventSeriesId === null ? [] : topLevel(eventSeriesId)).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);

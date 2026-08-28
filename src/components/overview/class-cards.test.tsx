@@ -8,7 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { classOverview, skillColumns } from "@/lib/assignment/statistics";
 import { filterGroups } from "@/lib/filters/student-filter";
-import { INVITATION_LINK_LABEL } from "@/lib/invitations/invitation-link";
+import { INVITATION_LINK_LABEL, INVITATION_QR_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
 import { ClassCards } from "./class-cards";
@@ -435,10 +435,13 @@ describe("ClassCards — showing a link as a QR code", () => {
     );
   }
 
+  const showCode = () =>
+    card("5AHIF").getByRole("button", { name: `${INVITATION_QR_LABEL} für 5AHIF anzeigen` });
+
   it("shows that class's link as a code, on a surface naming both", async () => {
     setupWith();
 
-    await userEvent.click(card("5AHIF").getByRole("button", { name: "QR-Code für 5AHIF zeigen" }));
+    await userEvent.click(showCode());
 
     const surface = await screen.findByRole("dialog");
     expect(surface).toHaveTextContent("Wintersportwoche 2026");
@@ -450,7 +453,7 @@ describe("ClassCards — showing a link as a QR code", () => {
     invitations.tokenFor.mockReturnValue(null);
     setupWith();
 
-    await userEvent.click(card("5AHIF").getByRole("button", { name: "QR-Code für 5AHIF zeigen" }));
+    await userEvent.click(showCode());
 
     expect(invitations.linkFor).toHaveBeenCalledWith("5AHIF");
   });
@@ -458,14 +461,14 @@ describe("ClassCards — showing a link as a QR code", () => {
   it("copies nothing when the code is shown, since nothing was asked to be copied", async () => {
     setupWith();
 
-    await userEvent.click(card("5AHIF").getByRole("button", { name: "QR-Code für 5AHIF zeigen" }));
+    await userEvent.click(showCode());
 
     expect(writeText).not.toHaveBeenCalled();
   });
 
   it("takes the surface away again", async () => {
     setupWith();
-    await userEvent.click(card("5AHIF").getByRole("button", { name: "QR-Code für 5AHIF zeigen" }));
+    await userEvent.click(showCode());
     await screen.findByRole("dialog");
 
     await userEvent.click(screen.getByRole("button", { name: "Schließen" }));
@@ -476,7 +479,9 @@ describe("ClassCards — showing a link as a QR code", () => {
   it("offers no code where the series cannot be opened", () => {
     setupWith(null);
 
-    expect(card("5AHIF").queryByRole("button", { name: /QR-Code/ })).not.toBeInTheDocument();
+    expect(
+      card("5AHIF").queryByRole("button", { name: new RegExp(INVITATION_QR_LABEL) }),
+    ).not.toBeInTheDocument();
   });
 });
 

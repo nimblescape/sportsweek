@@ -16,7 +16,7 @@ export function AppShell({ children, scope }: { children: ReactNode; scope?: Rea
       {/* A fixed height rather than a minimum, so the columns below can be as tall as the window
           and no taller — which is what lets the navigation bar reach the foot of the screen. */}
       <div className="flex h-dvh flex-col">
-        <header className="border-border bg-background sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b px-4 py-2 md:px-6">
+        <header className="border-border bg-background sticky top-0 z-10 flex h-[var(--header-height)] shrink-0 items-center justify-between gap-4 border-b px-4 md:px-6">
           <span className="flex shrink-0 items-center gap-2">
             <Image src="/htl-logo.svg" alt="HTL Dornbirn Logo" width={24} height={28} priority />
             <span className="font-heading text-xl font-semibold tracking-tight">Sportsweek</span>

@@ -20,3 +20,6 @@ export function invitationLink(token: string, origin = window.location.origin): 
  * nothing about where it leads, and a card carries several controls that could each own one.
  */
 export const INVITATION_LINK_LABEL = "Schüler:innen-Anmeldelink";
+
+/** The same invitation, offered as something to scan rather than something to send. */
+export const INVITATION_QR_LABEL = "Anmelde-QR-Code";
