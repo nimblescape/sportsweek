@@ -1343,6 +1343,12 @@ case was ever seeding test data into production — which would fill it with inv
 look like real ones — and it is now unreachable by construction rather than refused by a check,
 because no argument can ask for it.
 
+One argument beyond the environment is allowed, because it runs the other way: `--template-only`
+leaves a test environment as bare as production, which is the state a school's first day is in and
+otherwise impossible to look at. **It can only ever leave a project holding less**, so it cannot
+reach the case the rule above exists for, and production ignores it rather than refusing it —
+there it asks for what production already gets.
+
 Emptying production is a legitimate admin task, dealt with below; filling it with lies is not.
 
 #### Production gets one template, through the ordinary mechanism

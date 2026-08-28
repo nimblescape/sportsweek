@@ -5,15 +5,19 @@
  */
 /**
  * Resets a project to its defaults: everything is deleted, and what this script writes is then
- * all it holds. The environment is the only argument — there is no mode to get wrong.
+ * all it holds.
  *
- * | production           | the "Wintersportwochen" template, and nothing besides |
+ * | production           | the "Wintersportwochen" template, and nothing besides        |
  * | development, staging | that template, then a series, a roster and its registrations |
  *
  * Seeding on top of what a project already holds says nothing about whether the application put
  * it there, so the point of a seeded environment — that its contents are known — needs the delete
- * as much as the write. Production therefore never receives an invented person, which is true by
- * construction rather than by a check: no argument asks for one.
+ * as much as the write.
+ *
+ * `--template-only` asks a test environment for the bare state production gets, which is what a
+ * school's first day looks like. It can only ever leave a project holding less, so production
+ * still receives no invented person whatever is passed — that stays true by construction rather
+ * than by a check, because no argument adds anything anywhere.
  *
  * Emptying production is a legitimate admin task and is not fenced off, but it is the one thing
  * here that cannot be undone, so it asks for the project id to be typed back first.
@@ -47,6 +51,9 @@ import {
  * gets the defaults and stops, because no argument can ask for anything else.
  */
 const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
+
+/** Leaves a test environment as bare as production, which is what a school's first day is. */
+const TEMPLATE_ONLY = "--template-only";
 
 /** Both listUsers and deleteUsers cap a single call at this many accounts. */
 const USER_PAGE_SIZE = 1000;
@@ -430,14 +437,21 @@ async function confirmed(projectId: string): Promise<boolean> {
 }
 
 async function main(): Promise<void> {
-  const [argument] = process.argv.slice(2);
-  const environment = ENVIRONMENTS.find((allowed) => allowed === argument);
-  if (environment === undefined) {
-    fail(`Usage: npm run seed:<environment>, where <environment> is ${ENVIRONMENTS.join(", ")}.`);
+  const args = process.argv.slice(2);
+  const environment = ENVIRONMENTS.find((allowed) => args.includes(allowed));
+  const unknown = args.filter((arg) => arg !== environment && arg !== TEMPLATE_ONLY);
+  if (environment === undefined || unknown.length > 0) {
+    fail(
+      `Usage: npm run seed:<environment> [-- ${TEMPLATE_ONLY}],`,
+      `where <environment> is ${ENVIRONMENTS.join(", ")}.`,
+      `${TEMPLATE_ONLY} leaves a test environment as bare as production.`,
+    );
   }
 
   const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
   const isTest = TEST_ENVIRONMENTS.includes(environment);
+  // Production is bare whatever is asked, so the flag changes nothing there and is not refused.
+  const seedsStudents = isTest && !args.includes(TEMPLATE_ONLY);
 
   if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
 
@@ -458,8 +472,8 @@ async function main(): Promise<void> {
   await createTemplate(db);
   console.log(`Created the template "${TEMPLATE_NAME}".`);
 
-  // Production is done here: it holds the defaults and nothing that was invented.
-  if (!isTest) return;
+  // Production is done here, and so is a test environment asked for the same bare state.
+  if (!seedsStudents) return;
 
   // The lists are fields of the event series (US-21), so there is nothing to read until it
   // exists — and creating it is what seeds them, since the application no longer does.
