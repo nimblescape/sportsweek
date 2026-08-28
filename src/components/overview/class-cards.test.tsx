@@ -223,3 +223,58 @@ describe("ClassCards — folding", () => {
     expect(screen.getByRole("group", { name: "5AHIF" }).className).not.toContain("bg-accent");
   });
 });
+
+/**
+ * An empty list is a question the student was never asked (US-21). The dimension that is left
+ * keeps its figures on an "Anzahl" line; only a series with neither list shows no matrix at all.
+ */
+describe("ClassCards — a dimension with no list", () => {
+  function setupWith(programs: string[], skillLevels: string[]) {
+    const columns = skillColumns(
+      programs.map((name) => ({ name })),
+      skillLevels,
+    );
+    render(
+      <ClassCards
+        rows={classOverview([], CLASSES, columns)}
+        programs={programs}
+        skillLevels={skillLevels}
+        columns={columns}
+        filterGroups={FILTERS}
+      />,
+    );
+  }
+
+  it("counts the programs on one line when the series has no skill levels", () => {
+    setupWith(PROGRAMS, []);
+
+    expect(
+      within(matrix("5AHIF"))
+        .getAllByRole("rowheader")
+        .map((cell) => cell.textContent),
+    ).toEqual(["Anzahl"]);
+  });
+
+  it("counts the skill levels on one line when the series has no programs", () => {
+    setupWith([], SKILL_LEVELS);
+
+    expect(
+      within(matrix("5AHIF"))
+        .getAllByRole("columnheader")
+        .map((cell) => cell.textContent),
+    ).toEqual(["", "Anzahl"]);
+  });
+
+  /** With neither list there is nothing left to name, so the figures the student owns stand alone. */
+  it("leaves the matrix out entirely when the series has neither list", () => {
+    setupWith([], []);
+
+    expect(card("5AHIF").getAllByRole("table")).toHaveLength(1);
+  });
+
+  it("still shows the matrix where both lists have entries", () => {
+    setupWith(PROGRAMS, SKILL_LEVELS);
+
+    expect(card("5AHIF").getAllByRole("table")).toHaveLength(2);
+  });
+});

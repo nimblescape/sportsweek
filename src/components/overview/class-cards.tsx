@@ -19,9 +19,9 @@ import {
 import { ATTENDANCE_LABELS } from "@/lib/registration/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
 import { cn } from "@/lib/utils";
-import { AREA, AREAS, AreaTitle, FilteredTag } from "./card-areas";
-import { GenderTable } from "./gender-table";
-import { SkillMatrix } from "./skill-matrix";
+import { AREA, AREAS, AreaTitle, FilteredTag } from "@/components/assignment/card-areas";
+import { GenderTable } from "@/components/assignment/gender-table";
+import { SkillMatrix } from "@/components/assignment/skill-matrix";
 
 const ATTENDING_LABEL = ATTENDANCE_LABELS.attending;
 const NOT_ATTENDING_LABEL = ATTENDANCE_LABELS.notAttending;
@@ -151,11 +151,15 @@ function ClassCard({
               </AreaTitle>
               <div className="flex flex-col gap-3">
                 <GenderTable counts={figures} registeredTotal={figures.total} />
-                <SkillMatrix
-                  counts={figures.skillLevels}
-                  programs={programs}
-                  skillLevels={skillLevels}
-                />
+                {/* With neither list there is nothing left to count by, and no question was ever
+                    asked (US-21); with one of them the matrix carries an "Anzahl" line. */}
+                {programs.length > 0 || skillLevels.length > 0 ? (
+                  <SkillMatrix
+                    counts={figures.skillLevels}
+                    programs={programs}
+                    skillLevels={skillLevels}
+                  />
+                ) : null}
               </div>
             </section>
           </div>

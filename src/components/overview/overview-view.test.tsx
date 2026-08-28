@@ -22,13 +22,13 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
 }));
 vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
 
-const { StatisticsView: ScopedStatisticsView } = await import("./statistics-view");
+const { OverviewView: ScopedOverviewView } = await import("./overview-view");
 const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");
 
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
 // only has to be present.
-function StatisticsView() {
-  return <ScopedStatisticsView eventSeriesId="s1" />;
+function OverviewView() {
+  return <ScopedOverviewView eventSeriesId="s1" />;
 }
 
 function student(
@@ -69,16 +69,16 @@ beforeEach(() => {
   });
 });
 
-describe("StatisticsView", () => {
+describe("OverviewView", () => {
   it("titles the page", () => {
-    render(<StatisticsView />);
+    render(<OverviewView />);
 
     // Level 1: every card has a "Statistik" area heading of its own further down.
-    expect(screen.getByRole("heading", { name: "Statistik", level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Übersicht", level: 1 })).toBeInTheDocument();
   });
 
   it("shows a card per maintained class, counting the registrations of the active event series", () => {
-    render(<StatisticsView />);
+    render(<OverviewView />);
 
     expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
     expect(within(screen.getByRole("group", { name: "5AHIF" })).getByText("5AHIF: 2")).toBeInTheDocument(); // prettier-ignore
@@ -88,7 +88,7 @@ describe("StatisticsView", () => {
   it("points at the event series list when the selection resolves to nothing", () => {
     useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: null });
 
-    render(<StatisticsView />);
+    render(<OverviewView />);
 
     expect(screen.getByText(NO_EVENT_SERIES_HINT)).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "5AHIF" })).not.toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("StatisticsView", () => {
       error: null,
     });
 
-    render(<StatisticsView />);
+    render(<OverviewView />);
 
     expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
   });

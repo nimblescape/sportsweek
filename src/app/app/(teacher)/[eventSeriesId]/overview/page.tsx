@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { StatisticsView } from "@/components/assignment/statistics-view";
+import { OverviewView } from "@/components/overview/overview-view";
 
 export default async function OverviewPage({
   params,
@@ -12,5 +12,5 @@ export default async function OverviewPage({
 }) {
   const { eventSeriesId } = await params;
 
-  return <StatisticsView eventSeriesId={eventSeriesId} />;
+  return <OverviewView eventSeriesId={eventSeriesId} />;
 }

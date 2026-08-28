@@ -13,12 +13,12 @@ import { PageHeading } from "@/components/layout/page-heading";
 import { ClassCards } from "./class-cards";
 
 /**
- * How the classes of the selected event series stand (US-12): one card per maintained class,
- * counting the students who answered "no" alongside the ones who are coming. It is a page of its
- * own rather than a header on the board, because reading a class and assigning a week are two
- * things a teacher does at different times.
+ * Where an event series is run from (US-29): one card per class of the selected series, the
+ * students in it attending and not, and that class's figures. It is where a series is opened to
+ * students and where its classes are invited, which is why it is a page rather than a header on
+ * the board — setting a series up and assigning a week are done at different times.
  */
-export function StatisticsView({ eventSeriesId }: { eventSeriesId: string }) {
+export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
   const { eventSeries, loading, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
 
   // Answered by the one spinner in the header, so this view places none of its own.
@@ -26,7 +26,7 @@ export function StatisticsView({ eventSeriesId }: { eventSeriesId: string }) {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <PageHeading>Statistik</PageHeading>
+      <PageHeading>Übersicht</PageHeading>
 
       {error !== null && (
         <p role="alert" className="text-destructive text-sm">

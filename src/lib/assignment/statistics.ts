@@ -5,8 +5,8 @@
  */
 import type { RosterStudent } from "@/lib/students/roster";
 
-/** One skill level of one program (US-5, US-7); both tables carry the same set of them. */
-export type SkillColumn = { key: string; program: string; skillLevel: string };
+/** One skill level of one program (US-5, US-7); either is null where its list is empty (US-21). */
+export type SkillColumn = { key: string; program: string | null; skillLevel: string | null };
 
 export type AttendingCounts = {
   male: number;
@@ -54,17 +54,21 @@ export const asPercent = (share: number) => `${Math.round(share * 100)} %`;
 /**
  * The columns of the class table, taken from the maintained lists rather than named here, so a
  * program or a skill level a teacher adds shows up without a code change (US-12).
+ *
+ * An empty list is a question nobody was asked (US-21), so the other dimension stands alone
+ * rather than crossing with nothing — which would count every student into no column at all.
  */
 export function skillColumns(
   programs: readonly { name: string }[],
   skillLevels: readonly string[],
 ): SkillColumn[] {
-  return programs.flatMap((program) =>
-    skillLevels.map((skillLevel) => ({
-      key: skillColumnKey(program.name, skillLevel),
-      program: program.name,
-      skillLevel,
-    })),
+  if (programs.length === 0 && skillLevels.length === 0) return [];
+
+  const across: (string | null)[] = programs.length > 0 ? programs.map((one) => one.name) : [null];
+  const down: (string | null)[] = skillLevels.length > 0 ? [...skillLevels] : [null];
+
+  return across.flatMap((program) =>
+    down.map((skillLevel) => ({ key: skillColumnKey(program, skillLevel), program, skillLevel })),
   );
 }
 
