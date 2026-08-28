@@ -8,7 +8,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, ChevronLeft, ChevronRight, Database, FileText, Shuffle } from "lucide-react";
+import { ChartColumn, Database, FileText, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Brand } from "@/components/layout/brand";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -80,6 +80,16 @@ export function TeacherNav({
             href={href}
             aria-current={active ? "page" : undefined}
             title={collapsed ? label : undefined}
+            // A second press of the page you are already looking at has nowhere to take you, so
+            // it folds the bar away instead — which is what saves the bar a control of its own.
+            onClick={
+              active
+                ? (event) => {
+                    event.preventDefault();
+                    setCollapsed((on) => !on);
+                  }
+                : undefined
+            }
             className={itemClasses(active)}
           >
             <Icon aria-hidden className="size-6 shrink-0" />
@@ -119,25 +129,9 @@ export function TeacherNav({
         </ul>
       )}
 
-      {/* The foot of the bar: who is signed in, and the bar's own control. Stacked rather than
-          side by side, because a collapsed rail is one icon wide. */}
-      <div className="mt-auto flex flex-col gap-1">
+      {/* The foot of the bar: who is signed in. */}
+      <div className="mt-auto">
         <SignOutButton className="min-h-9 w-full justify-start px-2 py-2" labelHidden={collapsed} />
-
-        <button
-          type="button"
-          onClick={() => setCollapsed((on) => !on)}
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
-          className={cn(itemClasses(false), "hidden justify-end md:flex")}
-        >
-          {/* Points the way the bar is about to move. */}
-          {collapsed ? (
-            <ChevronRight aria-hidden className="size-6 shrink-0" />
-          ) : (
-            <ChevronLeft aria-hidden className="size-6 shrink-0" />
-          )}
-        </button>
       </div>
     </nav>
   );

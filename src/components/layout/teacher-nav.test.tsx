@@ -145,87 +145,65 @@ describe("TeacherNav", () => {
   });
 });
 
+/**
+ * There is no control of its own for this. Pressing the page you are already on folds the bar
+ * away and pressing it again brings it back, as an activity bar does — a second press of what
+ * you are already looking at has nowhere else to take you, so it is free to mean this.
+ */
 describe("TeacherNav — collapsing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pathname.mockReturnValue("/app/s1/report");
   });
 
-  const toggle = () => screen.getByRole("button", { name: /navigation (ein|aus)klappen/i });
+  const openSubItems = () => screen.queryByRole("link", { name: "Klassen" });
 
-  it("starts open, and says which way its control goes", () => {
+  it("offers no control of its own", () => {
     render(<TeacherNav />);
 
-    expect(toggle()).toHaveAccessibleName("Navigation einklappen");
-    expect(toggle()).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.queryByRole("button", { name: /navigation (ein|aus)klappen/i }),
+    ).not.toBeInTheDocument();
   });
 
-  /** It is about the bar rather than a place to go, so it sits below everything that is. */
-  it("puts its own control below every destination", () => {
+  it("folds away when the page it is on is pressed, and comes back when it is pressed again", async () => {
     render(<TeacherNav />);
+    const here = () => screen.getByRole("link", { name: "Bericht" });
 
-    const last = screen.getByRole("navigation").querySelectorAll("a, button");
+    await userEvent.click(here());
+    expect(openSubItems()).not.toBeInTheDocument();
 
-    expect(last[last.length - 1]).toBe(toggle());
-  });
-
-  it("collapses and opens again", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(toggle());
-    expect(toggle()).toHaveAccessibleName("Navigation ausklappen");
-    expect(toggle()).toHaveAttribute("aria-expanded", "false");
-
-    await userEvent.click(toggle());
-    expect(toggle()).toHaveAccessibleName("Navigation einklappen");
+    await userEvent.click(here());
+    expect(openSubItems()).toBeInTheDocument();
   });
 
   it("keeps every destination reachable by name while collapsed", async () => {
     render(<TeacherNav />);
 
-    await userEvent.click(toggle());
+    await userEvent.click(screen.getByRole("link", { name: "Bericht" }));
 
     for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht"]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
   });
 
-  it("folds the sub-items away with the bar, since there is no width left to read them in", async () => {
-    pathname.mockReturnValue("/app/s1/master-data/classes");
+  // The bar is collapsed because the teacher wants the width, so going somewhere else must not
+  // take that decision back — only asking for something the rail has no room for may.
+  it("stays collapsed when another destination is chosen", async () => {
     render(<TeacherNav />);
 
-    await userEvent.click(toggle());
-
-    expect(screen.queryByRole("link", { name: "Klassen" })).not.toBeInTheDocument();
-  });
-
-  // The bar is collapsed because the teacher wants the width, so going somewhere must not take
-  // that decision back — only asking for something the rail has no room for may.
-  it("stays collapsed when a destination is chosen", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(toggle());
+    await userEvent.click(screen.getByRole("link", { name: "Bericht" }));
     await userEvent.click(screen.getByRole("link", { name: "\u00dcbersicht" }));
 
-    expect(toggle()).toHaveAccessibleName("Navigation ausklappen");
+    expect(openSubItems()).not.toBeInTheDocument();
   });
 
   it("opens the bar when the sub-items are asked for, there being no width to read them in", async () => {
     render(<TeacherNav />);
 
-    await userEvent.click(toggle());
+    await userEvent.click(screen.getByRole("link", { name: "Bericht" }));
     await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
 
-    expect(toggle()).toHaveAccessibleName("Navigation einklappen");
-    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
-  });
-
-  it("brings the sub-items back with the bar", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(toggle());
-    await userEvent.click(toggle());
-
-    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
+    expect(openSubItems()).toBeInTheDocument();
   });
 });
