@@ -89,9 +89,9 @@
   --neutral: var(--color-gray-700);
   --neutral-foreground: var(--color-white);
   /* A template, which is neither open nor closed and cannot become either (US-22). */
-  --template: var(--color-amber-500);
+  --template: var(--color-gray-500);
   --template-foreground: var(--color-white);
-  --template-subtle: var(--color-amber-800);
+  --template-subtle: var(--color-gray-800);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -137,9 +137,9 @@
   --open-subtle: var(--color-green-800);
   --neutral: var(--color-gray-600);
   --neutral-foreground: var(--color-white);
-  --template: var(--color-amber-400);
+  --template: var(--color-gray-400);
   --template-foreground: var(--color-white);
-  --template-subtle: var(--color-amber-800);
+  --template-subtle: var(--color-gray-800);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
