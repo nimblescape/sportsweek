@@ -29,7 +29,7 @@ function docOf(id: string, data: unknown) {
   return { id, data: () => data };
 }
 
-const validEventSeries = storedEventSeries({ isActive: true });
+const validEventSeries = storedEventSeries();
 
 /** The hook waits for Firebase Auth, so tests have to announce a signed-in user first. */
 function signIn() {
@@ -74,7 +74,7 @@ describe("useEventSeries", () => {
     const { result } = renderHook(() => useEventSeries());
     signIn();
 
-    emit([docOf("s1", validEventSeries), docOf("broken", { name: "", isActive: "yes" })]);
+    emit([docOf("s1", validEventSeries), docOf("broken", { name: "", isArchived: "yes" })]);
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.eventSeries).toHaveLength(1);

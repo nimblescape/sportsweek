@@ -72,7 +72,6 @@ export async function createEventSeries(input: { name: string }): Promise<EventS
     const data = {
       name,
       nameKey,
-      isActive: false,
       isTemplate: false,
       isArchived: false,
       isOpenToStudents: false,
@@ -98,26 +97,20 @@ export async function reorderEventSeries(orderedIds: readonly string[]): Promise
 
 export type EventSeriesUpdate = {
   name?: string;
-  isActive?: boolean;
   isArchived?: boolean;
 };
 
 /**
- * At most one event series is active at any point in time (US-4). Every flag change therefore runs in
- * one transaction: activating an event series stands the previously active one down in the same commit,
- * so no window exists in which two are active — which would silently corrupt registrations,
- * assignment and the report (US-11 to US-13). The query is what makes this safe under
- * concurrency: Firestore locks the `isActive == true` index range it scans, so a second
- * activation racing the first has to wait and then sees the event series the first one activated.
- * Archiving is likewise gated: it signs off on an event series' registrations, so an event series with none
- * cannot be archived (US-4).
+ * Archiving signs an event series off, so it needs registrations to sign off on, and the query
+ * that checks is also what keeps the denormalised flag honest for clients — who cannot read the
+ * registrations themselves (see firestore.rules). A rename is refused once archived, for the
+ * same reason: what a finished series is called is settled with it (US-19).
  */
 export async function updateEventSeries(
   id: string,
   update: EventSeriesUpdate,
 ): Promise<EventSeries> {
   const name = update.name === undefined ? undefined : parseName(update.name);
-  const wantsActivation = update.isActive === true;
   const wantsArchival = update.isArchived === true;
 
   return adminDb.runTransaction(async (transaction) => {
@@ -129,46 +122,12 @@ export async function updateEventSeries(
 
     const current = eventSeriesSchema.parse({ id, ...snapshot.data() });
     const isArchived = update.isArchived ?? current.isArchived;
-    const isActive = update.isActive ?? current.isActive;
-
-    if (wantsActivation && isArchived) {
-      throw new ServiceError(
-        ErrorCode.Conflict,
-        "Eine archivierte Eventreihe kann nicht aktiv gesetzt werden.",
-      );
-    }
-
-    // An event series must be deactivated first, in its own call, before it can be archived (US-4).
-    if (isArchived && isActive) {
-      throw new ServiceError(
-        ErrorCode.Conflict,
-        "Eine aktive Eventreihe kann nicht archiviert werden. Bitte zuerst deaktivieren.",
-      );
-    }
-
     const renaming = name !== undefined && name !== current.name;
 
-    // Archiving signs an event series off, so what it is called is settled with it: unarchive it first
-    // and the name is editable again (US-4).
     if (renaming && current.isArchived) {
       throw new ServiceError(ErrorCode.Conflict, ARCHIVED_IS_READ_ONLY_HINT);
     }
 
-    // Every read has to happen before the first write, and reserveName writes — so the query
-    // that finds the outgoing event series has to run first. Every match is stood down rather than
-    // just the first, so a database that somehow already held two active event series is repaired
-    // by the next activation instead of staying broken.
-    const previouslyActive = wantsActivation
-      ? (
-          await transaction.get(
-            adminDb.collection(COLLECTIONS.eventSeries).where("isActive", "==", true),
-          )
-        ).docs.filter((doc) => doc.id !== id)
-      : [];
-
-    // Archiving finalises an event series, so it needs registrations to finalise (US-4). The query is
-    // also what keeps the denormalized flag honest for clients, who cannot read
-    // registration themselves (see firestore.rules).
     let hasRegistrations = current.hasRegistrations;
     if (wantsArchival) {
       const registrations = await transaction.get(
@@ -187,17 +146,20 @@ export async function updateEventSeries(
       await assertNameIsFree(transaction, { name, ownerId: id });
     }
 
-    // `update` rather than `set`: the document now also carries the six maintained lists (US-21),
+    // Archiving closes a series to students, and unarchiving deliberately does not reopen it:
+    // looking at last year is not letting last year's students back in (US-19).
+    const isOpenToStudents = isArchived ? false : current.isOpenToStudents;
+
+    // `update` rather than `set`: the document also carries the seven maintained lists (US-21),
     // and naming them here only to preserve them would drop the next one somebody adds.
     const changed = {
       name: name ?? current.name,
       nameKey: normalizeName(name ?? current.name),
-      isActive,
       isArchived,
+      isOpenToStudents,
       hasRegistrations,
     };
     transaction.update(reference, changed);
-    for (const doc of previouslyActive) transaction.update(doc.ref, { isActive: false });
 
     return { ...current, ...changed };
   });

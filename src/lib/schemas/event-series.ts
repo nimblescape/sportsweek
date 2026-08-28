@@ -8,7 +8,7 @@ import { documentIdSchema, requiredText } from "./common";
 import { namedListSchema, programListSchema } from "./master-data";
 import { positionSchema } from "./position";
 
-// The displayed state (active / archived / inactive) is derived from these two flags, never stored.
+// What the list shows about a series is derived from these flags, never stored.
 export const eventSeriesSchema = z.object({
   id: documentIdSchema,
   name: requiredText(120),
@@ -18,7 +18,6 @@ export const eventSeriesSchema = z.object({
    * exact strings and lose the case- and whitespace-insensitivity the rule asks for (US-4).
    */
   nameKey: z.string().min(1),
-  isActive: z.boolean(),
   /**
    * A template is an event series that can never be opened to students (US-22, Q21). That is the
    * whole of it: it is selected from the header row and its lists are maintained like any other's,

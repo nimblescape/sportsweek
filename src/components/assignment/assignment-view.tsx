@@ -10,14 +10,14 @@ import { assignmentGroups } from "@/lib/assignment/statistics";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
-import { NO_ACTIVE_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
+import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { PageHeading } from "@/components/layout/page-heading";
 import { AssignmentBoard } from "./assignment-board";
 
 /**
- * The assignment dialog of US-12, scoped to the active event series: a board of cards — one per week,
- * plus the students who have no week yet — a teacher drags students between.
+ * The assignment dialog of US-12, scoped to the selected event series: a board of cards — one per
+ * week, plus the students who have no week yet — a teacher drags students between.
  *
  * Every figure is computed from the same live roster the cards are drawn from, so an assignment
  * shows up as soon as the subscription brings the record back.
@@ -37,7 +37,10 @@ export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
   async function assign(recordIds: string[], event: string | null) {
     setSaving(true);
     try {
-      await apiRequest("/api/assignments", { method: "PATCH", body: { recordIds, event } });
+      await apiRequest(`/api/event-series/${eventSeriesId}/assignments`, {
+        method: "PATCH",
+        body: { recordIds, event },
+      });
     } finally {
       setSaving(false);
     }
@@ -55,7 +58,7 @@ export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
 
       {eventSeries === null ? (
         <p role="status" className="text-muted-foreground text-sm">
-          {NO_ACTIVE_EVENT_SERIES_HINT}
+          {NO_EVENT_SERIES_HINT}
         </p>
       ) : (
         <BusyRegion busy={saving}>

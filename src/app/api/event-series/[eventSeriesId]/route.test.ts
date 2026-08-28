@@ -42,7 +42,6 @@ beforeEach(() => {
   updateEventSeries.mockResolvedValue({
     id: "s1",
     name: "Winter",
-    isActive: true,
     isArchived: false,
   });
   deleteEventSeries.mockResolvedValue(undefined);
@@ -56,24 +55,12 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
     expect(updateEventSeries).toHaveBeenCalledWith("s1", { name: "Neuer Name" });
   });
 
-  it("activates the event series", async () => {
-    await PATCH(patchRequest({ isActive: true }), context);
+  /** Opening a series to students is the invitation link's doing (US-23), never a flag sent here. */
+  it("rejects a body that tries to open the series to students", async () => {
+    const response = await PATCH(patchRequest({ isOpenToStudents: true }), context);
 
-    expect(updateEventSeries).toHaveBeenCalledWith("s1", { isActive: true });
-  });
-
-  it("deactivates the event series, so a teacher can leave none active", async () => {
-    updateEventSeries.mockResolvedValue({
-      id: "s1",
-      name: "Winter",
-      isActive: false,
-      isArchived: false,
-    });
-
-    const response = await PATCH(patchRequest({ isActive: false }), context);
-
-    expect(response.status).toBe(200);
-    expect(updateEventSeries).toHaveBeenCalledWith("s1", { isActive: false });
+    expect(response.status).toBe(400);
+    expect(updateEventSeries).not.toHaveBeenCalled();
   });
 
   it("archives the event series", async () => {
@@ -119,14 +106,14 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
     expect(response.status).toBe(404);
   });
 
-  it("maps activating an archived event series onto 409", async () => {
-    updateEventSeries.mockRejectedValue(new ServiceError("CONFLICT", "Archiviert."));
+  it("maps archiving a series with no registrations onto 409", async () => {
+    updateEventSeries.mockRejectedValue(new ServiceError("CONFLICT", "Keine Anmeldungen."));
 
-    const response = await PATCH(patchRequest({ isActive: true }), context);
+    const response = await PATCH(patchRequest({ isArchived: true }), context);
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
-      error: { code: "CONFLICT", message: "Archiviert." },
+      error: { code: "CONFLICT", message: "Keine Anmeldungen." },
     });
   });
 });

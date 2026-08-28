@@ -23,6 +23,7 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
 vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
 
 const { StatisticsView: ScopedStatisticsView } = await import("./statistics-view");
+const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");
 
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
 // only has to be present.
@@ -45,7 +46,7 @@ function student(
 
 const eventSeries = {
   id: "s1",
-  ...storedEventSeries({ name: "2026", isActive: true, hasRegistrations: true }),
+  ...storedEventSeries({ name: "2026", isOpenToStudents: true, hasRegistrations: true }),
 };
 
 const listOf = (...names: string[]) => ({ items: names, loading: false, error: null });
@@ -84,12 +85,12 @@ describe("StatisticsView", () => {
     expect(screen.getByRole("group", { name: "5BHIF" })).toBeInTheDocument();
   });
 
-  it("says so while no event series is active, since there is nothing to count", () => {
+  it("points at the event series list when the selection resolves to nothing", () => {
     useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: null });
 
     render(<StatisticsView />);
 
-    expect(screen.getByText("Es ist keine Eventreihe aktiv.")).toBeInTheDocument();
+    expect(screen.getByText(NO_EVENT_SERIES_HINT)).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "5AHIF" })).not.toBeInTheDocument();
   });
 

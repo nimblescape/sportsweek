@@ -14,13 +14,14 @@ import {
   rescopedPath,
   selectedEventSeriesIdFrom,
 } from "@/lib/event-series/event-series-selection";
+import { EVENT_SERIES_STATE_LABELS } from "@/lib/event-series/event-series-state";
 import type { EventSeries } from "@/lib/schemas/event-series";
 
 export const EVENT_SERIES_ROW_LABEL = "Eventreihen";
 export const TEMPLATE_ROW_LABEL = "Vorlagen";
 
 /** Said on the icon a tag carries while its series is taking registrations (US-19, US-20). */
-export const OPEN_TO_STUDENTS_LABEL = "Anmeldung freigeschaltet";
+export const OPEN_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.open;
 
 type RowProps = {
   label: string;

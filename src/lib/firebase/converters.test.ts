@@ -14,7 +14,6 @@ const converter = zodConverter(eventSeriesSchema);
 const storedEventSeries = {
   name: "Wintersportwoche 2026",
   nameKey: "wintersportwoche 2026",
-  isActive: true,
   isTemplate: false,
   isArchived: false,
   isOpenToStudents: false,
@@ -49,7 +48,7 @@ describe("zodConverter", () => {
 
   it("rejects a stored document that violates the schema", () => {
     expect(() =>
-      converter.fromFirestore(snapshotOf("event series-1", { name: "", isActive: "yes" }), {}),
+      converter.fromFirestore(snapshotOf("event series-1", { name: "", isArchived: "yes" }), {}),
     ).toThrow();
   });
 });

@@ -100,9 +100,6 @@ export function EventSeriesView() {
             busyEventSeriesId={busyId}
             onEdit={(eventSeries) => setDialog({ kind: "form", eventSeries })}
             onDelete={handleDelete}
-            onActiveChange={(eventSeries, isActive) =>
-              writeEventSeries(eventSeries, { method: "PATCH", body: { isActive } })
-            }
             onArchivedChange={(eventSeries, isArchived) =>
               writeEventSeries(eventSeries, { method: "PATCH", body: { isArchived } })
             }

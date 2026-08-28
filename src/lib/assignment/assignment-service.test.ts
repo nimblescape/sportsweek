@@ -19,6 +19,10 @@ const ANNA = "anna@student.htldornbirn.at";
 const BENE = "bene@student.htldornbirn.at";
 const REGISTRATIONS = registrationPath("s1");
 
+/** The series is named by the path the teacher is working in (Q8), so every call carries it. */
+const assign = (studentUpns: readonly string[], event: string | null) =>
+  assignStudents("s1", studentUpns, event);
+
 function seedRecord(studentUpn: string, fields: Record<string, unknown> = {}) {
   firestore.seed(REGISTRATIONS, studentUpn, {
     studentUpn,
@@ -35,7 +39,7 @@ beforeEach(() => {
     "s1",
     storedEventSeries({
       name: "2026",
-      isActive: true,
+      isOpenToStudents: true,
       hasRegistrations: true,
       events: ["Woche 1", "Woche 2"],
     }),
@@ -59,7 +63,7 @@ const eventOf = (id: string) => firestore.get(REGISTRATIONS, id)?.event;
 
 describe("assignStudents", () => {
   it("writes the event onto every record it was given", async () => {
-    await assignStudents([ANNA, BENE], "Woche 1");
+    await assign([ANNA, BENE], "Woche 1");
 
     expect(eventOf(ANNA)).toBe("Woche 1");
     expect(eventOf(BENE)).toBe("Woche 1");
@@ -68,29 +72,29 @@ describe("assignStudents", () => {
   it("unassigns a student when no event is named", async () => {
     seedRecord(ANNA, { event: "Woche 1" });
 
-    await assignStudents([ANNA], null);
+    await assign([ANNA], null);
 
     expect(eventOf(ANNA)).toBeNull();
   });
 
   it("moves a student to another event by unassigning and assigning again", async () => {
-    await assignStudents([ANNA], "Woche 1");
+    await assign([ANNA], "Woche 1");
 
-    await assignStudents([ANNA], null);
-    await assignStudents([ANNA], "Woche 2");
+    await assign([ANNA], null);
+    await assign([ANNA], "Woche 2");
 
     expect(eventOf(ANNA)).toBe("Woche 2");
   });
 
   // The assignment is the name itself (US-11), so it has to be the name the series spells.
   it("finds the event by name, ignoring case and surrounding whitespace", async () => {
-    await assignStudents([ANNA], "  wOcHe 1 ");
+    await assign([ANNA], "  wOcHe 1 ");
 
     expect(eventOf(ANNA)).toBe("Woche 1");
   });
 
   it("changes nothing but the assignment", async () => {
-    await assignStudents([ANNA], "Woche 1");
+    await assign([ANNA], "Woche 1");
 
     expect(firestore.get(REGISTRATIONS, ANNA)).toMatchObject({
       studentUpn: ANNA,
@@ -101,27 +105,27 @@ describe("assignStudents", () => {
   it("refuses a student who is not attending, who cannot be assigned at all (US-11)", async () => {
     seedRecord(ANNA, { isAttendingSportsWeek: false });
 
-    await expect(assignStudents([ANNA], "Woche 1")).rejects.toBeInstanceOf(ServiceError);
+    await expect(assign([ANNA], "Woche 1")).rejects.toBeInstanceOf(ServiceError);
     expect(eventOf(ANNA)).toBeNull();
   });
 
   it("still unassigns a student who is not attending, so nothing can get stuck", async () => {
     seedRecord(ANNA, { isAttendingSportsWeek: false, event: "Woche 1" });
 
-    await assignStudents([ANNA], null);
+    await assign([ANNA], null);
 
     expect(eventOf(ANNA)).toBeNull();
   });
 
   it("refuses an event that does not exist", async () => {
-    await expect(assignStudents([ANNA], "ghost")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(assign([ANNA], "ghost")).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("refuses an event of another event series, so an event series cannot borrow one", async () => {
-    await expect(assignStudents([ANNA], "Gardasee")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(assign([ANNA], "Gardasee")).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("assigns the active event series' own event where two series share a name", async () => {
+  it("assigns the named series' own event where two series share a name", async () => {
     firestore.seed(
       "eventSeries",
       "s0",
@@ -134,16 +138,16 @@ describe("assignStudents", () => {
       }),
     );
 
-    await assignStudents([ANNA], "Woche 1");
+    await assign([ANNA], "Woche 1");
 
     expect(eventOf(ANNA)).toBe("Woche 1");
   });
 
   it("refuses a registration that does not exist", async () => {
-    await expect(assignStudents(["ghost"], "Woche 1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(assign(["ghost"], "Woche 1")).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  /** The path is derived from the active series, so another series' record is out of reach. */
+  /** The path is derived from the named series, so another series' record is out of reach. */
   it("refuses a student whose only registration is in another event series", async () => {
     const CLARA = "clara@student.htldornbirn.at";
     firestore.seed(registrationPath("s0"), CLARA, {
@@ -152,26 +156,27 @@ describe("assignStudents", () => {
       isAttendingSportsWeek: true,
     });
 
-    await expect(assignStudents([CLARA], "Woche 1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(assign([CLARA], "Woche 1")).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(firestore.get(registrationPath("s0"), CLARA)).toMatchObject({ event: null });
   });
 
   it("writes nothing at all when one of the records is refused", async () => {
     seedRecord(BENE, { isAttendingSportsWeek: false });
 
-    await expect(assignStudents([ANNA, BENE], "Woche 1")).rejects.toBeInstanceOf(ServiceError);
+    await expect(assign([ANNA, BENE], "Woche 1")).rejects.toBeInstanceOf(ServiceError);
 
     expect(eventOf(ANNA)).toBeNull();
   });
 
-  it("refuses to work while no event series is active", async () => {
-    firestore.seed(
-      "eventSeries",
-      "s1",
-      storedEventSeries({ name: "2026", hasRegistrations: true }),
-    );
+  it("refuses to work in an event series that is not there", async () => {
+    await expect(assignStudents("ghost", [ANNA], null)).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
 
-    await expect(assignStudents([ANNA], null)).rejects.toMatchObject({ code: "CONFLICT" });
+  /** Archiving is what makes a series read-only, so there is no screen to assign from (US-19). */
+  it("refuses to work in an archived event series", async () => {
+    await expect(assignStudents("s0", [ANNA], null)).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
   /**
@@ -197,7 +202,7 @@ describe("assignStudents", () => {
       return snapshot;
     });
 
-    await assignStudents([ANNA, BENE, CLARA], "Woche 1");
+    await assign([ANNA, BENE, CLARA], "Woche 1");
 
     expect(startedWhenFirstReturned).toBe(3);
     vi.restoreAllMocks();

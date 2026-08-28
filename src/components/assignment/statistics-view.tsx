@@ -8,14 +8,14 @@
 import { classOverview } from "@/lib/assignment/statistics";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { useBusyWhile } from "@/lib/api/busy";
-import { NO_ACTIVE_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
+import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { PageHeading } from "@/components/layout/page-heading";
 import { ClassCards } from "./class-cards";
 
 /**
- * How the classes of the active event series stand (US-12): one card per maintained class, counting
- * the students who answered "no" alongside the ones who are coming. It is a page of its own
- * rather than a header on the board, because reading a class and assigning a week are two
+ * How the classes of the selected event series stand (US-12): one card per maintained class,
+ * counting the students who answered "no" alongside the ones who are coming. It is a page of its
+ * own rather than a header on the board, because reading a class and assigning a week are two
  * things a teacher does at different times.
  */
 export function StatisticsView({ eventSeriesId }: { eventSeriesId: string }) {
@@ -36,7 +36,7 @@ export function StatisticsView({ eventSeriesId }: { eventSeriesId: string }) {
 
       {eventSeries === null ? (
         <p role="status" className="text-muted-foreground text-sm">
-          {NO_ACTIVE_EVENT_SERIES_HINT}
+          {NO_EVENT_SERIES_HINT}
         </p>
       ) : (
         <ClassCards

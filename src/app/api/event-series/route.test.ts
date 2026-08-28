@@ -36,7 +36,6 @@ beforeEach(() => {
   createEventSeries.mockResolvedValue({
     id: "s1",
     name: "Winter 2026",
-    isActive: false,
     isArchived: false,
   });
 });
@@ -47,7 +46,7 @@ describe("POST /api/event-series", () => {
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({
-      eventSeries: { id: "s1", name: "Winter 2026", isActive: false, isArchived: false },
+      eventSeries: { id: "s1", name: "Winter 2026", isArchived: false },
     });
     expect(createEventSeries).toHaveBeenCalledWith({ name: "Winter 2026" });
   });

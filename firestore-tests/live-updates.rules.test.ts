@@ -103,7 +103,7 @@ describe("event series list stays live", () => {
     await serverWrite((db) =>
       db.collection("eventSeries").doc("new").set({
         name: "2026/2027",
-        isActive: false,
+        isOpenToStudents: false,
         isArchived: false,
       }),
     );
@@ -116,7 +116,7 @@ describe("event series list stays live", () => {
     await serverWrite((db) =>
       db.collection("eventSeries").doc("gone").set({
         name: "2025/2026",
-        isActive: false,
+        isOpenToStudents: false,
         isArchived: false,
       }),
     );
@@ -142,7 +142,7 @@ describe("events list stays live", () => {
       db
         .collection("eventSeries")
         .doc("s1")
-        .set({ name: "2026/2027", isActive: true, isArchived: false, events: [] }),
+        .set({ name: "2026/2027", isOpenToStudents: true, isArchived: false, events: [] }),
     );
     const listener = collectSnapshots(
       query(collection(teacherDb() as never, "eventSeries"), orderBy("name")),
@@ -165,12 +165,12 @@ describe("events list stays live", () => {
       db
         .collection("eventSeries")
         .doc("s2")
-        .set({ name: "2027/2028", isActive: false, isArchived: false, events: ["Lech"] }),
+        .set({ name: "2027/2028", isOpenToStudents: false, isArchived: false, events: ["Lech"] }),
     );
     const listener = collectSnapshots(
       query(
         collection(teacherDb() as never, "eventSeries"),
-        where("isActive", "==", true),
+        where("isOpenToStudents", "==", true),
         orderBy("name"),
       ),
     );
@@ -179,7 +179,12 @@ describe("events list stays live", () => {
       db
         .collection("eventSeries")
         .doc("s1")
-        .set({ name: "2026/2027", isActive: true, isArchived: false, events: ["Montafon"] }),
+        .set({
+          name: "2026/2027",
+          isOpenToStudents: true,
+          isArchived: false,
+          events: ["Montafon"],
+        }),
     );
 
     const emission = await listener.waitFor((e) => e.events.includes("Montafon"));

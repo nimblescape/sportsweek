@@ -49,7 +49,7 @@ describe("createEventSeries", () => {
   it("returns the event series including its generated id", async () => {
     const eventSeries = await createEventSeries({ name: "Wintersportwoche 2026" });
 
-    expect(eventSeries).toMatchObject({ name: "Wintersportwoche 2026", isActive: false });
+    expect(eventSeries).toMatchObject({ name: "Wintersportwoche 2026", isArchived: false });
     expect(eventSeries.id).toBeTruthy();
   });
 
@@ -106,90 +106,17 @@ describe("updateEventSeries", () => {
   });
 
   it("leaves untouched fields alone, the maintained lists among them", async () => {
-    seedEventSeries("s1", { isActive: true, classOptions: ["5AHIF"] });
+    seedEventSeries("s1", { isOpenToStudents: true, classOptions: ["5AHIF"] });
 
     await updateEventSeries("s1", { name: "Neuer Name" });
 
     expect(firestore.get("eventSeries", "s1")).toEqual(
-      storedEventSeries({ name: "Neuer Name", isActive: true, classOptions: ["5AHIF"] }),
+      storedEventSeries({
+        name: "Neuer Name",
+        isOpenToStudents: true,
+        classOptions: ["5AHIF"],
+      }),
     );
-  });
-});
-
-describe("updateEventSeries — exactly one active event series", () => {
-  it("deactivates the previously active event series when another is activated", async () => {
-    seedEventSeries("a", { isActive: true });
-    seedEventSeries("b");
-
-    await updateEventSeries("b", { isActive: true });
-
-    expect(firestore.get("eventSeries", "a")).toMatchObject({ isActive: false });
-    expect(firestore.get("eventSeries", "b")).toMatchObject({ isActive: true });
-  });
-
-  it("leaves exactly one active event series across several inactive ones", async () => {
-    seedEventSeries("a", { isActive: true });
-    seedEventSeries("b");
-    seedEventSeries("c");
-
-    await updateEventSeries("c", { isActive: true });
-
-    const active = Object.values(firestore.docs("eventSeries")).filter(
-      (eventSeries) => eventSeries.isActive,
-    );
-    expect(active).toHaveLength(1);
-  });
-
-  it("performs the flip in a single transaction, so a race cannot leave two active", async () => {
-    seedEventSeries("a", { isActive: true });
-    seedEventSeries("b");
-
-    let readsSawBothActive = false;
-    firestore.onTransactionAttempt = () => {
-      const active = Object.values(firestore.docs("eventSeries")).filter(
-        (eventSeries) => eventSeries.isActive,
-      );
-      if (active.length > 1) readsSawBothActive = true;
-    };
-
-    await updateEventSeries("b", { isActive: true });
-
-    expect(readsSawBothActive).toBe(false);
-    expect(firestore.transactionCount).toBe(1);
-  });
-
-  it("activates and renames in the same call", async () => {
-    seedEventSeries("a", { isActive: true });
-    seedEventSeries("b");
-
-    await updateEventSeries("b", { name: "Wintersportwoche 2027", isActive: true });
-
-    expect(firestore.get("eventSeries", "a")).toMatchObject({ isActive: false });
-    expect(firestore.get("eventSeries", "b")).toMatchObject({
-      name: "Wintersportwoche 2027",
-      isActive: true,
-    });
-  });
-
-  it("stands down every active event series, even if the data already held more than one", async () => {
-    seedEventSeries("a", { isActive: true });
-    seedEventSeries("b", { isActive: true });
-    seedEventSeries("c");
-
-    await updateEventSeries("c", { isActive: true });
-
-    expect(firestore.get("eventSeries", "a")).toMatchObject({ isActive: false });
-    expect(firestore.get("eventSeries", "b")).toMatchObject({ isActive: false });
-    expect(firestore.get("eventSeries", "c")).toMatchObject({ isActive: true });
-  });
-
-  it("refuses to activate an archived event series", async () => {
-    seedEventSeries("s1", { isArchived: true });
-
-    await expect(updateEventSeries("s1", { isActive: true })).rejects.toMatchObject({
-      code: "CONFLICT",
-    });
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isActive: false });
   });
 
   it("refuses to rename an archived event series, which is signed off rather than edited", async () => {
@@ -207,24 +134,6 @@ describe("updateEventSeries — exactly one active event series", () => {
     await expect(updateEventSeries("s1", { isArchived: false })).resolves.toMatchObject({
       isArchived: false,
     });
-  });
-
-  it("can deactivate the active event series without touching the others", async () => {
-    seedEventSeries("a", { isActive: true });
-    seedEventSeries("b");
-
-    await updateEventSeries("a", { isActive: false });
-
-    expect(firestore.get("eventSeries", "a")).toMatchObject({ isActive: false });
-    expect(firestore.get("eventSeries", "b")).toMatchObject({ isActive: false });
-  });
-
-  it("is a no-op flag-wise when the already active event series is activated again", async () => {
-    seedEventSeries("a", { isActive: true });
-
-    await updateEventSeries("a", { isActive: true });
-
-    expect(firestore.get("eventSeries", "a")).toMatchObject({ isActive: true });
   });
 });
 
@@ -256,48 +165,28 @@ describe("updateEventSeries — archiving", () => {
     expect(firestore.get("eventSeries", "s1")).toMatchObject({ isArchived: false });
   });
 
-  it("refuses to archive the active event series", async () => {
-    seedEventSeries("s1", { isActive: true });
-
-    await expect(updateEventSeries("s1", { isArchived: true })).rejects.toMatchObject({
-      code: "CONFLICT",
-    });
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({
-      isActive: true,
-      isArchived: false,
-    });
-  });
-
-  it("archives an event series deactivated in the same call", async () => {
-    seedEventSeries("s1", { isActive: true });
+  /** Archiving closes a series to students, so the door does not stay open on a finished one. */
+  it("closes an event series to students while archiving it", async () => {
+    seedEventSeries("s1", { isOpenToStudents: true });
     firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
 
-    await updateEventSeries("s1", { isActive: false, isArchived: true });
+    await updateEventSeries("s1", { isArchived: true });
 
     expect(firestore.get("eventSeries", "s1")).toMatchObject({
-      isActive: false,
       isArchived: true,
+      isOpenToStudents: false,
     });
   });
 
-  it("unarchives an event series without reactivating it", async () => {
+  /** Looking at last year is not letting last year's students back in (US-19). */
+  it("unarchives an event series without reopening it to students", async () => {
     seedEventSeries("s1", { isArchived: true });
 
     await updateEventSeries("s1", { isArchived: false });
 
     expect(firestore.get("eventSeries", "s1")).toMatchObject({
-      isActive: false,
       isArchived: false,
-    });
-  });
-
-  it("refuses to archive and activate in the same call", async () => {
-    seedEventSeries("s1");
-
-    await expect(
-      updateEventSeries("s1", { isActive: true, isArchived: true }),
-    ).rejects.toMatchObject({
-      code: "CONFLICT",
+      isOpenToStudents: false,
     });
   });
 });
@@ -311,8 +200,8 @@ describe("deleteEventSeries", () => {
     expect(firestore.get("eventSeries", "s1")).toBeDefined();
   });
 
-  it("refuses to delete an active event series that still has registrations", async () => {
-    seedEventSeries("s1", { isActive: true });
+  it("refuses to delete an open event series that still has registrations", async () => {
+    seedEventSeries("s1", { isOpenToStudents: true });
     firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
 
     await expect(deleteEventSeries("s1")).rejects.toMatchObject({ code: "CONFLICT" });
@@ -326,8 +215,8 @@ describe("deleteEventSeries", () => {
     expect(firestore.get("eventSeries", "s1")).toBeUndefined();
   });
 
-  it("deletes an active event series that has no registrations", async () => {
-    seedEventSeries("s1", { isActive: true });
+  it("deletes an open event series that has no registrations", async () => {
+    seedEventSeries("s1", { isOpenToStudents: true });
 
     await deleteEventSeries("s1");
 
@@ -471,10 +360,10 @@ describe("event series names are unique", () => {
   });
 
   it("does not check the name when only a flag changes", async () => {
-    seedEventSeries("s1", { name: "Winter 2026" });
+    seedEventSeries("s1", { name: "Winter 2026", isArchived: true });
 
-    await expect(updateEventSeries("s1", { isActive: true })).resolves.toMatchObject({
-      isActive: true,
+    await expect(updateEventSeries("s1", { isArchived: false })).resolves.toMatchObject({
+      isArchived: false,
     });
   });
 

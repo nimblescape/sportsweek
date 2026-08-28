@@ -120,38 +120,6 @@ describe("EventSeriesView — creating and editing", () => {
 });
 
 describe("EventSeriesView — flags", () => {
-  it("activates an event series through the API", async () => {
-    const fetchMock = stubFetch(okJson);
-    renderView();
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Eventreihe Winter 2027 aktiv setzen" }),
-    );
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/event-series/s3",
-        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ isActive: true }) }),
-      ),
-    );
-  });
-
-  it("deactivates the active event series through the API, leaving none active", async () => {
-    const fetchMock = stubFetch(okJson);
-    renderView();
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Eventreihe Winter 2026 deaktivieren" }),
-    );
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/event-series/s1",
-        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ isActive: false }) }),
-      ),
-    );
-  });
-
   it("archives an event series through the API", async () => {
     const fetchMock = stubFetch(okJson);
     renderView();
@@ -189,7 +157,7 @@ describe("EventSeriesView — flags", () => {
     stubFetch(() =>
       Promise.resolve(
         new Response(
-          JSON.stringify({ error: { code: "CONFLICT", message: "Archivierte Eventreihe." } }),
+          JSON.stringify({ error: { code: "CONFLICT", message: "Keine Anmeldungen." } }),
           { status: 409, headers: { "content-type": "application/json" } },
         ),
       ),
@@ -197,10 +165,10 @@ describe("EventSeriesView — flags", () => {
     renderView();
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Eventreihe Winter 2027 aktiv setzen" }),
+      screen.getByRole("button", { name: "Eventreihe Winter 2027 archivieren" }),
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Archivierte Eventreihe.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Keine Anmeldungen.");
   });
 });
 
@@ -287,10 +255,6 @@ describe("EventSeriesView — while a write is in flight", () => {
       expect(
         screen.getByRole("button", { name: "Eventreihe Winter 2024 bearbeiten" }),
       ).toBeDisabled(),
-    );
-    expect(screen.getByRole("link", { name: "Events der Eventreihe Winter 2024" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
     );
   });
 

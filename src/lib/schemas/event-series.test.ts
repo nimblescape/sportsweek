@@ -10,7 +10,6 @@ const validEventSeries = {
   id: "event series-1",
   name: "Wintersportwoche 2026",
   nameKey: "wintersportwoche 2026",
-  isActive: true,
   isTemplate: false,
   isArchived: false,
   isOpenToStudents: false,
@@ -34,7 +33,7 @@ describe("eventSeriesSchema", () => {
     expect(eventSeriesSchema.safeParse({ ...validEventSeries, name: "" }).success).toBe(false);
   });
 
-  it.each(["isActive", "isTemplate", "isArchived", "isOpenToStudents", "hasRegistrations"])(
+  it.each(["isTemplate", "isArchived", "isOpenToStudents", "hasRegistrations"])(
     "requires %s to be a boolean",
     (field) => {
       expect(eventSeriesSchema.safeParse({ ...validEventSeries, [field]: "yes" }).success).toBe(
@@ -53,11 +52,10 @@ describe("eventSeriesSchema", () => {
     expect(eventSeriesSchema.parse(without)).toMatchObject({ [field]: false });
   });
 
-  it("carries no third state field, since the displayed state is derived", () => {
+  it("carries no state field of its own, since what the list shows is derived", () => {
     expect(Object.keys(eventSeriesSchema.shape).sort()).toEqual(
       [
         "id",
-        "isActive",
         "isTemplate",
         "isArchived",
         "isOpenToStudents",

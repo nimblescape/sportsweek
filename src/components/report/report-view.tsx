@@ -20,7 +20,7 @@ import {
 } from "@/lib/report/report-download";
 import { matchingSavedReport } from "@/lib/report/saved-reports";
 import { useSavedReports } from "@/lib/report/use-saved-reports";
-import { NO_ACTIVE_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
+import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import type { ReportSelection, SavedReport, SavedReportEdit } from "@/lib/schemas/saved-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -182,7 +182,7 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
 
       {eventSeries === null ? (
         <p role="status" className="text-muted-foreground text-sm">
-          {NO_ACTIVE_EVENT_SERIES_HINT}
+          {NO_EVENT_SERIES_HINT}
         </p>
       ) : (
         <>

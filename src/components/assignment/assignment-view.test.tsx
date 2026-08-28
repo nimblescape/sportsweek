@@ -31,6 +31,7 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
 vi.mock("@/lib/api/busy", () => ({ useBusyWhile: (busy: boolean) => useBusyWhile(busy) }));
 
 const { AssignmentView: ScopedAssignmentView } = await import("./assignment-view");
+const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");
 
 // Which series the view is about comes from the page (Q8); the roster hook is mocked, so the id
 // only has to be present.
@@ -61,7 +62,7 @@ const eventSeries = {
   id: "s1",
   ...storedEventSeries({
     name: "2026",
-    isActive: true,
+    isOpenToStudents: true,
     hasRegistrations: true,
     events: ["Montafon", "Gardasee"],
   }),
@@ -99,12 +100,12 @@ async function drag(from: string, row: string, direction: "{ArrowDown}" | "{Arro
 }
 
 describe("AssignmentView", () => {
-  it("says so while no event series is active, since there is nothing to assign", () => {
+  it("points at the event series list when the selection resolves to nothing", () => {
     useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: null });
 
     render(<AssignmentView />);
 
-    expect(screen.getByText("Es ist keine Eventreihe aktiv.")).toBeInTheDocument();
+    expect(screen.getByText(NO_EVENT_SERIES_HINT)).toBeInTheDocument();
   });
 
   /** How the classes stand is a page of its own now; this one is the board and nothing else. */
@@ -136,7 +137,7 @@ describe("AssignmentView", () => {
     await drag("Nicht zugeteilt", "Muster Anna", "{ArrowDown}");
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith("/api/assignments", {
+      expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/assignments", {
         method: "PATCH",
         body: { recordIds: ["record-Muster"], event: "Montafon" },
       }),
@@ -149,7 +150,7 @@ describe("AssignmentView", () => {
     await drag("Montafon", "Berger Bene", "{ArrowUp}");
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith("/api/assignments", {
+      expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/assignments", {
         method: "PATCH",
         body: { recordIds: ["record-Berger"], event: null },
       }),

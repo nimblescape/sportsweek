@@ -21,7 +21,6 @@ import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
 import { userRoleSchema, userSchema } from "@/lib/schemas/user";
-import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import { questionsAsked } from "@/lib/master-data/categories";
@@ -318,28 +317,28 @@ async function purgeStudents(db: Firestore): Promise<{ records: number; users: n
  * The reservation is `create`d rather than `set`, so a name already taken fails the whole commit
  * instead of quietly stealing it.
  */
-/** Activating an existing one rather than adding a second: names are unique across event series. */
-async function ensureActiveEventSeries(db: Firestore): Promise<EventSeries> {
+/** Opening the one it finds rather than adding a second: names are unique across event series. */
+async function ensureOpenEventSeries(db: Firestore): Promise<EventSeries> {
   const eventSeries = (await db.collection(COLLECTIONS.eventSeries).get()).docs.map((doc) =>
     eventSeriesSchema.parse({ id: doc.id, ...doc.data() }),
   );
-
-  const active = activeEventSeriesOf(eventSeries);
-  if (active) return active;
 
   const existing = eventSeries.find(
     (eventSeries) => eventSeries.name === DEFAULT_EVENT_SERIES_NAME && !eventSeries.isArchived,
   );
   if (existing) {
-    await db.collection(COLLECTIONS.eventSeries).doc(existing.id).update({ isActive: true });
-    return { ...existing, isActive: true };
+    // Seeding stands in for the invitation link the teacher would otherwise hand out (US-23).
+    await db
+      .collection(COLLECTIONS.eventSeries)
+      .doc(existing.id)
+      .update({ isOpenToStudents: true });
+    return { ...existing, isOpenToStudents: true };
   }
 
   // The lists live in this document (US-21), so seeding them is part of creating it.
   const data = {
     name: DEFAULT_EVENT_SERIES_NAME,
     nameKey: normalizeName(DEFAULT_EVENT_SERIES_NAME),
-    isActive: true,
     isTemplate: false,
     isArchived: false,
     isOpenToStudents: true,
@@ -371,7 +370,7 @@ async function main(): Promise<void> {
 
   // The lists are fields of the event series (US-21), so there is nothing to read until it
   // exists — and creating it is what seeds them, since the application no longer does.
-  const eventSeries = await ensureActiveEventSeries(db);
+  const eventSeries = await ensureOpenEventSeries(db);
 
   const programs = eventSeries.programs;
   const named = PROGRAM_SHARES.map(([name]) => programs.find((program) => program.name === name));

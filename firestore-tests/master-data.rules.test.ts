@@ -69,7 +69,7 @@ const READABLE_COLLECTIONS: [string, Record<string, unknown>][] = [
     {
       name: "Winter 2026",
       nameKey: "winter 2026",
-      isActive: false,
+      isOpenToStudents: false,
       isArchived: false,
       events: ["Montafon"],
       classOptions: ["5AHIF"],
@@ -166,21 +166,31 @@ describe.each([
 });
 
 describe("invariants that rules cannot express are not left half-guarded", () => {
-  it("stops a teacher marking a second event series active from the client", async () => {
-    await seed("eventSeries", "a", { name: "Winter 2026", isActive: true, isArchived: false });
-    await seed("eventSeries", "b", { name: "Winter 2027", isActive: false, isArchived: false });
+  /** Opening a series is the invitation link's doing, in a handler (US-19, US-23). */
+  it("stops a teacher opening an event series to students from the client", async () => {
+    await seed("eventSeries", "a", {
+      name: "Winter 2026",
+      isOpenToStudents: false,
+      isArchived: false,
+    });
 
-    await assertFails(teacher().collection("eventSeries").doc("b").update({ isActive: true }));
+    await assertFails(
+      teacher().collection("eventSeries").doc("a").update({ isOpenToStudents: true }),
+    );
   });
 
   it("stops a teacher creating a duplicate event series name from the client", async () => {
-    await seed("eventSeries", "a", { name: "Winter 2026", isActive: false, isArchived: false });
+    await seed("eventSeries", "a", {
+      name: "Winter 2026",
+      isOpenToStudents: false,
+      isArchived: false,
+    });
 
     await assertFails(
       teacher()
         .collection("eventSeries")
         .doc("b")
-        .set({ name: "Winter 2026", isActive: false, isArchived: false }),
+        .set({ name: "Winter 2026", isOpenToStudents: false, isArchived: false }),
     );
   });
 

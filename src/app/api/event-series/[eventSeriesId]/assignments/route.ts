@@ -24,15 +24,19 @@ const assignSchema = z.strictObject({
   event: registrationSchema.shape.event,
 });
 
-export async function PATCH(request: Request) {
+type Context = { params: Promise<{ eventSeriesId: string }> };
+
+export async function PATCH(request: Request, { params }: Context) {
   const denied = await requireTeacherOrResponse();
   if (denied) return denied;
 
   const body = await parseJsonBody(request, assignSchema);
   if (!body.ok) return body.response;
 
+  const { eventSeriesId } = await params;
+
   try {
-    await assignStudents(body.data.recordIds, body.data.event);
+    await assignStudents(eventSeriesId, body.data.recordIds, body.data.event);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return handleServiceFailure(error, "Assigning students to an event");
