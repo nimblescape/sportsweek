@@ -6,7 +6,8 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ANSWER_LABELS } from "@/lib/master-data/categories";
+import { ANSWER_LABELS, questionsAsked } from "@/lib/master-data/categories";
+import { storedEventSeries } from "@/test/event-series";
 import type { Registration } from "@/lib/schemas/registration";
 
 const apiRequest = vi.fn();
@@ -20,7 +21,6 @@ const { RegistrationForm } = await import("./registration-form");
 const { ApiRequestError } = await import("@/lib/api/client");
 
 const LISTS = {
-  classes: ["3AHME", "4AHME"],
   programs: [
     { name: "Ski", requiredEquipment: ["Ski", "Helm"] },
     { name: "Alternativ", requiredEquipment: [] },
@@ -66,11 +66,25 @@ const storedRecord: Registration = {
   weightKg: null,
 };
 
-function renderForm(record: Registration | null = storedRecord) {
+const ALL_ASKED = questionsAsked(
+  storedEventSeries({
+    classOptions: ["3AHME"],
+    programs: LISTS.programs,
+    skillLevels: LISTS.skillLevels,
+    busPickupPoints: LISTS.busPickupPoints,
+    foodOptions: LISTS.foodOptions,
+    seasonPassOptions: LISTS.seasonPassOptions,
+  }),
+);
+
+function renderForm(record: Registration | null = storedRecord, asked = ALL_ASKED) {
   render(
     <RegistrationForm
+      eventSeriesId="s1"
       eventSeriesName="Winter 2026"
       studentName="Jane Doe"
+      studentClass="3AHME"
+      asked={asked}
       record={record}
       lists={LISTS}
     />,
@@ -99,7 +113,7 @@ function sentBody() {
 
 /** The button only wakes up once something has changed, so a save has to follow an answer. */
 async function changeSomething() {
-  await pick("Klasse", "4AHME");
+  await pick(ANSWER_LABELS.skillLevel, "Profi");
 }
 
 const cardTitles = () =>
@@ -122,6 +136,14 @@ describe("RegistrationForm", () => {
     expect(cardTitles()).toContain("Winter 2026");
     expect(screen.getByLabelText("Name")).toHaveTextContent("Jane Doe");
     expect(screen.queryByRole("textbox", { name: "Name" })).not.toBeInTheDocument();
+  });
+
+  /** The class comes from the link and is a fact the form states rather than asks (US-23). */
+  it("shows the class from the invitation as text, with no way to change it", () => {
+    renderForm();
+
+    expect(screen.getByLabelText(ANSWER_LABELS.class)).toHaveTextContent("3AHME");
+    expect(screen.queryByRole("combobox", { name: ANSWER_LABELS.class })).not.toBeInTheDocument();
   });
 
   /** One card for the event series rather than three, so the answers about it are read together. */
@@ -153,22 +175,74 @@ describe("RegistrationForm", () => {
     expect([...at].sort((left, right) => left - right)).toEqual(at);
   });
 
-  it("starts a student who has not registered yet on an empty form", () => {
-    renderForm(null);
+  /** US-21: the lists say which questions apply, so a Kulturwoche is not asked about skiing. */
+  describe("a question whose list is empty", () => {
+    const askedWithout = (...empty: string[]) =>
+      questionsAsked(
+        storedEventSeries({
+          classOptions: ["3AHME"],
+          programs: empty.includes("programs") ? [] : LISTS.programs,
+          skillLevels: empty.includes("skillLevels") ? [] : LISTS.skillLevels,
+          busPickupPoints: empty.includes("busPickupPoints") ? [] : LISTS.busPickupPoints,
+          foodOptions: empty.includes("foodOptions") ? [] : LISTS.foodOptions,
+          seasonPassOptions: empty.includes("seasonPassOptions") ? [] : LISTS.seasonPassOptions,
+        }),
+      );
 
-    expect(screen.getByLabelText("Klasse")).toHaveTextContent("Klasse wählen");
+    it.each([
+      ["skillLevels", ANSWER_LABELS.skillLevel],
+      ["seasonPassOptions", ANSWER_LABELS.seasonPassOption],
+      ["busPickupPoints", ANSWER_LABELS.busPickupPoint],
+      ["foodOptions", ANSWER_LABELS.foodOption],
+    ])("is not asked at all when %s is empty", (list, label) => {
+      renderForm(storedRecord, askedWithout(list));
+
+      expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+    });
+
+    it("is not asked when there are no programs, and takes the rental with it", () => {
+      renderForm(storedRecord, askedWithout("programs"));
+
+      expect(screen.queryByLabelText(/Programm/)).not.toBeInTheDocument();
+    });
+
+    /** "Sonstiges" is an answer rather than a list item, so it cannot hold the question open (Q22). */
+    it("takes the food question away entirely rather than leaving 'Sonstiges' alone", () => {
+      renderForm(storedRecord, askedWithout("foodOptions"));
+
+      expect(eventSeriesCard()).not.toHaveTextContent("Sonstiges");
+    });
   });
 
-  it("saves the whole registration in one request", async () => {
+  /** Taking part is an answer the student gives, not one the form assumes on their behalf. */
+  it("starts a student who has not registered yet on an unanswered form", () => {
+    renderForm(null);
+
+    expect(within(screen.getByRole("group", { name: ATTENDING })).getByRole("radio", { name: "Nein" })).toBeChecked(); // prettier-ignore
+    expect(screen.queryByLabelText(ANSWER_LABELS.skillLevel)).not.toBeInTheDocument();
+  });
+
+  it("saves the whole registration in one request, to the series it is for", async () => {
     renderForm();
 
     await changeSomething();
     await userEvent.click(save());
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
-    expect(apiRequest.mock.calls[0][0]).toBe("/api/my-registration");
+    expect(apiRequest.mock.calls[0][0]).toBe("/api/my-registration/s1");
     expect(apiRequest.mock.calls[0][1].method).toBe("PUT");
-    expect(sentBody()).toMatchObject({ class: "4AHME", program: "Ski" });
+    expect(sentBody()).toMatchObject({ skillLevel: "Profi", program: "Ski" });
+  });
+
+  /** The class is the server's, so it is not among the answers the form sends (US-23). */
+  it("sends no class of its own", async () => {
+    renderForm();
+
+    await changeSomething();
+    await userEvent.click(save());
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalled());
+    expect(sentBody()).not.toHaveProperty("class");
   });
 
   it("confirms a save, and says the registration is complete when it is", async () => {
@@ -203,21 +277,21 @@ describe("RegistrationForm", () => {
     await changeSomething();
     await userEvent.click(save());
     await screen.findByRole("status");
-    await pick("Klasse", "3AHME");
+    await pick(ANSWER_LABELS.skillLevel, "Anfänger");
 
     await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
   });
 
   it("shows what the server said when a save is refused", async () => {
     apiRequest.mockRejectedValue(
-      new ApiRequestError("Es ist noch keine Sportveranstaltung freigeschalten."),
+      new ApiRequestError("Derzeit ist keine Veranstaltung freigeschaltet."),
     );
     renderForm();
 
     await changeSomething();
     await userEvent.click(save());
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("freigeschalten");
+    expect(await screen.findByRole("alert")).toHaveTextContent("freigeschaltet");
   });
 
   describe("the save button", () => {
@@ -294,12 +368,12 @@ describe("RegistrationForm", () => {
   });
 
   describe("attendance", () => {
-    it("keeps asking for the class of a student who is not attending", async () => {
+    it("keeps stating the class of a student who is not attending", async () => {
       renderForm();
 
       await answer(ATTENDING, "Nein");
 
-      expect(screen.getByLabelText("Klasse")).toBeInTheDocument();
+      expect(screen.getByLabelText(ANSWER_LABELS.class)).toHaveTextContent("3AHME");
     });
 
     it("hides every other field once the student answers 'no'", async () => {
@@ -332,7 +406,6 @@ describe("RegistrationForm", () => {
       await waitFor(() => expect(apiRequest).toHaveBeenCalled());
       expect(sentBody()).toMatchObject({
         isAttendingSportsWeek: false,
-        class: "3AHME",
         program: "Ski",
       });
     });

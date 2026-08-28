@@ -24,6 +24,7 @@ import { userRoleSchema, userSchema } from "@/lib/schemas/user";
 import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
+import { questionsAsked } from "@/lib/master-data/categories";
 import { EMPTY_REGISTRATION, registrationPath } from "@/lib/registration/registration";
 import { apphostingValue, fail } from "./environment.mjs";
 
@@ -35,7 +36,7 @@ const SEEDABLE_ENVIRONMENTS = ["development", "staging"] as const;
  * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
  * Kulturwoche — so a fresh project holds only what is written here.
  */
-const DEFAULT_EVENT_SERIES_NAME = "2026/2027";
+const DEFAULT_EVENT_SERIES_NAME = "Wintersportwochen 2026/2027";
 
 /**
  * The seven maintained lists of that event series: its events, then the six the master data menu
@@ -243,18 +244,12 @@ type Lists = {
   seasonPassOptions: string[];
 };
 
-function registrationOf(
-  person: Person,
-  className: string,
-  program: Program | null,
-  lists: Lists,
-): RegistrationInput {
+function registrationOf(person: Person, program: Program | null, lists: Lists): RegistrationInput {
   // Gender belongs to the person rather than to the sports week, so it is answered either way;
   // everything the form hides behind "Nimmst du teil?" stays unanswered for the rest.
   if (program === null) {
     return {
       ...EMPTY_REGISTRATION,
-      class: className,
       gender: person.gender,
       dateOfBirth: dateOfBirth(),
     };
@@ -265,7 +260,6 @@ function registrationOf(
 
   return {
     isAttendingSportsWeek: true,
-    class: className,
     program: program.name,
     skillLevel: pick(lists.skillLevels),
     busPickupPoint: pick(lists.busPickupPoints),
@@ -431,7 +425,7 @@ async function main(): Promise<void> {
 
     for (let index = 0; index < size; index += 1) {
       const person = createPerson(genders[index], taken);
-      const registration = registrationOf(person, className, chosen[index], lists);
+      const registration = registrationOf(person, chosen[index], lists);
 
       const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, role: "student" }); // prettier-ignore
       const record = registrationSchema.parse({
@@ -441,9 +435,11 @@ async function main(): Promise<void> {
         firstName: person.firstName,
         lastName: person.lastName,
         email: person.upn,
+        // Set by the invitation link a student joins through rather than answered (US-23).
+        class: className,
         // Unassigned on purpose: putting students into events is what the board is for (US-12).
         event: null,
-        isIncomplete: isRegistrationIncomplete(registration),
+        isIncomplete: isRegistrationIncomplete(registration, questionsAsked(eventSeries)),
         ...registration,
       });
 

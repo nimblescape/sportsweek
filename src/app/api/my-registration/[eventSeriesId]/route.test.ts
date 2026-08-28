@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getUserWithRole = vi.fn();
 const saveRegistration = vi.fn();
+const invitedClassFor = vi.fn();
+const invitationTokenFromCookie = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
   getUserWithRole: () => getUserWithRole(),
@@ -16,15 +18,23 @@ vi.mock("@/lib/registration/registration-service", () => ({
   saveRegistration: (...args: unknown[]) => saveRegistration(...args),
 }));
 
+vi.mock("@/lib/invitations/invitation-cookie", () => ({
+  invitationTokenFromCookie: () => invitationTokenFromCookie(),
+}));
+
+vi.mock("@/lib/invitations/invitation-service", () => ({
+  invitedClassFor: (...args: unknown[]) => invitedClassFor(...args),
+}));
+
 const { PUT } = await import("./route");
 const { ServiceError } = await import("@/lib/service-error");
 const { REGISTRATION_NOT_OPEN_HINT } = await import("@/lib/registration/registration");
 
 const STUDENT = "jane.doe@student.htldornbirn.at";
+const SERIES = "s1";
 
 const body = {
   isAttendingSportsWeek: true,
-  class: "3AHME",
   program: "Ski",
   skillLevel: "Anfänger",
   busPickupPoint: "HTL Dornbirn",
@@ -51,38 +61,63 @@ const body = {
 };
 
 function putRequest(payload: unknown) {
-  return new Request("https://example.com/api/my-registration", {
+  return new Request(`https://example.com/api/my-registration/${SERIES}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 }
 
+const context = { params: Promise.resolve({ eventSeriesId: SERIES }) };
+
 beforeEach(() => {
-  getUserWithRole.mockReset();
-  saveRegistration.mockReset();
+  vi.clearAllMocks();
   getUserWithRole.mockResolvedValue({ uid: "u1", email: STUDENT, role: "student" });
-  saveRegistration.mockResolvedValue({ id: "s1__jane", eventSeriesId: "s1", ...body });
+  saveRegistration.mockResolvedValue({ id: STUDENT, class: "3AHME", ...body });
+  invitationTokenFromCookie.mockResolvedValue("a-token");
+  invitedClassFor.mockResolvedValue("3AHME");
 });
 
-describe("PUT /api/my-registration", () => {
+describe("PUT /api/my-registration/[eventSeriesId]", () => {
   it("saves the registration and returns it", async () => {
-    const response = await PUT(putRequest(body));
+    const response = await PUT(putRequest(body), context);
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ record: { id: "s1__jane" } });
+    expect(await response.json()).toMatchObject({ record: { id: STUDENT } });
   });
 
   /** The record is keyed by who is signed in, never by a user id the caller supplies (US-11). */
   it("saves it for the signed-in student, not for whoever the body names", async () => {
-    await PUT(putRequest(body));
+    await PUT(putRequest(body), context);
 
-    expect(saveRegistration).toHaveBeenCalledWith(STUDENT, expect.objectContaining(body));
+    expect(saveRegistration).toHaveBeenCalledWith(
+      { studentUpn: STUDENT, eventSeriesId: SERIES, invitedClass: "3AHME" },
+      expect.objectContaining(body),
+    );
+  });
+
+  /** The class comes from the link, and only from one naming this series (US-23, Q20). */
+  it("takes the class from the invitation the student is holding", async () => {
+    await PUT(putRequest(body), context);
+
+    expect(invitedClassFor).toHaveBeenCalledWith(SERIES, "a-token");
+  });
+
+  it("saves without an invitation for a student who is simply coming back", async () => {
+    invitationTokenFromCookie.mockResolvedValue(null);
+    invitedClassFor.mockResolvedValue(null);
+
+    await PUT(putRequest(body), context);
+
+    expect(saveRegistration).toHaveBeenCalledWith(
+      expect.objectContaining({ invitedClass: null }),
+      expect.anything(),
+    );
   });
 
   it("rejects an anonymous caller with 401", async () => {
     getUserWithRole.mockResolvedValue(null);
 
-    const response = await PUT(putRequest(body));
+    const response = await PUT(putRequest(body), context);
 
     expect(response.status).toBe(401);
     expect(saveRegistration).not.toHaveBeenCalled();
@@ -91,7 +126,7 @@ describe("PUT /api/my-registration", () => {
   it("rejects a teacher with 403, since a teacher keeps no master data of their own", async () => {
     getUserWithRole.mockResolvedValue({ uid: "u2", email: "t@htldornbirn.at", role: "teacher" });
 
-    const response = await PUT(putRequest(body));
+    const response = await PUT(putRequest(body), context);
 
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ error: { code: "PERMISSION_DENIED" } });
@@ -101,14 +136,14 @@ describe("PUT /api/my-registration", () => {
   it("rejects a student whose session carries no address to key the record by", async () => {
     getUserWithRole.mockResolvedValue({ uid: "u1", email: null, role: "student" });
 
-    const response = await PUT(putRequest(body));
+    const response = await PUT(putRequest(body), context);
 
     expect(response.status).toBe(401);
     expect(saveRegistration).not.toHaveBeenCalled();
   });
 
   it("returns the shared validation envelope for a malformed answer", async () => {
-    const response = await PUT(putRequest({ ...body, phoneNumber: "06601234567" }));
+    const response = await PUT(putRequest({ ...body, phoneNumber: "06601234567" }), context);
 
     expect(response.status).toBe(400);
     const payload = await response.json();
@@ -119,14 +154,22 @@ describe("PUT /api/my-registration", () => {
 
   /** A registration is filled in over time, so an unanswered question still gets saved. */
   it("takes a registration the student has not finished", async () => {
-    const response = await PUT(putRequest({ ...body, program: null }));
+    const response = await PUT(putRequest({ ...body, program: null }), context);
 
     expect(response.status).toBe(200);
     expect(saveRegistration).toHaveBeenCalled();
   });
 
   it("refuses a body that names the event series or the student itself", async () => {
-    const response = await PUT(putRequest({ ...body, eventSeriesId: "other" }));
+    const response = await PUT(putRequest({ ...body, eventSeriesId: "other" }), context);
+
+    expect(response.status).toBe(400);
+    expect(saveRegistration).not.toHaveBeenCalled();
+  });
+
+  /** The class is the link's to give, so a student sending one is refused (US-23). */
+  it("refuses a body that names a class", async () => {
+    const response = await PUT(putRequest({ ...body, class: "4AHME" }), context);
 
     expect(response.status).toBe(400);
     expect(saveRegistration).not.toHaveBeenCalled();
@@ -135,7 +178,7 @@ describe("PUT /api/my-registration", () => {
   it("passes the service's own answer through when registering is not open", async () => {
     saveRegistration.mockRejectedValue(new ServiceError("CONFLICT", REGISTRATION_NOT_OPEN_HINT));
 
-    const response = await PUT(putRequest(body));
+    const response = await PUT(putRequest(body), context);
 
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({
@@ -146,7 +189,7 @@ describe("PUT /api/my-registration", () => {
   it("sanitises an unexpected failure into a 500", async () => {
     saveRegistration.mockRejectedValue(new Error("Firestore is down"));
 
-    const response = await PUT(putRequest(body));
+    const response = await PUT(putRequest(body), context);
 
     expect(response.status).toBe(500);
     expect(await response.text()).not.toContain("Firestore is down");
@@ -154,7 +197,11 @@ describe("PUT /api/my-registration", () => {
 
   it("rejects a body that is not JSON at all", async () => {
     const response = await PUT(
-      new Request("https://example.com/api/my-registration", { method: "PUT", body: "not json" }),
+      new Request(`https://example.com/api/my-registration/${SERIES}`, {
+        method: "PUT",
+        body: "not json",
+      }),
+      context,
     );
 
     expect(response.status).toBe(400);

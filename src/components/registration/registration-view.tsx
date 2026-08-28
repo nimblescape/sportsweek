@@ -8,25 +8,31 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
-import { REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
+import { questionsAsked } from "@/lib/master-data/categories";
+import { classFrom, REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
 import { useRegistration } from "@/lib/registration/use-registration";
 import { RegistrationForm } from "./registration-form";
 
 type RegistrationViewProps = {
+  eventSeriesId: string;
   studentUpn: string;
   studentName: string;
+  /** The class the link enrols into, where the student is arriving through one (US-23). */
+  invitedClass: string | null;
 };
 
 /**
- * Registering needs an event series to belong to and a class to pick from, and neither is the
- * student's to create — so until a teacher has set both up there is no form to show, only the
- * notice US-11 asks for.
+ * The registration form for the series the path names, or the one sentence that stands in for it
+ * (US-19, US-23). The series being closed and the series being gone read alike here, because to
+ * a student they are the same situation: there is nothing to fill in.
  */
-export function RegistrationView({ studentUpn, studentName }: RegistrationViewProps) {
-  const { eventSeries, record, loading, error } = useRegistration(studentUpn);
-  // The student's series is the one they registered in, not one they chose from a header (US-23).
-  const eventSeriesId = eventSeries?.id ?? null;
-  const classes = useMasterData("classes", eventSeriesId);
+export function RegistrationView({
+  eventSeriesId,
+  studentUpn,
+  studentName,
+  invitedClass,
+}: RegistrationViewProps) {
+  const { eventSeries, record, loading, error } = useRegistration(eventSeriesId, studentUpn);
   const skillLevels = useMasterData("skill-levels", eventSeriesId);
   const busPickupPoints = useMasterData("bus-pickup-points", eventSeriesId);
   const foodOptions = useMasterData("food-options", eventSeriesId);
@@ -34,9 +40,9 @@ export function RegistrationView({ studentUpn, studentName }: RegistrationViewPr
   const programs = usePrograms(eventSeriesId);
 
   // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading || classes.loading);
+  useBusyWhile(loading);
 
-  if (loading || classes.loading) return null;
+  if (loading) return null;
 
   if (error) {
     return (
@@ -46,7 +52,9 @@ export function RegistrationView({ studentUpn, studentName }: RegistrationViewPr
     );
   }
 
-  if (eventSeries === null || classes.items.length === 0) {
+  const studentClass = classFrom(invitedClass, record?.class ?? null);
+
+  if (eventSeries === null || !eventSeries.isOpenToStudents || studentClass === null) {
     return (
       <Card>
         <CardContent>
@@ -61,11 +69,13 @@ export function RegistrationView({ studentUpn, studentName }: RegistrationViewPr
       // Remounts on an event series change, so the form starts from that event series' record rather than
       // from the one it was initialised with.
       key={eventSeries.id}
+      eventSeriesId={eventSeries.id}
       eventSeriesName={eventSeries.name}
       studentName={studentName}
+      studentClass={studentClass}
+      asked={questionsAsked(eventSeries)}
       record={record}
       lists={{
-        classes: classes.items,
         programs: programs.programs,
         skillLevels: skillLevels.items,
         busPickupPoints: busPickupPoints.items,

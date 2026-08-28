@@ -141,7 +141,26 @@ export const MASTER_DATA_CATEGORIES = {
 export type MasterDataCategoryKey = keyof typeof MASTER_DATA_CATEGORIES;
 
 /** The registration fields the maintained lists supply an answer for (US-5 to US-11). */
-type AnswerField = (typeof MASTER_DATA_CATEGORIES)[MasterDataCategoryKey]["usage"]["field"];
+export type AnswerField = (typeof MASTER_DATA_CATEGORIES)[MasterDataCategoryKey]["usage"]["field"];
+
+/**
+ * The answers this event series asks a student for: one per maintained list that has entries.
+ *
+ * An empty list is a question the student is never asked (US-21), which is what lets one
+ * application serve a Kulturwoche as well as a Wintersportwoche without a setting deciding which
+ * questions apply — the lists already say, by being there or not. So it is also what the form
+ * renders, what completeness counts and what the report and the filter offer: a question nobody
+ * was asked cannot be missing, and cannot be reported on.
+ */
+export function questionsAsked(
+  eventSeries: Pick<EventSeries, EventSeriesListField>,
+): ReadonlySet<AnswerField> {
+  return new Set(
+    Object.values(MASTER_DATA_CATEGORIES)
+      .filter((category) => eventSeries[category.field].length > 0)
+      .map((category) => category.usage.field),
+  );
+}
 
 /**
  * What each of those answers is called in German, keyed by the field that stores it. The form

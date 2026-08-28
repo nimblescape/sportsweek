@@ -183,6 +183,7 @@ describe("registrationSchema", () => {
 describe("registrationLockedFields", () => {
   it("locks the fields students must never write, so firestore.rules can deny them", () => {
     expect(Object.keys(registrationLockedFields.shape).sort()).toEqual([
+      "class",
       "email",
       "event",
       "firstName",
@@ -196,7 +197,6 @@ describe("registrationLockedFields", () => {
 describe("registrationInputSchema", () => {
   const attending = {
     isAttendingSportsWeek: true,
-    class: "3AHME",
     program: "Ski",
     skillLevel: "Anfänger",
     busPickupPoint: "HTL Dornbirn",
@@ -222,7 +222,7 @@ describe("registrationInputSchema", () => {
     expect(parse(attending).success).toBe(true);
   });
 
-  it.each(["id", "studentUpn", "firstName", "lastName", "email", "event", "isIncomplete"])(
+  it.each(["id", "studentUpn", "firstName", "lastName", "email", "event", "class", "isIncomplete"])(
     "refuses to take %s from the student, since the server owns it",
     (field) => {
       expect(parse({ ...attending, [field]: "smuggled" }).success).toBe(false);
@@ -238,7 +238,6 @@ describe("registrationInputSchema", () => {
   it("accepts a registration that has barely been started", () => {
     const empty = {
       ...attending,
-      class: null,
       program: null,
       skillLevel: null,
       busPickupPoint: null,

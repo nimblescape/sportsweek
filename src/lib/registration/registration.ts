@@ -17,11 +17,25 @@ export function registrationPath(eventSeriesId: string): string {
 }
 
 /**
- * Shown instead of the form while registering is not possible yet. Both halves are the teacher's
- * to set up and neither is anything the student can act on, so they read the same: an event series to
- * belong to (US-4) and a class to pick from (US-6) are equally missing pieces of one setup.
+ * The one sentence for every way a student can arrive at nothing to fill in (US-19, US-23): a
+ * link that is mistyped, superseded or names a series since closed, archived or deleted, and a
+ * student signing in with no open series they have joined. Telling those apart would say which
+ * of them applies — to a caller who should not be able to tell, and to a student who could do
+ * nothing about it either way.
+ *
+ * "Veranstaltung", not "Sportveranstaltung": a series may be a Kulturwoche. "Derzeit", not
+ * "noch", because a series can be closed after having been open.
  */
-export const REGISTRATION_NOT_OPEN_HINT = "Es ist noch keine Sportveranstaltung freigeschalten.";
+export const REGISTRATION_NOT_OPEN_HINT = "Derzeit ist keine Veranstaltung freigeschaltet.";
+
+/**
+ * The class a registration carries. It is never an answer: it comes from the link the student
+ * joined through (US-23), and the one way it changes afterwards is another link (Q20) — so an
+ * invitation in hand wins over what is stored rather than being ignored as already settled.
+ */
+export function classFrom(invitedClass: string | null, storedClass: string | null): string | null {
+  return invitedClass ?? storedClass;
+}
 
 /**
  * Shown when an answer names something the event series stopped offering while the form was
@@ -37,7 +51,6 @@ export const EMPTY_REGISTRATION: RegistrationInput = {
   // Taking part and borrowing equipment are answers the student gives, not ones the form
   // assumes on their behalf — so both start on "no".
   isAttendingSportsWeek: false,
-  class: "",
   program: null,
   skillLevel: null,
   busPickupPoint: null,
