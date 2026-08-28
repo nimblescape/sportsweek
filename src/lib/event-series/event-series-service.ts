@@ -13,6 +13,7 @@ import {
   LAST_TEMPLATE_HINT,
 } from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
+import { savedReportPath } from "@/lib/report/saved-reports";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
@@ -260,9 +261,22 @@ export async function deleteEventSeries(id: string): Promise<void> {
   // deleting it takes them along — there is nothing hanging off it to clean up separately.
   // The lists the series maintained, its events among them, are fields of the document itself
   // and go with it (US-21).
-  const operations: BatchOperation[] = registrationsSnapshot.docs.map(
-    (record) => (batch) => batch.delete(record.ref),
-  );
+  //
+  // The other two are named rather than implied. Firestore deletes no subcollection with its
+  // parent, so the saved reports have to be asked for; and a token names its series by a field
+  // rather than by its path, since a link carries the token and nothing else (US-23) — so a link
+  // left behind would go on resolving to a series that is not there.
+  const savedReportsSnapshot = await adminDb.collection(savedReportPath(id)).get();
+  const invitationsSnapshot = await adminDb
+    .collection(COLLECTIONS.invitations)
+    .where("eventSeriesId", "==", id)
+    .get();
+
+  const operations: BatchOperation[] = [
+    ...registrationsSnapshot.docs,
+    ...savedReportsSnapshot.docs,
+    ...invitationsSnapshot.docs,
+  ].map((doomed) => (batch) => batch.delete(doomed.ref));
   await commitInChunks(operations);
 
   await reference.delete();

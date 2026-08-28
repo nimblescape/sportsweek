@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
 import { storedEventSeries } from "@/test/event-series";
 import { registrationPath } from "@/lib/registration/registration";
+import { savedReportPath } from "@/lib/report/saved-reports";
 
 const firestore = new FakeFirestore();
 
@@ -303,16 +304,46 @@ describe("deleteEventSeries", () => {
     expect(firestore.count(registrationPath("s1"))).toBe(0);
   });
 
+  /**
+   * A token names its series by a field, so nothing about the series' own removal reaches it.
+   * Left behind it resolves to a series that is not there, which is a link that looks live.
+   */
+  it("deletes every invitation of the event series", async () => {
+    seedEventSeries("s1", { isArchived: true });
+    firestore.seed("invitations", "tok1", { eventSeriesId: "s1", class: "5AHIF" });
+    firestore.seed("invitations", "tok2", { eventSeriesId: "s1", class: "5BHIF" });
+
+    await deleteEventSeries("s1");
+
+    expect(firestore.count("invitations")).toBe(0);
+  });
+
+  /** Firestore deletes no subcollection with its parent, so the reports have to be taken too. */
+  it("deletes every saved report of the event series", async () => {
+    seedEventSeries("s1", { isArchived: true });
+    firestore.seed(savedReportPath("s1"), "r1", { name: "5AHIF" });
+
+    await deleteEventSeries("s1");
+
+    expect(firestore.count(savedReportPath("s1"))).toBe(0);
+  });
+
   it("leaves documents of other event series untouched", async () => {
     seedEventSeries("s1", { isArchived: true, events: ["Montafon"] });
     seedEventSeries("s2", { events: ["Behalten"] });
     firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
     firestore.seed(registrationPath("s2"), "keep", { studentUpn: "u2" });
+    firestore.seed("invitations", "tok1", { eventSeriesId: "s1", class: "5AHIF" });
+    firestore.seed("invitations", "keep", { eventSeriesId: "s2", class: "5AHIF" });
+    firestore.seed(savedReportPath("s1"), "r1", { name: "5AHIF" });
+    firestore.seed(savedReportPath("s2"), "keep", { name: "5AHIF" });
 
     await deleteEventSeries("s1");
 
     expect(firestore.get("eventSeries", "s2")).toMatchObject({ events: ["Behalten"] });
     expect(Object.keys(firestore.docs(registrationPath("s2")))).toEqual(["keep"]);
+    expect(Object.keys(firestore.docs("invitations"))).toEqual(["keep"]);
+    expect(Object.keys(firestore.docs(savedReportPath("s2")))).toEqual(["keep"]);
   });
 
   it("chunks the cascade into batches no larger than the Firestore limit", async () => {
