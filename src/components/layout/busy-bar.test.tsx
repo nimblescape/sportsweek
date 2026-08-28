@@ -5,10 +5,10 @@
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { BusyProvider, useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
-import { HeaderSpinner } from "./header-spinner";
+import { BusyBar } from "./busy-bar";
 
 /** A promise plus the handle to settle it, so a test can hold a write open. */
 function deferred() {
@@ -19,7 +19,12 @@ function deferred() {
   return { promise, resolve };
 }
 
-const write = deferred();
+// Its own write per test: one left resolved by the test before would never be in flight here.
+let write = deferred();
+
+beforeEach(() => {
+  write = deferred();
+});
 
 function Writer() {
   const { run } = useRowAction();
@@ -30,7 +35,7 @@ function Writer() {
 function renderShell() {
   render(
     <BusyProvider>
-      <HeaderSpinner />
+      <BusyBar />
       <Writer />
     </BusyProvider>,
   );
@@ -38,7 +43,7 @@ function renderShell() {
 
 const spinner = () => screen.queryByRole("status", { name: "Wird gespeichert" });
 
-describe("HeaderSpinner", () => {
+describe("BusyBar", () => {
   it("keeps out of the way while nothing is being written", () => {
     renderShell();
 
@@ -73,7 +78,7 @@ describe("HeaderSpinner", () => {
 
     const { rerender } = render(
       <BusyProvider>
-        <HeaderSpinner />
+        <BusyBar />
         <Loading loading />
       </BusyProvider>,
     );
@@ -82,11 +87,45 @@ describe("HeaderSpinner", () => {
 
     rerender(
       <BusyProvider>
-        <HeaderSpinner />
+        <BusyBar />
         <Loading loading={false} />
       </BusyProvider>,
     );
 
     await waitFor(() => expect(spinner()).not.toBeInTheDocument());
+  });
+});
+
+/**
+ * It sits on the line between the header and the content, which is space of its own: centred in
+ * the header it was drawn on top of the event series tags and could not be read at all (US-20).
+ */
+describe("BusyBar — where it reports from", () => {
+  async function busyShell() {
+    renderShell();
+    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+    await waitFor(() => expect(spinner()).toBeInTheDocument());
+    return spinner()!;
+  }
+
+  it("reports as a bar rather than an icon in the header's middle", async () => {
+    const bar = await busyShell();
+
+    expect(bar.querySelector("svg")).toBeNull();
+  });
+
+  it("spans the width and sits on the header's own edge", async () => {
+    const bar = await busyShell();
+
+    expect(bar.className).toContain("inset-x-0");
+    expect(bar.className).toContain("absolute");
+    expect(bar.className).not.toContain("justify-center");
+  });
+
+  /** A bar drawn over the header would take the presses meant for what is under it. */
+  it("takes no pointer events, being decoration over a sticky header", async () => {
+    const bar = await busyShell();
+
+    expect(bar.className).toContain("pointer-events-none");
   });
 });

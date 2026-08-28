@@ -5,7 +5,7 @@
  */
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { classOverview, skillColumns } from "@/lib/assignment/statistics";
 import { filterGroups } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
@@ -48,6 +48,7 @@ function setup(students: RosterStudent[] = []) {
       skillLevels={SKILL_LEVELS}
       columns={COLUMNS}
       filterGroups={FILTERS}
+      invitations={null}
     />,
   );
 }
@@ -241,6 +242,7 @@ describe("ClassCards — a dimension with no list", () => {
         skillLevels={skillLevels}
         columns={columns}
         filterGroups={FILTERS}
+        invitations={null}
       />,
     );
   }
@@ -276,5 +278,98 @@ describe("ClassCards — a dimension with no list", () => {
     setupWith(PROGRAMS, SKILL_LEVELS);
 
     expect(card("5AHIF").getAllByRole("table")).toHaveLength(2);
+  });
+});
+
+/**
+ * Each class card hands out that class's link (US-23, US-29): a teacher setting registration up
+ * reads down the same list of classes they are about to invite.
+ */
+describe("ClassCards — the invitation controls", () => {
+  const writeText = vi.fn();
+  const invitations = {
+    tokenFor: vi.fn(() => "tok" as string | null),
+    linkFor: vi.fn(async () => "tok"),
+    regenerate: vi.fn(async () => "fresh"),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    invitations.tokenFor.mockReturnValue("tok");
+    invitations.linkFor.mockResolvedValue("tok");
+    invitations.regenerate.mockResolvedValue("fresh");
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+  });
+
+  function setupWith(controls: unknown = invitations) {
+    render(
+      <ClassCards
+        rows={classOverview([], CLASSES, COLUMNS)}
+        programs={PROGRAMS}
+        skillLevels={SKILL_LEVELS}
+        columns={COLUMNS}
+        filterGroups={FILTERS}
+        invitations={controls as never}
+      />,
+    );
+  }
+
+  it("copies that class's link, and only that class's", async () => {
+    setupWith();
+
+    await userEvent.click(card("5AHIF").getByRole("button", { name: "Link für 5AHIF kopieren" }));
+
+    expect(invitations.linkFor).toHaveBeenCalledWith("5AHIF");
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/join/tok`);
+  });
+
+  /** Generating the first link opens the series, so the control is offered before one exists. */
+  it("offers the copy control to a class that has no link yet", () => {
+    invitations.tokenFor.mockReturnValue(null);
+    setupWith();
+
+    expect(
+      card("5AHIF").getByRole("button", { name: "Link für 5AHIF kopieren" }),
+    ).toBeInTheDocument();
+  });
+
+  it("regenerates that class's link, which invalidates only its own", async () => {
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: "Link für 5AHIF neu erstellen" }),
+    );
+
+    expect(invitations.regenerate).toHaveBeenCalledWith("5AHIF");
+    expect(invitations.regenerate).not.toHaveBeenCalledWith("5BHIF");
+  });
+
+  /** Regenerating a link nobody was given evicts nobody, but it is still not worth offering. */
+  it("offers no regenerate control to a class that has no link yet", () => {
+    invitations.tokenFor.mockReturnValue(null);
+    setupWith();
+
+    expect(
+      card("5AHIF").queryByRole("button", { name: "Link für 5AHIF neu erstellen" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says what the server said when a link cannot be handed out", async () => {
+    invitations.linkFor.mockRejectedValue(new Error("nope"));
+    setupWith();
+
+    await userEvent.click(card("5AHIF").getByRole("button", { name: "Link für 5AHIF kopieren" }));
+
+    expect(await card("5AHIF").findByRole("alert")).toBeInTheDocument();
+  });
+
+  /** A series that can never be opened has no link to hand out either (US-19, US-22). */
+  it("offers no invitation controls at all where the series cannot be opened", () => {
+    setupWith(null);
+
+    expect(card("5AHIF").queryByRole("button", { name: /Link f/ })).not.toBeInTheDocument();
   });
 });

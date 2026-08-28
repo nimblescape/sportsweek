@@ -6,7 +6,7 @@
 import type { ReactNode } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { BusyProvider } from "@/lib/api/busy";
-import { HeaderSpinner } from "@/components/layout/header-spinner";
+import { BusyBar } from "@/components/layout/busy-bar";
 
 /** Header row shared by the teacher dashboard (US-14) and the student view (US-15). */
 export function AppShell({ children, scope }: { children: ReactNode; scope?: ReactNode }) {
@@ -18,7 +18,7 @@ export function AppShell({ children, scope }: { children: ReactNode; scope?: Rea
           <span className="font-heading text-xl font-semibold tracking-tight">Sportsweek</span>
           {/* The scope sits immediately after the title, because it says what every page is about. */}
           {scope}
-          <HeaderSpinner />
+          <BusyBar />
           <SignOutButton />
         </header>
         <main className="flex flex-1 flex-col">{children}</main>

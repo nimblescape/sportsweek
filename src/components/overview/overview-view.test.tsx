@@ -15,8 +15,12 @@ const useRoster = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
 const apiRequest = vi.fn();
+const useInvitations = vi.fn();
 
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
+vi.mock("@/lib/invitations/use-invitations", () => ({
+  useInvitations: (id: string) => useInvitations(id),
+}));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (key: string) => useMasterData(key),
@@ -62,6 +66,13 @@ const listOf = (...names: string[]) => ({ items: names, loading: false, error: n
 beforeEach(() => {
   vi.clearAllMocks();
   apiRequest.mockResolvedValue(undefined);
+  useInvitations.mockReturnValue({
+    tokenFor: () => "tok",
+    linkFor: vi.fn(async () => "tok"),
+    regenerate: vi.fn(async () => "fresh"),
+    loading: false,
+    error: null,
+  });
   useEventSeries.mockReturnValue({ eventSeries: [eventSeries], loading: false, error: null });
   useRoster.mockReturnValue({
     students: [student("Muster"), student("Cerny", { isAttending: false })],
@@ -202,5 +213,57 @@ describe("OverviewView — the registration tag", () => {
     render(<OverviewView />);
 
     expect(screen.queryByRole("button", { name: /Anmeldung/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("OverviewView — handing out links", () => {
+  it("gives each class card the series' own links", async () => {
+    render(<OverviewView />);
+
+    expect(useInvitations).toHaveBeenCalledWith("s1");
+    expect(
+      within(screen.getByRole("group", { name: "5AHIF" })).getByRole("button", {
+        name: "Link für 5AHIF kopieren",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  /** A series that can never be opened has no link to hand out either (US-19, US-22). */
+  it("offers no links for a template", () => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, isTemplate: true, isOpenToStudents: false }],
+      loading: false,
+      error: null,
+    });
+
+    render(<OverviewView />);
+
+    expect(screen.queryByRole("button", { name: /Link für/ })).not.toBeInTheDocument();
+  });
+
+  it("offers no links for an archived series", () => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, isArchived: true, isOpenToStudents: false }],
+      loading: false,
+      error: null,
+    });
+
+    render(<OverviewView />);
+
+    expect(screen.queryByRole("button", { name: /Link für/ })).not.toBeInTheDocument();
+  });
+
+  it("reports a refused read of the links rather than showing none", () => {
+    useInvitations.mockReturnValue({
+      tokenFor: () => null,
+      linkFor: vi.fn(),
+      regenerate: vi.fn(),
+      loading: false,
+      error: "Nicht erlaubt.",
+    });
+
+    render(<OverviewView />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Nicht erlaubt.");
   });
 });

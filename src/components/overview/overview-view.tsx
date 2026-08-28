@@ -16,6 +16,7 @@ import {
 } from "@/lib/event-series/event-series-state";
 import { PageHeading } from "@/components/layout/page-heading";
 import { Tag } from "@/components/ui/tag";
+import { useInvitations } from "@/lib/invitations/use-invitations";
 import { ClassCards } from "./class-cards";
 
 /**
@@ -28,6 +29,7 @@ export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
   const { eventSeries, loading, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
   const [actionError, setActionError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const invitations = useInvitations(eventSeriesId);
 
   // Answered by the one spinner in the header, so this view places none of its own.
   useBusyWhile(loading || saving);
@@ -74,9 +76,9 @@ export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
         Übersicht
       </PageHeading>
 
-      {(error ?? actionError) !== null && (
+      {(error ?? actionError ?? invitations.error) !== null && (
         <p role="alert" className="text-destructive text-sm">
-          {error ?? actionError}
+          {error ?? actionError ?? invitations.error}
         </p>
       )}
 
@@ -91,6 +93,7 @@ export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
           skillLevels={skillLevelNames}
           columns={columns}
           filterGroups={filterGroups}
+          invitations={openable ? invitations : null}
         />
       )}
     </div>

@@ -6,9 +6,13 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Copy, RefreshCw } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Tooltip } from "@/components/ui/tooltip";
+import { ApiRequestError } from "@/lib/api/client";
+import { invitationLink } from "@/lib/invitations/invitation-link";
 import { classFigures, type ClassGroup, type SkillColumn } from "@/lib/assignment/statistics";
 import {
   EMPTY_FILTER,
@@ -26,6 +30,13 @@ import { SkillMatrix } from "@/components/assignment/skill-matrix";
 const ATTENDING_LABEL = ATTENDANCE_LABELS.attending;
 const NOT_ATTENDING_LABEL = ATTENDANCE_LABELS.notAttending;
 
+/** What a card may do with its class's link; null where the series can never be opened (US-19). */
+export type InvitationControls = {
+  tokenFor: (className: string) => string | null;
+  linkFor: (className: string) => Promise<string>;
+  regenerate: (className: string) => Promise<string>;
+};
+
 type ClassCardsProps = {
   rows: readonly ClassGroup[];
   programs: readonly string[];
@@ -33,6 +44,7 @@ type ClassCardsProps = {
   /** The columns the rows were counted with, so a filtered recount lines up with them. */
   columns: readonly SkillColumn[];
   filterGroups: readonly FilterGroup[];
+  invitations: InvitationControls | null;
 };
 
 /**
@@ -46,6 +58,7 @@ export function ClassCards({
   skillLevels,
   columns,
   filterGroups,
+  invitations,
 }: ClassCardsProps) {
   // A card is one class already, so offering the class tags would only let it empty itself.
   const groups = filterGroups.filter((group) => group.category !== "class");
@@ -60,6 +73,7 @@ export function ClassCards({
           skillLevels={skillLevels}
           columns={columns}
           filterGroups={groups}
+          invitations={invitations}
         />
       ))}
     </div>
@@ -72,13 +86,26 @@ function ClassCard({
   skillLevels,
   columns,
   filterGroups,
+  invitations,
 }: Omit<ClassCardsProps, "rows"> & { row: ClassGroup }) {
   const [expanded, setExpanded] = useState(true);
   const [filter, setFilter] = useState<StudentFilter>(EMPTY_FILTER);
   const [countFiltered, setCountFiltered] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   const shown = filterStudents(row.students, filter);
   const figures = countFiltered ? classFigures(shown, columns) : row;
+
+  async function handOut(mint: () => Promise<string>) {
+    setLinkError(null);
+    try {
+      await navigator.clipboard.writeText(invitationLink(await mint()));
+    } catch (caught) {
+      setLinkError(
+        caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
+      );
+    }
+  }
 
   return (
     <Card size="sm" role="group" aria-label={row.class}>
@@ -88,6 +115,36 @@ function ClassCard({
         <CardTitle className="flex items-center justify-between gap-3">
           <span>{`${row.class}: ${row.total}`}</span>
           <div className="flex shrink-0 items-center gap-1">
+            {invitations === null ? null : (
+              <>
+                <Tooltip label="Link kopieren">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Link für ${row.class} kopieren`}
+                    onClick={() => handOut(() => invitations.linkFor(row.class))}
+                  >
+                    <Copy aria-hidden />
+                  </Button>
+                </Tooltip>
+
+                {/* Regenerating a link nobody was given undoes nothing, so it is offered only
+                    once there is a link to invalidate (US-23). */}
+                {invitations.tokenFor(row.class) === null ? null : (
+                  <Tooltip label="Link neu erstellen">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Link für ${row.class} neu erstellen`}
+                      onClick={() => handOut(() => invitations.regenerate(row.class))}
+                    >
+                      <RefreshCw aria-hidden />
+                    </Button>
+                  </Tooltip>
+                )}
+              </>
+            )}
+
             <button
               type="button"
               aria-label={`Details zu ${row.class}`}
@@ -102,6 +159,12 @@ function ClassCard({
             </button>
           </div>
         </CardTitle>
+
+        {linkError !== null && (
+          <p role="alert" className="text-destructive text-sm">
+            {linkError}
+          </p>
+        )}
 
         {expanded && (
           <div className={AREAS}>
