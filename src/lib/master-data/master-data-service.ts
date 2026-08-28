@@ -9,7 +9,6 @@ import { adminDb } from "@/lib/firebase/admin";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
-import { NO_ACTIVE_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import {
@@ -125,27 +124,17 @@ function duplicate(name: string): ServiceError {
 /** What a list edit is handed so its guard can run inside the write's own transaction. */
 type EditContext = { transaction: Transaction; eventSeriesId: string };
 
-/**
- * The event series the master data views act on, for the one caller that only reads: the in-use
- * report, which needs the items to key its answer by.
- */
-async function readActiveEventSeries(): Promise<EventSeries> {
-  const found = await adminDb
-    .collection(COLLECTIONS.eventSeries)
-    .where("isActive", "==", true)
-    .limit(1)
-    .get();
+function eventSeriesDoc(eventSeriesId: string) {
+  return adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId);
+}
 
-  const stored = found.docs[0];
-  if (stored === undefined) {
-    throw new ServiceError(ErrorCode.Conflict, NO_ACTIVE_EVENT_SERIES_HINT);
-  }
-  return eventSeriesSchema.parse({ id: stored.id, ...stored.data() });
+function missing(): ServiceError {
+  return new ServiceError(ErrorCode.NotFound, "Diese Eventreihe gibt es nicht.");
 }
 
 /**
- * Everything one list edit does, in a single transaction: resolve the event series, apply the
- * change to the list as it actually stands, and write it.
+ * Everything one list edit does, in a single transaction: read the event series the caller named,
+ * apply the change to the list as it actually stands, and write it.
  *
  * `change` is handed the transaction because the in-use guard has to run inside it. Asked
  * beforehand, its answer is stale by the time the write lands — a student choosing the value
@@ -157,43 +146,42 @@ async function readActiveEventSeries(): Promise<EventSeries> {
  * as it stands or fails, rather than overwriting one it never saw (US-21).
  */
 async function editList(
+  eventSeriesId: string,
   category: MasterDataCategory,
   change: (items: MasterDataItem[], context: EditContext) => Promise<MasterDataItem[]>,
 ): Promise<void> {
   await adminDb.runTransaction(async (transaction) => {
-    // Until the header selection arrives there is exactly one candidate — the active series
-    // (US-4) — so no caller names one, and none can point at a series it was never shown.
-    const found = await transaction.get(
-      adminDb.collection(COLLECTIONS.eventSeries).where("isActive", "==", true).limit(1),
-    );
-
-    const stored = found.docs[0];
-    if (stored === undefined) {
-      throw new ServiceError(ErrorCode.Conflict, NO_ACTIVE_EVENT_SERIES_HINT);
-    }
+    const reference = eventSeriesDoc(eventSeriesId);
+    const stored = await transaction.get(reference);
+    if (!stored.exists) throw missing();
 
     const series = eventSeriesSchema.parse({ id: stored.id, ...stored.data() });
     const context = { transaction, eventSeriesId: series.id };
     const next = storedList(category, await change(itemsOf(series, category), context));
 
-    transaction.update(stored.ref, { [category.field]: next });
+    transaction.update(reference, { [category.field]: next });
   });
 }
 
 /**
- * One list of the active event series, for a caller that has to answer a question about it
- * server-side — the in-use report is the only one, and it needs the items to key its answer by.
+ * One list of one event series, for a caller that has to answer a question about it server-side —
+ * the in-use report is the only one, and it needs the items to key its answer by.
  */
 export async function readMasterDataItems(
+  eventSeriesId: string,
   key: MasterDataCategoryKey,
 ): Promise<{ eventSeriesId: string; items: MasterDataItem[] }> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
-  const series = await readActiveEventSeries();
+  const stored = await eventSeriesDoc(eventSeriesId).get();
+  if (!stored.exists) throw missing();
+
+  const series = eventSeriesSchema.parse({ id: stored.id, ...stored.data() });
 
   return { eventSeriesId: series.id, items: itemsOf(series, category) };
 }
 
 export async function createMasterDataItem(
+  eventSeriesId: string,
   key: MasterDataCategoryKey,
   input: { name: string; requiredEquipment?: readonly string[] },
 ): Promise<MasterDataItem> {
@@ -209,7 +197,7 @@ export async function createMasterDataItem(
 
   // Adding strands nothing, so it needs no guard: a value nobody could have chosen yet cannot
   // be one a registration holds. A new item goes to the end of the order (see Ordering).
-  await editList(category, async (items) => {
+  await editList(eventSeriesId, category, async (items) => {
     if (indexOf(items, name) !== -1) throw duplicate(name);
     return [...items, item];
   });
@@ -219,12 +207,13 @@ export async function createMasterDataItem(
 
 /** Ordering touches no stored value, so it too is free of the guard (see Ordering). */
 export async function reorderMasterDataItems(
+  eventSeriesId: string,
   key: MasterDataCategoryKey,
   orderedNames: readonly string[],
 ): Promise<void> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
 
-  await editList(category, async (items) => {
+  await editList(eventSeriesId, category, async (items) => {
     // A permutation and nothing else: an order naming an item that has since gone, or leaving one
     // out, would silently drop it — so it is refused and the list is left as it stands.
     if (orderedNames.length !== items.length) {
@@ -244,6 +233,7 @@ export async function reorderMasterDataItems(
  * rents. The list is rewritten whole, so the check is a set difference.
  */
 export async function updateMasterDataItem(
+  eventSeriesId: string,
   key: MasterDataCategoryKey,
   item: string,
   update: MasterDataUpdate,
@@ -257,7 +247,7 @@ export async function updateMasterDataItem(
 
   let next!: MasterDataItem;
 
-  await editList(category, async (items, { transaction, eventSeriesId }) => {
+  await editList(eventSeriesId, category, async (items, { transaction, eventSeriesId }) => {
     const index = indexOf(items, item);
     if (index === -1) throw new ServiceError(ErrorCode.NotFound, "Diesen Eintrag gibt es nicht.");
     const current = items[index]!;
@@ -298,12 +288,13 @@ export async function updateMasterDataItem(
  * deleting the program must not be a way around that (US-5).
  */
 export async function deleteMasterDataItem(
+  eventSeriesId: string,
   key: MasterDataCategoryKey,
   item: string,
 ): Promise<void> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
 
-  await editList(category, async (items, { transaction, eventSeriesId }) => {
+  await editList(eventSeriesId, category, async (items, { transaction, eventSeriesId }) => {
     const index = indexOf(items, item);
     if (index === -1) throw new ServiceError(ErrorCode.NotFound, "Diesen Eintrag gibt es nicht.");
     const current = items[index]!;

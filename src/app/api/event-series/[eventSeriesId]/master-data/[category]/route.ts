@@ -52,19 +52,19 @@ const patchSchema = z.union([reorderSchema, editItemSchema]);
 
 const deleteItemSchema = z.strictObject({ item: itemSchema });
 
-type Context = { params: Promise<{ category: string }> };
+type Context = { params: Promise<{ eventSeriesId: string; category: string }> };
 
 /** The segment is untrusted input, so it is validated before it is allowed to name a list. */
-async function readCategory({ params }: Context) {
-  const { category } = await params;
-  return masterDataCategorySchema.safeParse(category);
+async function readTarget({ params }: Context) {
+  const { eventSeriesId, category } = await params;
+  return { eventSeriesId, category: masterDataCategorySchema.safeParse(category) };
 }
 
 export async function POST(request: Request, context: Context) {
   const denied = await requireTeacherOrResponse();
   if (denied) return denied;
 
-  const category = await readCategory(context);
+  const { eventSeriesId, category } = await readTarget(context);
   if (!category.success) {
     return errorResponse(ErrorCode.ValidationError, "Diese Kategorie gibt es nicht.");
   }
@@ -73,7 +73,7 @@ export async function POST(request: Request, context: Context) {
   if (!body.ok) return body.response;
 
   try {
-    const item = await createMasterDataItem(category.data, body.data);
+    const item = await createMasterDataItem(eventSeriesId, category.data, body.data);
     return NextResponse.json({ item }, { status: 201 });
   } catch (error) {
     return handleServiceFailure(error, `Creating a ${category.data} item`);
@@ -88,7 +88,7 @@ export async function PATCH(request: Request, context: Context) {
   const denied = await requireTeacherOrResponse();
   if (denied) return denied;
 
-  const category = await readCategory(context);
+  const { eventSeriesId, category } = await readTarget(context);
   if (!category.success) {
     return errorResponse(ErrorCode.ValidationError, "Diese Kategorie gibt es nicht.");
   }
@@ -98,12 +98,14 @@ export async function PATCH(request: Request, context: Context) {
 
   try {
     if ("order" in body.data) {
-      await reorderMasterDataItems(category.data, body.data.order);
+      await reorderMasterDataItems(eventSeriesId, category.data, body.data.order);
       return new NextResponse(null, { status: 204 });
     }
 
     const { item, ...update } = body.data;
-    return NextResponse.json({ item: await updateMasterDataItem(category.data, item, update) });
+    return NextResponse.json({
+      item: await updateMasterDataItem(eventSeriesId, category.data, item, update),
+    });
   } catch (error) {
     return handleServiceFailure(error, `Updating ${category.data}`);
   }
@@ -113,7 +115,7 @@ export async function DELETE(request: Request, context: Context) {
   const denied = await requireTeacherOrResponse();
   if (denied) return denied;
 
-  const category = await readCategory(context);
+  const { eventSeriesId, category } = await readTarget(context);
   if (!category.success) {
     return errorResponse(ErrorCode.ValidationError, "Diese Kategorie gibt es nicht.");
   }
@@ -122,7 +124,7 @@ export async function DELETE(request: Request, context: Context) {
   if (!body.ok) return body.response;
 
   try {
-    await deleteMasterDataItem(category.data, body.data.item);
+    await deleteMasterDataItem(eventSeriesId, category.data, body.data.item);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return handleServiceFailure(error, `Deleting a ${category.data} item`);
@@ -138,13 +140,13 @@ export async function GET(_request: Request, context: Context) {
   const denied = await requireTeacherOrResponse();
   if (denied) return denied;
 
-  const category = await readCategory(context);
+  const { eventSeriesId: named, category } = await readTarget(context);
   if (!category.success) {
     return errorResponse(ErrorCode.ValidationError, "Diese Kategorie gibt es nicht.");
   }
 
   try {
-    const { eventSeriesId, items } = await readMasterDataItems(category.data);
+    const { eventSeriesId, items } = await readMasterDataItems(named, category.data);
     return NextResponse.json(await usageReport(eventSeriesId, categoryOf(category.data), items));
   } catch (error) {
     return handleServiceFailure(error, `Reading ${category.data} usage`);

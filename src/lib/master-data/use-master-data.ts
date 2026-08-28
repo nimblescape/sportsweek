@@ -76,7 +76,7 @@ const NOTHING_BLOCKED: UsageReport = {
  * rather than a subscription. Fetching once is enough: it only moves when a student edits their
  * registration, which cannot happen from this view.
  */
-export function useUsageReport(key: MasterDataCategoryKey): UsageReport {
+export function useUsageReport(key: MasterDataCategoryKey, eventSeriesId: string): UsageReport {
   const [report, setReport] = useState<UsageReport>(CHECKING);
 
   useEffect(() => {
@@ -84,7 +84,9 @@ export function useUsageReport(key: MasterDataCategoryKey): UsageReport {
 
     async function load() {
       try {
-        const response = await fetch(`/api/master-data/${key}`);
+        const response = await fetch(
+          `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/${key}`,
+        );
         const body = response.ok ? await response.json() : null;
         if (!active) return;
 
@@ -108,7 +110,7 @@ export function useUsageReport(key: MasterDataCategoryKey): UsageReport {
     return () => {
       active = false;
     };
-  }, [key]);
+  }, [key, eventSeriesId]);
 
   return report;
 }

@@ -172,18 +172,20 @@ describe("useUsageReport", () => {
       );
   }
 
-  it("asks the handler for the category it was given", async () => {
+  it("asks the handler for the category it was given, beneath its event series", async () => {
     const fetchMock = stubFetch(respond({ blockedNames: [], blockedEquipment: {} }));
 
-    renderHook(() => useUsageReport("food-options"));
+    renderHook(() => useUsageReport("food-options", "s1"));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/master-data/food-options"));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/event-series/s1/master-data/food-options"),
+    );
   });
 
   it("reports itself unanswered until the handler replies, so nothing is offered and taken back", () => {
     stubFetch(respond({ blockedNames: [], blockedEquipment: {} }));
 
-    const { result } = renderHook(() => useUsageReport("classes"));
+    const { result } = renderHook(() => useUsageReport("classes", "s1"));
 
     expect(result.current.loading).toBe(true);
   });
@@ -191,7 +193,7 @@ describe("useUsageReport", () => {
   it("keeps what is in use apart from the entries an item's own list holds", async () => {
     stubFetch(respond({ blockedNames: ["Ski"], blockedEquipment: { Snowboard: ["Helm"] } }));
 
-    const { result } = renderHook(() => useUsageReport("programs"));
+    const { result } = renderHook(() => useUsageReport("programs", "s1"));
 
     await waitFor(() =>
       expect(result.current).toEqual({
@@ -205,7 +207,7 @@ describe("useUsageReport", () => {
   it("blocks nothing when the handler refuses, since the server re-checks every write", async () => {
     stubFetch(() => Promise.resolve(new Response(null, { status: 403 })));
 
-    const { result } = renderHook(() => useUsageReport("classes"));
+    const { result } = renderHook(() => useUsageReport("classes", "s1"));
 
     await waitFor(() => expect(result.current).toEqual(nothingBlocked));
   });
@@ -214,7 +216,7 @@ describe("useUsageReport", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     stubFetch(() => Promise.reject(new Error("offline")));
 
-    const { result } = renderHook(() => useUsageReport("classes"));
+    const { result } = renderHook(() => useUsageReport("classes", "s1"));
 
     await waitFor(() => expect(result.current).toEqual(nothingBlocked));
   });

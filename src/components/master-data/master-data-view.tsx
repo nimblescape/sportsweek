@@ -36,7 +36,9 @@ export function MasterDataView({
 }: MasterDataViewProps) {
   const category = categoryOf(key);
   const { items, loading, error } = useMasterData(key, eventSeriesId);
-  const report = useUsageReport(key);
+  const report = useUsageReport(key, eventSeriesId);
+  // Every list belongs to one event series (US-21), so the write names the one it edits.
+  const endpoint = `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/${key}`;
 
   return (
     <CrudList
@@ -53,20 +55,20 @@ export function MasterDataView({
       renderRowAction={renderRowAction}
       onSubmit={(name, item) =>
         item === null
-          ? apiRequest(`/api/master-data/${key}`, { method: "POST", body: { name } }).then(() => {})
-          : apiRequest(`/api/master-data/${key}`, {
+          ? apiRequest(endpoint, { method: "POST", body: { name } }).then(() => {})
+          : apiRequest(endpoint, {
               method: "PATCH",
               body: { item: item.name, name },
             }).then(() => {})
       }
       onDelete={(item) =>
-        apiRequest(`/api/master-data/${key}`, {
+        apiRequest(endpoint, {
           method: "DELETE",
           body: { item: item.name },
         }).then(() => {})
       }
       onReorder={(order) =>
-        apiRequest(`/api/master-data/${key}`, { method: "PATCH", body: { order } }).then(() => {})
+        apiRequest(endpoint, { method: "PATCH", body: { order } }).then(() => {})
       }
       deleteNote={(item) => (
         <>

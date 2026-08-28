@@ -38,20 +38,37 @@ export type MasterDataCategory = {
     /** Shown when the list is empty. */
     empty: string;
     /**
-     * What the answer this list supplies is called wherever a student is asked it, a report
-     * prints it or a filter offers it. Usually the singular, but not always: one adds an option
-     * to a "Verpflegungsoption" list and answers a question about "Verpflegung".
+     * What the value this list supplies is called wherever it is shown — asked of a student,
+     * printed in a report, offered as a filter category. Usually the singular, but not always:
+     * one adds an option to a "Verpflegungsoption" list and answers a question about
+     * "Verpflegung". Not every list is asked of anybody: a teacher assigns the event (US-12).
      */
     answer: string;
   };
 };
 
 /**
- * The six teacher-maintained lists, keyed by the URL segment under /app/master-data, in the order
- * the menu shows them. EventSeries are not here: they carry active/archived state of their own and
- * keep their dedicated view.
+ * The seven teacher-maintained lists, keyed by the URL segment under a series' master data, in
+ * the order the menu shows them. The event series itself is not here: it carries archived and
+ * template state of its own and is maintained on the one page that is not scoped to a selection.
+ *
+ * The events lead because they are the series divided into weeks, and everything else describes
+ * the students within it — the order the report fields and the filter categories already follow.
  */
 export const MASTER_DATA_CATEGORIES = {
+  events: {
+    field: "events",
+    // The one list nobody is asked for: a teacher assigns the event (US-12), so this field is
+    // matched only by the in-use guard, which refuses to remove an event somebody is assigned to.
+    usage: { kind: "masterData", field: "event" },
+    labels: {
+      title: "Events",
+      singular: "Event",
+      add: "Neues Event",
+      empty: "Es gibt noch kein Event.",
+      answer: "Event",
+    },
+  },
   classes: {
     field: "classOptions",
     usage: { kind: "masterData", field: "class" },

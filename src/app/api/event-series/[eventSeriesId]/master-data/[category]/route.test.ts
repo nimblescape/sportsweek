@@ -42,8 +42,8 @@ function request(method: string, body: unknown) {
   });
 }
 
-function context(category: string) {
-  return { params: Promise.resolve({ category }) };
+function context(category: string, eventSeriesId = "s1") {
+  return { params: Promise.resolve({ eventSeriesId, category }) };
 }
 
 beforeEach(() => {
@@ -63,13 +63,13 @@ describe("POST /api/master-data/[category]", () => {
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ item: { name: "3AHIT" } });
-    expect(createMasterDataItem).toHaveBeenCalledWith("classes", { name: "3AHIT" });
+    expect(createMasterDataItem).toHaveBeenCalledWith("s1", "classes", { name: "3AHIT" });
   });
 
   it("passes the equipment list through for a program", async () => {
     await POST(request("POST", { name: "Ski", requiredEquipment: ["Helm"] }), context("programs"));
 
-    expect(createMasterDataItem).toHaveBeenCalledWith("programs", {
+    expect(createMasterDataItem).toHaveBeenCalledWith("s1", "programs", {
       name: "Ski",
       requiredEquipment: ["Helm"],
     });
@@ -151,7 +151,7 @@ describe("PATCH /api/master-data/[category] — reordering", () => {
     );
 
     expect(response.status).toBe(204);
-    expect(reorderMasterDataItems).toHaveBeenCalledWith("classes", ["4BHIT", "3AHIT"]);
+    expect(reorderMasterDataItems).toHaveBeenCalledWith("s1", "classes", ["4BHIT", "3AHIT"]);
   });
 
   it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
@@ -208,7 +208,9 @@ describe("PATCH /api/master-data/[category] — editing one item", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ item: { name: "3BHIT" } });
-    expect(updateMasterDataItem).toHaveBeenCalledWith("classes", "3AHIT", { name: "3BHIT" });
+    expect(updateMasterDataItem).toHaveBeenCalledWith("s1", "classes", "3AHIT", {
+      name: "3BHIT",
+    });
   });
 
   it("rewrites a program's equipment without touching its name", async () => {
@@ -217,7 +219,7 @@ describe("PATCH /api/master-data/[category] — editing one item", () => {
       context("programs"),
     );
 
-    expect(updateMasterDataItem).toHaveBeenCalledWith("programs", "Ski", {
+    expect(updateMasterDataItem).toHaveBeenCalledWith("s1", "programs", "Ski", {
       requiredEquipment: ["Helm"],
     });
   });
@@ -276,7 +278,7 @@ describe("DELETE /api/master-data/[category]", () => {
     const response = await DELETE(request("DELETE", { item: "3AHIT" }), context("classes"));
 
     expect(response.status).toBe(204);
-    expect(deleteMasterDataItem).toHaveBeenCalledWith("classes", "3AHIT");
+    expect(deleteMasterDataItem).toHaveBeenCalledWith("s1", "classes", "3AHIT");
   });
 
   it("rejects a request naming no item", async () => {

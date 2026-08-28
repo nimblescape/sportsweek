@@ -121,7 +121,7 @@ describe("MasterDataView — adding", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("POST");
     expect(JSON.parse(String(init.body))).toEqual({ name: "5CHIT" });
   });
@@ -165,7 +165,7 @@ describe("MasterDataView — editing", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(String(init.body))).toEqual({ item: "3AHIT", name: "3BHIT" });
   });
@@ -222,7 +222,7 @@ describe("MasterDataView — deleting", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("DELETE");
     expect(JSON.parse(String(init.body))).toEqual({ item: "3AHIT" });
   });
@@ -340,10 +340,10 @@ describe("MasterDataView — the in-use restriction", () => {
     expect(screen.getByRole("button", { name: "Klasse 4BHIT löschen" })).toBeEnabled();
   });
 
-  it("asks the guard about the category it is showing", () => {
+  it("asks the guard about the category it is showing, for the series the page names", () => {
     renderView();
 
-    expect(useUsageReport).toHaveBeenCalledWith("classes");
+    expect(useUsageReport).toHaveBeenCalledWith("classes", "s1");
   });
 });
 
@@ -481,7 +481,7 @@ describe("MasterDataView — ordering", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(String(init.body))).toEqual({ order: ["4BHIT", "3AHIT"] });
   });

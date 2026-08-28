@@ -15,34 +15,35 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const {
-  createMasterDataItem,
-  deleteMasterDataItem,
-  readMasterDataItems,
-  reorderMasterDataItems,
-  updateMasterDataItem,
-} = await import("./master-data-service");
+const service = await import("./master-data-service");
 const { ServiceError } = await import("@/lib/service-error");
 const { IN_USE_HINT } = await import("./categories");
 const { MAX_LIST_ITEMS } = await import("@/lib/schemas/master-data");
 
 /** The one event series every write acts on, since the lists belong to a series (US-21). */
-const ACTIVE = "s1";
+const SERIES = "s1";
+
+// Every write names the series it edits (Q8); bound here so each test states only its own case.
+const createMasterDataItem = service.createMasterDataItem.bind(null, SERIES);
+const deleteMasterDataItem = service.deleteMasterDataItem.bind(null, SERIES);
+const readMasterDataItems = service.readMasterDataItems.bind(null, SERIES);
+const reorderMasterDataItems = service.reorderMasterDataItems.bind(null, SERIES);
+const updateMasterDataItem = service.updateMasterDataItem.bind(null, SERIES);
 
 beforeEach(() => firestore.reset());
 afterEach(() => vi.restoreAllMocks());
 
 function seedActiveEventSeries(lists: Partial<Omit<EventSeries, "id" | "nameKey">> = {}) {
-  firestore.seed("eventSeries", ACTIVE, storedEventSeries({ isActive: true, ...lists }));
+  firestore.seed("eventSeries", SERIES, storedEventSeries(lists));
 }
 
 function storedList(field: keyof Omit<EventSeries, "id">) {
-  return firestore.get("eventSeries", ACTIVE)?.[field];
+  return firestore.get("eventSeries", SERIES)?.[field];
 }
 
 /** A registration holds the plain text it selected (US-11), which is what the in-use rule reads. */
 function seedRegistration(id: string, answers: Record<string, unknown>) {
-  firestore.seed(registrationPath(ACTIVE), id, { studentUpn: id, ...answers });
+  firestore.seed(registrationPath(SERIES), id, { studentUpn: id, ...answers });
 }
 
 describe("createMasterDataItem", () => {
@@ -124,11 +125,12 @@ describe("createMasterDataItem", () => {
     expect(storedList("skillLevels")).toEqual(["Profi"]);
   });
 
-  it("refuses to write while no event series is active, since no list is on offer", async () => {
-    firestore.seed("eventSeries", "archived", storedEventSeries({ isArchived: true }));
+  /** The id comes from a URL a teacher may have kept open past the series being deleted. */
+  it("refuses to write to an event series that is not there", async () => {
+    firestore.seed("eventSeries", "somebody-else", storedEventSeries());
 
     await expect(createMasterDataItem("classes", { name: "3AHIT" })).rejects.toMatchObject({
-      code: "CONFLICT",
+      code: "NOT_FOUND",
     });
   });
 
@@ -429,9 +431,14 @@ describe("deleteMasterDataItem", () => {
 describe("the transaction a list edit runs in", () => {
   function recordOrder(): string[] {
     const order: string[] = [];
+    const readDoc = firestore.readDoc.bind(firestore);
     const runQuery = firestore.runQuery.bind(firestore);
     const applyWrite = firestore.applyWrite.bind(firestore);
 
+    vi.spyOn(firestore, "readDoc").mockImplementation((collection, id) => {
+      order.push(`read ${collection}`);
+      return readDoc(collection, id);
+    });
     vi.spyOn(firestore, "runQuery").mockImplementation((collection, filters, limitCount) => {
       order.push(`read ${collection}`);
       return runQuery(collection, filters, limitCount);
@@ -453,7 +460,7 @@ describe("the transaction a list edit runs in", () => {
 
     expect(order).toEqual([
       "read eventSeries",
-      `read ${registrationPath(ACTIVE)}`,
+      `read ${registrationPath(SERIES)}`,
       "write eventSeries",
     ]);
   });
@@ -467,7 +474,7 @@ describe("the transaction a list edit runs in", () => {
 
     expect(order).toEqual([
       "read eventSeries",
-      `read ${registrationPath(ACTIVE)}`,
+      `read ${registrationPath(SERIES)}`,
       "write eventSeries",
     ]);
   });
@@ -504,7 +511,7 @@ describe("readMasterDataItems", () => {
     seedActiveEventSeries({ classOptions: ["A", "B"] });
 
     await expect(readMasterDataItems("classes")).resolves.toEqual({
-      eventSeriesId: ACTIVE,
+      eventSeriesId: SERIES,
       items: [{ name: "A" }, { name: "B" }],
     });
   });

@@ -314,7 +314,7 @@ export function filterGroups(
     groups.push({ category: "attendance", label: "Teilnahme", options: ATTENDANCE_OPTIONS });
   }
   if (events) {
-    pushList("event", "Event", asOptions(events));
+    pushList("event", ANSWER_LABELS.event, asOptions(events));
   }
 
   pushList("class", ANSWER_LABELS.class, asOptions(lists.classes));

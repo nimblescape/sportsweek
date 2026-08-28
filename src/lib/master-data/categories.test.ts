@@ -70,6 +70,7 @@ describe("MASTER_DATA_CATEGORIES", () => {
 describe("ANSWER_LABELS", () => {
   it("names every list's answer, under the field that stores it", () => {
     expect(ANSWER_LABELS).toEqual({
+      event: "Event",
       class: "Klasse",
       program: "Programm",
       skillLevel: "Leistungsstufe",
@@ -98,6 +99,7 @@ describe("masterDataSections", () => {
   it("puts the menu in the order a teacher works through it", () => {
     expect(sections.map((section) => section.label)).toEqual([
       "Eventreihen",
+      "Events",
       "Klassen",
       "Programme",
       "Leistungsstufen",
@@ -118,7 +120,7 @@ describe("masterDataSections", () => {
 
   /** An id is opaque and never typed, but a path segment it corrupted would be silent. */
   it("encodes the event series id it builds the paths from", () => {
-    expect(masterDataSections("a/b")[1].href).toBe("/app/a%2Fb/master-data/classes");
+    expect(masterDataSections("a/b")[1].href).toBe("/app/a%2Fb/master-data/events");
   });
 
   /** With no series selected the six lists have nothing to be about, so only the list itself is offered. */

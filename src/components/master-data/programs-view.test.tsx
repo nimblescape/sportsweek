@@ -175,7 +175,7 @@ describe("ProgramEquipmentView", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("/api/master-data/programs");
+    expect(url).toBe("/api/event-series/s1/master-data/programs");
     expect(init.method).toBe("PATCH");
     expect(bodyOf(fetchMock)).toEqual({
       item: "Ski",

@@ -29,7 +29,7 @@ export function ProgramEquipmentView({
   eventSeriesId: string;
 }) {
   const { program, loading, error } = useProgram(named, eventSeriesId);
-  const report = useUsageReport("programs");
+  const report = useUsageReport("programs", eventSeriesId);
 
   const equipment = program?.requiredEquipment ?? [];
   // An entry has no id of its own, so its name is what identifies it within the program.
@@ -37,10 +37,13 @@ export function ProgramEquipmentView({
   const blockedIds = new Set(report.blockedEquipment[named] ?? []);
 
   async function save(names: string[]) {
-    await apiRequest("/api/master-data/programs", {
-      method: "PATCH",
-      body: { item: named, requiredEquipment: names },
-    });
+    await apiRequest(
+      `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/programs`,
+      {
+        method: "PATCH",
+        body: { item: named, requiredEquipment: names },
+      },
+    );
   }
 
   return (
