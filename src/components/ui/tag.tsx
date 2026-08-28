@@ -143,7 +143,7 @@ export function TagField({ className, ...props }: ComponentProps<typeof Input>) 
     <Input
       disabled={disabled}
       className={cn(
-        "h-7 w-40 rounded-md border-0 bg-transparent px-1.5 shadow-none focus-visible:ring-0 dark:bg-transparent",
+        "h-[calc(var(--control-height)-var(--spacing))] w-40 rounded-md border-0 bg-transparent px-1.5 shadow-none focus-visible:ring-0 dark:bg-transparent",
         className,
       )}
       {...props}

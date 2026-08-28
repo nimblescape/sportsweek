@@ -47,7 +47,7 @@ export function FilterTagList({ label, groups, value, onChange }: FilterTagListP
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             aria-label={`${label}: Name zurücksetzen`}
             onClick={() => onChange({ ...value, name: "" })}
             className="absolute inset-y-0 right-0.5 my-auto"

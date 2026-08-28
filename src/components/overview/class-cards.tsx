@@ -151,7 +151,7 @@ function ClassCard({
                 <Tooltip label={`${INVITATION_LINK_LABEL} kopieren`}>
                   <Button
                     variant="ghost"
-                    size="icon-sm"
+                    size="icon"
                     aria-label={`${INVITATION_LINK_LABEL} für ${row.class} kopieren`}
                     onClick={() => handOut(() => invitations.linkFor(row.class))}
                   >
@@ -162,7 +162,7 @@ function ClassCard({
                 <Tooltip label={`${INVITATION_QR_LABEL} anzeigen`}>
                   <Button
                     variant="ghost"
-                    size="icon-sm"
+                    size="icon"
                     aria-label={`${INVITATION_QR_LABEL} für ${row.class} anzeigen`}
                     onClick={() => withLink(() => invitations.linkFor(row.class), setShownCode)}
                   >
@@ -176,7 +176,7 @@ function ClassCard({
                   <Tooltip label={`${INVITATION_LINK_LABEL} neu erstellen`}>
                     <Button
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon"
                       aria-label={`${INVITATION_LINK_LABEL} für ${row.class} neu erstellen`}
                       onClick={() => setConfirmingRegenerate(true)}
                     >

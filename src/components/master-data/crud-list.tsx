@@ -260,7 +260,7 @@ function ItemList({
                   <span className="inline-flex">
                     <Button
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon"
                       disabled={locked || busy}
                       aria-label={`${singular} ${item.name} bearbeiten`}
                       aria-describedby={locked ? hintId : undefined}
@@ -275,7 +275,7 @@ function ItemList({
                   <span className="inline-flex">
                     <Button
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon"
                       disabled={undeletable || busy}
                       aria-label={`${singular} ${item.name} löschen`}
                       aria-describedby={undeletable ? hintId : undefined}

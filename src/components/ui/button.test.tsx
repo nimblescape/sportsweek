@@ -33,4 +33,13 @@ describe("Button design tokens", () => {
   it.each(VARIANTS)("gives the %s variant pressed feedback", (variant) => {
     expect(buttonVariants({ variant })).toMatch(/active:[\w[\]()/.,-]*(bg-|text-)/);
   });
+
+  /**
+   * One height for everything that can be pressed, and it is not this component's to choose: it
+   * comes from the shared token, so a button, a field and a select cannot disagree about it.
+   */
+  it("takes its height from the shared control token", () => {
+    expect(buttonVariants({ size: "default" })).toContain("h-(--control-height)");
+    expect(buttonVariants({ size: "icon" })).toContain("size-(--control-height)");
+  });
 });

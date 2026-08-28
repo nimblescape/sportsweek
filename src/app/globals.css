@@ -65,6 +65,9 @@
 /* Breakpoints follow the Tailwind defaults: base = mobile, md = tablet, lg = desktop. */
 
 :root {
+  /* The height every control shares — buttons, fields, selects, tags — so a row of them lines up
+     without anyone choosing. A single control may override it; nothing else should have to. */
+  --control-height: calc(var(--spacing) * 8);
   /* The accent colour, at the hue of the HTL logo's slate. */
   --brand: oklch(0.55 0.17 250);
   --brand-foreground: oklch(0.985 0 0);
