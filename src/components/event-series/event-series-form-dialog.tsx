@@ -26,7 +26,6 @@ import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series"
 
 const formSchema = z.object({
   name: eventSeriesSchema.shape.name,
-  isTemplate: z.boolean(),
   sourceId: z.string(),
 });
 type FormValues = z.infer<typeof formSchema>;
@@ -34,13 +33,15 @@ type FormValues = z.infer<typeof formSchema>;
 /** What creating asks for, once all three questions are answered (US-22). */
 export type NewEventSeries = { name: string; isTemplate: boolean; sourceId: string | null };
 
-const KINDS = [
-  { value: false, label: "Eventreihe" },
-  { value: true, label: EVENT_SERIES_STATE_LABELS.template },
-] as const;
-
-const NO_SOURCE = "";
+/**
+ * Not the empty string: base-ui reads that as no value at all and drops the entry, which left
+ * the whole list unreachable. An id is twenty generated characters, so this collides with none.
+ */
+const NO_SOURCE = "__none__";
 const NO_SOURCE_LABEL = "Ohne";
+
+/** What a template made from a series is called until the teacher says otherwise. */
+const templateNameFor = (name: string) => `${name} ${EVENT_SERIES_STATE_LABELS.template}`;
 
 /** In words rather than by colour, which the tag rows have already spent (US-22). */
 function sourceLabel(one: EventSeries): string {
@@ -69,11 +70,15 @@ export function EventSeriesFormDialog({
   onClose,
   onSaved,
 }: EventSeriesFormDialogProps) {
-  const isEdit = eventSeries !== null;
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  // Pressing "save as template" turns an edit into the creation of a template copied from what
+  // was being edited, because the two cannot share a name (US-4).
+  const [templateFrom, setTemplateFrom] = React.useState<EventSeries | null>(null);
   const nameId = React.useId();
   const errorId = React.useId();
   const sourceId = React.useId();
+
+  const isEdit = eventSeries !== null && templateFrom === null;
 
   // No reset effect: the dialog is mounted only while open (and keyed by event series), so every
   // open starts from these defaults.
@@ -81,49 +86,55 @@ export function EventSeriesFormDialog({
     register,
     control,
     handleSubmit,
+    setValue,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: eventSeries?.name ?? "",
-      isTemplate: false,
-      sourceId: NO_SOURCE,
-    },
+    defaultValues: { name: eventSeries?.name ?? "", sourceId: NO_SOURCE },
   });
 
-  const onSubmit = handleSubmit(async (values) => {
-    setSubmitError(null);
-    try {
-      await save(
-        {
-          name: values.name,
-          isTemplate: values.isTemplate,
-          sourceId: values.sourceId === NO_SOURCE ? null : values.sourceId,
-        },
-        eventSeries,
-      );
-      onSaved();
-    } catch (error) {
-      // A duplicate name is a problem with the field, so it is reported there rather than
-      // as a detached alert the teacher has to connect back to the input themselves (US-4).
-      if (error instanceof ApiRequestError && error.code === "CONFLICT") {
-        setError("name", { message: error.message });
-        return;
+  const submitAs = (isTemplate: boolean) =>
+    handleSubmit(async (values) => {
+      setSubmitError(null);
+      try {
+        await save(
+          {
+            name: values.name,
+            isTemplate,
+            sourceId: templateFrom?.id ?? (values.sourceId === NO_SOURCE ? null : values.sourceId),
+          },
+          // A template made from a series is a new one, so it is created rather than edited.
+          templateFrom === null ? eventSeries : null,
+        );
+        onSaved();
+      } catch (error) {
+        // A duplicate name is a problem with the field, so it is reported there rather than
+        // as a detached alert the teacher has to connect back to the input themselves (US-4).
+        if (error instanceof ApiRequestError && error.code === "CONFLICT") {
+          setError("name", { message: error.message });
+          return;
+        }
+        setSubmitError(
+          error instanceof ApiRequestError ? error.message : "Das hat leider nicht geklappt.",
+        );
       }
-      setSubmitError(
-        error instanceof ApiRequestError ? error.message : "Das hat leider nicht geklappt.",
-      );
-    }
-  });
+    });
+
+  function proposeTemplate() {
+    setTemplateFrom(eventSeries);
+    setValue("name", templateNameFor(eventSeries?.name ?? ""));
+  }
+
+  const title = isEdit
+    ? "Eventreihe bearbeiten"
+    : templateFrom === null
+      ? "Neue Eventreihe"
+      : `Neue Vorlage aus „${templateFrom.name}"`;
 
   return (
-    <Dialog
-      open={open}
-      title={isEdit ? "Eventreihe bearbeiten" : "Neue Eventreihe"}
-      onClose={onClose}
-    >
-      <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+    <Dialog open={open} title={title} onClose={onClose}>
+      <form onSubmit={submitAs(templateFrom !== null)} className="flex flex-col gap-4" noValidate>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={nameId}>Name</Label>
           <Input
@@ -140,64 +151,39 @@ export function EventSeriesFormDialog({
           ) : null}
         </div>
 
-        {/* Both are settled at creation and neither settles the other, so renaming asks again for
-            nothing: a copy is no more a template for having come from one (US-22). */}
-        {isEdit ? null : (
-          <>
+        {/* Where the lists come from is asked only of something being made; renaming settles it
+            again for nothing, and a template made from a series already has its source. */}
+        {eventSeries === null ? (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={sourceId}>Einstellungen übernehmen von</Label>
             <Controller
               control={control}
-              name="isTemplate"
+              name="sourceId"
               render={({ field }) => (
-                <div role="group" aria-label="Art" className="flex flex-col gap-1.5">
-                  <span className="text-sm font-medium">Art</span>
-                  <div className="flex items-center gap-4">
-                    {KINDS.map((kind) => (
-                      <label key={kind.label} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="radio"
-                          className="accent-primary size-4"
-                          checked={field.value === kind.value}
-                          onChange={() => field.onChange(kind.value)}
-                        />
-                        {kind.label}
-                      </label>
+                <Select
+                  items={[
+                    { label: NO_SOURCE_LABEL, value: NO_SOURCE },
+                    ...sources.map((one) => ({ label: sourceLabel(one), value: one.id })),
+                  ]}
+                  value={field.value}
+                  onValueChange={(value) => field.onChange(value)}
+                >
+                  <SelectTrigger id={sourceId} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_SOURCE}>{NO_SOURCE_LABEL}</SelectItem>
+                    {sources.map((one) => (
+                      <SelectItem key={one.id} value={one.id}>
+                        {sourceLabel(one)}
+                      </SelectItem>
                     ))}
-                  </div>
-                </div>
+                  </SelectContent>
+                </Select>
               )}
             />
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={sourceId}>Einstellungen übernehmen von</Label>
-              <Controller
-                control={control}
-                name="sourceId"
-                render={({ field }) => (
-                  <Select
-                    items={[
-                      { label: NO_SOURCE_LABEL, value: NO_SOURCE },
-                      ...sources.map((one) => ({ label: sourceLabel(one), value: one.id })),
-                    ]}
-                    value={field.value}
-                    onValueChange={(value) => field.onChange(value)}
-                  >
-                    <SelectTrigger id={sourceId} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NO_SOURCE}>{NO_SOURCE_LABEL}</SelectItem>
-                      {sources.map((one) => (
-                        <SelectItem key={one.id} value={one.id}>
-                          {sourceLabel(one)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-          </>
-        )}
+          </div>
+        ) : null}
 
         {submitError ? (
           <p role="alert" className="text-destructive text-sm">
@@ -205,10 +191,22 @@ export function EventSeriesFormDialog({
           </p>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2">
+        {/* The kind is the button that was pressed, so there is one control per outcome rather
+            than a field to set and a single button to guess from (US-22). */}
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Abbrechen
           </Button>
+          {templateFrom === null ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSubmitting}
+              onClick={isEdit ? proposeTemplate : submitAs(true)}
+            >
+              {isEdit ? "Als Vorlage speichern" : "Als Vorlage anlegen"}
+            </Button>
+          ) : null}
           <Button type="submit" disabled={isSubmitting}>
             {isEdit ? "Speichern" : "Anlegen"}
           </Button>

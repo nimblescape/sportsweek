@@ -62,15 +62,14 @@ describe("EventSeriesFormDialog — creating", () => {
   });
 
   /**
-   * Three questions, one write (US-22). The kind is answered on its own, so a template copied
-   * from a template is as ordinary as a series copied from one.
+   * Three questions, one write (US-22). The kind is the button that was pressed rather than a
+   * field, so a template copied from a template is as ordinary as a series copied from one.
    */
-  it("makes a template when that is the kind chosen", async () => {
+  it("makes a template when that is the button pressed", async () => {
     const { onSubmit } = renderDialog();
 
     await userEvent.type(screen.getByLabelText("Name"), "Wintersportwochen");
-    await userEvent.click(screen.getByRole("radio", { name: "Vorlage" }));
-    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Als Vorlage anlegen" }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
@@ -83,7 +82,6 @@ describe("EventSeriesFormDialog — creating", () => {
   it("starts blank, which is what naming no source means", () => {
     renderDialog({ sources: [eventSeries] });
 
-    expect(screen.getByRole("radio", { name: "Eventreihe" })).toBeChecked();
     expect(screen.getByLabelText("Einstellungen übernehmen von")).toHaveTextContent("Ohne");
   });
 
@@ -196,8 +194,44 @@ describe("EventSeriesFormDialog — editing", () => {
   it("asks neither the kind nor the source of an event series that exists", () => {
     renderDialog({ eventSeries, sources: [eventSeries] });
 
-    expect(screen.queryByRole("group", { name: "Art" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Einstellungen übernehmen von")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Names are unique across series and templates alike (US-4), so a template made from a series
+   * cannot keep its name. It is proposed rather than imposed: the field is the teacher's to
+   * change before anything is written.
+   */
+  it("proposes a name for the template rather than reusing one already taken", async () => {
+    renderDialog({ eventSeries });
+
+    await userEvent.click(screen.getByRole("button", { name: "Als Vorlage speichern" }));
+
+    expect(screen.getByLabelText("Name")).toHaveValue("Winter 2026 Vorlage");
+  });
+
+  it("makes the template from the series it was opened on, once the name is settled", async () => {
+    const { onSubmit } = renderDialog({ eventSeries });
+
+    await userEvent.click(screen.getByRole("button", { name: "Als Vorlage speichern" }));
+    await userEvent.clear(screen.getByLabelText("Name"));
+    await userEvent.type(screen.getByLabelText("Name"), "Wintersportwochen");
+    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        { name: "Wintersportwochen", isTemplate: true, sourceId: "s1" },
+        null,
+      ),
+    );
+  });
+
+  it("saves nothing on the press that proposes the name", async () => {
+    const { onSubmit } = renderDialog({ eventSeries });
+
+    await userEvent.click(screen.getByRole("button", { name: "Als Vorlage speichern" }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("closes without writing when cancelled", async () => {
