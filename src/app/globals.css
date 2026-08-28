@@ -77,7 +77,7 @@
   /* Selected always means white on a fill, so every one of these is dark enough to carry it. */
   --open-foreground: var(--color-white);
   /* The same green said quietly, for a series that is open but not the one being worked in. */
-  --open-subtle: var(--color-green-700);
+  --open-subtle: var(--color-green-500);
   /* A chosen tag standing apart from the rest: a template among series, a report since edited. */
   --neutral: var(--color-gray-700);
   --neutral-foreground: var(--color-white);
@@ -122,7 +122,7 @@
   --brand-foreground: var(--color-white);
   --open: var(--color-green-500);
   --open-foreground: var(--color-white);
-  --open-subtle: var(--color-green-600);
+  --open-subtle: var(--color-green-400);
   --neutral: var(--color-gray-600);
   --neutral-foreground: var(--color-white);
   --background: oklch(0.145 0 0);
