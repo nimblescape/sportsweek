@@ -225,6 +225,27 @@ export async function resolveSelectedEventSeriesId(preferredId?: string): Promis
 }
 
 /**
+ * Everything belonging to one event series that Firestore will not take with the document.
+ * A subcollection outlives its parent, and a token names its series by a field rather than by
+ * its path, since a link carries the token and nothing else (US-23).
+ */
+async function sweepDependants(id: string): Promise<void> {
+  const [registrations, savedReports, invitations] = await Promise.all([
+    adminDb.collection(registrationPath(id)).get(),
+    adminDb.collection(savedReportPath(id)).get(),
+    adminDb.collection(COLLECTIONS.invitations).where("eventSeriesId", "==", id).get(),
+  ]);
+
+  const operations: BatchOperation[] = [
+    ...registrations.docs,
+    ...savedReports.docs,
+    ...invitations.docs,
+  ].map((doomed) => (batch) => batch.delete(doomed.ref));
+
+  await commitInChunks(operations);
+}
+
+/**
  * Firestore has no cascading delete, so removal is explicit (US-4). Dependants go first and
  * the event series itself last: if the run fails midway the event series is still there, so simply calling
  * this again finishes the job. An event series is only ever unremovable while it still holds student
@@ -258,27 +279,16 @@ export async function deleteEventSeries(id: string): Promise<void> {
     );
   }
 
-  // A registration carries its emergency contact and rentals in its own fields, so
-  // deleting it takes them along — there is nothing hanging off it to clean up separately.
-  // The lists the series maintained, its events among them, are fields of the document itself
-  // and go with it (US-21).
-  //
-  // The other two are named rather than implied. Firestore deletes no subcollection with its
-  // parent, so the saved reports have to be asked for; and a token names its series by a field
-  // rather than by its path, since a link carries the token and nothing else (US-23) — so a link
-  // left behind would go on resolving to a series that is not there.
-  const savedReportsSnapshot = await adminDb.collection(savedReportPath(id)).get();
-  const invitationsSnapshot = await adminDb
-    .collection(COLLECTIONS.invitations)
-    .where("eventSeriesId", "==", id)
-    .get();
-
-  const operations: BatchOperation[] = [
-    ...registrationsSnapshot.docs,
-    ...savedReportsSnapshot.docs,
-    ...invitationsSnapshot.docs,
-  ].map((doomed) => (batch) => batch.delete(doomed.ref));
-  await commitInChunks(operations);
+  // A registration carries its emergency contact and rentals in its own fields, so deleting it
+  // takes them along, and the lists the series maintained are fields of the document itself and
+  // go with it (US-21). What sweepDependants exists for is everything Firestore leaves standing.
+  await sweepDependants(id);
 
   await reference.delete();
+
+  // Again, because a write that began before this ran read a series that was still there and so
+  // succeeded. Only now can nothing further be written: every such write reads the series first,
+  // and it is gone. Children first and the series last is what keeps a failed run re-runnable,
+  // and this second pass is what keeps a successful one total.
+  await sweepDependants(id);
 }

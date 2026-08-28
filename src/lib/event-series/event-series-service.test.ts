@@ -328,6 +328,32 @@ describe("deleteEventSeries", () => {
     expect(firestore.count(savedReportPath("s1"))).toBe(0);
   });
 
+  /**
+   * A teacher may save a report right up to the moment the series goes, and that save reads a
+   * series still standing, so it succeeds. Sweeping once before the parent leaves it behind;
+   * sweeping again after, when nothing further can be written, is what makes the delete total.
+   */
+  it("sweeps again after the series is gone, catching what was written while it ran", async () => {
+    seedEventSeries("s1", { isArchived: true });
+    const removeDoc = firestore.deleteDoc.bind(firestore);
+    const spy = vi.spyOn(firestore, "deleteDoc").mockImplementation((path: string, id: string) => {
+      if (path === "eventSeries" && id === "s1") {
+        firestore.seed(savedReportPath("s1"), "late", { name: "Spät" });
+        firestore.seed("invitations", "late", { eventSeriesId: "s1", class: "5AHIF" });
+      }
+      removeDoc(path, id);
+    });
+
+    try {
+      await deleteEventSeries("s1");
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(firestore.count(savedReportPath("s1"))).toBe(0);
+    expect(firestore.count("invitations")).toBe(0);
+  });
+
   it("leaves documents of other event series untouched", async () => {
     seedEventSeries("s1", { isArchived: true, events: ["Montafon"] });
     seedEventSeries("s2", { events: ["Behalten"] });
