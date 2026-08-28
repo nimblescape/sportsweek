@@ -113,6 +113,26 @@ export async function resolveInvitation(token: string): Promise<Invitation | nul
 }
 
 /**
+ * The links a series currently has, one per class that has been invited (US-23, US-29).
+ *
+ * Read with the Admin SDK and answered only to a teacher, which is what "readable by nobody"
+ * means: no access rule hands a token out, because a rule grants a whole document to everyone it
+ * grants it to. A teacher needs them back so that copying a link twice copies the same link —
+ * regenerating is a decision, not a side effect of pressing a button again.
+ */
+export async function invitationsOf(eventSeriesId: string): Promise<Invitation[]> {
+  const snapshot = await adminDb
+    .collection(COLLECTIONS.invitations)
+    .where("eventSeriesId", "==", eventSeriesId)
+    .get();
+
+  return snapshot.docs
+    .map((stored) => invitationSchema.safeParse({ token: stored.id, ...stored.data() }))
+    .filter((parsed) => parsed.success)
+    .map((parsed) => parsed.data);
+}
+
+/**
  * The class a link enrols into, where the link leads somewhere and names this series.
  *
  * A token for another series is treated as no token at all rather than as an error: a student

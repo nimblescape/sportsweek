@@ -55,12 +55,17 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
     expect(updateEventSeries).toHaveBeenCalledWith("s1", { name: "Neuer Name" });
   });
 
-  /** Opening a series to students is the invitation link's doing (US-23), never a flag sent here. */
-  it("rejects a body that tries to open the series to students", async () => {
-    const response = await PATCH(patchRequest({ isOpenToStudents: true }), context);
+  /** Pressing the overview page's tag is the whole of opening and closing registration (US-29). */
+  it("opens the event series to students", async () => {
+    await PATCH(patchRequest({ isOpenToStudents: true }), context);
 
-    expect(response.status).toBe(400);
-    expect(updateEventSeries).not.toHaveBeenCalled();
+    expect(updateEventSeries).toHaveBeenCalledWith("s1", { isOpenToStudents: true });
+  });
+
+  it("closes it again", async () => {
+    await PATCH(patchRequest({ isOpenToStudents: false }), context);
+
+    expect(updateEventSeries).toHaveBeenCalledWith("s1", { isOpenToStudents: false });
   });
 
   it("archives the event series", async () => {

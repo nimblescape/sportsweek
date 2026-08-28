@@ -12,7 +12,7 @@ const firestore = new FakeFirestore();
 
 vi.mock("@/lib/firebase/admin", () => ({ adminDb: firestore }));
 
-const { createInvitation, resolveInvitation } =
+const { createInvitation, invitationsOf, resolveInvitation } =
   await import("@/lib/invitations/invitation-service");
 const { ServiceError } = await import("@/lib/service-error");
 
@@ -148,5 +148,43 @@ describe("resolveInvitation", () => {
     firestore.reset();
 
     await expect(resolveInvitation(token)).resolves.toBeNull();
+  });
+});
+
+describe("invitationsOf", () => {
+  it("answers with the links the series has, one per invited class", async () => {
+    seedSeries();
+    const first = await createInvitation(SERIES, "3aWI");
+    const second = await createInvitation(SERIES, "3bWI");
+
+    const found = await invitationsOf(SERIES);
+
+    expect(found.map((one) => one.token).sort()).toEqual([first.token, second.token].sort());
+  });
+
+  it("answers with nothing for a series nobody has invited into", async () => {
+    seedSeries();
+
+    await expect(invitationsOf(SERIES)).resolves.toEqual([]);
+  });
+
+  /** Holding one link tells its holder nothing about any other, series included (US-23). */
+  it("leaves another series' links out", async () => {
+    seedSeries();
+    firestore.seed("eventSeries", "other", storedEventSeries({ classOptions: ["3aWI"] }));
+    await createInvitation("other", "3aWI");
+
+    await expect(invitationsOf(SERIES)).resolves.toEqual([]);
+  });
+
+  /** Copying a link twice has to copy the same link; regenerating is a separate decision. */
+  it("answers with the one live link after a class's link is regenerated", async () => {
+    seedSeries();
+    await createInvitation(SERIES, "3aWI");
+    const regenerated = await createInvitation(SERIES, "3aWI");
+
+    await expect(invitationsOf(SERIES)).resolves.toEqual([
+      { token: regenerated.token, eventSeriesId: SERIES, class: "3aWI" },
+    ]);
   });
 });

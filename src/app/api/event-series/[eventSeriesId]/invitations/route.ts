@@ -6,12 +6,30 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@/lib/api/handler";
-import { createInvitation } from "@/lib/invitations/invitation-service";
+import { createInvitation, invitationsOf } from "@/lib/invitations/invitation-service";
 import { listItemNameSchema } from "@/lib/schemas/master-data";
 
 const createInvitationSchema = z.strictObject({ class: listItemNameSchema });
 
 type Context = { params: Promise<{ eventSeriesId: string }> };
+
+/**
+ * The links this series already has, so the overview can offer a class the one it was given
+ * rather than mint another (US-29). Teacher-only, and unreachable through the access rules — a
+ * rule grants a whole document to everyone it grants it to, and a token is the enrolment itself.
+ */
+export async function GET(_request: Request, context: Context) {
+  const denied = await requireTeacherOrResponse();
+  if (denied) return denied;
+
+  const { eventSeriesId } = await context.params;
+
+  try {
+    return NextResponse.json({ invitations: await invitationsOf(eventSeriesId) });
+  } catch (error) {
+    return handleServiceFailure(error, `Reading the invitations of ${eventSeriesId}`);
+  }
+}
 
 /**
  * Hands out a class's invitation link, and opens the series to students by doing so (US-19,

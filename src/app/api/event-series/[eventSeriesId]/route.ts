@@ -14,6 +14,7 @@ const updateEventSeriesSchema = z
   .strictObject({
     name: eventSeriesSchema.shape.name.optional(),
     isArchived: z.boolean().optional(),
+    isOpenToStudents: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "Es wurde nichts zum Ändern übergeben.");
 

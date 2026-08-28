@@ -98,6 +98,7 @@ export async function reorderEventSeries(orderedIds: readonly string[]): Promise
 export type EventSeriesUpdate = {
   name?: string;
   isArchived?: boolean;
+  isOpenToStudents?: boolean;
 };
 
 /**
@@ -128,6 +129,25 @@ export async function updateEventSeries(
       throw new ServiceError(ErrorCode.Conflict, ARCHIVED_IS_READ_ONLY_HINT);
     }
 
+    // One rule shape, two reasons (US-19): a template can never take registrations, and an
+    // archived series is read-only and cannot even be selected. Asked against the archive state
+    // this call is leaving behind, so opening and archiving at once is refused rather than
+    // silently resolved in archiving's favour.
+    if (update.isOpenToStudents === true) {
+      if (current.isTemplate) {
+        throw new ServiceError(
+          ErrorCode.Conflict,
+          "Eine Vorlage kann nicht für Anmeldungen freigeschaltet werden.",
+        );
+      }
+      if (isArchived) {
+        throw new ServiceError(
+          ErrorCode.Conflict,
+          "Eine archivierte Eventreihe kann nicht freigeschaltet werden.",
+        );
+      }
+    }
+
     let hasRegistrations = current.hasRegistrations;
     if (wantsArchival) {
       const registrations = await transaction.get(
@@ -148,7 +168,9 @@ export async function updateEventSeries(
 
     // Archiving closes a series to students, and unarchiving deliberately does not reopen it:
     // looking at last year is not letting last year's students back in (US-19).
-    const isOpenToStudents = isArchived ? false : current.isOpenToStudents;
+    const isOpenToStudents = isArchived
+      ? false
+      : (update.isOpenToStudents ?? current.isOpenToStudents);
 
     // `update` rather than `set`: the document also carries the seven maintained lists (US-21),
     // and naming them here only to preserve them would drop the next one somebody adds.

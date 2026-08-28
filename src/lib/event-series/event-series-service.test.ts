@@ -374,3 +374,61 @@ describe("event series names are unique", () => {
     await expect(createEventSeries({ name: "Winter 2026" })).resolves.toBeTruthy();
   });
 });
+
+/**
+ * Pressing the overview page's tag is the whole of opening and closing registration (US-19,
+ * US-29). The invitation link opens a series too, but closing it again needs no new link.
+ */
+describe("updateEventSeries — opening to students", () => {
+  it("opens a series to students", async () => {
+    seedEventSeries("s1");
+
+    await updateEventSeries("s1", { isOpenToStudents: true });
+
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: true });
+  });
+
+  it("closes it again without touching the links it handed out", async () => {
+    seedEventSeries("s1", { isOpenToStudents: true });
+
+    await updateEventSeries("s1", { isOpenToStudents: false });
+
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
+  });
+
+  it("refuses to open a template, which can never take registrations", async () => {
+    seedEventSeries("s1", { isTemplate: true });
+
+    await expect(updateEventSeries("s1", { isOpenToStudents: true })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
+  });
+
+  it("refuses to open an archived series, which cannot even be selected", async () => {
+    seedEventSeries("s1", { isArchived: true });
+
+    await expect(updateEventSeries("s1", { isOpenToStudents: true })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
+  });
+
+  /** Archiving closes, and it wins: the two cannot be argued into disagreeing in one call. */
+  it("refuses to open and archive in the same call", async () => {
+    seedEventSeries("s1");
+    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+
+    await expect(
+      updateEventSeries("s1", { isOpenToStudents: true, isArchived: true }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("leaves the flag alone when only the name changes", async () => {
+    seedEventSeries("s1", { isOpenToStudents: true });
+
+    await updateEventSeries("s1", { name: "Neuer Name" });
+
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: true });
+  });
+});

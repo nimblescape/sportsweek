@@ -7,13 +7,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getUserWithRole = vi.fn();
 const createInvitation = vi.fn();
+const invitationsOf = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({ getUserWithRole: () => getUserWithRole() }));
 vi.mock("@/lib/invitations/invitation-service", () => ({
   createInvitation: (...args: unknown[]) => createInvitation(...args),
+  invitationsOf: (...args: unknown[]) => invitationsOf(...args),
 }));
 
-const { POST } = await import("./route");
+const { GET, POST } = await import("./route");
 const { ServiceError } = await import("@/lib/service-error");
 
 const TEACHER = { uid: "u1", email: "t@htldornbirn.at", role: "teacher" };
@@ -32,6 +34,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   getUserWithRole.mockResolvedValue(TEACHER);
   createInvitation.mockResolvedValue({ token: "tok", eventSeriesId: "s1", class: "3aWI" });
+  invitationsOf.mockResolvedValue([]);
 });
 
 describe("POST /api/event-series/[eventSeriesId]/invitations", () => {
@@ -88,5 +91,48 @@ describe("POST /api/event-series/[eventSeriesId]/invitations", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: { message: "Eine Vorlage geht nicht." },
     });
+  });
+});
+
+describe("GET /api/event-series/[eventSeriesId]/invitations", () => {
+  it("hands the teacher the links the series already has", async () => {
+    invitationsOf.mockResolvedValue([{ token: "tok", eventSeriesId: "s1", class: "3aWI" }]);
+
+    const response = await GET(request({}), context);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      invitations: [{ token: "tok", eventSeriesId: "s1", class: "3aWI" }],
+    });
+    expect(invitationsOf).toHaveBeenCalledWith("s1");
+  });
+
+  /** A token is what enrols somebody, so reading one is enrolling (US-23). */
+  it("refuses a student", async () => {
+    getUserWithRole.mockResolvedValue(STUDENT);
+
+    const response = await GET(request({}), context);
+
+    expect(response.status).toBe(403);
+    expect(invitationsOf).not.toHaveBeenCalled();
+  });
+
+  it("refuses a caller with no session", async () => {
+    getUserWithRole.mockResolvedValue(null);
+
+    const response = await GET(request({}), context);
+
+    expect(response.status).toBe(401);
+    expect(invitationsOf).not.toHaveBeenCalled();
+  });
+
+  it("sanitises an unexpected failure into a 500", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    invitationsOf.mockRejectedValue(new Error("Firestore is down"));
+
+    const response = await GET(request({}), context);
+
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.not.toContain("Firestore is down");
   });
 });
