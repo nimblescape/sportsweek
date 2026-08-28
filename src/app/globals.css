@@ -73,11 +73,11 @@
   --brand-foreground: var(--color-white);
   /* The only other chroma in the palette: a series taking registrations. It earns a hue because
      an open series is the state that must be spotted without reading the tag (US-19). */
-  --open: var(--color-green-700);
+  --open: var(--color-green-600);
   /* Selected always means white on a fill, so every one of these is dark enough to carry it. */
   --open-foreground: var(--color-white);
   /* The same green said quietly, for a series that is open but not the one being worked in. */
-  --open-subtle: var(--color-green-600);
+  --open-subtle: var(--color-green-800);
   /* A chosen tag standing apart from the rest: a template among series, a report since edited. */
   --neutral: var(--color-gray-500);
   --neutral-foreground: var(--color-white);
@@ -120,9 +120,9 @@
      white here too, and a lighter accent could not carry it. */
   --brand: oklch(0.58 0.17 250);
   --brand-foreground: var(--color-white);
-  --open: var(--color-green-600);
+  --open: var(--color-green-500);
   --open-foreground: var(--color-white);
-  --open-subtle: var(--color-green-500);
+  --open-subtle: var(--color-green-700);
   --neutral: var(--color-gray-500);
   --neutral-foreground: var(--color-white);
   --background: oklch(0.145 0 0);

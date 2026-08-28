@@ -45,6 +45,33 @@ export function isMasterDataPath(pathname: string): boolean {
   return selected !== null && pathname.startsWith(`${eventSeriesRoutes(selected).masterData}`);
 }
 
+/** What choosing a section needs to know about a series, and no more. */
+type Selectable = { id: string; isTemplate: boolean; isArchived: boolean };
+
+/**
+ * Which series a section opens on when the teacher moves into it. The selection is kept wherever
+ * the section can be about it — master data can be about a template, an overview, an assignment
+ * and a report cannot (US-22) — and otherwise the section takes the first it can show, in the
+ * teacher's own order.
+ *
+ * Null means the section has nothing to be about, which the caller answers with the series list.
+ */
+export function sectionSelection(
+  eventSeries: readonly Selectable[],
+  wanted: string | null,
+  section: "masterData" | "series",
+): string | null {
+  const live = eventSeries.filter((one) => !one.isArchived);
+  const current = live.find((one) => one.id === wanted) ?? null;
+
+  if (section === "masterData") {
+    return (current ?? live.find((one) => one.isTemplate) ?? live[0])?.id ?? null;
+  }
+
+  if (current !== null && !current.isTemplate) return current.id;
+  return live.find((one) => !one.isTemplate)?.id ?? null;
+}
+
 /**
  * Where pressing a header tag goes. Selecting another series re-scopes the page that is open
  * rather than navigating away from it (US-20) — the teacher asked a different question about the

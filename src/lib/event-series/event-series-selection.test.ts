@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   isMasterDataPath,
   rescopedPath,
+  sectionSelection,
   selectedEventSeriesIdFrom,
 } from "@/lib/event-series/event-series-selection";
 
@@ -104,5 +105,61 @@ describe("rescopedPath", () => {
     expect(rescopedPath("/app/s1/master-data/classes", "t1", true)).toBe(
       "/app/t1/master-data/classes",
     );
+  });
+});
+
+/**
+ * Moving between sections keeps the selection where the section can be about it. Master data can
+ * be about a template; an overview, an assignment and a report cannot (US-22), so leaving master
+ * data with a template selected has to land on something those pages can show.
+ */
+describe("sectionSelection", () => {
+  const live = [
+    { id: "t1", isTemplate: true, isArchived: false },
+    { id: "s1", isTemplate: false, isArchived: false },
+    { id: "s2", isTemplate: false, isArchived: false },
+  ];
+
+  it.each(["masterData", "series"] as const)("keeps the selected series in %s", (section) => {
+    expect(sectionSelection(live, "s2", section)).toBe("s2");
+  });
+
+  it("keeps a selected template in master data, which is what a template has", () => {
+    expect(sectionSelection(live, "t1", "masterData")).toBe("t1");
+  });
+
+  it("leaves a template behind on the way out of master data", () => {
+    expect(sectionSelection(live, "t1", "series")).toBe("s1");
+  });
+
+  it.each([null, "gone", "archived"])(
+    "falls back to the first template in master data when %s is selected",
+    (wanted) => {
+      const withArchived = [...live, { id: "archived", isTemplate: false, isArchived: true }];
+
+      expect(sectionSelection(withArchived, wanted, "masterData")).toBe("t1");
+    },
+  );
+
+  it.each([null, "gone"])(
+    "falls back to the first series outside master data when %s",
+    (wanted) => {
+      expect(sectionSelection(live, wanted, "series")).toBe("s1");
+    },
+  );
+
+  /** Archiving is what takes a series off every screen, this one included (US-19). */
+  it("never selects an archived series, however it was asked for", () => {
+    const archived = [{ id: "old", isTemplate: false, isArchived: true }];
+
+    expect(sectionSelection(archived, "old", "series")).toBeNull();
+    expect(sectionSelection(archived, "old", "masterData")).toBeNull();
+  });
+
+  it("selects nothing outside master data when only templates are left", () => {
+    const templates = [{ id: "t1", isTemplate: true, isArchived: false }];
+
+    expect(sectionSelection(templates, null, "series")).toBeNull();
+    expect(sectionSelection(templates, null, "masterData")).toBe("t1");
   });
 });
