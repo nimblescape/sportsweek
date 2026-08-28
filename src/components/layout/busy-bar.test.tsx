@@ -97,8 +97,9 @@ describe("BusyBar", () => {
 });
 
 /**
- * It sits on the line between the header and the content, which is space of its own: centred in
- * the header it was drawn on top of the event series tags and could not be read at all (US-20).
+ * Centred on the screen rather than in the header, whose middle the event series tags now hold
+ * (US-20). Bars rather than a sweep: most writes are answered before a sweep has crossed once,
+ * so it read as nothing happening at all.
  */
 describe("BusyBar — where it reports from", () => {
   async function busyShell() {
@@ -108,18 +109,30 @@ describe("BusyBar — where it reports from", () => {
     return spinner()!;
   }
 
-  it("reports as a bar rather than an icon in the header's middle", async () => {
+  it("reports with bars, each animated, so a short wait still shows something", async () => {
     const bar = await busyShell();
+    const bars = bar.querySelectorAll("[data-busy-bar]");
 
-    expect(bar.querySelector("svg")).toBeNull();
+    expect(bars.length).toBeGreaterThan(1);
+    for (const one of bars) expect(one.className).toContain("animate-busy-bar");
   });
 
-  it("spans the width and sits on the header's own edge", async () => {
+  /** Out of phase, or they would rise and fall as one block and read as a single bar. */
+  it("starts each bar at a different point in the cycle", async () => {
+    const bar = await busyShell();
+    const delays = [...bar.querySelectorAll<HTMLElement>("[data-busy-bar]")].map(
+      (one) => one.style.animationDelay,
+    );
+
+    expect(new Set(delays).size).toBe(delays.length);
+  });
+
+  it("sits in the middle of the screen, over whatever is there", async () => {
     const bar = await busyShell();
 
-    expect(bar.className).toContain("inset-x-0");
-    expect(bar.className).toContain("absolute");
-    expect(bar.className).not.toContain("justify-center");
+    expect(bar.className).toContain("fixed");
+    expect(bar.className).toContain("justify-center");
+    expect(bar.className).toContain("items-center");
   });
 
   /** A bar drawn over the header would take the presses meant for what is under it. */

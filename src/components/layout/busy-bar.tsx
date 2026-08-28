@@ -7,17 +7,21 @@
 
 import { useBusy } from "@/lib/api/busy";
 
+/** Out of phase, or the bars rise and fall as one block and read as a single bar. */
+const BARS = [0, 0.15, 0.3, 0.45];
+
 /**
- * One indicator for the whole app, on the line between the header and the content (US-14, US-15).
+ * One indicator for the whole app, centred on the screen (US-14, US-15).
  *
- * On the line rather than in the header, because the header's middle is where the event series
- * tags are (US-20) and a spinner centred there was drawn on top of them. The border is space
- * nothing else occupies, so the indicator can never collide with what it is reporting about —
- * and one place always answering "the app is working on it" is easier to learn than an indicator
- * that appears somewhere new each time.
+ * Not in the header: its middle is where the event series tags are (US-20), and an indicator
+ * drawn on top of them cannot be read. Centred on the screen instead, over whatever is there —
+ * a write takes what it is writing out of reach anyway (see BusyRegion), and one place always
+ * answering "the app is working on it" is easier to learn than an indicator that appears
+ * somewhere new each time.
  *
- * A sweep rather than a filling bar: nothing here knows how far along a write is, and a bar that
- * grows would be claiming to.
+ * Bars rather than a bar that travels: most writes are answered before a sweep has crossed even
+ * once, so it looked like nothing was happening. These cycle several times a second, which is
+ * what makes a wait too short to measure still visible.
  */
 export function BusyBar() {
   const busy = useBusy();
@@ -28,10 +32,18 @@ export function BusyBar() {
     <div
       role="status"
       aria-label="Wird gespeichert"
-      // Sits on the header's own bottom edge, over the border it replaces while it runs.
-      className="pointer-events-none absolute inset-x-0 -bottom-px h-px overflow-hidden"
+      className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center"
     >
-      <div className="bg-primary animate-busy-sweep h-full w-1/3" />
+      <div className="bg-background/80 flex items-end gap-1 rounded-lg p-3 shadow-sm">
+        {BARS.map((delay) => (
+          <span
+            key={delay}
+            data-busy-bar
+            style={{ animationDelay: `${delay}s` }}
+            className="bg-primary animate-busy-bar h-6 w-1.5 origin-bottom rounded-full"
+          />
+        ))}
+      </div>
     </div>
   );
 }

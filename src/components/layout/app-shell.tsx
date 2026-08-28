@@ -13,15 +13,15 @@ export function AppShell({ children, scope }: { children: ReactNode; scope?: Rea
   return (
     <BusyProvider>
       <div className="flex min-h-dvh flex-col">
-        {/* `sticky` already positions the header, which is what the spinner centres against. */}
         <header className="border-border bg-background sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b px-4 py-2 md:px-6">
           <span className="font-heading text-xl font-semibold tracking-tight">Sportsweek</span>
           {/* The scope sits immediately after the title, because it says what every page is about. */}
           {scope}
-          <BusyBar />
           <SignOutButton />
         </header>
         <main className="flex flex-1 flex-col">{children}</main>
+        {/* Outside the header: it centres on the screen, not on anything the shell lays out. */}
+        <BusyBar />
       </div>
     </BusyProvider>
   );
