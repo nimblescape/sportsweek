@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
 import { storedEventSeries } from "@/test/event-series";
 import type { EventSeries } from "@/lib/schemas/event-series";
@@ -29,6 +29,7 @@ const { MAX_LIST_ITEMS } = await import("@/lib/schemas/master-data");
 const ACTIVE = "s1";
 
 beforeEach(() => firestore.reset());
+afterEach(() => vi.restoreAllMocks());
 
 function seedActiveEventSeries(lists: Partial<Omit<EventSeries, "id" | "nameKey">> = {}) {
   firestore.seed("eventSeries", ACTIVE, storedEventSeries({ isActive: true, ...lists }));
@@ -420,6 +421,76 @@ describe("deleteMasterDataItem", () => {
     await deleteMasterDataItem("programs", "Ski");
 
     expect(storedList("programs")).toEqual([]);
+  });
+});
+
+/**
+ * US-27: the whole edit is one transaction, and the in-use question is asked inside it. Asked
+ * beforehand the answer is already stale — a student choosing the value being removed in between
+ * would be left holding something the series no longer offers, and no cascade repairs that.
+ */
+describe("the transaction a list edit runs in", () => {
+  function recordOrder(): string[] {
+    const order: string[] = [];
+    const runQuery = firestore.runQuery.bind(firestore);
+    const applyWrite = firestore.applyWrite.bind(firestore);
+
+    vi.spyOn(firestore, "runQuery").mockImplementation((collection, filters, limitCount) => {
+      order.push(`read ${collection}`);
+      return runQuery(collection, filters, limitCount);
+    });
+    vi.spyOn(firestore, "applyWrite").mockImplementation((write) => {
+      order.push(`write ${write.ref.collectionPath}`);
+      applyWrite(write);
+    });
+
+    return order;
+  }
+
+  it("asks whether the item is in use before it writes the list", async () => {
+    seedActiveEventSeries({ classOptions: ["3AHIT", "4BHIT"] });
+    seedRegistration("r1", { class: "4BHIT" });
+    const order = recordOrder();
+
+    await updateMasterDataItem("classes", "3AHIT", { name: "3BHIT" });
+
+    expect(order).toEqual(["read eventSeries", "read registrations", "write eventSeries"]);
+  });
+
+  it("asks again before deleting, so a hold taken since the list was read still counts", async () => {
+    seedActiveEventSeries({ classOptions: ["3AHIT", "4BHIT"] });
+    seedRegistration("r1", { class: "4BHIT" });
+    const order = recordOrder();
+
+    await deleteMasterDataItem("classes", "3AHIT");
+
+    expect(order).toEqual(["read eventSeries", "read registrations", "write eventSeries"]);
+  });
+
+  /** One transaction, so the list the guard was asked about is the list that gets written. */
+  it("reads the event series, guards and writes in a single transaction", async () => {
+    seedActiveEventSeries({ classOptions: ["3AHIT"] });
+
+    await updateMasterDataItem("classes", "3AHIT", { name: "3BHIT" });
+
+    expect(firestore.transactionCount).toBe(1);
+  });
+
+  /** Adding takes nothing away, so it asks nobody and never waits on a registration. */
+  it("asks nothing of the registrations when the edit strands nothing", async () => {
+    seedActiveEventSeries({ classOptions: ["3AHIT"] });
+    seedRegistration("r1", { class: "3AHIT" });
+    const order = recordOrder();
+
+    await createMasterDataItem("classes", { name: "4BHIT" });
+    await reorderMasterDataItems("classes", ["4BHIT", "3AHIT"]);
+
+    expect(order).toEqual([
+      "read eventSeries",
+      "write eventSeries",
+      "read eventSeries",
+      "write eventSeries",
+    ]);
   });
 });
 

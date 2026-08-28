@@ -29,9 +29,10 @@ grow into the union of everything every event ever needed.
 an item that any registration of any non-archived season still holds, because the edit would
 reach into a season nobody was looking at. The rule is correct given the model, and it is also
 the single most obstructive thing in the application: a teacher who mistyped a class name in
-October cannot fix it in November. Once each event series owns its own lists, an edit can only
-ever reach the registrations of that one series — which is what makes cascading them safe, and
-what lets the rule be withdrawn instead of worked around.
+October cannot fix it in November. The rule is correct given the model, and once each event series
+owns its own lists it stops being obstructive: an edit can only ever reach the registrations of
+that one series, so it bites only where the same series' own students have already answered —
+which is the case where changing the question behind their backs would be wrong anyway.
 
 **One season is "active", and everything hangs off that.** Registration, assignment and the
 report all read the active season, so the application can only ever be about one event at a
@@ -44,22 +45,22 @@ event series, labelled "Eventreihe".
 
 ## What changes, in one page
 
-| Today                                                    | After                                                                                |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `seasons` collection, one of them `isActive`             | `eventSeries` collection, none of them privileged over the others                    |
-| Seven collections of master data, shared by every season | Seven ordered arrays on the event series document                                    |
-| Master data item identified by a document id             | Identified by its name, which is already unique within its list                      |
-| An item in use cannot be edited or removed               | Any item can be renamed, and removed too — unless it is a class a registration holds |
-| A registration is a snapshot nothing may disturb         | A registration is kept in step with the lists its series offers                      |
-| `savedReports` collection, shared by every season        | Saved reports belong to one event series                                             |
-| Registration joins `users` for the student's name        | Registration carries the name, so a report is one read                               |
-| `studentMasterData`, which was never master data         | `registrations`, which is what a student's answers are                               |
-| `studentMasterData.eventId` points at an event document  | `registration.event` names the event, like every other list value                    |
-| One season is active; students write to that one         | Each series is open to students or not; several may be open at once                  |
-| Registration opens when a teacher activates a season     | A series is opened by generating its invitation link                                 |
-| The statistics page shows figures                        | The overview page runs the series: figures, invitation links and the open switch     |
-| The page decides which season it is about                | The header decides, once, for every page                                             |
-| Uniqueness via the `reservedNames` collection            | In-document for lists; a transactional query on `nameKey` for series names           |
+| Today                                                    | After                                                                                           |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `seasons` collection, one of them `isActive`             | `eventSeries` collection, none of them privileged over the others                               |
+| Seven collections of master data, shared by every season | Seven ordered arrays on the event series document                                               |
+| Master data item identified by a document id             | Identified by its name, which is already unique within its list                                 |
+| An item in use cannot be edited or removed               | An item **this series'** students have chosen cannot be renamed or removed; everything else can |
+| A registration is a snapshot nothing may disturb         | Unchanged — and now true by construction rather than by luck                                    |
+| `savedReports` collection, shared by every season        | Saved reports belong to one event series                                                        |
+| Registration joins `users` for the student's name        | Registration carries the name, so a report is one read                                          |
+| `studentMasterData`, which was never master data         | `registrations`, which is what a student's answers are                                          |
+| `studentMasterData.eventId` points at an event document  | `registration.event` names the event, like every other list value                               |
+| One season is active; students write to that one         | Each series is open to students or not; several may be open at once                             |
+| Registration opens when a teacher activates a season     | A series is opened by generating its invitation link                                            |
+| The statistics page shows figures                        | The overview page runs the series: figures, invitation links and the open switch                |
+| The page decides which season it is about                | The header decides, once, for every page                                                        |
+| Uniqueness via the `reservedNames` collection            | In-document for lists; a transactional query on `nameKey` for series names                      |
 
 ## The shape it moves to
 
@@ -85,10 +86,6 @@ event series, labelled "Eventreihe".
   "isOpenToStudents": true,
   "hasRegistrations": false, // mirror, server-owned, so the client can gate archive/delete
   "position": 0, // the order of the header tags (see Ordering)
-  "revision": 41, // incremented by every write; what concurrent work checks against
-  // The lock of US-27 while a cascade is running, and the only thing the trigger of Q15 reads:
-  // which list changed, from what to what, how far it has got, and how many attempts it has had.
-  "pendingCascade": null,
 
   // The maintained lists, in the order the master data menu states (US-14) — the one order the
   // report fields, the filter categories and the registration form already follow. Array order
@@ -108,8 +105,8 @@ event series, labelled "Eventreihe".
 
   // A saved report is a selection the teacher asked to be remembered, and nothing else: a name,
   // which students are shown, and which detail lines they show (US-13, US-25). It is here for
-  // the same reason the lists are — it belongs to this series and filters on these lists, and a
-  // cascade that fixed the lists but left the reports behind would have fixed nothing. Array
+  // the same reason the lists are — it belongs to this series and filters on these lists, so one
+  // transaction writes both and they cannot disagree. Array
   // order is the order the tags were dragged into, so no report carries a position either.
   "savedReports": [
     {
@@ -156,10 +153,11 @@ student's answers, and nothing a student can write. See Q1.
   "lastName": "Müller",
   "email": "anna.mueller@student.htldornbirn.at",
 
-  "isIncomplete": true, // recomputed by the server on every write, including a cascade
+  "isIncomplete": true, // recomputed by the server on every write
   "isAttendingSportsWeek": true,
 
-  // Values chosen from the event series' lists, held by name. Kept in step by US-24.
+  // Values chosen from the event series' lists, held by name. Stored as plain text, and left
+  // alone once given: US-24 refuses the edits that would strand one.
   "event": "Woche 2", // was eventId; null while unassigned
   "class": "2bWI", // set from the invitation link, not answered by the student (US-23)
   "program": "Ski",
@@ -266,8 +264,7 @@ actually runs, and so that two of them can be prepared at once.
 - Because archiving implies closed, the student-side check is **one flag rather than two**: a
   student may write when the series is open, and that already excludes every archived series.
 - An event series stores its name, whether it is a template, whether it is archived, whether it
-  is open to students, whether it holds registrations, its place in the teacher's order, and its
-  revision.
+  is open to students, whether it holds registrations, and its place in the teacher's order.
 - **A template is an event series that can never be opened to students** (US-22, Q21). That is
   the whole of it: it is selected from the header row and scoped like any other, its lists are
   maintained like any other's, and the report, overview and assignment scoped to it show the
@@ -417,14 +414,14 @@ its lists with a Wintersportwoche.
   chooses from its lists and subscribes to them live. A rule grants the whole document, so a
   student can also read the saved reports in it; that is accepted rather than overlooked, and
   Q1 says why. Nobody writes the document from a client.
-- The in-use restriction of US-5 to US-10 is withdrawn, with **one exception**: an item of a
-  non-archived series may be renamed at any time, and removed at any time _unless_ it is a class
-  that some registration of that series holds (Q16). What an edit does to the registrations and
-  saved reports holding it is US-24 and US-25.
-- The exception is as narrow as it can be stated: **classes only, removal only, one series only.**
-  Everything that enforced or explained the old restriction is still deleted, because the surviving
-  rule asks one question about one list and a teacher already reads every registration of the
-  selected series — so which classes are in use is derived from data on hand rather than fetched.
+- The in-use restriction of US-5 to US-10 **survives, narrowed twice over**: it now asks about one
+  event series rather than every non-archived one, and about one item rather than a whole list.
+  Adding and reordering are free at all times; renaming or removing is refused only for an item
+  some registration of that series holds (US-24).
+- That narrowing is the whole of what the move buys here. The rule was obstructive because the
+  lists were global, so another season's registration froze this season's identically-named item.
+  Scoped to one series, it bites only where this series' own students have already answered — and
+  during setup, when mistakes are actually caught, nothing is in use and everything is editable.
 - **A newly created event series is blank.** Every list is empty and the application seeds
   nothing into it (Q9): it cannot know whether it is being asked for a Wintersportwoche or a
   Kulturwoche, and guessing wrong is worse than not guessing. Starting from something instead of
@@ -555,9 +552,10 @@ everybody at once.
 - The token is generated from a cryptographically secure random source and is long enough that
   guessing is not a strategy.
 - Each class's link is regenerated on its own, which invalidates only that class's previous link.
-- **A link is cascaded like anything else that holds a list value** (US-24): renaming a class
-  rewrites the class its links name, and removing a class invalidates them, because a link into a
-  class that no longer exists could only produce a registration with no class. Invitations are
+- **A link holds a list value, so the same refusal covers it** (US-24): a class named by a link
+  cannot be removed while a registration holds it, and a class whose links exist but whose
+  registrations do not can still go — nobody used them, so nothing is lost, and the links are
+  invalidated with it. What a link may never become is an enrolment into a class that is gone.
   the third thing a list change reaches, after the registrations and the saved reports.
 - The link selects an event series and does nothing else. It signs nobody in and grants no
   identity: a student following it still signs in through Entra ID (US-1) and still has the role
@@ -608,87 +606,67 @@ everybody at once.
   the one who made it, checking it before sending it out, and a refusal would be a message for
   somebody who has done nothing wrong.
 
-### US-24: A change to a list reaches the registrations that hold it
+### US-24: An answer a student has given cannot be taken away from them
 
-As a teacher, when I rename or remove an item, the registrations holding it are brought into
-line, so that no registration is left holding a value its event series no longer offers.
-
-**Acceptance criteria:**
-
-- Renaming an item rewrites that value in every registration of the same event series that holds
-  it. A class renamed from "3aWI" to "3AWI" is what the report, the assignment board, the filters
-  and every export then show, none of which has to know the old name.
-- Removing an item clears that value from every registration of the same event series that holds
-  it. The registration itself is kept: a student whose program was removed has no program, not no
-  registration.
-- Removing a program also clears the rented equipment of the students who chose it, because a
-  rental is only meaningful as an entry of that program's list. Renaming a required equipment
-  item rewrites the rentals naming it; removing one drops it from them.
-- Removing an event unassigns the students assigned to it, which is what US-4 already requires
-  and is now the same rule as every other removal rather than a special case.
-- **A class that any registration holds cannot be removed** (Q16). It is the one list value a
-  student cannot be asked for again, because it comes from the invitation link rather than from
-  them — so clearing it would strand the registration outside every class, permanently. Renaming
-  is always allowed and cascades like anything else; removal is refused while the class is in use,
-  and the row's remove control is disabled with a hint saying so.
-- **The invitation links are cascaded too** (US-23): renaming a class rewrites the class its
-  links name, and removing a class invalidates them. A link is the third thing that holds a list
-  value, after a registration and a saved report, and it would otherwise go on enrolling students
-  into a class that no longer exists. Removing a class that has links but no registrations is
-  therefore still allowed — nobody used them, so nothing is lost.
-- Every registration the cascade touches has its outstanding-answers flag (US-11) recomputed,
-  since clearing a value can only make a registration less complete.
-- The cascade is scoped to the event series whose list changed and reaches no other. That is
-  precisely what moving master data into the series bought, and it is what makes the withdrawal
-  of the in-use rule safe.
-- No cascade can ever arise from an archived event series, because it cannot be selected and so
-  its lists cannot be edited (US-19, US-20). This is not a case the cascade has to exclude — it is
-  a case that cannot occur.
-- The invariant this exists to preserve, stated so it can be tested: on a non-archived series,
-  every list value on every registration is either unanswered or one the series currently offers.
-  The cascade is one half of holding it, and US-27's validation of a student's save is the other.
-- Before confirming a removal the teacher is told what it will do, including how many
-  registrations will lose the value, so that a destructive edit is a decision and not a surprise.
-  A rename says the same thing in the terms a rename deserves: how many registrations will be
-  rewritten.
-- **Removing the last item of a list says so too**, because it does more than clear a value: the
-  question stops being asked altogether (US-21), and every registration that answered it becomes
-  one answer shorter rather than one answer poorer.
-- The cascade is not atomic with the edit that caused it. US-27 is what makes it safe anyway.
-
-### US-25: A change to a list reaches the saved reports that filter on it
-
-As a teacher, my saved reports go on meaning what I saved them as when the lists they filter on
-change, so that opening one shows the report rather than a report widened by tags that quietly
-stopped matching.
+As a teacher, I can shape a list freely until students start answering from it, and after that
+the application refuses the edits that would strand what they said — so that no registration is
+ever left holding a value its event series no longer offers.
 
 **Acceptance criteria:**
 
-- Renaming an item rewrites that tag in every saved report of the same event series that selects
-  it.
-- Removing an item removes that tag from every saved report of the same event series that selects
-  it. A report left with no tag in that category simply stops restricting by that category, which
-  is what an empty category already means (US-12).
-- The event filter tag holds the event's name rather than its id, so that removing or renaming an
-  event is the same rule as every other category. It is the only tag storing an id today, and
-  with it goes the `ReportFieldContext` that existed to translate ids back into names.
-- The activated field tags are not master data and are never touched by a cascade.
+- **Adding an item is always allowed**, before and during registration. A new option strands
+  nothing: every answer already given stays valid, and the question simply gains a choice. A
+  teacher who notices a missing class after the invitations have gone out adds it.
+- **Reordering is always allowed**, for the same reason: the order is how a teacher wants to read
+  the list (see Ordering) and no stored value changes.
+- **Renaming or removing an item some registration of that series holds is refused.** The row's
+  controls are disabled with a hint saying why, and the server refuses it as well — the disabled
+  control is a convenience, and a client is not a trust boundary.
+- The refusal is **per item, not per list**: only the entries students have actually chosen are
+  frozen. Everything else on the same list stays editable, which is what keeps the rule from
+  becoming "the series is finished" the moment the first student answers.
+- The refusal is **per event series**. An item of one series is never held back by another
+  series' registrations, which is precisely what moving the lists into the document bought
+  (US-21) — and it is the whole of the complaint this refactoring set out to fix.
+- Required equipment follows the same rule one entry at a time: an entry a student still rents
+  cannot be renamed away or removed, and a program cannot be deleted while one of its entries is
+  rented, since deleting it would take that entry along (US-5).
+- Removing an event is refused while a student is assigned to it. Unassigning them first is what
+  makes it removable, which is a teacher's decision rather than a silent consequence.
+- **Nothing is rewritten behind a student's back.** Renaming "Vegetarisch" to "Vegan" would
+  change what a hundred students said they wanted, and no automatic rewrite can know whether
+  they still mean it. Where an answer has to change, the answer is asked again.
+- The invariant, stated so it can be tested: on any series, every list value on every
+  registration is either unanswered or one the series currently offers. The refusal is what
+  holds it, and US-27 is what stops a concurrent save slipping past.
+- **What a teacher does when a list is genuinely wrong** is not a smaller edit but a larger
+  decision: the answers already given were given against the old list, so correcting it means
+  asking for them again. Deleting the series and running registration afresh is the honest
+  version of that, and it is a decision only the school can take.
+
+### US-25: Saved reports live with the lists they filter on
+
+As a teacher, my saved reports keep meaning what I saved them as, so that opening one shows the
+report rather than a report widened by tags that quietly stopped matching.
+
+**Acceptance criteria:**
+
 - Saved reports belong to one event series and are stored in its document, beside the lists they
   filter on: they are created in it, listed only while it is selected, deleted with it, and their
-  order is the array's. That is also what makes this cascade cheap — a rename rewrites the lists
-  and the reports that filter on them in the same transaction, so the two can never disagree,
-  which the cascade into registrations (US-24) cannot promise.
+  order is the array's.
 - A saved report is a selection that was remembered, and nothing else: a name, a filter and a set
   of field keys. It names nobody and records nothing about how it came to exist.
-- Opening a saved report stays as tolerant as US-13 requires: a tag nothing offers any more
-  restricts nothing, and a field key nothing offers adds no detail line. The cascade and the
-  tolerance are both kept and neither replaces the other — the cascade is what stops a rename
-  silently widening a report, the tolerance is what keeps a report saved by an older release
-  readable.
+- The event filter tag holds the event's name rather than its id, so an event is the same kind of
+  value as every other list entry. It was the only tag storing an id, and with it goes the
+  `ReportFieldContext` that existed to translate ids back into names.
+- **A tag can only be left stranded by a removal the lock allows**, which is an item no
+  registration holds (US-24). Opening the report then stays as tolerant as US-13 requires: a tag
+  nothing offers any more restricts nothing, and a field key nothing offers adds no detail line.
+  That tolerance also keeps a report saved by an older release readable.
+- The activated field tags are not master data and are never rewritten.
 - The same pruning runs **when a report is copied into a new series** (US-22, Q10): a tag the
-  copied lists do not offer is dropped there and then. Copying and removing are the same
-  situation from the report's point of view — a value its series does not have — so they get the
-  same treatment rather than one being left to the reader.
+  copied lists do not offer is dropped there and then, so a copy is consistent with its own
+  lists from the moment it exists rather than relying on the read-time tolerance later.
 
 ### US-26: A registration is self-contained
 
@@ -733,7 +711,7 @@ to the records around it.
   let a teacher read every user record is narrowed to reading their own. The fake login's list of
   existing users (US-16) is unaffected: it is already read server-side.
 
-### US-27: Concurrent writes are serialised and cascades are resumable
+### US-27: A concurrent registration cannot slip past the guard
 
 As the system, I keep one event series consistent while several teachers and a class full of
 students write to it at the same time.
@@ -742,54 +720,34 @@ students write to it at the same time.
 
 - Every write to an event series' lists is a transaction on its document, so two edits to two
   different lists cannot lose one another and two edits to the same list are ordered. The saved
-  reports are in that document, so the cascade of US-25 is part of the same transaction as the
-  edit that caused it and needs nothing below.
-- The event series carries a revision that every write increments. Anything that depends on what
-  the lists currently say — a student saving a registration, a teacher assigning students, a
-  cascade — reads it, and is retried rather than committed if it moved underneath.
-- The cascade into the registrations (US-24) is the one that cannot join that transaction, because
-  the registrations are documents of their own and there may be hundreds of them. An edit that
-  needs one records on the event series, before it starts, what changed: which list, what the
-  value was, what it became or that it went, and at which revision.
-- While that record stands, further edits to that event series' lists are refused with a conflict
-  and the interface says so through the application's shared spinner and busy region, as it
-  already does while an assignment or a saved report is being written. That refusal is the lock,
-  and it is held in the database, so it holds across tabs, teachers and processes rather than
-  only within one client.
-- The cascade is expressed as "wherever this value is still the old one, make it the new one",
-  which makes it idempotent: running it a second time changes nothing the first run did not.
-- The cascade is performed in bounded batches and records how far it has got, so an interrupted
-  run is resumed rather than restarted, and no run is bounded by how many registrations an event
-  series holds.
-- **What runs it is a Firestore trigger on the event series document** (Q15), so the fan-out
-  outlives the request that caused it and is retried by the platform rather than by a person.
-- **The trigger acts on stored state, never on the event's payload.** It re-reads
-  `pendingCascade` in a transaction and works from that; the `before`/`after` deltas are not
-  consulted. This is what makes at-least-once delivery and out-of-order delivery both harmless,
-  and it is the one implementation rule that cannot be relaxed — a delta applied out of order
-  would corrupt rather than merely lag.
-- Ordering cannot arise in any case, because the lock permits **at most one cascade record per
-  series at a time**. There is never a second cascade to arrive before the first.
-- The trigger returns immediately where the document carries no pending cascade. That one
-  condition is also what stops it recursing when the cascade clears the lock, and what keeps a
-  reorder or a saved report edit from starting anything.
-- **The progress write is what schedules the next batch**, since it is itself a write to the
-  document the trigger watches. There is no queue and no scheduler, and no continuation is passed
-  anywhere.
-- `pendingCascade` carries an **attempt count**, and the cascade stops after a fixed number of
-  them, so a batch that can never succeed comes to rest instead of looping for ever.
-- A cascade that cannot be finished leaves its record standing rather than clearing it, so the
-  inconsistency is visible and retriable instead of silent, and the event series list says which
-  series is in that state — with a control on that row to resume it, which resets the attempt
-  count.
-- **A pending cascade never blocks a class.** It refuses list edits, not registrations: a student
-  saving validates against the lists, and those are already correct, since the list edit committed
-  in the first transaction and only the fan-out is outstanding.
-- A student saving a registration has every list value validated against the event series as it
-  stands in the same transaction. A value the series no longer offers is refused rather than
-  stored, which closes the window in which a save races a removal.
-- Deleting an event series, and creating one from a copy, take the same lock, so neither races a
-  cascade.
+  reports are in that document, so a report and the lists it filters on can never disagree.
+- **The in-use check runs inside the transaction that writes the list**, not before it. Asked
+  beforehand its answer is already stale: a student choosing the value being removed in between
+  would be left holding something the series no longer offers, and with no cascade nothing would
+  repair it. A guard with that hole is worse than none, because it claims an invariant it does
+  not hold.
+- The check is a query for the registrations of that series holding **that one value**, so
+  Firestore locks a narrow index range: a student answering anything else never conflicts, and
+  the only save that does is one choosing the very item being edited — which is exactly the save
+  that ought to conflict.
+- **The student's save reads the event series inside its own transaction** and validates every
+  list value against it. That closes the other direction: a teacher's edit writes that document,
+  so a save which read the older one conflicts, retries, and is then refused rather than storing
+  a value nothing offers.
+- Either order is therefore safe. Whichever commits first invalidates the other's read, and the
+  loser retries and sees the winner.
+- **The student never pays for this.** A transaction retries by itself, so a save caught by a
+  concurrent list edit re-reads, re-validates and commits without the student noticing. The one
+  case they are refused is the case that deserves it: the option they chose has just been
+  removed, and they are asked to reload and choose again.
+- **The teacher pays**, which is the right way round: they are doing the rare and questionable
+  thing — editing lists mid-registration — so theirs is the request that waits, and is told to
+  try again if it cannot get through.
+- The narrow queries need one composite index per answer a list supplies, plus one for the
+  rentals. They are temporary: once a registration lives beneath the series it belongs to
+  (US-26), the series is the path rather than a field, and every one of them goes.
+- Nothing outlives the request. There is no lock left standing, no progress record, no attempt
+  count and nothing to resume, because an edit either commits whole or does not commit.
 
 ### US-28: A teacher removes a registration
 
@@ -825,8 +783,9 @@ reached them by mistake does not stay in the series for good.
 - **`hasRegistrations` is recomputed in the same transaction.** Deleting the last registration of
   a series puts the mirror back to false, which is the first time it has ever had to go down
   (Q5) — and it is what the archive and delete controls of US-19 read.
-- A delete that races a running cascade is harmless: the cascade is expressed as "wherever this
-  value is still the old one" (US-27), and a document that is gone simply is not among them.
+- Deleting one registration can free the last hold on a list item, so an edit a teacher was
+  refused a moment ago may be allowed afterwards (US-24). The guard is asked again on every
+  write, so nothing has to be told that this changed.
 
 ### US-29: The overview page is where an event series is run from
 
@@ -896,7 +855,7 @@ series up is one place rather than three.
 | US-1                    | Provisioning gains one step: the names it refreshes at every login are carried into that student's registrations (US-26).                                                                                                                                                                                               |
 | US-2, US-3              | Unchanged.                                                                                                                                                                                                                                                                                                              |
 | US-4                    | Rewritten as US-19 and US-21. The active season, its transaction and its empty states go; the delete and archive rules survive, the archive gate loosens.                                                                                                                                                               |
-| US-5 to US-10           | Kept as descriptions of the seven lists. The in-use restriction preceding them is withdrawn and replaced by US-24 and US-25. Storage moves (US-21).                                                                                                                                                                     |
+| US-5 to US-10           | Kept as descriptions of the seven lists. The in-use restriction preceding them is narrowed to one series and one item (US-24). Storage moves (US-21).                                                                                                                                                                   |
 | US-11                   | The season becomes the event series the invitation named, and the class comes from that invitation rather than being answered (US-23). **A question whose list is empty is not asked at all** (US-21). List values stop being snapshots and become references the server keeps in step (Q4). Self-containment is US-26. |
 | US-12                   | Scoped to the selected event series rather than the active season. `eventId` becomes `event`. Otherwise unchanged.                                                                                                                                                                                                      |
 | US-13                   | Scoped to the selected event series. Saved reports become per series (US-25). The tolerance on opening a saved report is kept.                                                                                                                                                                                          |
@@ -991,9 +950,9 @@ follow, the answer label each list is named by, and the field a registration sto
 in. The tests that pin those four lists to one another are what says the move preserved them, so
 a slice that has to relax one of them has gone wrong somewhere else.
 
-The in-use rule of US-5 to US-10 **stays** for this slice, rewritten against the new storage, so
-that nothing a teacher can do changes yet. Withdrawing it is slice 3b, where the cascade that
-makes withdrawing it safe arrives.
+The in-use rule of US-5 to US-10 **stays**, rewritten against the new storage: it is now per
+series rather than global, which is most of what made it obstructive. Making it sound under a
+concurrent registration is slice 3.
 
 Three things are finished here rather than left half-done:
 
@@ -1012,34 +971,27 @@ Three things are finished here rather than left half-done:
   against an empty list rather than excepted from it — one document has one loading flag, so a
   list nobody filled in and a list still being read stop looking alike.
 
-### 3a. The functions codebase
+### 3. Closing the race in the in-use rule, and the saved reports
 
-The `functions/` codebase arrives on its own, carrying nothing but the trigger's guard clause and
-the test that proves it returns on a document with no pending cascade.
+US-24, US-25 and US-27 land together, and there is no cascade in any of them.
 
-It is separate from 3b because of what it costs rather than what it does: its own dependency tree
-and lockfile, a second install and test run in CI, the functions and eventarc emulators beside
-the firestore one, a deploy workflow, and **a widening of what the deploy identity may reach** —
-Cloud Build, Artifact Registry, Cloud Run and service-account-user, where deploying rules needs
-almost none of it. That is the largest real cost of Q15 and the part to review rather than copy
-from a template, and it is not reviewable buried under the cascade.
+The in-use rule **stays** and is made sound. It moves inside the transaction that writes the
+list, and it stops reading the whole series: the check is a query for the registrations holding
+the one value being touched, so the locked index range is narrow. The student's save becomes a
+transaction too, reading the event series and validating its answers against it, which closes
+the other direction. Those two changes are the whole of US-27.
 
-### 3b. The cascade, and withdrawing the in-use rule
+The narrow queries bring one composite index per answer a list supplies, plus one for the
+rentals. They are temporary and go again in slice 4, when a registration moves beneath its
+series and the series stops being a field to filter by.
 
-US-24, US-25 and US-27 land together, and the in-use machinery goes with them: `usage-guard.ts`,
-`GET /api/master-data/[category]`, `useUsageReport`, and the five hints that explained the rule.
-
-The saved reports move into the event series document in this slice rather than the last, because
-what makes their cascade cheap is being in the same transaction as the edit that caused it
-(US-25) — moving them earlier would mean writing that cascade twice.
-
-What survives of the old restriction is one refusal: a class held by any registration of that
-series cannot be removed (Q16). It needs none of the deleted machinery, being a reduce over
-registrations a teacher already reads.
+The saved reports move into the event series document in this slice, beside the lists they filter
+on — one document, one transaction, so a report and its lists cannot disagree.
 
 This is the slice that needs the concurrency tests, and the invariant of US-24 is the one worth
-writing first: after any edit to a non-archived series, every list value on every registration is
-either unanswered or one the series currently offers.
+writing first: after any edit, every list value on every registration is either unanswered or one
+the series currently offers. Both races are worth a test of their own, since neither is visible
+in a single-threaded run.
 
 ### 4. Self-contained registrations
 
@@ -1155,32 +1107,33 @@ their registrations as well, so a name can never be more than one login stale, a
 never opens their form again is still corrected the next time they sign in at all. This is also
 the answer to Q17.
 
-**Q4 — They are denormalised references the server keeps in step, not snapshots. Decided.** US-11
-states at length that a list value is stored "redundantly as plain text, not as a foreign key"
-precisely so that "later changes to the maintained list do not alter already-stored master data
-records". US-24 says the opposite, and US-24 is what we want. The values keep the same shape —
-a name or nothing — but they stop being a record of what was chosen and become a reference whose
-spelling the server maintains. **US-11 is rewritten rather than left to contradict US-24.**
+**Q4 — They are snapshots after all, and US-11 was right. Reversed.** This question originally
+decided the opposite: US-11 says a list value is stored "redundantly as plain text, not as a
+foreign key" precisely so that "later changes to the maintained list do not alter already-stored
+master data records", and the cascade of US-24 contradicted it, so US-11 was to be rewritten.
 
-Saying it that way is what gives the model an invariant worth testing: on a non-archived series,
-every list value on every registration is either unanswered or one the series currently offers.
-The cascade exists to preserve it, US-27's validation of a student's save is the other half of
-it, and a test can assert it outright after any edit.
+With the cascade gone (Q15), **nothing rewrites a stored answer**, and US-11's sentence is simply
+true again. It is left exactly as it stands.
 
-It also sorts the registration's fields into three kinds, which is worth keeping straight because
-each is repaired by a different mechanism:
+The invariant survives the reversal and is easier to hold: on any series, every list value on
+every registration is either unanswered or one the series currently offers. What preserves it is
+no longer a repair after the fact but a refusal before it — US-24 will not let an item a
+registration holds be renamed or removed, and US-27 makes that refusal sound against a concurrent
+save. A test can assert it outright after any edit.
+
+It still sorts the registration's fields into three kinds, which is worth keeping straight
+because each stays honest by a different means:
 
 | Kind                                                            | Kept honest by            |
 | --------------------------------------------------------------- | ------------------------- |
 | Answers the student owns (birth date, phone, health, free text) | Nothing — they are theirs |
-| List values (class, program, skill level, event, …)             | The cascade, US-24        |
+| List values (class, program, skill level, event, …)             | The refusal, US-24        |
 | Identity copies (first name, last name, e-mail)                 | The next login, US-26     |
 
-Archiving then needs no rule of its own to freeze these values. An archived series has no tag in
-the header, so it cannot be selected, and every editing view acts on the selected series — so
-there is no screen from which its lists can be changed, and no edit that could start a cascade.
-Its list values simply stop moving, which makes them exactly the snapshots US-11 used to
-describe. Archiving is the point at which a reference becomes a record again.
+Archiving needs no rule of its own here either. An archived series has no tag in the header, so
+it cannot be selected, and every editing view acts on the selected series — so there is no screen
+from which its lists can be changed. Its values stop moving because nothing can reach them, not
+because anything freezes them.
 
 **Q5 — Any event series can be archived. Decided.** US-4 forbids archiving a season that holds no
 student data, on the grounds that archiving signs off on that data. The reasoning behind that
@@ -1539,153 +1492,70 @@ only ever report on a path its own caller was not taking.
 
 ### Consistency and delivery
 
-**Q15 — The cascade runs in a Firestore trigger, and the trigger reads state rather than the
-change. Decided.** The architecture table says that reacting to a document change belongs in an
-event-driven function, and this repository has no Cloud Functions codebase — it is App Hosting
-and Next.js. **One is added.**
+**Q15 — There is no cascade, so there is no trigger. Withdrawn.** This question originally decided
+that the fan-out belonged in a Firestore trigger, and a `functions/` codebase was added for it.
+Both are gone, because the thing they carried turned out not to be worth having.
 
-One argument is dismissed before the others, because it would otherwise decide this by accident:
-**portability is not a consideration here.** This application is committed to Firebase and
-Firestore in ways that are load-bearing rather than incidental — the access rules are the
-authorisation model, the live subscriptions are the update mechanism, and the uniqueness rule of
-Q14 rests on Firestore's transactional-query locking specifically. Moving off it would be a
-rewrite, not a refactoring, and one we are deliberately not paying for. So "a Cloud Function
-deepens the lock-in" carries no weight: there is nothing left to protect, and if that rewrite ever
-happens it is a rewrite whether or not a Functions codebase exists. **The right tool for the job
-wins, and a Cloud Function is one of the tools.**
+The cascade existed to make an edit safe _after_ students had answered from the list. But renaming
+"Vegetarisch" to "Vegan" rewrites what a hundred students said they wanted, and no automatic
+rewrite can know whether they still mean it; removing an option leaves them holding nothing. The
+honest outcome in both cases is that the answers are asked for again, which is an organisational
+decision and not something a fan-out can paper over. **A cascade dresses a re-registration up as a
+data migration.**
 
-It does not turn on throughput either. A school-sized series is a few hundred registrations —
-twenty classes of thirty is six hundred — which is two or three batched commits and well under a
-second of work. Nothing here is near a request's budget.
+What made this affordable to drop is that the in-use rule stops being obstructive once the lists
+belong to one series (US-21). The original complaint — a teacher who mistyped a class in October
+cannot fix it in November — was a symptom of the lists being **global**: another season's
+registration froze this season's identically-named item. Scoped per series, the rule bites only
+where the same series' own students have already answered, which is the case where a rewrite would
+have been wrong anyway. During setup, when mistakes are actually caught, nothing is in use and
+everything is editable.
 
-It turns on the one thing a request cannot do: **outlive its own client.** A teacher who closes
-the tab mid-cascade, or a transient error halfway through, leaves the fan-out half-done with the
-lock standing, and a Route Handler has no retry of its own. The tempting answer — let the next
-teacher to edit that series finish it, since the lock blocks them anyway — has a hole that is not
-as rare as it sounds: **if nobody edits that series again, the cascade never finishes.** The
-likeliest moment to rename a class is at the end of setup, after which master data goes untouched
-for weeks. Recovery cannot depend on somebody happening to come back.
+So the refusal replaces the repair (US-24), and it is narrow: per item rather than per list, and
+adding and reordering stay free at all times.
 
-### It is a database trigger, with one difference that decides the design
+**What this deletes.** `pendingCascade`, the revision counter, the batching, the attempt count, the
+resume control, the lock that had to survive across processes — and with them the whole of the
+`functions/` codebase: its own dependency tree and lockfile, a second install and test run in CI,
+the functions and eventarc emulators beside the firestore one, a deploy workflow, and **a widening
+of what the deploy identity may reach** — Cloud Build, Artifact Registry, Cloud Run and
+service-account-user, where deploying rules needs almost none of it. That widening was named here
+as the largest real cost of the trigger, and not paying it is the largest gain from dropping it.
 
-The comparison is apt and worth making precisely, because where it breaks is where the bugs would
-be:
+**What replaces it is a guard that has to be sound**, which is US-27: the in-use check runs inside
+the transaction that writes the list, and the student's save reads the series inside its own. A
+check made before the write is stale by the time it lands, and with nothing to repair the result,
+a guard with that hole would be worse than none — it would claim an invariant it does not hold.
 
-| Postgres `AFTER UPDATE`           | Firestore trigger                        |
-| --------------------------------- | ---------------------------------------- |
-| Runs **inside** the transaction   | Fires **after** commit, asynchronously   |
-| A failure rolls the original back | Cannot roll anything back                |
-| Fires once, in order              | **At-least-once**, no ordering guarantee |
+**When the trigger would come back.** Not for retry — for **scale**. A series far larger than a
+school's would stop fitting inside a request, and then the work has to outlive it. That is not
+this application, and building for it now would cost the IAM widening today for a load that may
+never arrive.
 
-So the trigger does **not** supply the atomicity that makes a SQL trigger trustworthy. It replaces
-exactly one thing — who retries — and every other guarantee in US-27 is still carried by the lock,
-the idempotence and the batching. Nothing there is softened.
+**Q16 — The class was the case that generalised. Subsumed into US-24.** This question originally
+carved out one exception to the cascade: a class held by a registration could not be removed,
+because unlike the other six values a class cannot be re-answered — US-23 takes it away from the
+student and sets it from the invitation link, so clearing it would strand the registration outside
+every class with no path back.
 
-**Which is why the trigger carries no payload that matters.** It means only "there may be work on
-series X"; the function re-reads `pendingCascade` in a transaction and acts on **that**. Acting on
-the event's `before`/`after` deltas is the mistake this rule exists to forbid, because deltas are
-order-sensitive and a redelivered or out-of-order one would apply a rename that no longer
-describes anything — corruption rather than staleness.
+That reasoning stands, and it turned out to be the general case rather than the exception. Once
+the cascade went (Q15), **every** list value is refused rather than rewritten, so classes need no
+special pleading — they are simply the value where the harm was easiest to see.
 
-With that rule, **ordering cannot bite at all**, and the reason is the lock: a standing
-`pendingCascade` refuses every further list edit, so **at most one cascade record exists per
-series at any moment**. There is never a second cascade to arrive out of order. The mechanism
-specified for concurrency turns out to be what makes delivery order irrelevant.
+The rule is now US-24, stated once for all seven lists: adding and reordering are always allowed;
+renaming or removing an item some registration holds is refused, per item and per series.
 
-### Why a trigger and not a task queue
+What Q16 still contributes is why the refusal costs so little. **The class list is the one a
+teacher is made to check before it is used**: an invitation link is generated per class (US-23),
+so setting the links up means reading the list and picking from it. The review is built into the
+ceremony that makes the classes matter, so a wrong class is caught before any registration can
+exist — and until one does, every edit is free. The same holds more loosely for the other lists,
+which are read in order to answer the questions they supply.
 
-A task queue (`onTaskDispatched`) was weighed and rejected. It gives the same retry and backoff,
-fires only when enqueued, and needs no filtering — but it has a gap the trigger does not: the
-handler commits, and **then** enqueues. A process that dies in between leaves a lock with no task
-behind it, which is the same hole as waiting for the next teacher, merely narrower. Closing it
-needs a scheduled sweeper, so the queue costs two functions to the trigger's one.
-
-**A trigger has no gap, because delivery is the platform's job and is inseparable from the write.**
-That is precisely the property that made the SQL comparison attractive in the first place.
-
-The two objections to a trigger both collapse into a single guard: `if (!after.pendingCascade)
-return;`. That one line discards the writes that are not cascades — a reorder, a saved report, a
-`hasRegistrations` update — **and** terminates the recursion when the cascade clears the lock,
-because after clearing there is nothing left to do.
-
-And it yields something better than a scheduler: **the cascade's own progress write re-fires the
-trigger, so it schedules its own next batch.** The document is both the state and the clock, and
-no continuation is passed anywhere.
-
-That needs one safeguard, which is not optional: **`pendingCascade` carries an attempt count, and
-the cascade stops after a fixed number of them.** Without it a permanently failing batch loops for
-ever. With it, a cascade that cannot succeed comes to rest in exactly the state US-27 already
-describes — standing, visible in the event series list, and resumable by hand.
-
-### What it costs
-
-Stated plainly, since it is the first second deployment target this repository has had:
-
-- A `functions/` directory with its **own `package.json`, lockfile and dependency tree**, versioned
-  and patched separately. `firebase.json` already ignores `functions` in its App Hosting block, so
-  the two do not collide.
-- **CI**: the root `npm ci` does not reach it. A second install, typecheck, lint and test run in
-  `ci.yml`, or a workspaces setup.
-- **Deploy**: a new workflow, and **wider IAM on the workload identity federation** — a functions
-  deploy needs Cloud Build, Artifact Registry, Cloud Run and service-account-user where the rules
-  deploy needs almost none of it. This is the largest real cost, because it widens what a
-  compromised workflow could reach, and it is the part to review rather than copy from a template.
-- **Emulators**: `firebase.json` declares only firestore, and `test:rules` runs
-  `emulators:exec --only firestore`. Testing the trigger needs the functions and eventarc
-  emulators alongside it.
-- **Licence headers cost nothing**: the check walks `git ls-files`, so new sources are stamped
-  automatically and `functions/node_modules` never appears.
-- Blaze billing is already required by App Hosting, and the runtime volume sits inside the free
-  tier.
-
-**Q16 — A class that any registration holds cannot be removed. Decided.** The cascade clears a
-removed value from every registration that held it, and for six of the seven lists that is
-harmless — the student is asked the question again next time they open the form, and answers it.
-**The class is the one value that cannot be re-answered**, because US-23 deliberately took it away
-from the student: it is set from the invitation link, and removing the class invalidates that link.
-
-So clearing a class is not "one answer poorer". It leaves a registration with no class and no path
-that could give it one:
-
-- the student cannot supply it, since it is not a question they are asked;
-- the teacher has no control that sets it, since a class comes from a link;
-- re-creating a class of the same name reattaches nobody, because the cascade already blanked the
-  field.
-
-What is left belongs to no class: absent from the per-class cards, from every grouped figure and
-from the class column of the statistics, while still counting as a registration. **Removing a
-class is therefore closer to deleting that class's registrations than to clearing a field** — and
-it does it silently, without the confirmation US-19 demands before any registration is destroyed.
-
-There is a recovery, and naming it precisely is what shows it is not one: re-create the class,
-generate a fresh link, and get every affected student to follow it again. For a class of thirty
-that is a second registration drive rather than a repair, and it works only for the students who
-act on it.
-
-**So this one is refused rather than confirmed: a class cannot be removed while any registration
-of that series holds it.** Renaming stays free and cascades like everything else, which is what
-fixes the mistake teachers actually make.
-
-**And it costs almost nothing**, because the class list is the one list a teacher is made to check
-before it is used: an invitation link is generated **per class** (US-23), so setting the links up
-means reading the list and picking from it. The review is built into the ceremony that makes the
-classes matter, so a wrong class is caught before any registration can exist — and until one does,
-removal is free.
-
-**What survives of the old rule, and what still goes.** This is the single exception to the
-withdrawal in US-21: **classes only, removal only, one series only.** The machinery does not come
-back — `usage-guard.ts`, the usage endpoint and `useUsageReport` are still deleted — because the
-question is now one question about one list, and a teacher already reads every registration of the
-selected series, so which classes are in use is a reduce over data on hand rather than an endpoint.
-
-Two smaller things fall out:
-
-- **The class list can be emptied only in a series with no registrations at all**, so US-21's "an
-  empty list asks no question" never fires for classes in a series that has students. That is the
-  right shape rather than a gap: a series with registrations is by definition a series with
-  classes.
-- **Removing a class that has links but no registrations stays allowed.** The links are
-  invalidated (US-24) and nothing is lost, because nobody used them.
+One consequence to keep: **the class list can be emptied only in a series with no registrations at
+all**, so US-21's "an empty list asks no question" never fires for classes in a series that has
+students. That is the right shape rather than a gap — a series with registrations is by definition
+a series with classes.
 
 **Q17 — A copied name is repaired at the next login. Decided, with Q3.** The worry was that a
 name copied into a registration goes stale if the student never saves again. It does not: signing
@@ -1715,7 +1585,7 @@ shapes. Which is the whole argument for doing it now.
   is also every later amendment, which is no longer registration. The same objection sinks
   `acceptsRegistrations`, `isEnrolmentOpen` and `isSubmissionOpen`.
 - **`isLocked`**, inverted, is good English for "no more changes" but makes every rule read as a
-  double negative, and it collides with the cascade lock of US-27.
+  double negative, and it says nothing about who is shut out.
 
 **`isOpenToStudents`** avoids all three. "Open" names a **period** rather than an act — an open
 enrolment, an open call — so it covers joining and amending alike; and "to students" fixes the
@@ -1801,9 +1671,9 @@ What it costs, and how it is paid:
 
 Two things fall out pleasantly:
 
-- **A template never needs the cascade lock of US-27.** It holds no registrations, so renaming or
-  removing one of its list items reaches only its own saved reports — same document, one
-  transaction, nothing to fan out and nothing to resume.
+- **A template's lists are never locked**, since the refusal of US-24 turns on registrations and a
+  template can hold none. Its items stay renameable and removable for as long as it exists, which
+  is what a pattern to copy has to be.
 - **The delete rule never bites on a template**, since it can never hold registrations and so can
   never be one of the series that must be archived before it can go.
 

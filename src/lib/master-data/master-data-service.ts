@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import "server-only";
+import type { Transaction } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
@@ -121,10 +122,12 @@ function duplicate(name: string): ServiceError {
   return new ServiceError(ErrorCode.Conflict, `Den Namen „${name.trim()}" gibt es hier bereits.`);
 }
 
+/** What a list edit is handed so its guard can run inside the write's own transaction. */
+type EditContext = { transaction: Transaction; eventSeriesId: string };
+
 /**
- * The event series the master data views act on. Until the header selection arrives there is
- * exactly one candidate — the active series (US-4) — so no caller names one, and none can point
- * at a series it was never shown.
+ * The event series the master data views act on, for the one caller that only reads: the in-use
+ * report, which needs the items to key its answer by.
  */
 async function readActiveEventSeries(): Promise<EventSeries> {
   const found = await adminDb
@@ -141,27 +144,39 @@ async function readActiveEventSeries(): Promise<EventSeries> {
 }
 
 /**
- * Rewrites one list of one event series in a single transaction, so two teachers editing two
- * different lists cannot lose one another's work (US-21). The document is re-read inside it and
- * `change` is applied to what it actually holds, never to the list the client was holding — so a
- * stale caller edits the list as it stands or fails, rather than overwriting what it never saw.
- */ async function writeList(
-  eventSeriesId: string,
+ * Everything one list edit does, in a single transaction: resolve the event series, apply the
+ * change to the list as it actually stands, and write it.
+ *
+ * `change` is handed the transaction because the in-use guard has to run inside it. Asked
+ * beforehand, its answer is stale by the time the write lands — a student choosing the value
+ * being removed in between would be left holding something the series no longer offers, and
+ * nothing repairs that (US-5 to US-10). Firestore locks the ranges the guard's queries scan, so
+ * such a save conflicts and one of the two retries and sees the other.
+ *
+ * The list is re-read here rather than taken from the client, so a stale caller edits the list
+ * as it stands or fails, rather than overwriting one it never saw (US-21).
+ */
+async function editList(
   category: MasterDataCategory,
-  change: (items: MasterDataItem[]) => MasterDataItem[],
+  change: (items: MasterDataItem[], context: EditContext) => Promise<MasterDataItem[]>,
 ): Promise<void> {
-  const reference = adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId);
-
   await adminDb.runTransaction(async (transaction) => {
-    const snapshot = await transaction.get(reference);
-    if (!snapshot.exists) {
-      throw new ServiceError(ErrorCode.NotFound, "Diese Eventreihe gibt es nicht.");
+    // Until the header selection arrives there is exactly one candidate — the active series
+    // (US-4) — so no caller names one, and none can point at a series it was never shown.
+    const found = await transaction.get(
+      adminDb.collection(COLLECTIONS.eventSeries).where("isActive", "==", true).limit(1),
+    );
+
+    const stored = found.docs[0];
+    if (stored === undefined) {
+      throw new ServiceError(ErrorCode.Conflict, NO_ACTIVE_EVENT_SERIES_HINT);
     }
 
-    const series = eventSeriesSchema.parse({ id: eventSeriesId, ...snapshot.data() });
-    const next = storedList(category, change(itemsOf(series, category)));
+    const series = eventSeriesSchema.parse({ id: stored.id, ...stored.data() });
+    const context = { transaction, eventSeriesId: series.id };
+    const next = storedList(category, await change(itemsOf(series, category), context));
 
-    transaction.update(reference, { [category.field]: next });
+    transaction.update(stored.ref, { [category.field]: next });
   });
 }
 
@@ -189,12 +204,12 @@ export async function createMasterDataItem(
       ? undefined
       : parseEquipment(category, input.requiredEquipment ?? []);
 
-  const series = await readActiveEventSeries();
   const item: MasterDataItem =
     equipment === undefined ? { name } : { name, requiredEquipment: equipment };
 
-  // A new item goes to the end of the teacher's order (see Ordering).
-  await writeList(series.id, category, (items) => {
+  // Adding strands nothing, so it needs no guard: a value nobody could have chosen yet cannot
+  // be one a registration holds. A new item goes to the end of the order (see Ordering).
+  await editList(category, async (items) => {
     if (indexOf(items, name) !== -1) throw duplicate(name);
     return [...items, item];
   });
@@ -202,15 +217,14 @@ export async function createMasterDataItem(
   return item;
 }
 
-/** Ordering touches no name, so it is deliberately not subject to the in-use guard (see Ordering). */
+/** Ordering touches no stored value, so it too is free of the guard (see Ordering). */
 export async function reorderMasterDataItems(
   key: MasterDataCategoryKey,
   orderedNames: readonly string[],
 ): Promise<void> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
-  const series = await readActiveEventSeries();
 
-  await writeList(series.id, category, (items) => {
+  await editList(category, async (items) => {
     // A permutation and nothing else: an order naming an item that has since gone, or leaving one
     // out, would silently drop it — so it is refused and the list is left as it stands.
     if (orderedNames.length !== items.length) {
@@ -241,29 +255,33 @@ export async function updateMasterDataItem(
       ? undefined
       : parseEquipment(category, update.requiredEquipment);
 
-  const series = await readActiveEventSeries();
-  const current = itemAt(itemsOf(series, category), item);
+  let next!: MasterDataItem;
 
-  if (name !== undefined) await assertNotInUse(series.id, category, current.name);
-
-  if (equipment !== undefined) {
-    const kept = new Set(equipment.map(normalizeName));
-    const dropped = (current.requiredEquipment ?? []).filter(
-      (entry) => !kept.has(normalizeName(entry)),
-    );
-    await assertEquipmentNotInUse(series.id, dropped);
-  }
-
-  const carried =
-    current.requiredEquipment === undefined ? {} : { requiredEquipment: current.requiredEquipment };
-  const next: MasterDataItem = {
-    name: name ?? current.name,
-    ...(equipment === undefined ? carried : { requiredEquipment: equipment }),
-  };
-
-  await writeList(series.id, category, (items) => {
+  await editList(category, async (items, { transaction, eventSeriesId }) => {
     const index = indexOf(items, item);
     if (index === -1) throw new ServiceError(ErrorCode.NotFound, "Diesen Eintrag gibt es nicht.");
+    const current = items[index]!;
+
+    if (name !== undefined) {
+      await assertNotInUse(transaction, eventSeriesId, category, current.name);
+    }
+
+    if (equipment !== undefined) {
+      const kept = new Set(equipment.map(normalizeName));
+      const dropped = (current.requiredEquipment ?? []).filter(
+        (entry) => !kept.has(normalizeName(entry)),
+      );
+      await assertEquipmentNotInUse(transaction, eventSeriesId, dropped);
+    }
+
+    const carried =
+      current.requiredEquipment === undefined
+        ? {}
+        : { requiredEquipment: current.requiredEquipment };
+    next = {
+      name: name ?? current.name,
+      ...(equipment === undefined ? carried : { requiredEquipment: equipment }),
+    };
 
     const clash = indexOf(items, next.name);
     if (clash !== -1 && clash !== index) throw duplicate(next.name);
@@ -285,15 +303,14 @@ export async function deleteMasterDataItem(
 ): Promise<void> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
 
-  const series = await readActiveEventSeries();
-  const current = itemAt(itemsOf(series, category), item);
-
-  await assertNotInUse(series.id, category, current.name);
-  await assertEquipmentNotInUse(series.id, current.requiredEquipment ?? []);
-
-  await writeList(series.id, category, (items) => {
+  await editList(category, async (items, { transaction, eventSeriesId }) => {
     const index = indexOf(items, item);
     if (index === -1) throw new ServiceError(ErrorCode.NotFound, "Diesen Eintrag gibt es nicht.");
+    const current = items[index]!;
+
+    await assertNotInUse(transaction, eventSeriesId, category, current.name);
+    await assertEquipmentNotInUse(transaction, eventSeriesId, current.requiredEquipment ?? []);
+
     return items.filter((_, at) => at !== index);
   });
 }

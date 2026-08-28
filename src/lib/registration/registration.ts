@@ -22,6 +22,15 @@ export function recordIdFor(eventSeriesId: string, userId: string): string {
  */
 export const REGISTRATION_NOT_OPEN_HINT = "Es ist noch keine Sportveranstaltung freigeschalten.";
 
+/**
+ * Shown when an answer names something the event series stopped offering while the form was
+ * open — a teacher removed it between the page being loaded and the save being sent. It asks for
+ * the one thing that helps, since the form the student is looking at is out of date.
+ */
+export const ANSWER_NO_LONGER_OFFERED_HINT =
+  "Eine der gewählten Optionen steht nicht mehr zur Verfügung. " +
+  "Bitte lade die Seite neu und wähle erneut.";
+
 /** What an unsaved registration looks like, before the student has answered anything. */
 export const EMPTY_REGISTRATION: RegistrationInput = {
   // Taking part and borrowing equipment are answers the student gives, not ones the form
