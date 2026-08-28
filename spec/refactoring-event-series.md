@@ -102,19 +102,6 @@ event series, labelled "Eventreihe".
   "seasonPassOptions": ["Keine", "Vielleicht", "Golm-Bielerhöhe (Illwerke)", "Silvretta-Montafon"],
   "busPickupPoints": ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Unterkunft"],
   "foodOptions": ["Alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
-
-  // A saved report is a selection the teacher asked to be remembered, and nothing else: a name,
-  // which students are shown, and which detail lines they show (US-13, US-25). It is here for
-  // the same reason the lists are — it belongs to this series and filters on these lists, so one
-  // transaction writes both and they cannot disagree. Array
-  // order is the order the tags were dragged into, so no report carries a position either.
-  "savedReports": [
-    {
-      "name": "Vegetarisch 2bWI",
-      "filter": { "name": "", "tags": { "class": ["2bWI"], "foodOption": ["Vegetarisch"] } },
-      "fields": ["class", "contact"],
-    },
-  ],
 }
 ```
 
@@ -124,22 +111,27 @@ assuming the item is one.
 
 ### What does not sit in it
 
-One thing does not, and cannot: the invitation token of US-23.
+Two things do not, and for the same reason: a rule grants a **whole document or none of it**, and
+any signed-in user may read an event series — a registration selects from its lists (US-11).
+Anything that must not reach a student therefore cannot be a field of it.
 
 ```
-invitations/{token}   resolved server-side; readable by nobody through the access rules
+invitations/{token}                          resolved server-side; readable by nobody
+eventSeries/{id}/savedReports/{reportId}     readable by a teacher, written by nobody
 ```
 
-A token is a secret. Firestore's access rules are per document, so a token stored as a field of
-the event series document is readable by everyone the document is readable by — and a secret with
-that property is not a secret. It therefore lives in a collection of its own that no client may
-read at all, and is resolved by the Route Handler behind the link.
+A token is a secret, and a secret readable by everyone the document is readable by is not a
+secret. It lives in a collection of its own that no client may read at all, and is resolved by
+the Route Handler behind the link.
 
-Everything else is in the document, saved reports included, and any signed-in user may read it.
-That is a decision rather than an oversight: a rule grants a whole document or none of it, so
-letting a student's registration form subscribe to the lists lets them read the saved reports
-too. It is accepted, because a saved report holds a name, a filter and a set of field keys — no
-student's answers, and nothing a student can write. See Q1.
+A saved report is a selection the teacher asked to be remembered — a name, which students are
+shown, and which detail lines they show (US-13, US-25). It belongs to one series and filters on
+that series' lists, so it sits **beneath** the document rather than in it: near enough that one
+transaction writes both and they cannot disagree, separate enough to carry a rule of its own. Its
+position is a field, as a collection's members' order always is. See Q1, which first answered
+this the other way.
+
+Everything else is in the document, and any signed-in user may read it.
 
 ### The registration document
 
@@ -185,7 +177,9 @@ student's answers, and nothing a student can write. See Q1.
 ### What is deleted outright
 
 - The `seasons`, `events`, `programs`, `classOptions`, `skillLevels`, `busPickupPoints`,
-  `foodOptions`, `seasonPassOptions` and `savedReports` collections.
+  `foodOptions` and `seasonPassOptions` collections.
+- The top-level `savedReports` collection, which becomes a subcollection of the series each
+  report belongs to (Q1).
 - `Season.isActive` as it stands: the exclusivity, the guards that enforced it and the activation
   transaction all go. `isOpenToStudents` takes its place in name only — it answers a different
   question and carries no exclusivity (US-19, Q19).
@@ -477,9 +471,10 @@ its lists with a Wintersportwoche.
   question and so can have no rental question either.
 - A program's required equipment is unchanged in every other respect: a list on the program,
   capped at `MAX_EQUIPMENT_ITEMS`, ordered by dragging, rewritten whole.
-- Because one subscription to one document now carries every list and every saved report, the six
-  `useMasterData` subscriptions, the `useEvents` subscription and `useSavedReports` collapse into
-  one.
+- Because one subscription to one document now carries every list, the six `useMasterData`
+  subscriptions and the `useEvents` subscription collapse into one. `useSavedReports` stays a
+  subscription of its own, since the reports are beneath the document rather than in it (Q1) —
+  which it already was, so nothing is spent that was not being spent before.
 - The roster's opt-in flags survive that, with one of their two reasons gone. They say which
   filter categories a view offers, which the board and the report still disagree about; they no
   longer say which lists are worth subscribing to, because there is one subscription and it
@@ -665,9 +660,12 @@ report rather than a report widened by tags that quietly stopped matching.
 
 **Acceptance criteria:**
 
-- Saved reports belong to one event series and are stored in its document, beside the lists they
-  filter on: they are created in it, listed only while it is selected, deleted with it, and their
-  order is the array's.
+- Saved reports belong to one event series and are stored **beneath** its document, in a
+  subcollection beside the lists they filter on: they are created in it, listed only while it is
+  selected, deleted with it, and their order is a `position` on each.
+- **Beneath rather than in it**, because a rule grants a whole document or none of it and any
+  signed-in user may read an event series (US-11). A field would publish every teacher's reports
+  to every student; a subcollection is granted separately, so `isTeacher()` can be said (Q1).
 - A saved report is a selection that was remembered, and nothing else: a name, a filter and a set
   of field keys. It names nobody and records nothing about how it came to exist.
 - The event filter tag holds the event's name rather than its id, so an event is the same kind of
@@ -1002,8 +1000,16 @@ rentals, because filtering on the series and the value is two equalities. They a
 go again in slice 4, when a registration moves beneath its series and the series stops being a
 field to filter by.
 
-The saved reports move into the event series document in this slice, beside the lists they filter
-on — one document, one transaction, so a report and its lists cannot disagree.
+The saved reports move beneath the event series in this slice, into a subcollection of the
+document holding the lists they filter on — one parent, one transaction, so a report and its
+lists cannot disagree.
+
+**Beneath rather than inside**, because a rule grants a whole document or none of it, and anyone
+signed in may read an event series: a registration selects from its lists (US-11), and the
+student view subscribes to the whole collection. As a field, every saved report of every series
+would have been handed to every student. A subcollection carries a rule of its own, so
+`isTeacher()` can be said and a denial can be tested. It also lifts the 1 MiB ceiling Q13 had to
+budget against.
 
 This is the slice that needs the concurrency tests, and the invariant of US-24 is the one worth
 writing first: after any edit, every list value on every registration is either unanswered or one
@@ -1069,27 +1075,31 @@ the options, and what this document assumes in the meantime.
 
 ### Model and storage
 
-**Q1 — Students can read the saved reports, and that is accepted. Decided.** Firestore's access
-rules grant a **whole document or none of it** — there is no field-level read — and the client SDK
-hands a document to anyone the rule admits, whatever the application chooses to draw on screen.
-The registration form subscribes to `eventSeries/{id}` for the class and program lists, so the
-rule admits students, so a signed-in student can read that document entire, saved reports
-included. This was worth deciding rather than discovering, because saved reports are teacher-only
-today (US-13) and this quietly ends that.
+**Q1 — Students must not read the saved reports, so those live beneath the document rather than
+in it. Decided, reversing an earlier answer.** Firestore's access rules grant a **whole document
+or none of it** — there is no field-level read — and the client SDK hands a document to anyone the
+rule admits, whatever the application chooses to draw on screen. The registration form subscribes
+to the event series for the class and program lists, so the rule admits students.
 
-**Decided: they stay in the document and students may read them.** What a saved report holds is a
-name, a filter and a set of field keys: no student's answers, nothing a student can write, and
-nothing that is not already visible to a teacher standing at a whiteboard. The alternative —
-serving the lists to students through a Route Handler so the document could stay teacher-only —
-would have cost the live updates for no proportionate gain.
+This was first answered the other way: keep the reports in the document, accept that students
+receive them, on the grounds that a report holds a name, a filter and a set of field keys and
+nothing about any student. Two things were wrong with that. The narrower one is that the student
+view subscribes to the **whole collection**, so it was never "the series they registered for" but
+every series in the school. The broader one is that a report name is free text a teacher writes
+for teachers, and the filter says who is being looked at — by health flag, by completeness, by
+class. That is teacher-only in intent even where it is anonymous in content.
+
+**Decided: `eventSeries/{id}/savedReports/{reportId}`.** A subcollection is granted separately,
+so the rule can say `isTeacher()` and the denial can be tested. It costs nothing that mattered:
+the copy of US-22 stays atomic, because a transaction spans collections; the tag row already
+spent a subscription of its own; and the 1 MiB budget Q13 had to reason about stops applying.
 
 Two consequences to write down rather than leave implicit:
 
-- The rules test suite asserts this deliberately: a student **may** read an event series document
-  and everything in it, and may still write none of it. A test that reads as a leak needs the
-  comment saying it is a decision.
-- Nothing in the document is about a person, and it is worth keeping it that way. A field added
-  later that names a teacher is a field every student in the school can read.
+- The rules test suite asserts both halves: a teacher may read and query a series' reports, and a
+  student may read neither — the denial being the half that had no rule to test against before.
+- The event series document itself stays readable by any signed-in user, and nothing in it is
+  about a person. A field added later that names a teacher is a field every student can read.
 
 The invitation token is not part of this and never was: it is a secret, and it lives outside the
 document regardless.
@@ -1221,9 +1231,9 @@ per series, and a generous ceiling per maintained list, both in the schema in th
 `MAX_EQUIPMENT_ITEMS`, which stays 10.
 
 One limit is tighter than bytes and worth naming: Firestore indexes **each array element
-separately**, against 20,000 index entries per document. Nothing ever queries by the contents of
-a saved report, so the `savedReports` field is exempted from indexing with a `fieldOverrides`
-entry in `firestore.indexes.json` — one line of configuration that removes the pressure entirely.
+separately**, against 20,000 index entries per document. The seven lists are what that applies
+to, and a few hundred names between them is nowhere near it. The saved reports escape the
+question altogether by living in a subcollection (Q1) rather than in an array field.
 
 What this does not settle is the **write rate**. Every list edit, every reorder, every saved
 report and every `hasRegistrations` update writes the same document, against roughly one
@@ -1419,8 +1429,7 @@ What this refactoring adds is an **ordering constraint**, because rules and inde
 their own schedule while the code depends on both:
 
 - **A new index goes first** — the `registrations` collection group override on `studentUpn`
-  (US-26) and the `savedReports` `fieldOverrides` (Q13) — because a build takes time and a query
-  without its index fails.
+  (US-26) — because a build takes time and a query without its index fails.
 - **A rule that widens goes before or with its code**, such as students reading the event series
   document (Q1).
 - **A rule that narrows goes after its code**, such as teachers losing the `users` read (US-26).
@@ -1502,6 +1511,13 @@ anything**. Dropping at copy time avoids that entirely.
 
 The read-time tolerance is still kept, for what it was always for: a report saved before a
 category or a field key existed (US-25).
+
+**Where they live was reopened and answered differently.** "Into the document" was the original
+answer, for the atomicity a single document gives. A subcollection of that document gives the
+same atomicity — a transaction spans collections — and gives something the field cannot: a read
+rule of its own. Since anyone signed in may read an event series, a field would have published
+every teacher's saved reports to every student. That is not a leak worth accepting for a
+convenience a subcollection also provides.
 
 **Q11 — A teacher can delete a registration, from the overview page. Decided, as US-28.**
 There is no such path today, and the invitation links of US-23 create the need: a link is per
