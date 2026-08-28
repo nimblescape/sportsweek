@@ -68,13 +68,13 @@ function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps)
 }
 
 /**
- * Which event series a teacher is working in (US-20). Two rows: the series that carry data above,
- * the templates below — and exactly one tag is pressed across both, because exactly one thing is
- * scoped. Archived series are in neither, which is what makes archiving the thing that takes a
- * series off every screen (US-19).
+ * Which event series a teacher is working in (US-20). One row: the series that carry data first,
+ * the templates after them — and exactly one tag is pressed across both, because exactly one
+ * thing is scoped. Archived series are in neither, which is what makes archiving the thing that
+ * takes a series off every screen (US-19).
  *
- * A row wraps rather than scrolling sideways, so a school with many of either can still see them
- * all, and each carries its own name because colour alone does not say which row a tag is in.
+ * It wraps rather than scrolling sideways, so a school with many of either can still see them
+ * all, and each group carries its own name because colour alone does not say which is which.
  */
 export function EventSeriesTagRows() {
   const { eventSeries } = useEventSeries();
@@ -96,7 +96,7 @@ export function EventSeriesTagRows() {
   if (live.length === 0) return null;
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
       <TagRow
         label={EVENT_SERIES_ROW_LABEL}
         eventSeries={series}
