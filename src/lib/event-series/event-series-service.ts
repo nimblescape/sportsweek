@@ -14,7 +14,10 @@ import {
   NO_SUCH_EVENT_SERIES,
 } from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
+import { prunedToLists } from "@/lib/filters/student-filter";
 import { savedReportPath } from "@/lib/report/saved-reports";
+import { savedReportSchema } from "@/lib/schemas/saved-report";
+import type { EventSeriesListField } from "@/lib/master-data/categories";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
@@ -62,35 +65,95 @@ async function assertNameIsFree(
   return nameKey;
 }
 
-export async function createEventSeries(input: { name: string }): Promise<EventSeries> {
+/** The seven maintained lists, which is the whole of what a copy takes from its source (US-22). */
+const BLANK_LISTS = {
+  events: [],
+  classOptions: [],
+  programs: [],
+  skillLevels: [],
+  seasonPassOptions: [],
+  busPickupPoints: [],
+  foodOptions: [],
+} satisfies Pick<EventSeries, EventSeriesListField>;
+
+type CreateEventSeries = {
+  name: string;
+  /** Answered on its own: a copy is no more a template for having come from one (US-22). */
+  isTemplate?: boolean;
+  /** Any series or template, archived ones included — which is what keeps archiving reversible. */
+  sourceId?: string | null;
+};
+
+/**
+ * Creating is one atomic write, whichever of the four combinations it is: a blank series, a
+ * series from a template, a series from last year's, or a template from a series (US-22).
+ *
+ * What a copy takes is the seven lists and the saved reports. What it never takes is the
+ * registrations, the archive state and the invitation link — a link that still pointed at the
+ * source would enrol students into the wrong series (US-23).
+ */
+export async function createEventSeries(input: CreateEventSeries): Promise<EventSeries> {
   const name = parseName(input.name);
+  const sourceId = input.sourceId ?? null;
 
   // A new event series goes to the end of the teacher's order (see Ordering).
   const position = (await adminDb.collection(COLLECTIONS.eventSeries).count().get()).data().count;
 
   return adminDb.runTransaction(async (transaction) => {
     const reference = adminDb.collection(COLLECTIONS.eventSeries).doc();
+
+    // Every read first: a transaction refuses one issued after its first write.
+    const source = sourceId === null ? null : await transaction.get(eventSeriesDoc(sourceId));
+    if (source !== null && !source.exists) {
+      throw new ServiceError(ErrorCode.NotFound, NO_SUCH_EVENT_SERIES);
+    }
+    const sourceReports =
+      source === null
+        ? null
+        : await transaction.get(adminDb.collection(savedReportPath(source.id)));
     const nameKey = await assertNameIsFree(transaction, { name });
 
-    // Blank rather than seeded: the application cannot know whether this is a Wintersportwoche or
-    // a Kulturwoche, and an empty list is simply a question the student is never asked (US-21).
+    // Blank where nothing was named as a source: the application cannot know whether this is a
+    // Wintersportwoche or a Kulturwoche, and an empty list is a question nobody is asked (US-21).
+    const lists =
+      source === null
+        ? BLANK_LISTS
+        : (eventSeriesSchema.parse({ id: source.id, ...source.data() }) as Pick<
+            EventSeries,
+            EventSeriesListField
+          >);
+
     const data = {
       name,
       nameKey,
-      isTemplate: false,
+      isTemplate: input.isTemplate ?? false,
       isArchived: false,
       isOpenToStudents: false,
       hasRegistrations: false,
       position,
-      events: [],
-      classOptions: [],
-      programs: [],
-      skillLevels: [],
-      seasonPassOptions: [],
-      busPickupPoints: [],
-      foodOptions: [],
+      events: lists.events,
+      classOptions: lists.classOptions,
+      programs: lists.programs,
+      skillLevels: lists.skillLevels,
+      seasonPassOptions: lists.seasonPassOptions,
+      busPickupPoints: lists.busPickupPoints,
+      foodOptions: lists.foodOptions,
     };
     transaction.set(reference, data);
+
+    // Pruned as they are copied rather than overlooked on opening, so a copied report is
+    // consistent with its own lists from the moment it exists (Q10).
+    for (const report of sourceReports?.docs ?? []) {
+      const parsed = savedReportSchema.safeParse({ id: report.id, ...report.data() });
+      if (!parsed.success) continue;
+
+      const { id: _id, filter, ...rest } = parsed.data;
+      transaction.set(adminDb.collection(savedReportPath(reference.id)).doc(), {
+        ...rest,
+        filter: prunedToLists(filter, data),
+      });
+    }
+
     return { id: reference.id, ...data };
   });
 }

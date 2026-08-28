@@ -7,10 +7,20 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@/lib/api/handler";
 import { orderSchema } from "@/lib/schemas/order";
+import { documentIdSchema } from "@/lib/schemas/common";
 import { eventSeriesSchema } from "@/lib/schemas/event-series";
 import { createEventSeries, reorderEventSeries } from "@/lib/event-series/event-series-service";
 
-const createEventSeriesSchema = z.strictObject({ name: eventSeriesSchema.shape.name });
+/**
+ * Three answers, one write (US-22): what it is called, whether it is a series or a template, and
+ * which existing one its lists come from. There is no separate duplicate action and no separate
+ * "make a template" action, so this is the only way an event series comes into being.
+ */
+const createEventSeriesSchema = z.strictObject({
+  name: eventSeriesSchema.shape.name,
+  isTemplate: z.boolean().default(false),
+  sourceId: documentIdSchema.nullable().default(null),
+});
 
 const reorderSchema = z.strictObject({ order: orderSchema });
 
