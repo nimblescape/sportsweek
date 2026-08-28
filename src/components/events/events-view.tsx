@@ -22,20 +22,21 @@ import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
-import { eventSchema, type Event } from "@/lib/schemas/event-series";
+import { listItemNameSchema } from "@/lib/schemas/master-data";
 import { useEvents } from "@/lib/events/use-events";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import { PageHeading } from "@/components/layout/page-heading";
 
-const formSchema = z.object({ name: eventSchema.shape.name });
+const formSchema = z.object({ name: listItemNameSchema });
 type FormValues = z.infer<typeof formSchema>;
 
 /** What deleting an event costs beyond the event itself — said on the control and again in the dialog. */
 const UNASSIGNS_STUDENTS_HINT =
   "Schüler:innen, die diesem Event zugeteilt sind, verlieren ihre Zuteilung.";
 
+/** An event is named rather than pointed at, so the dialogs carry the name they were opened on. */
 type OpenDialog =
-  { kind: "none" } | { kind: "form"; event: Event | null } | { kind: "delete"; event: Event };
+  { kind: "none" } | { kind: "form"; event: string | null } | { kind: "delete"; event: string };
 
 export function EventsView({ eventSeriesId }: { eventSeriesId: string }) {
   const { events, loading, error } = useEvents(eventSeriesId);
@@ -78,7 +79,7 @@ export function EventsView({ eventSeriesId }: { eventSeriesId: string }) {
             loading={loading}
             error={error}
             readOnly={eventSeries?.isArchived ?? false}
-            busyEventId={busyId}
+            busyEvent={busyId}
             onEdit={(event) => setDialog({ kind: "form", event })}
             onDelete={(event) => setDialog({ kind: "delete", event })}
             onReorder={(order) =>
@@ -94,10 +95,11 @@ export function EventsView({ eventSeriesId }: { eventSeriesId: string }) {
         <EventFormDialog
           event={dialog.event}
           onSubmit={(name, event) =>
-            run(event?.id ?? null, () =>
-              event === null
-                ? apiRequest("/api/events", { method: "POST", body: { eventSeriesId, name } })
-                : apiRequest(`/api/events/${event.id}`, { method: "PATCH", body: { name } }),
+            run(event, () =>
+              apiRequest("/api/events", {
+                method: event === null ? "POST" : "PATCH",
+                body: event === null ? { eventSeriesId, name } : { eventSeriesId, event, name },
+              }),
             ).then(() => {})
           }
           onClose={() => setDialog({ kind: "none" })}
@@ -108,7 +110,9 @@ export function EventsView({ eventSeriesId }: { eventSeriesId: string }) {
         <DeleteEventDialog
           event={dialog.event}
           onDelete={(event) =>
-            run(event.id, () => apiRequest(`/api/events/${event.id}`, { method: "DELETE" }))
+            run(event, () =>
+              apiRequest("/api/events", { method: "DELETE", body: { eventSeriesId, event } }),
+            )
           }
           onClose={() => setDialog({ kind: "none" })}
         />
@@ -118,15 +122,15 @@ export function EventsView({ eventSeriesId }: { eventSeriesId: string }) {
 }
 
 type EventListProps = {
-  events: Event[];
+  events: readonly string[];
   loading: boolean;
   error: string | null;
   readOnly: boolean;
   /** The row a write is running on; its controls are held until the write is answered. */
-  busyEventId: string | null;
-  onEdit: (event: Event) => void;
-  onDelete: (event: Event) => void;
-  onReorder: (orderedIds: string[]) => void | Promise<void>;
+  busyEvent: string | null;
+  onEdit: (event: string) => void;
+  onDelete: (event: string) => void;
+  onReorder: (orderedNames: string[]) => void | Promise<void>;
 };
 
 function EventList({
@@ -134,7 +138,7 @@ function EventList({
   loading,
   error,
   readOnly,
-  busyEventId,
+  busyEvent,
   onEdit,
   onDelete,
   onReorder,
@@ -165,11 +169,11 @@ function EventList({
   return (
     <Card className="[--card-spacing:--spacing(0)]">
       <SortableList
-        items={events}
+        items={events.map((name) => ({ id: name, name }))}
         onReorder={onReorder}
         // An archived event series is read-only, so its order is frozen along with everything else.
         disabled={readOnly}
-        busyId={busyEventId}
+        busyId={busyEvent}
         className="[&>li]:border-border [&>li]:border-b [&>li:last-child]:border-b-0"
         renderItem={(event) => (
           <div className="flex items-center justify-between gap-4 py-3 pr-4 pl-2">
@@ -181,9 +185,9 @@ function EventList({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    disabled={event.id === busyEventId}
+                    disabled={event.name === busyEvent}
                     aria-label={`Event ${event.name} bearbeiten`}
-                    onClick={() => onEdit(event)}
+                    onClick={() => onEdit(event.name)}
                   >
                     <Pencil aria-hidden />
                   </Button>
@@ -192,9 +196,9 @@ function EventList({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    disabled={event.id === busyEventId}
+                    disabled={event.name === busyEvent}
                     aria-label={`Event ${event.name} löschen`}
-                    onClick={() => onDelete(event)}
+                    onClick={() => onDelete(event.name)}
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                   >
                     <Trash2 aria-hidden />
@@ -214,9 +218,9 @@ function EventFormDialog({
   onSubmit: save,
   onClose,
 }: {
-  event: Event | null;
+  event: string | null;
   /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
-  onSubmit: (name: string, event: Event | null) => Promise<void>;
+  onSubmit: (name: string, event: string | null) => Promise<void>;
   onClose: () => void;
 }) {
   const isEdit = event !== null;
@@ -231,7 +235,7 @@ function EventFormDialog({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: event?.name ?? "" },
+    defaultValues: { name: event ?? "" },
   });
 
   const onSubmit = handleSubmit(async (values) => {
@@ -294,8 +298,8 @@ function DeleteEventDialog({
   onDelete,
   onClose,
 }: {
-  event: Event;
-  onDelete: (event: Event) => Promise<unknown>;
+  event: string;
+  onDelete: (event: string) => Promise<unknown>;
   onClose: () => void;
 }) {
   const [error, setError] = React.useState<string | null>(null);
@@ -334,8 +338,8 @@ function DeleteEventDialog({
       }
     >
       <p className="text-sm">
-        Das Event <strong>{event.name}</strong> wird gelöscht. {UNASSIGNS_STUDENTS_HINT} Ihre
-        Anmeldung bleibt erhalten.
+        Das Event <strong>{event}</strong> wird gelöscht. {UNASSIGNS_STUDENTS_HINT} Ihre Anmeldung
+        bleibt erhalten.
       </p>
       {error ? (
         <p role="alert" className="text-destructive mt-2 text-sm">

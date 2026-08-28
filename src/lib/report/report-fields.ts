@@ -21,17 +21,11 @@ export const NO_ANSWER = "keine Angabe";
 /** What the report and its PDF say where the filter leaves nobody (US-13, US-17). */
 export const NO_STUDENTS_HINT = "Keine Schüler:innen gefunden.";
 
-/**
- * What a field needs beyond the registration itself. Only the event does: a record points at
- * one by id, because unlike the teacher-maintained lists it is a genuine reference (US-11).
- */
-export type ReportFieldContext = { eventNames: ReadonlyMap<string, string> };
-
 export type ReportField = {
   key: string;
   label: string;
   /** Null is "not answered"; the placeholder is the reader's business, not the field's. */
-  valueOf: (record: Registration, context: ReportFieldContext) => string | null;
+  valueOf: (record: Registration) => string | null;
 };
 
 /**
@@ -93,10 +87,7 @@ const answer = (key: string, label: string, valueOf: ReportField["valueOf"]): Re
  */
 export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
   answer("attendance", "Teilnahme", (record) => yesNo(record.isAttendingSportsWeek)),
-  // An event a teacher has since deleted reads as unanswered, which is what the student is.
-  answer("event", "Event", (record, { eventNames }) =>
-    record.eventId === null ? null : (eventNames.get(record.eventId) ?? null),
-  ),
+  answer("event", "Event", (record) => record.event),
   answer("class", ANSWER_LABELS.class, (record) => record.class),
   answer("gender", "Geschlecht", (record) =>
     record.gender === null ? null : GENDER_LABELS[record.gender],

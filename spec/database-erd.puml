@@ -22,6 +22,10 @@ entity "EventSeries" as eventSeries {
   PK id : string
   --
   name : string
+  nameKey : string  ' the normalised name (trimmed, case-folded), derived by the server and never
+                    ' sent by a client. Uniqueness is an equality query on this inside the write's
+                    ' own transaction — an equality on name would compare exact strings and lose
+                    ' the case- and whitespace-insensitivity the rule asks for (US-4, US-21)
   isActive : boolean  ' at most one event series may be true at any point in time; activating one
                       ' clears the flag on the previously active event series in the same
                       ' transaction, and deactivating leaves none active (US-4)
@@ -33,69 +37,39 @@ entity "EventSeries" as eventSeries {
                               ' collection it may not read; the server re-checks and decides (US-4)
   position : number  ' teacher-defined order, not alphabetical (see Ordering)
   --
+  ' The seven teacher-maintained lists, in the order the master data menu shows them (US-14),
+  ' with the events at the head because they are reached through this event series rather than
+  ' through the menu. They are fields of this document rather than collections of their own, so a
+  ' Kulturwoche is not made to share its lists with a Wintersportwoche (US-21). An item is a name:
+  ' array order is the teacher-defined order, so none carries a position, and a name is its
+  ' identity within its own list, so none carries an id. Uniqueness is decided in the write that
+  ' changes the list, because the whole list is present in it — no reservation document is needed,
+  ' and two event series may each hold a "Montafon" without either ever looking at the other.
+  events : string[]  ' the weeks of this event series, assigned to in US-12
+  classOptions : string[]  ' Klasse (US-6)
+  programs : { name, requiredEquipment[] }[]  ' the one list whose entries are not bare names,
+                                              ' because a program carries the equipment it
+                                              ' requires (US-5): e.g. ski, ski boots, poles,
+                                              ' helmet. Unique within their own program, so two
+                                              ' programs may each require a helmet. The whole
+                                              ' list is rewritten in one step, so adding,
+                                              ' renaming and removing are atomic.
+  skillLevels : string[]  ' Einsteiger:in, Anfänger:in, Fortgeschritten, Profi (US-7) — ranked,
+                          ' so alphabetical would be wrong
+  seasonPassOptions : string[]  ' Keine, Vielleicht, Golm-Bielerhöhe (Illwerke), … (US-10)
+  busPickupPoints : string[]  ' typically ordered along the bus route (US-8)
+  foodOptions : string[]  ' Alles, Vegetarisch, Vegan, Kein Schweinefleisch (US-9). The fixed
+                          ' "other" option is not an entry here — it is offered alongside a
+                          ' non-empty list and cannot be edited or removed; see
+                          ' Registration.foodOtherText
+  --
   ' Displayed state is derived, not stored: active (isActive), archived (isArchived),
   ' or inactive (neither). An event series with no registrations can be deleted in any state but
   ' cannot be archived; one with registrations must be archived before it can be deleted.
-  ' Deleting cascades to its events and to all Registration records for that event series (US-4).
-}
-
-entity "Event" as event {
-  PK id : string
-  FK eventSeriesId : string
-  --
-  name : string
-  position : number  ' teacher-defined order within the event series (see Ordering)
-}
-
-entity "Program" as program {
-  PK id : string
-  --
-  name : string  ' e.g. Ski, Snowboard, Alternativ (US-5); only editable/removable if unused by a non-archived event series' registrations
-  requiredEquipment : string[]  ' e.g. ski, ski boots, poles, helmet (US-5); stored on the program
-                                ' itself rather than as records of their own — an item has no
-                                ' identity outside the program and is referenced from nowhere.
-                                ' Unique within the program, compared case- and space-insensitively;
-                                ' two programs may each require a helmet. The whole list is
-                                ' rewritten in one step, so adding/renaming/removing is atomic,
-                                ' and the array order is the teacher-defined order (see Ordering).
-  position : number  ' teacher-defined order, not alphabetical (see Ordering)
-}
-
-entity "ClassOption" as classOption {
-  PK id : string
-  --
-  name : string  ' Klasse (US-6); only editable/removable if unused by a non-archived event series' registrations
-  position : number  ' teacher-defined order (see Ordering)
-}
-
-entity "SkillLevel" as skillLevel {
-  PK id : string
-  --
-  name : string  ' Einsteiger:in, Anfänger:in, Fortgeschritten, Profi (US-7)
-  position : number  ' teacher-defined order — these are ranked, so alphabetical would be wrong
-}
-
-entity "BusPickupPoint" as busPickupPoint {
-  PK id : string
-  --
-  name : string  ' US-8
-  position : number  ' teacher-defined order, typically along the bus route (see Ordering)
-}
-
-entity "FoodOption" as foodOption {
-  PK id : string
-  --
-  name : string  ' Alles, Vegetarisch, Vegan, Kein Schweinefleisch (US-9)
-  position : number  ' teacher-defined order (see Ordering)
-  ' note: the fixed "other" option is not a row here — it is always available
-  ' and cannot be edited/removed; see Registration.foodOtherText
-}
-
-entity "SeasonPassOption" as seasonPassOption {
-  PK id : string
-  --
-  name : string  ' Keine, Vielleicht, Golm-Bielerhöhe (Illwerke), Silvretta-Montafon (US-10)
-  position : number  ' teacher-defined order (see Ordering)
+  ' Deleting takes its lists with it, since they are fields of this document, and cascades to
+  ' all Registration records for that event series (US-4).
+  ' An empty list is a question the student is never asked, which is what lets one application
+  ' serve a Kulturwoche as well as a Wintersportwoche (US-21).
 }
 
 entity "Registration" as registration {
@@ -112,17 +86,19 @@ entity "Registration" as registration {
                                    ' EXCEPT .class, which is always shown/required regardless
   --
   ' The fields below are plain-text/enum snapshots of a teacher-maintained list value at
-  ' selection time (US-11) — NOT foreign keys. Later edits/removals in the source list do
-  ' not alter already-stored records.
-  class : string             ' copied from ClassOption.name; always shown/required, not gated by isAttendingSportsWeek
-  program : string           ' copied from Program.name
-  skillLevel : string        ' copied from SkillLevel.name
-  busPickupPoint : string    ' copied from BusPickupPoint.name
-  foodOption : string        ' copied from FoodOption.name, or "other"
+  ' selection time (US-11) — NOT foreign keys. The lists they are chosen from are fields of the
+  ' event series this registration belongs to (US-21).
+  class : string             ' copied from EventSeries.classOptions; always shown/required, not gated by isAttendingSportsWeek
+  program : string           ' copied from an EventSeries.programs entry's name
+  skillLevel : string        ' copied from EventSeries.skillLevels
+  busPickupPoint : string    ' copied from EventSeries.busPickupPoints
+  foodOption : string        ' copied from EventSeries.foodOptions, or "other"
   foodOtherText : string <<nullable>>   ' set when foodOption = "other"
-  seasonPassOption : string  ' copied from SeasonPassOption.name
+  seasonPassOption : string  ' copied from EventSeries.seasonPassOptions
   --
-  FK eventId : string <<nullable>>  ' assignment result (US-12); null = unassigned
+  event : string <<nullable>>  ' assignment result (US-12); null = unassigned. Copied from
+                               ' EventSeries.events by name, like every other list value — an
+                               ' array entry has no id to point at (US-21)
   --
   dateOfBirth : date
   gender : enum(male, female)
@@ -160,31 +136,27 @@ entity "SavedReport" as savedReport {
   ' The three below are US-13 only — the assignment dialog has no use for any of them: its
   ' cards are already one per event, and it lists only the students who are attending (US-12).
   filter.tags.attendance : enum(attending, notAttending)[]
-  filter.tags.event : Event.id[]
+  filter.tags.event : string[]
   filter.tags.completeness : enum(complete, incomplete)[]
   ' The activated field tags of the fields tag list, by key — a key nothing offers any more
   ' simply adds no detail line, so a report saved by an older release still opens (US-13).
   fields : string[]
 }
 
-' Event series & Events (US-4)
-eventSeries ||--o{ event : "contains"
+' Event series (US-4)
 eventSeries ||--o{ registration : "registered in (US-11)"
-event  |o--o{ registration : "assigned to (US-12); removing an event unassigns its students"
 
-' Sports Week Master Data teacher-maintained lists (US-5 .. US-10)
-' Program.requiredEquipment is an attribute, not an entity — there is no relationship to draw.
-' So are Registration.emergencyContact and .rentedEquipment.
+' Sports Week Master Data teacher-maintained lists (US-4 .. US-10)
+' None of them is an entity any more: all seven, the events included, are ordered array fields
+' of EventSeries (US-21), as are a program's requiredEquipment, Registration.emergencyContact
+' and .rentedEquipment.
 
-' The dotted lines below are NOT foreign keys — they indicate that a Registration
-' field is a plain-text copy of a list item's name at the time it was selected (US-11).
-program           .down.> registration : "value copied to .program"
-classOption       .down.> registration : "value copied to .class"
-skillLevel        .down.> registration : "value copied to .skillLevel"
-busPickupPoint    .down.> registration : "value copied to .busPickupPoint"
-seasonPassOption  .down.> registration : "value copied to .seasonPassOption"
-foodOption        .down.> registration : "value copied to .foodOption"
-program           .down.> registration : "a .requiredEquipment entry is copied to .rentedEquipment"
+' The dotted line below is NOT a foreign key — it indicates that several Registration fields are
+' plain-text copies of a list entry's name at the time it was selected (US-11): .event, .class,
+' .program, .skillLevel, .busPickupPoint, .seasonPassOption, .foodOption, and .rentedEquipment
+' from the chosen program's own requiredEquipment. Removing an event unassigns its students and
+' renaming one rewrites what they hold (US-12).
+eventSeries       .down.> registration : "list values copied by name"
 
 ' Student edits own registration (US-11)
 user              ||--o{ registration : "owns (student)"

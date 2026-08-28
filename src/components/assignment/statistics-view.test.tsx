@@ -7,16 +7,15 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
+import { storedEventSeries } from "@/test/event-series";
 
 const useEventSeries = vi.fn();
 const useRoster = vi.fn();
-const useEvents = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
 
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
-vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (key: string) => useMasterData(key),
   usePrograms: () => usePrograms(),
@@ -40,18 +39,10 @@ function student(
 
 const eventSeries = {
   id: "s1",
-  name: "2026",
-  isActive: true,
-  isArchived: false,
-  hasRegistrations: true,
-  position: 0,
+  ...storedEventSeries({ name: "2026", isActive: true, hasRegistrations: true }),
 };
 
-const listOf = (...names: string[]) => ({
-  items: names.map((name, position) => ({ id: name, name, position })),
-  loading: false,
-  error: null,
-});
+const listOf = (...names: string[]) => ({ items: names, loading: false, error: null });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -61,12 +52,11 @@ beforeEach(() => {
     loading: false,
     error: null,
   });
-  useEvents.mockReturnValue({ events: [], loading: false, error: null });
   useMasterData.mockImplementation((key: string) =>
     key === "classes" ? listOf("5AHIF", "5BHIF") : listOf("Profi"),
   );
   usePrograms.mockReturnValue({
-    programs: [{ id: "p1", name: "Ski", position: 0, requiredEquipment: [] }],
+    programs: [{ name: "Ski", requiredEquipment: [] }],
     loading: false,
     error: null,
   });

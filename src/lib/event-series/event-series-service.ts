@@ -4,11 +4,12 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import "server-only";
+import type { Transaction } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { reorderCollection } from "@/lib/firebase/reorder";
 import { ARCHIVED_IS_READ_ONLY_HINT } from "@/lib/event-series/event-series-state";
-import { releaseName, reservationRef, reserveName, scopeOf } from "@/lib/firebase/unique-name";
+import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
@@ -31,23 +32,57 @@ function eventSeriesDoc(id: string) {
   return adminDb.collection(COLLECTIONS.eventSeries).doc(id);
 }
 
+/**
+ * Event series names are unique, compared ignoring surrounding whitespace and letter case (US-4).
+ * A Firestore equality does neither, so the comparison is made against the stored `nameKey` —
+ * derived here on every write and never sent by a client.
+ *
+ * The query runs inside the write's own transaction, which is what makes it safe: Firestore locks
+ * the index range a transactional query scans, so a second create racing the first waits and then
+ * sees it. Every read has to precede the first write, so call this before writing the document.
+ */
+async function assertNameIsFree(
+  transaction: Transaction,
+  { name, ownerId }: { name: string; ownerId?: string },
+): Promise<string> {
+  const nameKey = normalizeName(name);
+  const taken = await transaction.get(
+    adminDb.collection(COLLECTIONS.eventSeries).where("nameKey", "==", nameKey).limit(2),
+  );
+
+  if (taken.docs.some((doc) => doc.id !== ownerId)) {
+    throw new ServiceError(ErrorCode.Conflict, `Den Namen „${name.trim()}" gibt es bereits.`);
+  }
+  return nameKey;
+}
+
 export async function createEventSeries(input: { name: string }): Promise<EventSeries> {
   const name = parseName(input.name);
 
   // A new event series goes to the end of the teacher's order (see Ordering).
   const position = (await adminDb.collection(COLLECTIONS.eventSeries).count().get()).data().count;
 
-  // The reservation is what makes the name unique; it shares the transaction with the
-  // record, so a rejected name leaves nothing behind (US-4).
   return adminDb.runTransaction(async (transaction) => {
     const reference = adminDb.collection(COLLECTIONS.eventSeries).doc();
-    await reserveName(transaction, {
-      scope: scopeOf(COLLECTIONS.eventSeries),
-      name,
-      ownerId: reference.id,
-    });
+    const nameKey = await assertNameIsFree(transaction, { name });
 
-    const data = { name, isActive: false, isArchived: false, hasRegistrations: false, position };
+    // Blank rather than seeded: the application cannot know whether this is a Wintersportwoche or
+    // a Kulturwoche, and an empty list is simply a question the student is never asked (US-21).
+    const data = {
+      name,
+      nameKey,
+      isActive: false,
+      isArchived: false,
+      hasRegistrations: false,
+      position,
+      events: [],
+      classOptions: [],
+      programs: [],
+      skillLevels: [],
+      seasonPassOptions: [],
+      busPickupPoints: [],
+      foodOptions: [],
+    };
     transaction.set(reference, data);
     return { id: reference.id, ...data };
   });
@@ -146,26 +181,22 @@ export async function updateEventSeries(
     }
 
     if (renaming) {
-      await reserveName(transaction, {
-        scope: scopeOf(COLLECTIONS.eventSeries),
-        name,
-        ownerId: id,
-      });
-      releaseName(transaction, { scope: scopeOf(COLLECTIONS.eventSeries), name: current.name });
+      await assertNameIsFree(transaction, { name, ownerId: id });
     }
 
-    // `set` replaces the document, so the teacher's ordering has to be carried across.
-    const next = {
+    // `update` rather than `set`: the document now also carries the six maintained lists (US-21),
+    // and naming them here only to preserve them would drop the next one somebody adds.
+    const changed = {
       name: name ?? current.name,
+      nameKey: normalizeName(name ?? current.name),
       isActive,
       isArchived,
       hasRegistrations,
-      position: current.position,
     };
-    transaction.set(reference, next);
+    transaction.update(reference, changed);
     for (const doc of previouslyActive) transaction.update(doc.ref, { isActive: false });
 
-    return { id, ...next };
+    return { ...current, ...changed };
   });
 }
 
@@ -197,27 +228,13 @@ export async function deleteEventSeries(id: string): Promise<void> {
     );
   }
 
-  const eventsSnapshot = await adminDb
-    .collection(COLLECTIONS.events)
-    .where("eventSeriesId", "==", id)
-    .get();
-
-  const doomed = eventsSnapshot.docs.map((event) => event.ref);
-
-  // Free the names as well, otherwise they stay claimed by records that no longer exist.
-  doomed.push(reservationRef(scopeOf(COLLECTIONS.eventSeries), eventSeries.name));
-  for (const event of eventsSnapshot.docs) {
-    const eventName = event.data().name;
-    if (typeof eventName === "string") {
-      doomed.push(reservationRef(scopeOf(COLLECTIONS.events, id), eventName));
-    }
-  }
-
   // A registration carries its emergency contact and rentals in its own fields, so
   // deleting it takes them along — there is nothing hanging off it to clean up separately.
-  doomed.push(...masterDataSnapshot.docs.map((record) => record.ref));
-
-  const operations: BatchOperation[] = doomed.map((target) => (batch) => batch.delete(target));
+  // The lists the series maintained, its events among them, are fields of the document itself
+  // and go with it (US-21).
+  const operations: BatchOperation[] = masterDataSnapshot.docs.map(
+    (record) => (batch) => batch.delete(record.ref),
+  );
   await commitInChunks(operations);
 
   await reference.delete();

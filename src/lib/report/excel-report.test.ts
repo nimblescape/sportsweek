@@ -18,7 +18,6 @@ const BENE = rosterStudent({
   class: "5BHIF",
 });
 
-const context = { eventNames: new Map([["event1", "Woche 1"]]) };
 const PROVENANCE: ReportProvenance = {
   reportName: null,
   filterSummary: null,
@@ -26,10 +25,10 @@ const PROVENANCE: ReportProvenance = {
 };
 
 const table = (students = [ANNA, BENE], fields = reportFieldsOf([])) =>
-  reportTable(students, fields, context);
+  reportTable(students, fields);
 
 const workbook = (students = [ANNA], fields = reportFieldsOf([]), provenance = PROVENANCE) =>
-  reportWorkbook(students, fields, { context, provenance, logo: null });
+  reportWorkbook(students, fields, { provenance, logo: null });
 
 describe("reportTable", () => {
   it("names the three the master line always shows as the leftmost columns", () => {
@@ -117,7 +116,6 @@ describe("reportWorkbook", () => {
 
   it("carries the logo on the overview sheet when it was loaded", () => {
     const withLogo = reportWorkbook([ANNA], reportFieldsOf([]), {
-      context,
       provenance: PROVENANCE,
       logo: "AAA",
     });

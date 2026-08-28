@@ -15,9 +15,9 @@ import {
 import { FilterTagList } from "./filter-tag-list";
 
 const GROUPS = filterGroups({
-  classes: [{ name: "5AHIF" }, { name: "5BHIF" }],
+  classes: ["5AHIF", "5BHIF"],
   programs: [{ name: "Ski" }],
-  skillLevels: [{ name: "Fortgeschritten" }],
+  skillLevels: ["Fortgeschritten"],
 });
 
 function setup(value: StudentFilter = EMPTY_FILTER) {

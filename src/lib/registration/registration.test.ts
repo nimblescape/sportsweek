@@ -19,8 +19,8 @@ describe("recordIdFor", () => {
   });
 
   /**
-   * The point of deriving it: one student can hold exactly one record per event series without anyone
-   * having to query for it, because document ids are unique by construction (see unique-name.ts).
+   * The point of deriving it: one student can hold exactly one record per event series without
+   * anyone having to query for it, because document ids are unique by construction.
    */
   it("gives the same student the same id for the same event series", () => {
     expect(recordIdFor("eventSeries1", "jane@student.htldornbirn.at")).toBe(

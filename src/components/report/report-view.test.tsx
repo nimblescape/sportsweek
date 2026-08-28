@@ -9,10 +9,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
+import { storedEventSeries } from "@/test/event-series";
 
 const useEventSeries = vi.fn();
 const useRoster = vi.fn();
-const useEvents = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
 const useSavedReports = vi.fn();
@@ -22,7 +22,6 @@ const downloadReportWorkbook = vi.fn();
 
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
-vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (key: string) => useMasterData(key),
   usePrograms: () => usePrograms(),
@@ -59,30 +58,23 @@ function student(
 const ANNA = student("Anna", "Muster");
 const BENE = student("Bene", "Berger", { isAttending: false, class: "5BHIF" });
 
+/** The events are a field of this document, so the event tags arrive with the series (US-21). */
 const eventSeries = {
   id: "s1",
-  name: "2026",
-  isActive: true,
-  isArchived: false,
-  hasRegistrations: true,
-  position: 0,
+  ...storedEventSeries({
+    name: "2026",
+    isActive: true,
+    hasRegistrations: true,
+    events: ["Woche 1"],
+  }),
 };
 
-const listOf = (...names: string[]) => ({
-  items: names.map((name, position) => ({ id: name, name, position })),
-  loading: false,
-  error: null,
-});
+const listOf = (...names: string[]) => ({ items: names, loading: false, error: null });
 
 beforeEach(() => {
   vi.clearAllMocks();
   useEventSeries.mockReturnValue({ eventSeries: [eventSeries], loading: false, error: null });
   useRoster.mockReturnValue({ students: [BENE, ANNA], loading: false, error: null });
-  useEvents.mockReturnValue({
-    events: [{ id: "event1", eventSeriesId: "s1", name: "Woche 1", position: 0 }],
-    loading: false,
-    error: null,
-  });
   useMasterData.mockImplementation((key: string) => {
     if (key === "classes") return listOf("5AHIF", "5BHIF");
     if (key === "bus-pickup-points") return listOf("Dornbirn", "Bregenz");
@@ -91,7 +83,7 @@ beforeEach(() => {
     return listOf("Profi");
   });
   usePrograms.mockReturnValue({
-    programs: [{ id: "p1", name: "Ski", position: 0, requiredEquipment: [] }],
+    programs: [{ name: "Ski", requiredEquipment: [] }],
     loading: false,
     error: null,
   });
@@ -169,7 +161,7 @@ describe("ReportView", () => {
   });
 
   it("filters by the event a student is assigned to", async () => {
-    const assigned = student("Dora", "Dorn", { eventId: "event1" });
+    const assigned = student("Dora", "Dorn", { event: "Woche 1" });
     useRoster.mockReturnValue({ students: [assigned, ANNA], loading: false, error: null });
 
     render(<ReportView />);
@@ -322,8 +314,8 @@ describe("the fields tag list", () => {
     expect(detailsOf("Muster")).toEqual(["Klasse:"]);
   });
 
-  it("names the event a student is assigned to, which the record holds only by id", async () => {
-    const assigned = student("Dora", "Dorn", { eventId: "event1" });
+  it("names the event a student is assigned to", async () => {
+    const assigned = student("Dora", "Dorn", { event: "Woche 1" });
     useRoster.mockReturnValue({ students: [assigned], loading: false, error: null });
 
     render(<ReportView />);
@@ -406,27 +398,43 @@ describe("the saved reports", () => {
   });
 
   /**
-   * A list still on its way offers nothing to check a tag against. Dropping it there would strip
-   * the report of what it holds and then call it changed for the rest of the session.
+   * Every list now arrives on the one event series document (US-21), so a list still on its way
+   * is a series still on its way — and there is no report to open against lists nobody has read.
+   * That is what lets an empty list mean a question nobody was asked rather than one pending.
    */
-  it("does not read as changed when a list it filters by has not arrived yet", async () => {
+  it("offers nothing to open while the event series has not arrived", () => {
+    useSavedReports.mockReturnValue({ reports: [saved], loading: false, error: null });
+    useEventSeries.mockReturnValue({ eventSeries: [], loading: true, error: null });
+
+    render(<ReportView />);
+
+    expect(
+      screen.queryByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }),
+    ).not.toBeInTheDocument();
+  });
+
+  /** An empty list is a question nobody was asked, so the tag standing for it cannot be shown. */
+  it("drops a tag of a category the event series keeps no list for", async () => {
     const pickup = {
       ...saved,
-      filter: toggleTag(EMPTY_FILTER, "busPickupPoint", "Bregenz"),
+      filter: toggleTag(saved.filter, "busPickupPoint", "Bregenz"),
       fields: [],
     };
     useSavedReports.mockReturnValue({ reports: [pickup], loading: false, error: null });
     useMasterData.mockImplementation((key: string) => {
-      if (key === "bus-pickup-points") return { items: [], loading: true, error: null };
+      if (key === "bus-pickup-points") return listOf();
       if (key === "classes") return listOf("5AHIF", "5BHIF");
       return listOf("Profi");
     });
 
     render(<ReportView />);
-    const tag = screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" });
-    await userEvent.click(tag);
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
 
-    expect(tag).toHaveAccessibleDescription("");
+    expect(
+      screen.queryByRole("button", { name: "Zustiegsstelle: Bregenz" }),
+    ).not.toBeInTheDocument();
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Berger")).toBeInTheDocument();
   });
 
   it("saves the report the teacher is looking at, under the name they type", async () => {

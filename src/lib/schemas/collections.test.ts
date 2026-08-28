@@ -11,24 +11,13 @@ describe("COLLECTIONS", () => {
     expect(Object.keys(COLLECTIONS).sort()).toEqual(
       [
         "users",
+        // The seven teacher-maintained lists — the events among them — are fields of this
+        // document rather than collections of their own, so each series keeps its own (US-21).
         "eventSeries",
-        "events",
-        "programs",
-        "classOptions",
-        "skillLevels",
-        "busPickupPoints",
-        "foodOptions",
-        "seasonPassOptions",
         // Emergency contact and rented equipment are fields of this record, not collections of
         // their own: neither has an identity outside it, and nothing else refers to them (US-11).
         "registrations",
         "savedReports",
-        // Not an entity of its own: one document per claimed name, which is how uniqueness
-        // is enforced (US-4 to US-10). See lib/firebase/unique-name.ts.
-        "reservedNames",
-        // Likewise bookkeeping: which defaults have already been seeded, so one a teacher
-        // deleted is never brought back (US-5, US-7 to US-10).
-        "seedState",
       ].sort(),
     );
   });

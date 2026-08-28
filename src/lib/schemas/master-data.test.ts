@@ -5,45 +5,62 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  busPickupPointSchema,
-  classOptionSchema,
   FOOD_OPTION_OTHER,
   FOOD_OPTION_OTHER_LABEL,
-  foodOptionSchema,
+  listItemNameSchema,
   MAX_EQUIPMENT_ITEMS,
+  MAX_LIST_ITEMS,
+  namedListSchema,
+  programListSchema,
   programSchema,
   requiredEquipmentSchema,
-  seasonPassOptionSchema,
-  skillLevelSchema,
 } from "@/lib/schemas/master-data";
 
-const NAMED_LIST_SCHEMAS = [
-  ["classOption", classOptionSchema],
-  ["skillLevel", skillLevelSchema],
-  ["busPickupPoint", busPickupPointSchema],
-  ["foodOption", foodOptionSchema],
-  ["seasonPassOption", seasonPassOptionSchema],
-] as const;
+function namesOfLength(count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `Eintrag ${index}`);
+}
 
-describe.each(NAMED_LIST_SCHEMAS)("%s schema", (_name, schema) => {
-  it("parses an item with an id, a name and its place in the order", () => {
-    expect(schema.parse({ id: "item-1", name: "Ski", position: 2 })).toEqual({
-      id: "item-1",
-      name: "Ski",
-      position: 2,
-    });
+describe("listItemNameSchema", () => {
+  it("trims the name, since surrounding space is not part of an identity", () => {
+    expect(listItemNameSchema.parse("  Ski  ")).toBe("Ski");
   });
 
-  it("sorts an item stored before ordering existed to the end, not the top", () => {
-    expect(schema.parse({ id: "item-1", name: "Ski" }).position).toBe(Number.MAX_SAFE_INTEGER);
+  it("rejects a blank name", () => {
+    expect(listItemNameSchema.safeParse("   ").success).toBe(false);
   });
 
-  it("requires a non-empty name", () => {
-    expect(schema.safeParse({ id: "item-1", name: "   " }).success).toBe(false);
+  it("rejects a name longer than a label could show", () => {
+    expect(listItemNameSchema.safeParse("x".repeat(121)).success).toBe(false);
+  });
+});
+
+describe("namedListSchema", () => {
+  it("stores bare names in the teacher's order, which no field restates", () => {
+    expect(namedListSchema.parse(["Zoe", "Anton", "Mia"])).toEqual(["Zoe", "Anton", "Mia"]);
   });
 
-  it("requires an id", () => {
-    expect(schema.safeParse({ id: "", name: "Ski" }).success).toBe(false);
+  it("accepts an empty list, which is a question the student is never asked", () => {
+    expect(namedListSchema.parse([])).toEqual([]);
+  });
+
+  it("trims each name", () => {
+    expect(namedListSchema.parse(["  3AHIT  "])).toEqual(["3AHIT"]);
+  });
+
+  it("rejects a blank entry", () => {
+    expect(namedListSchema.safeParse(["3AHIT", "  "]).success).toBe(false);
+  });
+
+  it("rejects a duplicate, ignoring case and surrounding space", () => {
+    expect(namedListSchema.safeParse(["3AHIT", " 3ahit "]).success).toBe(false);
+  });
+
+  it("accepts a list as long as a school could plausibly need", () => {
+    expect(namedListSchema.safeParse(namesOfLength(MAX_LIST_ITEMS)).success).toBe(true);
+  });
+
+  it("rejects a list longer than that, so one field cannot fill the whole document", () => {
+    expect(namedListSchema.safeParse(namesOfLength(MAX_LIST_ITEMS + 1)).success).toBe(false);
   });
 });
 
@@ -69,41 +86,69 @@ describe("requiredEquipmentSchema", () => {
   });
 
   it("accepts as many entries as there is equipment to hand out", () => {
-    const full = Array.from({ length: MAX_EQUIPMENT_ITEMS }, (_, index) => `Teil ${index}`);
-
-    expect(requiredEquipmentSchema.safeParse(full).success).toBe(true);
+    expect(requiredEquipmentSchema.safeParse(namesOfLength(MAX_EQUIPMENT_ITEMS)).success).toBe(
+      true,
+    );
   });
 
   it("rejects a list longer than that, which no equipment room could serve", () => {
-    const tooMany = Array.from({ length: MAX_EQUIPMENT_ITEMS + 1 }, (_, index) => `Teil ${index}`);
-
-    expect(requiredEquipmentSchema.safeParse(tooMany).success).toBe(false);
+    expect(requiredEquipmentSchema.safeParse(namesOfLength(MAX_EQUIPMENT_ITEMS + 1)).success).toBe(
+      false,
+    );
   });
 });
 
 describe("programSchema", () => {
   it("carries its required equipment rather than pointing at records of its own", () => {
-    expect(
-      programSchema.parse({ id: "p1", name: "Ski", position: 0, requiredEquipment: ["Helm"] }),
-    ).toEqual({
-      id: "p1",
+    expect(programSchema.parse({ name: "Ski", requiredEquipment: ["Helm"] })).toEqual({
       name: "Ski",
-      position: 0,
       requiredEquipment: ["Helm"],
     });
   });
 
   it("treats a program stored before the field existed as requiring nothing", () => {
-    expect(programSchema.parse({ id: "p1", name: "Alternativ", position: 0 })).toEqual({
-      id: "p1",
+    expect(programSchema.parse({ name: "Alternativ" })).toEqual({
       name: "Alternativ",
-      position: 0,
       requiredEquipment: [],
     });
   });
 
+  it("carries neither an id nor a position: the name identifies it, the array orders it", () => {
+    expect(Object.keys(programSchema.shape).sort()).toEqual(["name", "requiredEquipment"]);
+  });
+
   it("requires a non-empty name", () => {
-    expect(programSchema.safeParse({ id: "p1", name: "  " }).success).toBe(false);
+    expect(programSchema.safeParse({ name: "  " }).success).toBe(false);
+  });
+});
+
+describe("programListSchema", () => {
+  it("keeps the teacher's order rather than sorting by name", () => {
+    const programs = [{ name: "Snowboard" }, { name: "Ski" }];
+
+    expect(programListSchema.parse(programs).map((program) => program.name)).toEqual([
+      "Snowboard",
+      "Ski",
+    ]);
+  });
+
+  it("rejects two programs of the same name, ignoring case and surrounding space", () => {
+    expect(programListSchema.safeParse([{ name: "Ski" }, { name: " ski " }]).success).toBe(false);
+  });
+
+  it("allows two programs to require the same equipment", () => {
+    const programs = [
+      { name: "Ski", requiredEquipment: ["Helm"] },
+      { name: "Snowboard", requiredEquipment: ["Helm"] },
+    ];
+
+    expect(programListSchema.safeParse(programs).success).toBe(true);
+  });
+
+  it("rejects a list longer than a school could plausibly need", () => {
+    const tooMany = namesOfLength(MAX_LIST_ITEMS + 1).map((name) => ({ name }));
+
+    expect(programListSchema.safeParse(tooMany).success).toBe(false);
   });
 });
 

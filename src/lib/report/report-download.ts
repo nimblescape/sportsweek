@@ -5,7 +5,7 @@
  */
 import { exportFileName, type ReportProvenance } from "./report-export";
 import { PDF_FONTS, reportDocument } from "./pdf-report";
-import type { ReportField, ReportFieldContext } from "./report-fields";
+import type { ReportField } from "./report-fields";
 import type { RosterStudent } from "@/lib/students/roster";
 
 /** What a teacher is told when an export could not be built (US-17, US-18). */
@@ -18,7 +18,6 @@ const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 export type ReportExport = {
   students: readonly RosterStudent[];
   fields: readonly ReportField[];
-  context: ReportFieldContext;
   provenance: ReportProvenance;
 };
 
@@ -72,12 +71,10 @@ async function loadPdfMake(): Promise<PdfMake> {
 export async function downloadReportPdf({
   students,
   fields,
-  context,
   provenance,
 }: ReportExport): Promise<void> {
   const logo = await logoBase64();
   const definition = reportDocument(students, fields, {
-    context,
     provenance,
     logo: logo === null ? null : `data:image/png;base64,${logo}`,
   });
@@ -97,12 +94,11 @@ export async function downloadReportPdf({
 export async function downloadReportWorkbook({
   students,
   fields,
-  context,
   provenance,
 }: ReportExport): Promise<void> {
   const logo = await logoBase64();
   const { reportWorkbook } = await import("./excel-report");
-  const workbook = reportWorkbook(students, fields, { context, provenance, logo });
+  const workbook = reportWorkbook(students, fields, { provenance, logo });
 
   const blob = new Blob([await workbook.xlsx.writeBuffer()], { type: XLSX_MIME });
   handOver(blob, exportFileName(provenance, "xlsx"));

@@ -34,10 +34,10 @@ export function AssignmentView() {
    * comes back: every card counts the same records, and a second drag against figures this one
    * is still changing would be acting on what is no longer true.
    */
-  async function assign(recordIds: string[], eventId: string | null) {
+  async function assign(recordIds: string[], event: string | null) {
     setSaving(true);
     try {
-      await apiRequest("/api/assignments", { method: "PATCH", body: { recordIds, eventId } });
+      await apiRequest("/api/assignments", { method: "PATCH", body: { recordIds, event } });
     } finally {
       setSaving(false);
     }

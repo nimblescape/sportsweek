@@ -38,9 +38,9 @@ async function requireOpenRegistration(): Promise<EventSeries> {
     ),
   );
 
-  const classes = await adminDb.collection(COLLECTIONS.classOptions).limit(1).get();
+  const classes = active?.classOptions ?? [];
 
-  if (!active || classes.empty) {
+  if (!active || classes.length === 0) {
     throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
   }
   return active;
@@ -80,14 +80,12 @@ export async function saveRegistration(
 
   // The teacher owns the assignment, so a save carries the stored one forward — unless the
   // student has just said they are not coming, which unassigns them (US-11).
-  const eventId = fields.isAttendingSportsWeek
-    ? ((stored.data()?.eventId as string) ?? null)
-    : null;
+  const event = fields.isAttendingSportsWeek ? ((stored.data()?.event as string) ?? null) : null;
 
   const data = {
     userId,
     eventSeriesId: eventSeries.id,
-    eventId,
+    event,
     // Recomputed here rather than trusted from the client: it is what the report marks a
     // student by (US-13), so it has to follow the answers actually stored.
     isIncomplete: isRegistrationIncomplete(fields),

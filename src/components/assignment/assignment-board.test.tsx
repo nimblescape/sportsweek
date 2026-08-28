@@ -17,17 +17,14 @@ const PROGRAMS = ["Ski"];
 const SKILL_LEVELS = ["Profi"];
 const COLUMNS = skillColumns(
   PROGRAMS.map((name) => ({ name })),
-  SKILL_LEVELS.map((name) => ({ name })),
+  SKILL_LEVELS,
 );
 const FILTERS = filterGroups({
-  classes: [{ name: "5AHIF" }, { name: "5BHIF" }],
+  classes: ["5AHIF", "5BHIF"],
   programs: [{ name: "Ski" }],
-  skillLevels: [{ name: "Profi" }],
+  skillLevels: SKILL_LEVELS,
 });
-const EVENTS = [
-  { id: "event1", name: "Montafon" },
-  { id: "event2", name: "Gardasee" },
-];
+const EVENTS = ["Montafon", "Gardasee"];
 
 function student(
   firstName: string,
@@ -45,8 +42,8 @@ function student(
 
 const ANNA = student("Anna", "Muster");
 const BENE = student("Bene", "Berger", { gender: "male", class: "5BHIF" });
-const CLARA = student("Clara", "Cerny", { eventId: "event1" });
-const DORA = student("Dora", "Danner", { eventId: "event2" });
+const CLARA = student("Clara", "Cerny", { event: "Montafon" });
+const DORA = student("Dora", "Danner", { event: "Gardasee" });
 /** Registered but staying at home, so no card holds them and only "Teilnahme" counts them. */
 const ELIAS = student("Elias", "Egger", {
   gender: "male",
@@ -179,7 +176,7 @@ describe("AssignmentBoard", () => {
 
     await dragTo(handleIn("Nicht zugeteilt", "Berger Bene"), "{ArrowDown}");
 
-    await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Berger"], "event1"));
+    await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Berger"], "Montafon"));
   });
 
   /** No holding list in between: a student goes straight from one week to the next (US-12). */
@@ -188,7 +185,7 @@ describe("AssignmentBoard", () => {
 
     await dragTo(handleIn("Montafon", "Cerny Clara"), "{ArrowDown}");
 
-    await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Cerny"], "event2"));
+    await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Cerny"], "Gardasee"));
   });
 
   it("takes the week away from a student dragged back onto the unassigned card", async () => {
@@ -206,7 +203,7 @@ describe("AssignmentBoard", () => {
     await dragTo(handleIn("Nicht zugeteilt", "Berger Bene"), "{ArrowDown}");
 
     await waitFor(() =>
-      expect(onMove).toHaveBeenCalledWith(["record-Berger", "record-Muster"], "event1"),
+      expect(onMove).toHaveBeenCalledWith(["record-Berger", "record-Muster"], "Montafon"),
     );
   });
 
@@ -216,7 +213,7 @@ describe("AssignmentBoard", () => {
     await userEvent.click(card("Montafon").getByRole("button", { name: "Cerny Clara" }));
     await dragTo(handleIn("Nicht zugeteilt", "Berger Bene"), "{ArrowDown}");
 
-    await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Berger"], "event1"));
+    await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Berger"], "Montafon"));
   });
 
   it("offers no 'Alle' where a card holds one student, who is already their own everyone", () => {
@@ -239,7 +236,7 @@ describe("AssignmentBoard", () => {
     );
 
     await waitFor(() =>
-      expect(onMove).toHaveBeenCalledWith(["record-Berger", "record-Muster"], "event1"),
+      expect(onMove).toHaveBeenCalledWith(["record-Berger", "record-Muster"], "Montafon"),
     );
   });
 

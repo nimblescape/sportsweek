@@ -5,6 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
+import { storedEventSeries } from "@/test/event-series";
 import type { RegistrationInput } from "@/lib/schemas/registration";
 
 const firestore = new FakeFirestore();
@@ -20,21 +21,15 @@ const { ServiceError } = await import("@/lib/service-error");
 const STUDENT = "jane.doe@student.htldornbirn.at";
 const RECORD_ID = recordIdFor("s1", STUDENT);
 
-beforeEach(() => {
-  firestore.reset();
-  // Registering needs a class to pick from as much as it needs an event series (US-6, US-11).
-  firestore.seed("classOptions", "c1", { name: "3AHME", position: 0 });
-});
+beforeEach(() => firestore.reset());
 
+/** Registering needs a class to pick from as much as it needs an event series (US-6, US-11). */
 function seedEventSeries(id: string, fields: Record<string, unknown> = {}) {
-  firestore.seed("eventSeries", id, {
-    name: `Eventreihe ${id}`,
-    isActive: false,
-    isArchived: false,
-    hasRegistrations: false,
-    position: 0,
-    ...fields,
-  });
+  firestore.seed(
+    "eventSeries",
+    id,
+    storedEventSeries({ name: `Eventreihe ${id}`, classOptions: ["3AHME"], ...fields }),
+  );
 }
 
 const attending: RegistrationInput = {
@@ -127,8 +122,7 @@ describe("saveRegistration", () => {
 
   /** The class is asked of every student, attending or not, so a list without one is unusable. */
   it("refuses to save while the teacher has set up no class to pick from", async () => {
-    firestore.reset();
-    seedEventSeries("s1", { isActive: true });
+    seedEventSeries("s1", { isActive: true, classOptions: [] });
 
     await expect(saveRegistration(STUDENT, attending)).rejects.toMatchObject({
       code: "CONFLICT",
@@ -216,7 +210,7 @@ describe("saveRegistration", () => {
 
     const record = await saveRegistration(STUDENT, attending);
 
-    expect(record.eventId).toBeNull();
+    expect(record.event).toBeNull();
   });
 
   it("leaves an existing event assignment alone while the student is attending", async () => {
@@ -224,12 +218,12 @@ describe("saveRegistration", () => {
     await saveRegistration(STUDENT, attending);
     firestore.seed("registrations", RECORD_ID, {
       ...firestore.get("registrations", RECORD_ID),
-      eventId: "event1",
+      event: "Woche 1",
     });
 
     const record = await saveRegistration(STUDENT, { ...attending, class: "4AHME" });
 
-    expect(record.eventId).toBe("event1");
+    expect(record.event).toBe("Woche 1");
   });
 
   it("gives up the event assignment when the student answers 'no' (US-11)", async () => {
@@ -237,7 +231,7 @@ describe("saveRegistration", () => {
     await saveRegistration(STUDENT, attending);
     firestore.seed("registrations", RECORD_ID, {
       ...firestore.get("registrations", RECORD_ID),
-      eventId: "event1",
+      event: "Woche 1",
     });
 
     const record = await saveRegistration(STUDENT, {
@@ -245,7 +239,7 @@ describe("saveRegistration", () => {
       isAttendingSportsWeek: false,
     });
 
-    expect(record.eventId).toBeNull();
+    expect(record.event).toBeNull();
   });
 
   it("keeps the values a student entered before answering 'no'", async () => {

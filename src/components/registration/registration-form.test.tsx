@@ -22,8 +22,8 @@ const { ApiRequestError } = await import("@/lib/api/client");
 const LISTS = {
   classes: ["3AHME", "4AHME"],
   programs: [
-    { id: "p1", name: "Ski", position: 0, requiredEquipment: ["Ski", "Helm"] },
-    { id: "p2", name: "Alternativ", position: 1, requiredEquipment: [] },
+    { name: "Ski", requiredEquipment: ["Ski", "Helm"] },
+    { name: "Alternativ", requiredEquipment: [] },
   ],
   skillLevels: ["Anfänger", "Profi"],
   busPickupPoints: ["HTL Dornbirn"],
@@ -35,7 +35,7 @@ const storedRecord: Registration = {
   id: "s1__jane",
   userId: "jane@student.htldornbirn.at",
   eventSeriesId: "s1",
-  eventId: null,
+  event: null,
   isIncomplete: false,
   isAttendingSportsWeek: true,
   class: "3AHME",

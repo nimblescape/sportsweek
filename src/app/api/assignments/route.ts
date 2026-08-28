@@ -21,7 +21,7 @@ const assignSchema = z.strictObject({
     .min(1, "Es ist niemand ausgewählt.")
     .max(MAX_WRITES_PER_BATCH, `Höchstens ${MAX_WRITES_PER_BATCH} Anmeldungen auf einmal.`),
   // Null unassigns: moving between events is unassign, then assign, and nothing else (US-12).
-  eventId: registrationSchema.shape.eventId,
+  event: registrationSchema.shape.event,
 });
 
 export async function PATCH(request: Request) {
@@ -32,7 +32,7 @@ export async function PATCH(request: Request) {
   if (!body.ok) return body.response;
 
   try {
-    await assignStudents(body.data.recordIds, body.data.eventId);
+    await assignStudents(body.data.recordIds, body.data.event);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return handleServiceFailure(error, "Assigning students to an event");

@@ -4,22 +4,26 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { z } from "zod";
-import { documentIdSchema, hasUniqueNames, requiredText } from "./common";
-import { positionSchema } from "./position";
+import { hasUniqueNames, requiredText } from "./common";
 
-/** Every teacher-maintained list (US-5 to US-10) shares this shape. */
-export const namedListItemSchema = z.object({
-  id: documentIdSchema,
-  name: requiredText(120),
-  position: positionSchema,
-});
-export type NamedListItem = z.infer<typeof namedListItemSchema>;
+/** One entry of a teacher-maintained list (US-5 to US-10). Its name is its identity (US-21). */
+export const listItemNameSchema = requiredText(120);
 
-export const classOptionSchema = namedListItemSchema;
-export const skillLevelSchema = namedListItemSchema;
-export const busPickupPointSchema = namedListItemSchema;
-export const foodOptionSchema = namedListItemSchema;
-export const seasonPassOptionSchema = namedListItemSchema;
+/**
+ * How many entries one maintained list may hold. Generous rather than tight: the lists share a
+ * document with a size limit of their own (US-21), and a school that needs a hundredth class has
+ * a problem no schema should be the first to mention.
+ */
+export const MAX_LIST_ITEMS = 100;
+
+/**
+ * Five of the six lists are exactly this: names in the teacher's order. Uniqueness is decided
+ * here rather than through a reservation, because the whole list is present in the write (US-21).
+ */
+export const namedListSchema = z
+  .array(listItemNameSchema)
+  .max(MAX_LIST_ITEMS, `Höchstens ${MAX_LIST_ITEMS} Einträge.`)
+  .refine(hasUniqueNames, "Jeder Eintrag darf nur einmal vorkommen.");
 
 /**
  * How many entries either equipment list may hold. The school hands out a handful of items per
@@ -39,10 +43,20 @@ export const requiredEquipmentSchema = z
   .max(MAX_EQUIPMENT_ITEMS, `Höchstens ${MAX_EQUIPMENT_ITEMS} Einträge.`)
   .refine(hasUniqueNames, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
 
-export const programSchema = namedListItemSchema.extend({
+/** The one list whose entries are not bare names, because a program carries its equipment (US-5). */
+export const programSchema = z.object({
+  name: listItemNameSchema,
   requiredEquipment: requiredEquipmentSchema.default([]),
 });
 export type Program = z.infer<typeof programSchema>;
+
+export const programListSchema = z
+  .array(programSchema)
+  .max(MAX_LIST_ITEMS, `Höchstens ${MAX_LIST_ITEMS} Einträge.`)
+  .refine(
+    (programs) => hasUniqueNames(programs.map((program) => program.name)),
+    "Jeder Eintrag darf nur einmal vorkommen.",
+  );
 
 /** Always offered to students and not editable by teachers, so it is never a foodOptions row (US-9). */
 export const FOOD_OPTION_OTHER = "other";

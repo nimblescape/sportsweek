@@ -35,14 +35,14 @@ beforeEach(() => {
 
 describe("PATCH /api/assignments", () => {
   it("assigns the whole selection in one call", async () => {
-    const response = await PATCH(patchRequest({ recordIds: ["r1", "r2"], eventId: "event1" }));
+    const response = await PATCH(patchRequest({ recordIds: ["r1", "r2"], event: "Woche 1" }));
 
     expect(response.status).toBe(204);
-    expect(assignStudents).toHaveBeenCalledWith(["r1", "r2"], "event1");
+    expect(assignStudents).toHaveBeenCalledWith(["r1", "r2"], "Woche 1");
   });
 
   it("unassigns when no event is named", async () => {
-    const response = await PATCH(patchRequest({ recordIds: ["r1"], eventId: null }));
+    const response = await PATCH(patchRequest({ recordIds: ["r1"], event: null }));
 
     expect(response.status).toBe(204);
     expect(assignStudents).toHaveBeenCalledWith(["r1"], null);
@@ -55,7 +55,7 @@ describe("PATCH /api/assignments", () => {
       role: "student",
     });
 
-    const response = await PATCH(patchRequest({ recordIds: ["r1"], eventId: "event1" }));
+    const response = await PATCH(patchRequest({ recordIds: ["r1"], event: "Woche 1" }));
 
     expect(response.status).toBe(403);
     expect(assignStudents).not.toHaveBeenCalled();
@@ -64,14 +64,14 @@ describe("PATCH /api/assignments", () => {
   it("rejects a caller who is not signed in with 401", async () => {
     getUserWithRole.mockResolvedValue(null);
 
-    const response = await PATCH(patchRequest({ recordIds: ["r1"], eventId: null }));
+    const response = await PATCH(patchRequest({ recordIds: ["r1"], event: null }));
 
     expect(response.status).toBe(401);
     expect(assignStudents).not.toHaveBeenCalled();
   });
 
   it("rejects a call that names nobody, which would be a write with nothing to write", async () => {
-    const response = await PATCH(patchRequest({ recordIds: [], eventId: "event1" }));
+    const response = await PATCH(patchRequest({ recordIds: [], event: "Woche 1" }));
 
     expect(response.status).toBe(400);
     expect(assignStudents).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("PATCH /api/assignments", () => {
 
   it("rejects a field the request has no business sending", async () => {
     const response = await PATCH(
-      patchRequest({ recordIds: ["r1"], eventId: null, isIncomplete: false }),
+      patchRequest({ recordIds: ["r1"], event: null, isIncomplete: false }),
     );
 
     expect(response.status).toBe(400);
@@ -99,7 +99,7 @@ describe("PATCH /api/assignments", () => {
       new ServiceError("CONFLICT", "Wer nicht teilnimmt, kann keinem Event zugeteilt werden."),
     );
 
-    const response = await PATCH(patchRequest({ recordIds: ["r1"], eventId: "event1" }));
+    const response = await PATCH(patchRequest({ recordIds: ["r1"], event: "Woche 1" }));
 
     expect(response.status).toBe(409);
     expect((await response.json()).error.message).toBe(
@@ -111,7 +111,7 @@ describe("PATCH /api/assignments", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     assignStudents.mockRejectedValue(new Error("Firestore is on fire at /internal/path"));
 
-    const response = await PATCH(patchRequest({ recordIds: ["r1"], eventId: null }));
+    const response = await PATCH(patchRequest({ recordIds: ["r1"], event: null }));
 
     expect(response.status).toBe(500);
     expect((await response.json()).error.message).toBe("Das hat leider nicht geklappt.");

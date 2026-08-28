@@ -1,13 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "events",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "eventSeriesId", "order": "ASCENDING" },
-        { "fieldPath": "name", "order": "ASCENDING" }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }

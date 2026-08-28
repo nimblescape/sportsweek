@@ -17,12 +17,12 @@ const SKILL_LEVELS = ["Anfänger", "Profi"];
 const CLASSES = ["5AHIF", "5BHIF"];
 const COLUMNS = skillColumns(
   PROGRAMS.map((name) => ({ name })),
-  SKILL_LEVELS.map((name) => ({ name })),
+  SKILL_LEVELS,
 );
 const FILTERS = filterGroups({
-  classes: CLASSES.map((name) => ({ name })),
+  classes: CLASSES,
   programs: PROGRAMS.map((name) => ({ name })),
-  skillLevels: SKILL_LEVELS.map((name) => ({ name })),
+  skillLevels: SKILL_LEVELS,
 });
 
 let seed = 0;
@@ -43,11 +43,7 @@ const nameOf = (person: RosterStudent) => `${person.lastName} ${person.firstName
 function setup(students: RosterStudent[] = []) {
   render(
     <ClassCards
-      rows={classOverview(
-        students,
-        CLASSES.map((name) => ({ name })),
-        COLUMNS,
-      )}
+      rows={classOverview(students, CLASSES, COLUMNS)}
       programs={PROGRAMS}
       skillLevels={SKILL_LEVELS}
       columns={COLUMNS}

@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import ExcelJS from "exceljs";
-import type { ReportField, ReportFieldContext } from "./report-fields";
+import type { ReportField } from "./report-fields";
 import {
   exportedAtLine,
   REPORT_TITLE,
@@ -41,13 +41,12 @@ export type ReportTable = {
 export function reportTable(
   students: readonly RosterStudent[],
   fields: readonly ReportField[],
-  context: ReportFieldContext,
 ): ReportTable {
   return {
     header: [...IDENTITY_COLUMNS.map((column) => column.label), ...fields.map((it) => it.label)],
     rows: students.map((student) => [
       ...IDENTITY_COLUMNS.map((column) => column.valueOf(student)),
-      ...fields.map((field) => field.valueOf(student.record, context)),
+      ...fields.map((field) => field.valueOf(student.record)),
     ]),
   };
 }
@@ -58,7 +57,6 @@ export function overviewLines(provenance: ReportProvenance): string[] {
 }
 
 export type ReportWorkbookOptions = {
-  context: ReportFieldContext;
   provenance: ReportProvenance;
   /** The HTL logo as base64-encoded PNG; xlsx takes a bitmap and nothing else (US-18). */
   logo: string | null;
@@ -67,7 +65,7 @@ export type ReportWorkbookOptions = {
 export function reportWorkbook(
   students: readonly RosterStudent[],
   fields: readonly ReportField[],
-  { context, provenance, logo }: ReportWorkbookOptions,
+  { provenance, logo }: ReportWorkbookOptions,
 ): ExcelJS.Workbook {
   const workbook = new ExcelJS.Workbook();
   const overview = workbook.addWorksheet(OVERVIEW_SHEET);
@@ -84,7 +82,7 @@ export function reportWorkbook(
   });
   overview.getCell(TITLE_ROW, 1).font = { bold: true, size: 14 };
 
-  const table = reportTable(students, fields, context);
+  const table = reportTable(students, fields);
   report.addRow([...table.header]).font = { bold: true };
   for (const row of table.rows) report.addRow([...row]);
   report.columns.forEach((column) => {

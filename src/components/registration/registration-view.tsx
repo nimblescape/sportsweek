@@ -63,12 +63,12 @@ export function RegistrationView({ userId, studentName }: RegistrationViewProps)
       studentName={studentName}
       record={record}
       lists={{
-        classes: classes.items.map((item) => item.name),
+        classes: classes.items,
         programs: programs.programs,
-        skillLevels: skillLevels.items.map((item) => item.name),
-        busPickupPoints: busPickupPoints.items.map((item) => item.name),
-        foodOptions: foodOptions.items.map((item) => item.name),
-        seasonPassOptions: seasonPassOptions.items.map((item) => item.name),
+        skillLevels: skillLevels.items,
+        busPickupPoints: busPickupPoints.items,
+        foodOptions: foodOptions.items,
+        seasonPassOptions: seasonPassOptions.items,
       }}
     />
   );

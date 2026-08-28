@@ -53,25 +53,29 @@ async function seed(collection: string, id: string, data: Record<string, unknown
 }
 
 /**
- * Every teacher-maintained collection follows one model: anyone signed in may read, because
- * registration selects from these lists, and nobody may write from the client.
+ * The event series and its events follow one model: anyone signed in may read, because a
+ * registration selects from the lists the event series document carries (US-21), and nobody may
+ * write from the client.
  *
- * Writes are closed because the invariants these collections carry cannot be expressed in
- * rules at all — rules can `get()` a known path but cannot run a query, so "is this name
- * already taken?" (US-4 to US-10), "is exactly one event series active?" (US-4) and "is this item
- * still in use?" (US-5 to US-10) are all unreachable here. They are enforced in transactions
- * in the Route Handlers instead, and leaving a second, unchecked way in would make those
- * guarantees worthless.
+ * Writes are closed because the invariants these documents carry cannot be expressed in rules at
+ * all — rules can `get()` a known path but cannot run a query, so "is this name already taken?"
+ * (US-4, US-21), "is exactly one event series active?" (US-4) and "is this item still in use?"
+ * (US-5 to US-10) are all unreachable here. They are enforced in transactions in the Route
+ * Handlers instead, and leaving a second, unchecked way in would make those guarantees worthless.
  */
 const READABLE_COLLECTIONS: [string, Record<string, unknown>][] = [
-  ["programs", { name: "Ski", requiredEquipment: ["Helm"] }],
-  ["classOptions", { name: "5AHIF" }],
-  ["skillLevels", { name: "Fortgeschritten" }],
-  ["busPickupPoints", { name: "Dornbirn" }],
-  ["foodOptions", { name: "Vegetarisch" }],
-  ["seasonPassOptions", { name: "Montafon Card" }],
-  ["eventSeries", { name: "Winter 2026", isActive: false, isArchived: false }],
-  ["events", { eventSeriesId: "s1", name: "Montafon" }],
+  [
+    "eventSeries",
+    {
+      name: "Winter 2026",
+      nameKey: "winter 2026",
+      isActive: false,
+      isArchived: false,
+      events: ["Montafon"],
+      classOptions: ["5AHIF"],
+      programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+    },
+  ],
 ];
 
 describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
@@ -81,7 +85,7 @@ describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
     await assertSucceeds(teacher().collection(collection).doc("item1").get());
   });
 
-  it("lets a student read it, since master data selects from these lists", async () => {
+  it("lets a student read it, since a registration selects from the lists it carries", async () => {
     await seed(collection, "item1", valid);
 
     await assertSucceeds(student().collection(collection).doc("item1").get());
@@ -125,12 +129,14 @@ describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
 });
 
 /**
- * Bookkeeping the app keeps for itself. Neither is part of any view, and both would hand a
- * client a way to interfere with invariants it is not allowed to touch: freeing a reserved
- * name would let a duplicate through, and rewriting the seed marker would resurrect defaults
- * a teacher deleted (US-5 to US-10).
+ * A collection the application does not have is closed to every client, whatever it is called.
+ * The catch-all names what may be read, so anything outside that list — including the
+ * collections this refactoring deleted — is denied rather than merely unused (US-21).
  */
 describe.each([
+  ["events", { eventSeriesId: "s1", name: "Montafon" }],
+  ["classOptions", { name: "5AHIF" }],
+  ["programs", { name: "Ski" }],
   ["reservedNames", { scope: "classOptions", name: "5AHIF", ownerId: "c1" }],
   ["seedState", { seededKeys: ["classes|5ahif"] }],
 ])("/%s stays invisible to every client", (collection, valid) => {

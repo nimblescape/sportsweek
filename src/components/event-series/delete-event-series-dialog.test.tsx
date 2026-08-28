@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { storedEventSeries } from "@/test/event-series";
 import { DeleteEventSeriesDialog } from "./delete-event-series-dialog";
 
 function stubFetch(implementation: (...args: unknown[]) => unknown) {
@@ -20,11 +21,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const eventSeries = {
   id: "s1",
-  name: "Wintersportwoche 2026",
-  isActive: false,
-  isArchived: true,
-  hasRegistrations: true,
-  position: 0,
+  ...storedEventSeries({ isArchived: true, hasRegistrations: true }),
 };
 
 function renderDialog(overrides: Record<string, unknown> = {}) {

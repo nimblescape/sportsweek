@@ -39,10 +39,10 @@ export function MasterDataView({
   return (
     <CrudList
       labels={category.labels}
-      items={items}
+      items={items.map((name) => ({ id: name, name }))}
       loading={loading}
       error={error}
-      blockedIds={report.blockedIds}
+      blockedIds={report.blockedNames}
       usagePending={report.loading}
       undeletableIds={new Set(Object.keys(report.blockedEquipment))}
       undeletableHint={CHILD_IN_USE_HINT}
@@ -52,13 +52,16 @@ export function MasterDataView({
       onSubmit={(name, item) =>
         item === null
           ? apiRequest(`/api/master-data/${key}`, { method: "POST", body: { name } }).then(() => {})
-          : apiRequest(`/api/master-data/${key}/${item.id}`, {
+          : apiRequest(`/api/master-data/${key}`, {
               method: "PATCH",
-              body: { name },
+              body: { item: item.name, name },
             }).then(() => {})
       }
       onDelete={(item) =>
-        apiRequest(`/api/master-data/${key}/${item.id}`, { method: "DELETE" }).then(() => {})
+        apiRequest(`/api/master-data/${key}`, {
+          method: "DELETE",
+          body: { item: item.name },
+        }).then(() => {})
       }
       onReorder={(order) =>
         apiRequest(`/api/master-data/${key}`, { method: "PATCH", body: { order } }).then(() => {})

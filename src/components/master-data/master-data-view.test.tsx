@@ -19,10 +19,8 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
 
 const { MasterDataView } = await import("./master-data-view");
 
-const items = [
-  { id: "c1", name: "3AHIT" },
-  { id: "c2", name: "4BHIT" },
-];
+/** The list is names in the teacher's order; a name is what identifies a row (US-21). */
+const items = ["3AHIT", "4BHIT"];
 
 function stubFetch(implementation: (...args: unknown[]) => unknown) {
   const fetchMock = vi.fn(implementation);
@@ -32,7 +30,7 @@ function stubFetch(implementation: (...args: unknown[]) => unknown) {
 
 const created = () =>
   Promise.resolve(
-    new Response(JSON.stringify({ item: { id: "c3", name: "5CHIT", parentId: null } }), {
+    new Response(JSON.stringify({ item: { name: "5CHIT" } }), {
       status: 201,
       headers: { "content-type": "application/json" },
     }),
@@ -50,7 +48,7 @@ beforeEach(() => {
   stubRowLayout();
   useMasterData.mockReturnValue({ items, loading: false, error: null });
   useUsageReport.mockReturnValue({
-    blockedIds: new Set<string>(),
+    blockedNames: new Set<string>(),
     blockedEquipment: {},
     loading: false,
   });
@@ -154,7 +152,8 @@ describe("MasterDataView — adding", () => {
 });
 
 describe("MasterDataView — editing", () => {
-  it("patches the item under its own id", async () => {
+  /** The item travels in the body rather than the path, since a name may contain a slash. */
+  it("patches the item under the name that identifies it", async () => {
     const fetchMock = stubFetch(created);
     renderView();
 
@@ -166,9 +165,9 @@ describe("MasterDataView — editing", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes/c1");
+    expect(url).toBe("/api/master-data/classes");
     expect(init.method).toBe("PATCH");
-    expect(JSON.parse(String(init.body))).toEqual({ name: "3BHIT" });
+    expect(JSON.parse(String(init.body))).toEqual({ item: "3AHIT", name: "3BHIT" });
   });
 
   it("opens the dialog with the current name already filled in", async () => {
@@ -223,8 +222,9 @@ describe("MasterDataView — deleting", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes/c1");
+    expect(url).toBe("/api/master-data/classes");
     expect(init.method).toBe("DELETE");
+    expect(JSON.parse(String(init.body))).toEqual({ item: "3AHIT" });
   });
 
   it("keeps the item when the teacher cancels", async () => {
@@ -314,7 +314,7 @@ describe("MasterDataView — while a write is in flight", () => {
 describe("MasterDataView — the in-use restriction", () => {
   beforeEach(() =>
     useUsageReport.mockReturnValue({
-      blockedIds: new Set(["c1"]),
+      blockedNames: new Set(["3AHIT"]),
       blockedEquipment: {},
       loading: false,
     }),
@@ -350,8 +350,8 @@ describe("MasterDataView — the in-use restriction", () => {
 describe("MasterDataView — an item whose own list is in use", () => {
   beforeEach(() =>
     useUsageReport.mockReturnValue({
-      blockedIds: new Set<string>(),
-      blockedEquipment: { c1: ["Helm"] },
+      blockedNames: new Set<string>(),
+      blockedEquipment: { "3AHIT": ["Helm"] },
       loading: false,
     }),
   );
@@ -378,7 +378,7 @@ describe("MasterDataView — an item whose own list is in use", () => {
 describe("MasterDataView — while the in-use check is still running", () => {
   beforeEach(() =>
     useUsageReport.mockReturnValue({
-      blockedIds: new Set<string>(),
+      blockedNames: new Set<string>(),
       blockedEquipment: {},
       loading: true,
     }),
@@ -429,14 +429,14 @@ describe("MasterDataView — per-row actions", () => {
 
     expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toHaveAttribute(
       "href",
-      "/detail/c1",
+      "/detail/3AHIT",
     );
     expect(screen.getByRole("link", { name: "Details zu 4BHIT" })).toBeInTheDocument();
   });
 
   it("leaves the extra action reachable for an item the in-use guard blocks", () => {
     useUsageReport.mockReturnValue({
-      blockedIds: new Set(["c1"]),
+      blockedNames: new Set(["3AHIT"]),
       blockedEquipment: {},
       loading: false,
     });
@@ -460,7 +460,7 @@ describe("MasterDataView — ordering", () => {
 
   it("offers the handle even for an item the in-use guard blocks, since ordering is always allowed", () => {
     useUsageReport.mockReturnValue({
-      blockedIds: new Set(["c1"]),
+      blockedNames: new Set(["3AHIT"]),
       blockedEquipment: {},
       loading: false,
     });
@@ -483,6 +483,6 @@ describe("MasterDataView — ordering", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("/api/master-data/classes");
     expect(init.method).toBe("PATCH");
-    expect(JSON.parse(String(init.body))).toEqual({ order: ["c2", "c1"] });
+    expect(JSON.parse(String(init.body))).toEqual({ order: ["4BHIT", "3AHIT"] });
   });
 });

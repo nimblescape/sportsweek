@@ -21,19 +21,19 @@ import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
  * live in a field on the program, so every change rewrites the whole list — which is what makes
  * adding, renaming and removing one atomic, and uniqueness checkable without a query.
  */
-export function ProgramEquipmentView({ programId }: { programId: string }) {
-  const { program, loading, error } = useProgram(programId);
+export function ProgramEquipmentView({ program: named }: { program: string }) {
+  const { program, loading, error } = useProgram(named);
   const report = useUsageReport("programs");
 
   const equipment = program?.requiredEquipment ?? [];
   // An entry has no id of its own, so its name is what identifies it within the program.
   const items: CrudItem[] = equipment.map((name) => ({ id: name, name }));
-  const blockedIds = new Set(report.blockedEquipment[programId] ?? []);
+  const blockedIds = new Set(report.blockedEquipment[named] ?? []);
 
   async function save(names: string[]) {
-    await apiRequest(`/api/master-data/programs/${programId}`, {
+    await apiRequest("/api/master-data/programs", {
       method: "PATCH",
-      body: { requiredEquipment: names },
+      body: { item: named, requiredEquipment: names },
     });
   }
 

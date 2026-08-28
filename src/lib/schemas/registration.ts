@@ -59,8 +59,11 @@ const registrationFields = z.object({
   userId: documentIdSchema,
   // The only genuine reference on this record: it makes the archived state derivable (US-4, US-11).
   eventSeriesId: documentIdSchema,
-  // Teacher-managed assignment (US-12); null means unassigned.
-  eventId: documentIdSchema.nullable(),
+  /**
+   * Teacher-managed assignment (US-12); null means unassigned. The event is named rather than
+   * pointed at, like every other value chosen from one of the series' lists (US-11, US-21).
+   */
+  event: snapshotValueSchema.nullable(),
   /**
    * Whether answers are still outstanding, recomputed by the server on every save. Denormalised
    * so the report can mark the students a teacher has to chase (US-13) without re-deriving it
@@ -104,7 +107,7 @@ export type Registration = z.infer<typeof registrationSchema>;
 const SERVER_OWNED = {
   userId: true,
   eventSeriesId: true,
-  eventId: true,
+  event: true,
   isIncomplete: true,
 } as const;
 

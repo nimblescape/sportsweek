@@ -7,11 +7,9 @@
 
 import { useMemo } from "react";
 import { skillColumns, type SkillColumn } from "@/lib/assignment/statistics";
-import { useEvents } from "@/lib/events/use-events";
 import { filterGroups, type FilterGroup } from "@/lib/filters/student-filter";
 import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
-import type { NamedListItem } from "@/lib/schemas/master-data";
-import type { Event, EventSeries } from "@/lib/schemas/event-series";
+import type { EventSeries } from "@/lib/schemas/event-series";
 import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import type { RosterStudent } from "@/lib/students/roster";
@@ -24,8 +22,9 @@ export type EventSeriesRoster = {
   error: string | null;
   /** Everyone registered for the active event series, taking part or not. */
   students: RosterStudent[];
-  events: Event[];
-  classes: NamedListItem[];
+  /** The events of that series, by name, in the teacher's order (US-12, US-21). */
+  events: string[];
+  classes: string[];
   columns: SkillColumn[];
   programNames: string[];
   skillLevelNames: string[];
@@ -38,7 +37,7 @@ type EventSeriesRosterOptions = {
   completeness?: boolean;
   equipmentRental?: boolean;
   health?: boolean;
-  /** Bus pickup point, season pass and food together — three lists nothing else subscribes to. */
+  /** Bus pickup point, season pass and food together — three categories nothing else offers. */
   answerLists?: boolean;
   events?: boolean;
 };
@@ -76,8 +75,9 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
   }, [eventSeries]);
 
   const { students, loading: rosterLoading, error: rosterError } = useRoster(active.eventSeries?.id ?? null); // prettier-ignore
-  // No event series means no id to scope by, and a query for the empty one matches nothing.
-  const { events, loading: eventsLoading } = useEvents(active.eventSeries?.id ?? "");
+  // The events are a field of the series, so they arrive with it rather than on their own (US-21).
+  // Memoised because the fallback would otherwise be a new array on every render.
+  const events = useMemo(() => active.eventSeries?.events ?? [], [active.eventSeries]);
   const classes = useMasterData("classes");
   const skillLevels = useMasterData("skill-levels");
   const busPickupPoints = useMasterData("bus-pickup-points");
@@ -90,10 +90,7 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
     [programs, skillLevels.items],
   );
   const programNames = useMemo(() => programs.map((program) => program.name), [programs]);
-  const skillLevelNames = useMemo(
-    () => skillLevels.items.map((item) => item.name),
-    [skillLevels.items],
-  );
+  const skillLevelNames = skillLevels.items;
   const groups = useMemo(
     () =>
       filterGroups(
@@ -135,7 +132,7 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
 
   return {
     eventSeries: active.eventSeries,
-    loading: eventSeriesLoading || rosterLoading || eventsLoading || classes.loading,
+    loading: eventSeriesLoading || rosterLoading || classes.loading,
     error: eventSeriesError ?? active.error ?? rosterError,
     students,
     events,

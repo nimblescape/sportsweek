@@ -24,7 +24,7 @@ const validRecord = {
   id: "smd-1",
   userId: "jane.doe@student.htldornbirn.at",
   eventSeriesId: "event series-1",
-  eventId: null,
+  event: null,
   isIncomplete: false,
   isAttendingSportsWeek: true,
   class: "3AHME",
@@ -74,8 +74,8 @@ describe("registrationSchema", () => {
     );
   });
 
-  it("keeps the record unassigned with a null eventId", () => {
-    expect(registrationSchema.parse({ ...validRecord, eventId: null }).eventId).toBeNull();
+  it("keeps the record unassigned with a null event", () => {
+    expect(registrationSchema.parse({ ...validRecord, event: null }).event).toBeNull();
   });
 
   it.each(["class", "program", "skillLevel", "busPickupPoint", "foodOption", "seasonPassOption"])(
@@ -175,7 +175,7 @@ describe("registrationSchema", () => {
 describe("registrationLockedFields", () => {
   it("locks the fields students must never write, so firestore.rules can deny them", () => {
     expect(Object.keys(registrationLockedFields.shape).sort()).toEqual([
-      "eventId",
+      "event",
       "eventSeriesId",
       "isIncomplete",
       "userId",
@@ -212,7 +212,7 @@ describe("registrationInputSchema", () => {
     expect(parse(attending).success).toBe(true);
   });
 
-  it.each(["id", "userId", "eventSeriesId", "eventId", "isIncomplete"])(
+  it.each(["id", "userId", "eventSeriesId", "event", "isIncomplete"])(
     "refuses to take %s from the student, since the server owns it",
     (field) => {
       expect(parse({ ...attending, [field]: "smuggled" }).success).toBe(false);

@@ -29,7 +29,7 @@ function positionsOf(collection: string): Record<string, unknown> {
 
 describe("reorderCollection", () => {
   beforeEach(() =>
-    seed("classOptions", {
+    seed("eventSeries", {
       a: { name: "A", position: 0 },
       b: { name: "B", position: 1 },
       c: { name: "C", position: 2 },
@@ -37,59 +37,59 @@ describe("reorderCollection", () => {
   );
 
   it("writes the requested order as consecutive positions from zero", async () => {
-    await reorderCollection({ collection: "classOptions", orderedIds: ["c", "a", "b"] });
+    await reorderCollection({ collection: "eventSeries", orderedIds: ["c", "a", "b"] });
 
-    expect(positionsOf("classOptions")).toEqual({ c: 0, a: 1, b: 2 });
+    expect(positionsOf("eventSeries")).toEqual({ c: 0, a: 1, b: 2 });
   });
 
   it("leaves the names untouched, since ordering changes no stored value", async () => {
-    await reorderCollection({ collection: "classOptions", orderedIds: ["c", "a", "b"] });
+    await reorderCollection({ collection: "eventSeries", orderedIds: ["c", "a", "b"] });
 
-    expect(firestore.get("classOptions", "a")).toMatchObject({ name: "A" });
+    expect(firestore.get("eventSeries", "a")).toMatchObject({ name: "A" });
   });
 
   it("reports an id that is not in the collection", async () => {
     await expect(
-      reorderCollection({ collection: "classOptions", orderedIds: ["a", "ghost"] }),
+      reorderCollection({ collection: "eventSeries", orderedIds: ["a", "ghost"] }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("changes nothing when an id is rejected", async () => {
     await expect(
-      reorderCollection({ collection: "classOptions", orderedIds: ["c", "ghost"] }),
+      reorderCollection({ collection: "eventSeries", orderedIds: ["c", "ghost"] }),
     ).rejects.toBeInstanceOf(ServiceError);
 
-    expect(positionsOf("classOptions")).toEqual({ a: 0, b: 1, c: 2 });
+    expect(positionsOf("eventSeries")).toEqual({ a: 0, b: 1, c: 2 });
   });
 
   it("rejects a repeated id rather than silently dropping one", async () => {
     await expect(
-      reorderCollection({ collection: "classOptions", orderedIds: ["a", "a", "b"] }),
+      reorderCollection({ collection: "eventSeries", orderedIds: ["a", "a", "b"] }),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
   // A teacher adding an item while another reorders must not have it vanish from the list.
   it("appends an item the caller never saw, keeping it visible", async () => {
-    firestore.seed("classOptions", "d", { name: "D", position: 3 });
+    firestore.seed("eventSeries", "d", { name: "D", position: 3 });
 
-    await reorderCollection({ collection: "classOptions", orderedIds: ["c", "b", "a"] });
+    await reorderCollection({ collection: "eventSeries", orderedIds: ["c", "b", "a"] });
 
-    expect(positionsOf("classOptions")).toEqual({ c: 0, b: 1, a: 2, d: 3 });
+    expect(positionsOf("eventSeries")).toEqual({ c: 0, b: 1, a: 2, d: 3 });
   });
 
   it("orders several unseen items among themselves by their previous position", async () => {
-    firestore.seed("classOptions", "e", { name: "E", position: 9 });
-    firestore.seed("classOptions", "d", { name: "D", position: 4 });
+    firestore.seed("eventSeries", "e", { name: "E", position: 9 });
+    firestore.seed("eventSeries", "d", { name: "D", position: 4 });
 
-    await reorderCollection({ collection: "classOptions", orderedIds: ["a"] });
+    await reorderCollection({ collection: "eventSeries", orderedIds: ["a"] });
 
-    expect(positionsOf("classOptions")).toEqual({ a: 0, b: 1, c: 2, d: 3, e: 4 });
+    expect(positionsOf("eventSeries")).toEqual({ a: 0, b: 1, c: 2, d: 3, e: 4 });
   });
 
   it("accepts an empty collection without writing anything", async () => {
     firestore.reset();
 
-    await reorderCollection({ collection: "classOptions", orderedIds: [] });
+    await reorderCollection({ collection: "eventSeries", orderedIds: [] });
 
     expect(firestore.commitCount).toBe(0);
   });

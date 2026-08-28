@@ -23,8 +23,8 @@ function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): Roster
 }
 
 const PROGRAMS = [{ name: "Ski" }, { name: "Snowboard" }];
-const SKILL_LEVELS = [{ name: "Keine Vorkenntnisse" }, { name: "Fortgeschritten" }];
-const CLASSES = [{ name: "5AHIF" }, { name: "5BHIF" }];
+const SKILL_LEVELS = ["Keine Vorkenntnisse", "Fortgeschritten"];
+const CLASSES = ["5AHIF", "5BHIF"];
 const COLUMNS = skillColumns(PROGRAMS, SKILL_LEVELS);
 
 const columnKey = (program: string, skillLevel: string) =>
@@ -116,10 +116,7 @@ describe("classOverview", () => {
 });
 
 describe("assignmentGroups", () => {
-  const EVENTS = [
-    { id: "event1", name: "Montafon" },
-    { id: "event2", name: "Gardasee" },
-  ];
+  const EVENTS = ["Montafon", "Gardasee"];
 
   const groups = (roster: RosterStudent[]) => assignmentGroups(roster, EVENTS, COLUMNS);
 
@@ -137,11 +134,11 @@ describe("assignmentGroups", () => {
       groups([])
         .slice(1)
         .map((group) => group.id),
-    ).toEqual(["event1", "event2"]);
+    ).toEqual(EVENTS);
   });
 
   it("holds each student in exactly one card", () => {
-    const roster = [student({ eventId: null }), student({ eventId: "event2" })];
+    const roster = [student({ event: null }), student({ event: "Gardasee" })];
 
     expect(groups(roster).map((group) => group.students.length)).toEqual([1, 0, 1]);
   });
@@ -151,7 +148,7 @@ describe("assignmentGroups", () => {
    * registration could otherwise be moved without changing a single number.
    */
   it("holds a student whose answers are still missing", () => {
-    const roster = [student({ eventId: "event1", gender: null, program: null, skillLevel: null })];
+    const roster = [student({ event: "Montafon", gender: null, program: null, skillLevel: null })];
 
     expect(groups(roster)[1].students).toHaveLength(1);
     expect(groups(roster)[1]).toMatchObject({ male: 0, female: 0 });
@@ -160,18 +157,25 @@ describe("assignmentGroups", () => {
   /** They cannot be assigned at all (US-11), so a stale assignment must not put them anywhere. */
   it("leaves a student who is not attending out of every card", () => {
     const roster = [
-      student({ eventId: "event1", isAttending: false }),
-      student({ eventId: null, isAttending: false }),
+      student({ event: "Montafon", isAttending: false }),
+      student({ event: null, isAttending: false }),
     ];
 
     expect(groups(roster).map((group) => group.students.length)).toEqual([0, 0, 0]);
   });
 
+  /** The card is the name, so an event another series happens to spell the same way is its own. */
+  it("holds only the students naming an event this list offers", () => {
+    const roster = [student({ event: "Montafon" }), student({ event: "Sommerwoche" })];
+
+    expect(groups(roster).map((group) => group.students.length)).toEqual([0, 1, 0]);
+  });
+
   it("counts the genders of the students it holds", () => {
     const roster = [
-      student({ eventId: "event1", gender: "male" }),
-      student({ eventId: "event1", gender: "female" }),
-      student({ eventId: "event2", gender: "female" }),
+      student({ event: "Montafon", gender: "male" }),
+      student({ event: "Montafon", gender: "female" }),
+      student({ event: "Gardasee", gender: "female" }),
     ];
 
     expect(groups(roster)[1]).toMatchObject({ male: 1, female: 1 });
@@ -180,8 +184,8 @@ describe("assignmentGroups", () => {
 
   it("counts skill levels per program, as the class cards do", () => {
     const roster = [
-      student({ eventId: "event1", program: "Ski", skillLevel: "Keine Vorkenntnisse" }),
-      student({ eventId: "event1", program: "Ski", skillLevel: "Keine Vorkenntnisse" }),
+      student({ event: "Montafon", program: "Ski", skillLevel: "Keine Vorkenntnisse" }),
+      student({ event: "Montafon", program: "Ski", skillLevel: "Keine Vorkenntnisse" }),
     ];
 
     expect(groups(roster)[1].skillLevels).toEqual({
