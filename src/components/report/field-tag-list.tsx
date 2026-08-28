@@ -6,7 +6,7 @@
 "use client";
 
 import { REPORT_FIELD_TAGS } from "@/lib/report/report-fields";
-import { Tag } from "@/components/ui/tag";
+import { Tag, TagName } from "@/components/ui/tag";
 
 type FieldTagListProps = {
   value: readonly string[];
@@ -26,16 +26,18 @@ export function FieldTagList({ value, onChange }: FieldTagListProps) {
     <div role="group" aria-label="Datenfelder" className="flex flex-wrap gap-1.5">
       {/* What the filter row's "Alle" is to students, this is to detail lines: the report as it
           stands with nothing added. */}
-      <Tag label="Keine" pressed={value.length === 0} onPress={() => onChange([])} />
+      <Tag pressed={value.length === 0}>
+        <TagName label="Keine" onPress={() => onChange([])} />
+      </Tag>
       {REPORT_FIELD_TAGS.map((tag) => (
-        <Tag
-          key={tag.key}
-          // The row carries no heading, so each tag says which of the two rows it belongs to.
-          label={`Feld: ${tag.label}`}
-          text={tag.label}
-          pressed={value.includes(tag.key)}
-          onPress={() => toggle(tag.key)}
-        />
+        <Tag key={tag.key} pressed={value.includes(tag.key)}>
+          <TagName
+            // The row carries no heading, so each tag says which of the two rows it belongs to.
+            label={`Feld: ${tag.label}`}
+            text={tag.label}
+            onPress={() => toggle(tag.key)}
+          />
+        </Tag>
       ))}
     </div>
   );

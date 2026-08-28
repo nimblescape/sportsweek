@@ -45,6 +45,9 @@
   --color-primary: var(--primary);
   --color-open-foreground: var(--open-foreground);
   --color-open: var(--open);
+  --color-open-subtle: var(--open-subtle);
+  --color-neutral-foreground: var(--neutral-foreground);
+  --color-neutral: var(--neutral);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -69,6 +72,11 @@
      an open series is the state that must be spotted without reading the tag (US-19). */
   --open: oklch(0.55 0.14 150);
   --open-foreground: oklch(0.985 0 0);
+  /* The same thing said quietly, for a series that is open but not the one being worked in. */
+  --open-subtle: color-mix(in oklch, var(--open) 12%, var(--background));
+  /* A chosen tag standing apart from the rest: a template among series, a report since edited. */
+  --neutral: oklch(0.45 0 0);
+  --neutral-foreground: oklch(0.985 0 0);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -108,6 +116,9 @@
   --brand-foreground: oklch(0.205 0 0);
   --open: oklch(0.72 0.13 150);
   --open-foreground: oklch(0.205 0 0);
+  --open-subtle: color-mix(in oklch, var(--open) 18%, var(--background));
+  --neutral: oklch(0.75 0 0);
+  --neutral-foreground: oklch(0.205 0 0);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

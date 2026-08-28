@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { ReactNode } from "react";
-import { Tag } from "@/components/ui/tag";
+import { Tag, TagName } from "@/components/ui/tag";
 
 /**
  * Each area gets a surface of its own, so three columns of content read as three areas rather
@@ -49,11 +49,8 @@ export function FilteredTag({
   onPress: () => void;
 }) {
   return (
-    <Tag
-      label={`${card}: ${FILTERED_LABEL}`}
-      text={FILTERED_LABEL}
-      pressed={pressed}
-      onPress={onPress}
-    />
+    <Tag pressed={pressed}>
+      <TagName label={`${card}: ${FILTERED_LABEL}`} text={FILTERED_LABEL} onPress={onPress} />
+    </Tag>
   );
 }

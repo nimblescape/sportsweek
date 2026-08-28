@@ -21,6 +21,13 @@ const buttonVariants = cva(
           "border-border bg-background hover:bg-muted hover:text-foreground active:bg-accent aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] active:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_10%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+        open: "bg-open text-open-foreground hover:bg-[color-mix(in_oklch,var(--open),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--open),var(--foreground)_20%)]",
+        // The same thing said quietly: still green, but plainly not the one chosen.
+        "open-soft":
+          "border-open/40 bg-open-subtle hover:bg-[color-mix(in_oklch,var(--open-subtle),var(--foreground)_5%)] active:bg-[color-mix(in_oklch,var(--open-subtle),var(--foreground)_10%)]",
+        // Greyscale that a white surface can still be told from, which `secondary` at 0.97 cannot.
+        neutral:
+          "bg-neutral text-neutral-foreground hover:bg-[color-mix(in_oklch,var(--neutral),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--neutral),var(--foreground)_20%)]",
         ghost:
           "hover:bg-muted hover:text-foreground active:bg-accent aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:

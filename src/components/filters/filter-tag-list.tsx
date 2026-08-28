@@ -8,7 +8,7 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tag } from "@/components/ui/tag";
+import { Tag, TagName } from "@/components/ui/tag";
 import {
   clearTags,
   hasNoTags,
@@ -58,17 +58,22 @@ export function FilterTagList({ label, groups, value, onChange }: FilterTagListP
       </div>
 
       <div role="group" aria-label={`${label}: Filter`} className="flex flex-wrap gap-1.5">
-        <Tag label="Alle" pressed={hasNoTags(value)} onPress={() => onChange(clearTags(value))} />
+        <Tag pressed={hasNoTags(value)}>
+          <TagName label="Alle" onPress={() => onChange(clearTags(value))} />
+        </Tag>
         {groups.map((group) =>
           group.options.map((option) => (
             <Tag
               key={`${group.category}:${option.value}`}
-              // The row carries no headings, so the category is what the tag says it is.
-              label={option.name ?? `${group.label}: ${option.label}`}
-              text={option.label}
               pressed={value.tags[group.category].includes(option.value)}
-              onPress={() => onChange(toggleTag(value, group.category, option.value))}
-            />
+            >
+              <TagName
+                // The row carries no headings, so the category is what the tag says it is.
+                label={option.name ?? `${group.label}: ${option.label}`}
+                text={option.label}
+                onPress={() => onChange(toggleTag(value, group.category, option.value))}
+              />
+            </Tag>
           )),
         )}
       </div>

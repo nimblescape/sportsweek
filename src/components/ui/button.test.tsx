@@ -7,7 +7,17 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Button, buttonVariants } from "@/components/ui/button";
 
-const VARIANTS = ["default", "outline", "secondary", "ghost", "destructive", "link"] as const;
+const VARIANTS = [
+  "default",
+  "outline",
+  "secondary",
+  "open",
+  "open-soft",
+  "neutral",
+  "ghost",
+  "destructive",
+  "link",
+] as const;
 
 describe("Button design tokens", () => {
   it("renders the default variant from the accent-backed primary token", () => {

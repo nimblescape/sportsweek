@@ -25,10 +25,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Check, GripVertical, Pencil, Plus, Save, Trash2, X } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { TAG_ICON_CLASSES } from "@/components/ui/tag";
+import { Button } from "@/components/ui/button";
+import { Tag, TagAction, TagField, TagName } from "@/components/ui/tag";
 import { DraggingCursor } from "@/components/ui/dragging-cursor";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { useDroppedOrder } from "@/lib/ui/use-dropped-order";
@@ -229,9 +228,6 @@ type SavedReportTagProps = {
   onCancel: () => void;
 };
 
-// The tag carries the colour, so an icon in it neither repaints itself nor its background.
-const ICON_CLASSES = TAG_ICON_CLASSES;
-
 function SavedReportTag({
   report,
   marked,
@@ -252,23 +248,20 @@ function SavedReportTag({
   });
 
   return (
-    <div
+    <Tag
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={cn(
-        // Three states, and the middle one is the point: opened, and since changed (US-13).
-        buttonVariants({
-          variant: marked ? (changed ? "secondary" : "default") : "outline",
-        }),
-        "gap-0.5 px-1",
-        // The handle offers the grab; the tag itself is pressed, and only says so once a drag is
-        // really under way.
-        isDragging && "relative z-10 cursor-grabbing opacity-80",
-      )}
+      pressed={marked}
+      // Three states, and the middle one is the point: opened, and since changed (US-13).
+      variant={changed ? "neutral" : "default"}
+      disabled={pending}
+      // Both the grip and the tag start a pointer drag; the grip also carries the keyboard one.
+      // The tag's own press opens the report — a drag only starts once the pointer has moved,
+      // and the click that would follow one is swallowed by the sensor.
+      onPointerDown={listeners?.onPointerDown as React.PointerEventHandler | undefined}
+      // The handle offers the grab; the tag itself only says so once a drag is really under way.
+      className={cn("touch-none", isDragging && "relative z-10 cursor-grabbing opacity-80")}
     >
-      {/* Both the grip and the tag start a pointer drag; the grip also carries the keyboard one.
-          The tag's own press opens the report — a drag only starts once the pointer has moved,
-          and the click that would follow one is swallowed by the sensor. */}
       <button
         type="button"
         aria-label={`${report.name} verschieben`}
@@ -284,19 +277,12 @@ function SavedReportTag({
         <GripVertical aria-hidden className="size-3.5" />
       </button>
 
-      <button
-        type="button"
-        aria-pressed={marked}
-        aria-label={`Gespeicherter Bericht: ${report.name}`}
-        aria-describedby={changed ? hintId : undefined}
-        disabled={pending}
-        onPointerDown={listeners?.onPointerDown as React.PointerEventHandler | undefined}
-        onClick={onOpen}
-        className="focus-visible:ring-ring/50 max-w-60 touch-none truncate rounded-md px-1.5 outline-none focus-visible:ring-3 disabled:opacity-50"
-      >
-        {report.name}
-      </button>
-
+      <TagName
+        label={`Gespeicherter Bericht: ${report.name}`}
+        text={report.name}
+        describedBy={changed ? hintId : undefined}
+        onPress={onOpen}
+      />
       {/* The colour says it to everybody who can see it; this says it to everybody else. */}
       {changed ? (
         <span id={hintId} className="sr-only">
@@ -307,70 +293,30 @@ function SavedReportTag({
       {/* Only the marked tag is managed, so there is nothing on the others to press by accident. */}
       {!marked ? null : confirming ? (
         <>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Löschen von ${report.name} bestätigen`}
-            disabled={pending}
-            onClick={onDelete}
-            className={ICON_CLASSES}
-          >
+          <TagAction label={`Löschen von ${report.name} bestätigen`} onClick={onDelete}>
             <Check aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Löschen von ${report.name} abbrechen`}
-            disabled={pending}
-            onClick={onCancel}
-            className={ICON_CLASSES}
-          >
+          </TagAction>
+          <TagAction label={`Löschen von ${report.name} abbrechen`} onClick={onCancel}>
             <X aria-hidden />
-          </Button>
+          </TagAction>
         </>
       ) : (
         <>
           {/* Nothing to store while the report on screen still is the one this tag holds. */}
           {changed ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={`Bericht ${report.name} aktualisieren`}
-              disabled={pending}
-              onClick={onUpdate}
-              className={ICON_CLASSES}
-            >
+            <TagAction label={`Bericht ${report.name} aktualisieren`} onClick={onUpdate}>
               <Save aria-hidden />
-            </Button>
+            </TagAction>
           ) : null}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Bericht ${report.name} umbenennen`}
-            disabled={pending}
-            onClick={onStartRename}
-            className={ICON_CLASSES}
-          >
+          <TagAction label={`Bericht ${report.name} umbenennen`} onClick={onStartRename}>
             <Pencil aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Bericht ${report.name} löschen`}
-            disabled={pending}
-            onClick={onStartDelete}
-            className={ICON_CLASSES}
-          >
+          </TagAction>
+          <TagAction label={`Bericht ${report.name} löschen`} onClick={onStartDelete}>
             <Trash2 aria-hidden />
-          </Button>
+          </TagAction>
         </>
       )}
-    </div>
+    </Tag>
   );
 }
 
@@ -414,39 +360,22 @@ function NameForm({ initialName = "", submitLabel, pending, onSubmit, onCancel }
   return (
     <form onSubmit={submit} className="flex flex-wrap items-center gap-1.5" noValidate>
       {/* Shaped as a tag, with its controls inside it, exactly as a tag being deleted is. */}
-      <div className={cn(buttonVariants({ variant: "outline" }), "gap-0.5 px-1")}>
-        <Input
+      <Tag disabled={pending}>
+        <TagField
           autoFocus
           aria-label={NAME_LABEL}
           aria-invalid={error !== null}
           placeholder={NAME_LABEL}
           value={name}
-          disabled={pending}
           onChange={(event) => setName(event.target.value)}
-          className="h-7 w-40 rounded-md border-0 bg-transparent px-1.5 shadow-none focus-visible:ring-0 dark:bg-transparent"
         />
-        <Button
-          type="submit"
-          variant="ghost"
-          size="icon"
-          aria-label={submitLabel}
-          disabled={pending}
-          className={ICON_CLASSES}
-        >
+        <TagAction type="submit" label={submitLabel}>
           <Check aria-hidden />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Abbrechen"
-          disabled={pending}
-          onClick={onCancel}
-          className={ICON_CLASSES}
-        >
+        </TagAction>
+        <TagAction label="Abbrechen" onClick={onCancel}>
           <X aria-hidden />
-        </Button>
-      </div>
+        </TagAction>
+      </Tag>
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
     </form>
   );

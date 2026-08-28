@@ -8,11 +8,9 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { DoorClosed, DoorOpen, LayoutTemplate, LogIn, LogOut } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { TAG_ICON_CLASSES } from "@/components/ui/tag";
+import { Tag, TagAction, TagName, type TagVariant } from "@/components/ui/tag";
 import { ApiRequestError, apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
-import { cn } from "@/lib/utils";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import {
   isMasterDataPath,
@@ -60,10 +58,9 @@ export const closeActionLabel = (name: string) => `${name} für Schüler:innen s
  * teacher scans the row for; blue is simply the one being worked in; grey is a template, which is
  * neither and cannot become either.
  */
-function pressedFill(one: EventSeries): string {
-  if (one.isTemplate) return "bg-foreground/75 text-background hover:bg-foreground/65";
-  if (one.isOpenToStudents) return "bg-open text-open-foreground hover:bg-open/85";
-  return "bg-primary text-primary-foreground hover:bg-primary/80";
+function fillFor(one: EventSeries): TagVariant {
+  if (one.isTemplate) return "neutral";
+  return one.isOpenToStudents ? "open" : "default";
 }
 
 function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }: RowProps) {
@@ -75,39 +72,20 @@ function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }
       {eventSeries.map((one) => {
         const pressed = one.id === selectedId;
         return (
-          <div
-            key={one.id}
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "gap-1 px-1.5",
-              pressed && ["border-transparent", pressedFill(one)],
-            )}
-          >
+          <Tag key={one.id} pressed={pressed} variant={fillFor(one)} disabled={pending}>
             <StateIcon eventSeries={one} />
-            <button
-              type="button"
-              aria-pressed={pressed}
-              onClick={() => onSelect(one)}
-              className="focus-visible:ring-ring/50 max-w-60 truncate rounded-md px-0.5 outline-none focus-visible:ring-3"
-            >
-              {one.name}
-            </button>
+            <TagName label={one.name} onPress={() => onSelect(one)} />
             {/* Only on the tag that is selected, so a press cannot land on another series, and
                 never on a template, which can never be opened (US-19, US-22). */}
             {pressed && !one.isTemplate ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={(one.isOpenToStudents ? closeActionLabel : openActionLabel)(one.name)}
-                disabled={pending}
+              <TagAction
+                label={(one.isOpenToStudents ? closeActionLabel : openActionLabel)(one.name)}
                 onClick={() => onSetOpen(one, !one.isOpenToStudents)}
-                className={TAG_ICON_CLASSES}
               >
                 {one.isOpenToStudents ? <LogOut aria-hidden /> : <LogIn aria-hidden />}
-              </Button>
+              </TagAction>
             ) : null}
-          </div>
+          </Tag>
         );
       })}
     </div>
