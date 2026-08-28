@@ -381,7 +381,7 @@ describe("event series names are unique", () => {
  */
 describe("updateEventSeries — opening to students", () => {
   it("opens a series to students", async () => {
-    seedEventSeries("s1");
+    seedEventSeries("s1", { classOptions: ["3aWI"] });
 
     await updateEventSeries("s1", { isOpenToStudents: true });
 
@@ -430,5 +430,38 @@ describe("updateEventSeries — opening to students", () => {
     await updateEventSeries("s1", { name: "Neuer Name" });
 
     expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: true });
+  });
+});
+
+/**
+ * US-23: a series with no classes has no link to hand out, so it cannot be opened. That held by
+ * construction while generating a link was the only way in; the overview page's tag is a second
+ * way (US-29), and it has to be held to the same rule.
+ */
+describe("updateEventSeries — opening needs a class to invite", () => {
+  it("refuses to open a series that has no classes yet", async () => {
+    seedEventSeries("s1", { classOptions: [] });
+
+    await expect(updateEventSeries("s1", { isOpenToStudents: true })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
+  });
+
+  it("opens one that has a class", async () => {
+    seedEventSeries("s1", { classOptions: ["3aWI"] });
+
+    await updateEventSeries("s1", { isOpenToStudents: true });
+
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: true });
+  });
+
+  /** Closing needs no class: a series that lost its last one must still be closable. */
+  it("closes one with no classes, which is not the same question", async () => {
+    seedEventSeries("s1", { classOptions: [], isOpenToStudents: true });
+
+    await updateEventSeries("s1", { isOpenToStudents: false });
+
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
   });
 });

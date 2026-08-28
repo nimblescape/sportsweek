@@ -52,7 +52,24 @@ export function InvitationQr({ eventSeriesName, className, link, onClose }: Invi
       role="dialog"
       aria-modal="true"
       aria-label={`${eventSeriesName}, ${className}`}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-white p-6 text-black"
+      // Written out rather than left to utilities: this is projected in front of a class, and a
+      // utility that one stylesheet was not built with leaves a fixed box shrunk to its content.
+      style={{
+        position: "fixed",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        zIndex: 50,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "1.5rem",
+        padding: "1.5rem",
+        background: "#fff",
+        color: "#000",
+      }}
     >
       <div className="flex flex-col items-center gap-1 text-center">
         <p className="font-heading text-2xl font-semibold">{eventSeriesName}</p>
@@ -74,7 +91,8 @@ export function InvitationQr({ eventSeriesName, className, link, onClose }: Invi
         type="button"
         onClick={onClose}
         aria-label="Schließen"
-        className="absolute top-4 right-4 rounded-lg p-2 text-black/50 transition-colors outline-none hover:text-black focus-visible:ring-3 focus-visible:ring-black/30"
+        style={{ position: "absolute", top: "1rem", right: "1rem", padding: "0.5rem" }}
+        className="rounded-lg text-black/50 transition-colors outline-none hover:text-black focus-visible:ring-3 focus-visible:ring-black/30"
       >
         <X aria-hidden className="size-6" />
       </button>

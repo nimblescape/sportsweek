@@ -129,10 +129,11 @@ export async function updateEventSeries(
       throw new ServiceError(ErrorCode.Conflict, ARCHIVED_IS_READ_ONLY_HINT);
     }
 
-    // One rule shape, two reasons (US-19): a template can never take registrations, and an
-    // archived series is read-only and cannot even be selected. Asked against the archive state
-    // this call is leaving behind, so opening and archiving at once is refused rather than
-    // silently resolved in archiving's favour.
+    // One rule shape, three reasons (US-19, US-22, US-23): a template can never take
+    // registrations, an archived series is read-only and cannot even be selected, and a series
+    // with no classes has nothing to invite anybody into. Asked against the archive state this
+    // call is leaving behind, so opening and archiving at once is refused rather than silently
+    // resolved in archiving's favour.
     if (update.isOpenToStudents === true) {
       if (current.isTemplate) {
         throw new ServiceError(
@@ -144,6 +145,12 @@ export async function updateEventSeries(
         throw new ServiceError(
           ErrorCode.Conflict,
           "Eine archivierte Eventreihe kann nicht freigeschaltet werden.",
+        );
+      }
+      if (current.classOptions.length === 0) {
+        throw new ServiceError(
+          ErrorCode.Conflict,
+          "Eine Eventreihe ohne Klassen kann nicht freigeschaltet werden.",
         );
       }
     }

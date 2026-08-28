@@ -78,10 +78,20 @@ describe("InvitationQr", () => {
 
   /**
    * White explicitly, not the page's own background: a code is read by a camera, and one drawn
-   * dark-on-dark in the evening theme does not scan at all.
+   * dark-on-dark in the evening theme does not scan at all. Written as a style rather than a
+   * utility, because a fixed box whose inset never made it into a stylesheet shrinks to its
+   * content and leaves the application showing around it.
    */
-  it("stands on white, whatever the rest of the application is wearing", () => {
-    expect(show() && screen.getByRole("dialog").className).toContain("bg-white");
+  it("covers the screen in white, whatever the rest of the application is wearing", () => {
+    show();
+    const surface = screen.getByRole("dialog");
+
+    expect(surface.style.position).toBe("fixed");
+    expect(surface.style.top).toBe("0px");
+    expect(surface.style.left).toBe("0px");
+    expect(surface.style.right).toBe("0px");
+    expect(surface.style.bottom).toBe("0px");
+    expect(surface.style.background).toContain("rgb(255, 255, 255)");
   });
 
   /**
