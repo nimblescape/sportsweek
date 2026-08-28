@@ -8,14 +8,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ChartColumn,
-  Database,
-  FileText,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Shuffle,
-} from "lucide-react";
+import { ChartColumn, ChevronLeft, ChevronRight, Database, FileText, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { masterDataSections } from "@/lib/master-data/categories";
 import { selectedEventSeriesIdFrom } from "@/lib/event-series/event-series-selection";
@@ -61,24 +54,8 @@ export function TeacherNav({ lastEventSeriesId = null }: { lastEventSeriesId?: s
   return (
     <nav
       aria-label="Hauptnavigation"
-      className={cn("flex flex-col gap-1 p-3", collapsed ? "md:w-16" : "md:w-56")}
+      className={cn("flex flex-col gap-1 p-3 md:h-full", collapsed ? "md:w-16" : "md:w-56")}
     >
-      <button
-        type="button"
-        onClick={() => setCollapsed((on) => !on)}
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
-        // Left, where every other row keeps its icon: pinned to the right it would travel the
-        // width of the bar each time it was pressed — with the pointer still over it.
-        className={cn(itemClasses(false), "hidden md:flex")}
-      >
-        {collapsed ? (
-          <PanelLeftOpen aria-hidden className="size-4 shrink-0" />
-        ) : (
-          <PanelLeftClose aria-hidden className="size-4 shrink-0" />
-        )}
-      </button>
-
       {(eventSeriesId === null ? [] : topLevel(eventSeriesId)).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
@@ -125,6 +102,21 @@ export function TeacherNav({ lastEventSeriesId = null }: { lastEventSeriesId?: s
           ))}
         </ul>
       )}
+
+      <button
+        type="button"
+        onClick={() => setCollapsed((on) => !on)}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
+        className={cn(itemClasses(false), "mt-auto hidden justify-end md:flex")}
+      >
+        {/* Points the way the bar is about to move. */}
+        {collapsed ? (
+          <ChevronRight aria-hidden className="size-4 shrink-0" />
+        ) : (
+          <ChevronLeft aria-hidden className="size-4 shrink-0" />
+        )}
+      </button>
     </nav>
   );
 }

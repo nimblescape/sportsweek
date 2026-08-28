@@ -141,6 +141,15 @@ describe("TeacherNav — collapsing", () => {
     expect(toggle()).toHaveAttribute("aria-expanded", "true");
   });
 
+  /** It is about the bar rather than a place to go, so it sits below everything that is. */
+  it("puts its own control below every destination", () => {
+    render(<TeacherNav />);
+
+    const last = screen.getByRole("navigation").querySelectorAll("a, button");
+
+    expect(last[last.length - 1]).toBe(toggle());
+  });
+
   it("collapses and opens again", async () => {
     render(<TeacherNav />);
 

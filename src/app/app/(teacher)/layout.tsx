@@ -17,14 +17,15 @@ export default async function TeacherLayout({ children }: { children: ReactNode 
   const lastEventSeriesId = (await cookies()).get(EVENT_SERIES_COOKIE_NAME)?.value ?? null;
 
   return (
-    <div className="flex flex-1 flex-col md:flex-row">
-      {/* The width lives on the nav, which is what decides whether it is collapsed. */}
-      <aside className="border-border shrink-0 border-b md:border-r md:border-b-0">
+    <div className="flex h-full flex-1 flex-col md:flex-row md:overflow-hidden">
+      {/* The width lives on the nav, which is what decides whether it is collapsed; the flex here
+          is what stretches it to the full height, so its last row sits at the foot of the window. */}
+      <aside className="border-border shrink-0 border-b md:flex md:border-r md:border-b-0">
         <TeacherNav lastEventSeriesId={lastEventSeriesId} />
       </aside>
       {/* min-w-0: without it the column is floored at the width of its widest table and the
           row overflows, so narrowing the bar beside it hands the content no room back. */}
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col md:overflow-y-auto">{children}</div>
     </div>
   );
 }

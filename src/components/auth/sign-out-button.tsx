@@ -21,12 +21,8 @@ export function SignOutButton() {
   }
 
   return (
-    // Dark grey rather than the accent: the accent marks what a page wants pressed, and signing
-    // out never is.
-    <Button
-      className="bg-foreground/75 text-background hover:bg-foreground/65 active:bg-foreground/60"
-      onClick={handleSignOut}
-    >
+    // No fill at all: a filled button marks what a page wants pressed, and signing out never is.
+    <Button variant="ghost" onClick={handleSignOut}>
       Abmelden
     </Button>
   );
