@@ -73,7 +73,9 @@ export async function createEventSeries(input: { name: string }): Promise<EventS
       name,
       nameKey,
       isActive: false,
+      isTemplate: false,
       isArchived: false,
+      isOpenToStudents: false,
       hasRegistrations: false,
       position,
       events: [],
@@ -199,6 +201,31 @@ export async function updateEventSeries(
 
     return { ...current, ...changed };
   });
+}
+
+/**
+ * Which event series `/app` sends a teacher into (Q8). An archived one is not selectable, so a
+ * remembered id that has since been archived or deleted falls back to the first series in the
+ * teacher's order rather than to a page that would refuse to render.
+ *
+ * Null means there is nothing to select, which the caller answers with the event series list.
+ */
+export async function resolveSelectedEventSeriesId(preferredId?: string): Promise<string | null> {
+  if (preferredId) {
+    const preferred = await eventSeriesDoc(preferredId).get();
+    if (preferred.exists && preferred.data()?.isArchived !== true) return preferred.id;
+  }
+
+  const selectable = await adminDb
+    .collection(COLLECTIONS.eventSeries)
+    .where("isArchived", "==", false)
+    .get();
+
+  const first = selectable.docs
+    .map((doc) => ({ id: doc.id, position: Number(doc.data().position ?? 0) }))
+    .sort((a, b) => a.position - b.position)[0];
+
+  return first?.id ?? null;
 }
 
 /**

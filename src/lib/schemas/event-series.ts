@@ -19,7 +19,20 @@ export const eventSeriesSchema = z.object({
    */
   nameKey: z.string().min(1),
   isActive: z.boolean(),
+  /**
+   * A template is an event series that can never be opened to students (US-22, Q21). That is the
+   * whole of it: it is selected from the header row and its lists are maintained like any other's,
+   * and it holds no registrations to copy — which is why it is the thing a new series starts from.
+   */
+  isTemplate: z.boolean().default(false),
   isArchived: z.boolean(),
+  /**
+   * Whether students may write to this series — join it, and go on amending what they said
+   * (US-19). Not the old active flag: any number of series may be open at once, and this governs
+   * students only, since a teacher works in a series whether it is open or not. An invitation link
+   * sets it, archiving clears it, and unarchiving deliberately does not restore it.
+   */
+  isOpenToStudents: z.boolean().default(false),
   // Denormalized from registration so clients — who cannot read that collection directly
   // (see firestore.rules) — can tell whether archiving/deleting is allowed without a round trip.
   hasRegistrations: z.boolean(),

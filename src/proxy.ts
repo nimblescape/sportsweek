@@ -6,7 +6,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { readUnverifiedRole } from "@/lib/auth/session-claims";
-import { ROUTES, STUDENT_ONLY_PREFIXES, TEACHER_ONLY_PREFIXES, matchesPrefix } from "@/lib/routes";
+import { ROUTES, STUDENT_ONLY_PREFIXES, matchesPrefix } from "@/lib/routes";
 
 // Gate everything under /app; Route Handlers/Server Actions still re-check roles themselves.
 const PROTECTED_PREFIX = "/app";
@@ -31,9 +31,13 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const blocked =
-    (role !== "teacher" && matchesPrefix(pathname, TEACHER_ONLY_PREFIXES)) ||
-    (role !== "student" && matchesPrefix(pathname, STUDENT_ONLY_PREFIXES));
+  // The landing route belongs to neither role: it is what decides where each of them goes.
+  if (pathname === ROUTES.appRoot) {
+    return NextResponse.next();
+  }
+
+  const isStudentPage = matchesPrefix(pathname, STUDENT_ONLY_PREFIXES);
+  const blocked = isStudentPage ? role !== "student" : role !== "teacher";
 
   return blocked
     ? NextResponse.redirect(new URL(ROUTES.appRoot, request.url))

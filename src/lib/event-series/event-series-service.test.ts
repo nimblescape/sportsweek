@@ -26,7 +26,7 @@ function seedEventSeries(id: string, overrides: Record<string, unknown> = {}) {
 }
 
 describe("createEventSeries", () => {
-  it("stores a new event series as neither active nor archived", async () => {
+  it("stores a new event series as neither active, archived, template nor open", async () => {
     const eventSeries = await createEventSeries({ name: "Wintersportwoche 2026" });
 
     expect(firestore.get("eventSeries", eventSeries.id)).toEqual(storedEventSeries());

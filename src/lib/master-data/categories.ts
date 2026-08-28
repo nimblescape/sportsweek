@@ -139,16 +139,26 @@ export const ANSWER_LABELS = Object.fromEntries(
 ) as Record<AnswerField, string>;
 
 /**
- * The master data menu, in the order it is shown (US-4 to US-10). EventSeries lead and are not a
- * category, so they are the one entry named here rather than derived.
+ * The master data menu, in the order it is shown (US-4 to US-10). Every list belongs to one event
+ * series, so the entries are built from the selected one's id (Q8). The event series list leads and
+ * is the exception twice over: it is not a category, and it is the one page not scoped to the
+ * selection — it is where the things the header offers are maintained (US-19).
+ *
+ * With nothing selected it is also the only entry left, since the other six would have no series
+ * to be about.
  */
-export const MASTER_DATA_SECTIONS = [
-  { href: "/app/master-data/event-series", label: "Eventreihen" },
-  ...Object.entries(MASTER_DATA_CATEGORIES).map(([key, category]) => ({
-    href: `/app/master-data/${key}`,
-    label: category.labels.title,
-  })),
-];
+export function masterDataSections(eventSeriesId: string | null) {
+  const eventSeriesList = { href: "/app/event-series", label: "Eventreihen" };
+  if (eventSeriesId === null) return [eventSeriesList];
+
+  return [
+    eventSeriesList,
+    ...Object.entries(MASTER_DATA_CATEGORIES).map(([key, category]) => ({
+      href: `/app/${encodeURIComponent(eventSeriesId)}/master-data/${key}`,
+      label: category.labels.title,
+    })),
+  ];
+}
 
 /**
  * Lives here rather than next to the server-side guard because the list view shows the same

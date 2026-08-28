@@ -17,14 +17,18 @@ import {
   Shuffle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MASTER_DATA_SECTIONS } from "@/lib/master-data/categories";
-import { ROUTES } from "@/lib/routes";
+import { masterDataSections } from "@/lib/master-data/categories";
+import { selectedEventSeriesIdFrom } from "@/lib/event-series/event-series-selection";
+import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
 
-const TOP_LEVEL = [
-  { href: ROUTES.report, label: "Bericht", Icon: FileText },
-  { href: ROUTES.assignment, label: "Zuteilung", Icon: Shuffle },
-  { href: ROUTES.statistics, label: "Statistik", Icon: ChartColumn },
-] as const;
+function topLevel(eventSeriesId: string) {
+  const routes = eventSeriesRoutes(eventSeriesId);
+  return [
+    { href: routes.report, label: "Bericht", Icon: FileText },
+    { href: routes.assignment, label: "Zuteilung", Icon: Shuffle },
+    { href: routes.overview, label: "\u00dcbersicht", Icon: ChartColumn },
+  ];
+}
 
 function itemClasses(active: boolean) {
   return cn(
@@ -35,9 +39,19 @@ function itemClasses(active: boolean) {
   );
 }
 
-export function TeacherNav() {
+/**
+ * Every page but the event series list is about one series (US-20), so the links are built from
+ * the selection. On that one page the URL names none, and the cookie says which series the
+ * teacher was last in — without it the whole bar would have nowhere to point (Q8).
+ */
+export function TeacherNav({ lastEventSeriesId = null }: { lastEventSeriesId?: string | null }) {
   const pathname = usePathname();
-  const inMasterData = pathname.startsWith(ROUTES.masterData);
+  const eventSeriesId = selectedEventSeriesIdFrom(pathname) ?? lastEventSeriesId;
+  const masterData = eventSeriesId === null ? null : eventSeriesRoutes(eventSeriesId).masterData;
+  const inMasterData =
+    pathname === ROUTES.eventSeries ||
+    pathname.startsWith(`${ROUTES.eventSeries}/`) ||
+    (masterData !== null && pathname.startsWith(masterData));
   const [collapsed, setCollapsed] = useState(false);
 
   // Collapsing is offered where the bar is a column; on a narrow screen it is a strip across the
@@ -63,7 +77,7 @@ export function TeacherNav() {
         )}
       </button>
 
-      {TOP_LEVEL.map(({ href, label, Icon }) => {
+      {(eventSeriesId === null ? [] : topLevel(eventSeriesId)).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
@@ -93,7 +107,7 @@ export function TeacherNav() {
 
       {collapsed ? null : (
         <ul className="flex flex-col gap-1">
-          {MASTER_DATA_SECTIONS.map(({ href, label }) => (
+          {masterDataSections(eventSeriesId).map(({ href, label }) => (
             <li key={href}>
               <Link
                 href={href}

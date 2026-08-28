@@ -235,8 +235,10 @@ describe("SignInCard", () => {
     expect(signOut).not.toHaveBeenCalled();
   });
 
+  // A teacher's pages are all about one event series, and signing in does not know which — so
+  // they land on `/app`, which reads the remembered selection and sends them on (Q8).
   it.each([
-    ["teacher", "/app/report"],
+    ["teacher", "/app"],
     ["student", "/app/my-registration"],
   ])("sends a %s straight to their own start page", async (role, expected) => {
     respondWith(200, { status: "ok", role });

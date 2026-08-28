@@ -8,7 +8,7 @@ import { eventSeriesSchema } from "@/lib/schemas/event-series";
 import {
   ANSWER_LABELS,
   MASTER_DATA_CATEGORIES,
-  MASTER_DATA_SECTIONS,
+  masterDataSections,
   masterDataCategorySchema,
   type MasterDataCategory,
   type MasterDataCategoryKey,
@@ -86,18 +86,17 @@ describe("ANSWER_LABELS", () => {
   });
 });
 
-describe("MASTER_DATA_SECTIONS", () => {
-  it("leads with event series and adds nothing beyond the categories", () => {
-    expect(MASTER_DATA_SECTIONS[0]).toEqual({
-      href: "/app/master-data/event-series",
-      label: "Eventreihen",
-    });
-    expect(MASTER_DATA_SECTIONS).toHaveLength(Object.keys(MASTER_DATA_CATEGORIES).length + 1);
+describe("masterDataSections", () => {
+  const sections = masterDataSections("s1");
+
+  it("leads with the event series list and adds nothing beyond the categories", () => {
+    expect(sections[0]).toEqual({ href: "/app/event-series", label: "Eventreihen" });
+    expect(sections).toHaveLength(Object.keys(MASTER_DATA_CATEGORIES).length + 1);
   });
 
   /** A student is asked their class before their program, and the menu is read in that order. */
   it("puts the menu in the order a teacher works through it", () => {
-    expect(MASTER_DATA_SECTIONS.map((section) => section.label)).toEqual([
+    expect(sections.map((section) => section.label)).toEqual([
       "Eventreihen",
       "Klassen",
       "Programme",
@@ -108,13 +107,23 @@ describe("MASTER_DATA_SECTIONS", () => {
     ]);
   });
 
-  it("links each category under its own key, labelled with the title it already carries", () => {
+  it("links each category beneath the selected event series", () => {
     for (const [key, category] of Object.entries(MASTER_DATA_CATEGORIES)) {
-      expect(MASTER_DATA_SECTIONS).toContainEqual({
-        href: `/app/master-data/${key}`,
+      expect(sections).toContainEqual({
+        href: `/app/s1/master-data/${key}`,
         label: category.labels.title,
       });
     }
+  });
+
+  /** An id is opaque and never typed, but a path segment it corrupted would be silent. */
+  it("encodes the event series id it builds the paths from", () => {
+    expect(masterDataSections("a/b")[1].href).toBe("/app/a%2Fb/master-data/classes");
+  });
+
+  /** With no series selected the six lists have nothing to be about, so only the list itself is offered. */
+  it("offers the event series list alone when nothing is selected", () => {
+    expect(masterDataSections(null)).toEqual([{ href: "/app/event-series", label: "Eventreihen" }]);
   });
 });
 
