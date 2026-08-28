@@ -4,10 +4,9 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 /**
- * Empties a test environment: every Firestore document, every Firebase Auth account and every
- * Cloud Storage object. Nothing is written back, so what is left is the project as it was on
- * the day it was created — the `seedState` marker goes too, and the next sign-in re-seeds the
- * master data defaults.
+ * Empties a test environment: every Firestore document and every Firebase Auth account. Nothing
+ * is written back, so what is left is the project as it was on the day it was created — the
+ * `seedState` marker goes too, and the next sign-in re-seeds the master data defaults.
  *
  * The target is named on the command line and looked up in PURGEABLE_ENVIRONMENTS, which has no
  * production entry to disable. This deletes people's accounts, so the environments it can reach
@@ -16,7 +15,6 @@
 import { initializeApp } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage";
 import { apphostingValue, fail } from "./environment.mjs";
 
 /** Where a purge is allowed. Production is absent by construction, not by a check. */
@@ -66,17 +64,6 @@ async function purgeAuth(auth: Auth): Promise<number> {
   }
 }
 
-/** Null when the project has no default bucket — Storage is optional and may never have been set up. */
-async function purgeStorage(bucketName: string): Promise<number | null> {
-  const bucket = getStorage().bucket(bucketName);
-  const [exists] = await bucket.exists();
-  if (!exists) return null;
-
-  const [files] = await bucket.getFiles();
-  await Promise.all(files.map((file) => file.delete()));
-  return files.length;
-}
-
 async function main(): Promise<void> {
   const [environment] = process.argv.slice(2);
   if (!PURGEABLE_ENVIRONMENTS.some((allowed) => allowed === environment)) {
@@ -88,21 +75,18 @@ async function main(): Promise<void> {
   }
 
   const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
-  const storageBucket = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET");
 
   // Its own app rather than @/lib/firebase/admin: that one addresses whichever project the
   // ambient environment names, and this must address the one just named and nothing else.
-  const app = initializeApp({ projectId, storageBucket });
+  const app = initializeApp({ projectId });
 
   const collections = await purgeFirestore(getFirestore(app));
   const accounts = await purgeAuth(getAuth(app));
-  const objects = await purgeStorage(storageBucket);
 
   console.log(`Purged ${projectId}:`);
   for (const [name, count] of collections) console.log(`  ${name}: ${count} document(s)`);
   if (collections.length === 0) console.log("  no collections");
   console.log(`  ${accounts} account(s)`);
-  console.log(`  ${objects === null ? "no storage bucket" : `${objects} storage object(s)`}`);
 }
 
 await main();

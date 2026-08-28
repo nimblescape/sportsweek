@@ -1388,10 +1388,10 @@ not something a mistyped script name or a tab-completion can produce.
 #### Rules and indexes reach production through the workflow, never from a laptop
 
 The means already exists and is worth naming rather than adding a second one beside it.
-`deploy-rules.yml` deploys `firestore.rules`, `storage.rules` and `firestore.indexes.json` — to
-staging from `main`, to **production from the `production` branch** — and it can be run
-deliberately through `workflow_dispatch`. It authenticates with a short-lived token from workload
-identity federation, so no long-lived key exists anywhere to be provisioned or leaked.
+`deploy-rules.yml` deploys `firestore.rules` and `firestore.indexes.json` — to staging from
+`main`, to **production from the `production` branch** — and it can be run deliberately through
+`workflow_dispatch`. It authenticates with a short-lived token from workload identity
+federation, so no long-lived key exists anywhere to be provisioned or leaked.
 
 That is why `package.json` carries `rules:development` and no staging or production counterpart:
 development is a project a developer owns, and the other two are reached only through a branch

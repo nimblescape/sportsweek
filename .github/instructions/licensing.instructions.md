@@ -22,7 +22,7 @@ Only files authored as part of this project. `npm run license:check` enforces th
 
 - Source: `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.mts`, `.cts`
 - Styles: `.css`, `.scss`, `.less`
-- Security rules: `.rules` (`firestore.rules`, `storage.rules`)
+- Security rules: `.rules` (`firestore.rules`)
 - Config and workflows: `.yml`, `.yaml` (CI workflows, `apphosting.yaml`)
 - Shell scripts: `.sh`, `.bash`, `.zsh`
 - Diagrams: `.puml`, `.plantuml`

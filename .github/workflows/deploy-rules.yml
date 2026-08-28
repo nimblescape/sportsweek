@@ -11,7 +11,6 @@ on:
     branches: [main, production]
     paths:
       - "firestore.rules"
-      - "storage.rules"
       - "firestore.indexes.json"
       - ".github/workflows/deploy-rules.yml"
 
@@ -50,5 +49,5 @@ jobs:
             || vars.GCP_RULES_DEPLOY_SERVICE_ACCOUNT_STAGING }}
       - name: Deploy rules and indexes to ${{ env.PROJECT }}
         run: >-
-          npx firebase-tools deploy --only firestore:rules,firestore:indexes,storage
+          npx firebase-tools deploy --only firestore:rules,firestore:indexes
           --project ${{ env.PROJECT }} --non-interactive
