@@ -5,6 +5,12 @@
  */
 import { AssignmentView } from "@/components/assignment/assignment-view";
 
-export default function AssignmentPage() {
-  return <AssignmentView />;
+export default async function AssignmentPage({
+  params,
+}: {
+  params: Promise<{ eventSeriesId: string }>;
+}) {
+  const { eventSeriesId } = await params;
+
+  return <AssignmentView eventSeriesId={eventSeriesId} />;
 }

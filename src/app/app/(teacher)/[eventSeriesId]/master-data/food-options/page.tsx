@@ -10,10 +10,17 @@ const OTHER_HINT =
   "Diese Option steht immer zur Verfügung und kann nicht bearbeitet oder gelöscht werden. " +
   "Wer sie wählt, muss die Unverträglichkeit angeben.";
 
-export default function FoodOptionsPage() {
+export default async function FoodOptionsPage({
+  params,
+}: {
+  params: Promise<{ eventSeriesId: string }>;
+}) {
+  const { eventSeriesId } = await params;
+
   return (
     <MasterDataView
       category="food-options"
+      eventSeriesId={eventSeriesId}
       fixedItems={[FOOD_OPTION_OTHER_LABEL]}
       fixedItemsHint={OTHER_HINT}
     />

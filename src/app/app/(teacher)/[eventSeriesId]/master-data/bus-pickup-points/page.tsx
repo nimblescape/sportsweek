@@ -5,6 +5,12 @@
  */
 import { MasterDataView } from "@/components/master-data/master-data-view";
 
-export default function BusPickupPointsPage() {
-  return <MasterDataView category="bus-pickup-points" />;
+export default async function BusPickupPointsPage({
+  params,
+}: {
+  params: Promise<{ eventSeriesId: string }>;
+}) {
+  const { eventSeriesId } = await params;
+
+  return <MasterDataView category="bus-pickup-points" eventSeriesId={eventSeriesId} />;
 }

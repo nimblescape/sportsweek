@@ -17,14 +17,15 @@ import { cn } from "@/lib/utils";
  * list stays reachable even while the program itself is locked: its items are matched through
  * the students' rental selections, so the two are blocked independently.
  */
-export function ProgramsView() {
+export function ProgramsView({ eventSeriesId }: { eventSeriesId: string }) {
   return (
     <MasterDataView
       category="programs"
+      eventSeriesId={eventSeriesId}
       renderRowAction={(program, { disabled }) => (
         <Tooltip label="Benötigte Ausrüstung">
           <Link
-            href={`/app/master-data/programs?equipment=${encodeURIComponent(program.name)}`}
+            href={`/app/${encodeURIComponent(eventSeriesId)}/master-data/programs?equipment=${encodeURIComponent(program.name)}`}
             aria-label={`Benötigte Ausrüstung für ${program.name}`}
             // A link has no disabled state of its own, so a write running on this program has to
             // be spelled out for the pointer, the keyboard and assistive technology separately.

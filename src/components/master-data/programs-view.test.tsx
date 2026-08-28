@@ -18,8 +18,18 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
   useUsageReport: (...args: unknown[]) => useUsageReport(...args),
 }));
 
-const { ProgramsView } = await import("./programs-view");
-const { ProgramEquipmentView } = await import("./program-equipment-view");
+const { ProgramsView: ScopedProgramsView } = await import("./programs-view");
+const { ProgramEquipmentView: ScopedProgramEquipmentView } =
+  await import("./program-equipment-view");
+
+// Which series the lists belong to comes from the page (Q8); the data hooks are mocked here.
+function ProgramsView() {
+  return <ScopedProgramsView eventSeriesId="s1" />;
+}
+
+function ProgramEquipmentView({ program }: { program: string }) {
+  return <ScopedProgramEquipmentView program={program} eventSeriesId="s1" />;
+}
 
 const ski = { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] };
 
@@ -68,7 +78,7 @@ describe("ProgramsView", () => {
 
     expect(screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski" })).toHaveAttribute(
       "href",
-      "/app/master-data/programs?equipment=Ski",
+      "/app/s1/master-data/programs?equipment=Ski",
     );
   });
 
@@ -79,7 +89,7 @@ describe("ProgramsView", () => {
 
     expect(
       screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski & Board" }),
-    ).toHaveAttribute("href", "/app/master-data/programs?equipment=Ski%20%26%20Board");
+    ).toHaveAttribute("href", "/app/s1/master-data/programs?equipment=Ski%20%26%20Board");
   });
 
   it("keeps the equipment list reachable for a program the in-use guard blocks", () => {
@@ -119,10 +129,10 @@ describe("ProgramsView", () => {
 });
 
 describe("ProgramEquipmentView", () => {
-  it("reads the program named in the URL", () => {
+  it("reads the program named in the URL, from the series the page names", () => {
     render(<ProgramEquipmentView program="Ski" />);
 
-    expect(useProgram).toHaveBeenCalledWith("Ski");
+    expect(useProgram).toHaveBeenCalledWith("Ski", "s1");
   });
 
   it("lists the entries the program carries, and names the program", () => {

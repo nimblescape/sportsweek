@@ -5,6 +5,12 @@
  */
 import { StatisticsView } from "@/components/assignment/statistics-view";
 
-export default function StatisticsPage() {
-  return <StatisticsView />;
+export default async function OverviewPage({
+  params,
+}: {
+  params: Promise<{ eventSeriesId: string }>;
+}) {
+  const { eventSeriesId } = await params;
+
+  return <StatisticsView eventSeriesId={eventSeriesId} />;
 }

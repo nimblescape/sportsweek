@@ -30,7 +30,13 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
 }));
 vi.mock("@/lib/api/busy", () => ({ useBusyWhile: (busy: boolean) => useBusyWhile(busy) }));
 
-const { AssignmentView } = await import("./assignment-view");
+const { AssignmentView: ScopedAssignmentView } = await import("./assignment-view");
+
+// Which series the view is about comes from the page (Q8); the roster hook is mocked, so the id
+// only has to be present.
+function AssignmentView() {
+  return <ScopedAssignmentView eventSeriesId="s1" />;
+}
 
 function student(
   firstName: string,

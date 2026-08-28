@@ -22,7 +22,13 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
 }));
 vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
 
-const { StatisticsView } = await import("./statistics-view");
+const { StatisticsView: ScopedStatisticsView } = await import("./statistics-view");
+
+// Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
+// only has to be present.
+function StatisticsView() {
+  return <ScopedStatisticsView eventSeriesId="s1" />;
+}
 
 function student(
   lastName: string,
@@ -87,15 +93,16 @@ describe("StatisticsView", () => {
     expect(screen.queryByRole("group", { name: "5AHIF" })).not.toBeInTheDocument();
   });
 
-  it("reports two active event series rather than taking the page down with it", () => {
+  /** The header decides which series a page is about, so several on offer is the normal case. */
+  it("counts the event series the page names, not whichever came first", () => {
     useEventSeries.mockReturnValue({
-      eventSeries: [eventSeries, { ...eventSeries, id: "s2" }],
+      eventSeries: [{ ...eventSeries, id: "s0" }, eventSeries],
       loading: false,
       error: null,
     });
 
     render(<StatisticsView />);
 
-    expect(screen.getByRole("alert")).toHaveTextContent(/aktiv/i);
+    expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
   });
 });

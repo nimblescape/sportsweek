@@ -38,7 +38,13 @@ vi.mock("@/lib/report/report-download", async (importOriginal) => ({
   downloadReportWorkbook: (report: unknown) => downloadReportWorkbook(report),
 }));
 
-const { ReportView } = await import("./report-view");
+const { ReportView: ScopedReportView } = await import("./report-view");
+
+// Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
+// only has to be present.
+function ReportView() {
+  return <ScopedReportView eventSeriesId="s1" />;
+}
 
 function student(
   firstName: string,

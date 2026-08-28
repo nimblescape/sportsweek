@@ -61,7 +61,7 @@ afterEach(() => {
 });
 
 function renderView(props: Record<string, unknown> = {}) {
-  render(<MasterDataView category="classes" {...props} />);
+  render(<MasterDataView category="classes" eventSeriesId="s1" {...props} />);
 }
 
 describe("MasterDataView — reading the list", () => {
@@ -102,10 +102,10 @@ describe("MasterDataView — reading the list", () => {
     expect(screen.getByText("Es gibt noch keine Klasse.")).toBeInTheDocument();
   });
 
-  it("subscribes to the category it was configured with", () => {
-    render(<MasterDataView category="skill-levels" />);
+  it("subscribes to the category it was configured with, for the series the page names", () => {
+    render(<MasterDataView category="skill-levels" eventSeriesId="s1" />);
 
-    expect(useMasterData).toHaveBeenCalledWith("skill-levels");
+    expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1");
     expect(screen.getByRole("heading", { name: "Leistungsstufen" })).toBeInTheDocument();
   });
 });

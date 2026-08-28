@@ -48,15 +48,18 @@ function CardHeading({ children }: { children: string }) {
  * it — including the students who answered "no", which is what sets it apart from the assignment
  * dialog and is why its filter carries categories the board has no use for.
  */
-export function ReportView() {
-  const { eventSeries, loading, error, students, filterGroups } = useEventSeriesRoster({
-    attendance: true,
-    completeness: true,
-    equipmentRental: true,
-    health: true,
-    answerLists: true,
-    events: true,
-  });
+export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
+  const { eventSeries, loading, error, students, filterGroups } = useEventSeriesRoster(
+    eventSeriesId,
+    {
+      attendance: true,
+      completeness: true,
+      equipmentRental: true,
+      health: true,
+      answerLists: true,
+      events: true,
+    },
+  );
   const { reports: savedReports } = useSavedReports();
   const [filter, setFilter] = useState(EMPTY_FILTER);
   const [activeFields, setActiveFields] = useState<string[]>([]);

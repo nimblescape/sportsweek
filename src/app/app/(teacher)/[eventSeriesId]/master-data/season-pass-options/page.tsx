@@ -5,6 +5,12 @@
  */
 import { MasterDataView } from "@/components/master-data/master-data-view";
 
-export default function SeasonPassOptionsPage() {
-  return <MasterDataView category="season-pass-options" />;
+export default async function SeasonPassOptionsPage({
+  params,
+}: {
+  params: Promise<{ eventSeriesId: string }>;
+}) {
+  const { eventSeriesId } = await params;
+
+  return <MasterDataView category="season-pass-options" eventSeriesId={eventSeriesId} />;
 }

@@ -14,7 +14,7 @@ vi.mock("@/lib/event-series/use-event-series", () => ({
   useEventSeries: () => useEventSeries(),
 }));
 
-const { useActiveEventSeries, useMasterData, useProgram, usePrograms, useUsageReport } =
+const { useMasterData, useProgram, usePrograms, useUsageReport } =
   await import("@/lib/master-data/use-master-data");
 
 function eventSeriesOf(
@@ -34,49 +34,13 @@ beforeEach(() => {
   useEventSeries.mockReturnValue({ eventSeries: [], loading: true, error: null });
 });
 
-describe("useActiveEventSeries", () => {
-  it("holds nothing while the subscription has not answered", () => {
-    const { result } = renderHook(() => useActiveEventSeries());
-
-    expect(result.current).toEqual({ eventSeries: null, loading: true, error: null });
-  });
-
-  /** Until the header selection arrives there is one candidate, so no view chooses one (US-20). */
-  it("picks the active event series out of the ones on offer", () => {
-    useEventSeries.mockReturnValue(
-      delivered(eventSeriesOf("s1"), eventSeriesOf("s2", { isActive: true })),
-    );
-
-    const { result } = renderHook(() => useActiveEventSeries());
-
-    expect(result.current.eventSeries?.id).toBe("s2");
-  });
-
-  /** Deactivating is something a teacher does, so it locks the views rather than failing. */
-  it("holds nothing when none is active", () => {
-    useEventSeries.mockReturnValue(delivered(eventSeriesOf("s1")));
-
-    const { result } = renderHook(() => useActiveEventSeries());
-
-    expect(result.current.eventSeries).toBeNull();
-  });
-
-  it("passes a failed subscription on rather than reporting an empty list", () => {
-    useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: "Kein Zugriff." });
-
-    const { result } = renderHook(() => useActiveEventSeries());
-
-    expect(result.current.error).toBe("Kein Zugriff.");
-  });
-});
-
 describe("useMasterData", () => {
   it("reads the list its category names off the event series document", () => {
     useEventSeries.mockReturnValue(
-      delivered(eventSeriesOf("s1", { isActive: true, skillLevels: ["Anfänger", "Profi"] })),
+      delivered(eventSeriesOf("s1", { skillLevels: ["Anfänger", "Profi"] })),
     );
 
-    const { result } = renderHook(() => useMasterData("skill-levels"));
+    const { result } = renderHook(() => useMasterData("skill-levels", "s1"));
 
     expect(result.current.items).toEqual(["Anfänger", "Profi"]);
   });
@@ -85,23 +49,22 @@ describe("useMasterData", () => {
     useEventSeries.mockReturnValue(
       delivered(
         eventSeriesOf("s1", {
-          isActive: true,
           programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
         }),
       ),
     );
 
-    const { result } = renderHook(() => useMasterData("programs"));
+    const { result } = renderHook(() => useMasterData("programs", "s1"));
 
     expect(result.current.items).toEqual(["Ski"]);
   });
 
   it("keeps the order the teacher dropped the items into, not an alphabetical one", () => {
     useEventSeries.mockReturnValue(
-      delivered(eventSeriesOf("s1", { isActive: true, classOptions: ["Zoe", "Anton", "Mia"] })),
+      delivered(eventSeriesOf("s1", { classOptions: ["Zoe", "Anton", "Mia"] })),
     );
 
-    const { result } = renderHook(() => useMasterData("classes"));
+    const { result } = renderHook(() => useMasterData("classes", "s1"));
 
     expect(result.current.items).toEqual(["Zoe", "Anton", "Mia"]);
   });
@@ -111,23 +74,23 @@ describe("useMasterData", () => {
    * way — which is what lets an empty list mean a question nobody was asked (US-21).
    */
   it("says it is still loading rather than reporting an empty list", () => {
-    const { result } = renderHook(() => useMasterData("classes"));
+    const { result } = renderHook(() => useMasterData("classes", "s1"));
 
     expect(result.current).toEqual({ items: [], loading: true, error: null });
   });
 
   it("reports an empty list once the event series has arrived", () => {
-    useEventSeries.mockReturnValue(delivered(eventSeriesOf("s1", { isActive: true })));
+    useEventSeries.mockReturnValue(delivered(eventSeriesOf("s1")));
 
-    const { result } = renderHook(() => useMasterData("food-options"));
+    const { result } = renderHook(() => useMasterData("food-options", "s1"));
 
     expect(result.current).toEqual({ items: [], loading: false, error: null });
   });
 
-  it("holds an empty list while no event series is active, since none supplies one", () => {
+  it("holds an empty list while the id names no event series, since none supplies one", () => {
     useEventSeries.mockReturnValue(delivered(eventSeriesOf("s1", { classOptions: ["3AHIT"] })));
 
-    const { result } = renderHook(() => useMasterData("classes"));
+    const { result } = renderHook(() => useMasterData("classes", "gone"));
 
     expect(result.current.items).toEqual([]);
   });
@@ -138,23 +101,22 @@ describe("usePrograms", () => {
     useEventSeries.mockReturnValue(
       delivered(
         eventSeriesOf("s1", {
-          isActive: true,
           programs: [{ name: "Ski", requiredEquipment: ["Helm", "Stöcke"] }],
         }),
       ),
     );
 
-    const { result } = renderHook(() => usePrograms());
+    const { result } = renderHook(() => usePrograms("s1"));
 
     expect(result.current.programs).toEqual([
       { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] },
     ]);
   });
 
-  it("holds no program while no event series is active", () => {
+  it("holds no program while the id names no event series", () => {
     useEventSeries.mockReturnValue(delivered(eventSeriesOf("s1")));
 
-    const { result } = renderHook(() => usePrograms());
+    const { result } = renderHook(() => usePrograms("gone"));
 
     expect(result.current.programs).toEqual([]);
   });
@@ -164,7 +126,6 @@ describe("useProgram", () => {
   const withPrograms = () =>
     delivered(
       eventSeriesOf("s1", {
-        isActive: true,
         programs: [
           { name: "Ski", requiredEquipment: ["Helm"] },
           { name: "Snowboard", requiredEquipment: [] },
@@ -175,7 +136,7 @@ describe("useProgram", () => {
   it("finds the program the view named", () => {
     useEventSeries.mockReturnValue(withPrograms());
 
-    const { result } = renderHook(() => useProgram("Ski"));
+    const { result } = renderHook(() => useProgram("Ski", "s1"));
 
     expect(result.current.program).toEqual({ name: "Ski", requiredEquipment: ["Helm"] });
   });
@@ -184,7 +145,7 @@ describe("useProgram", () => {
   it("holds nothing for a name the list no longer carries", () => {
     useEventSeries.mockReturnValue(withPrograms());
 
-    const { result } = renderHook(() => useProgram("Langlauf"));
+    const { result } = renderHook(() => useProgram("Langlauf", "s1"));
 
     expect(result.current.program).toBeNull();
   });

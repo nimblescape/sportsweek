@@ -24,12 +24,14 @@ type RegistrationViewProps = {
  */
 export function RegistrationView({ studentUpn, studentName }: RegistrationViewProps) {
   const { eventSeries, record, loading, error } = useRegistration(studentUpn);
-  const classes = useMasterData("classes");
-  const skillLevels = useMasterData("skill-levels");
-  const busPickupPoints = useMasterData("bus-pickup-points");
-  const foodOptions = useMasterData("food-options");
-  const seasonPassOptions = useMasterData("season-pass-options");
-  const programs = usePrograms();
+  // The student's series is the one they registered in, not one they chose from a header (US-23).
+  const eventSeriesId = eventSeries?.id ?? null;
+  const classes = useMasterData("classes", eventSeriesId);
+  const skillLevels = useMasterData("skill-levels", eventSeriesId);
+  const busPickupPoints = useMasterData("bus-pickup-points", eventSeriesId);
+  const foodOptions = useMasterData("food-options", eventSeriesId);
+  const seasonPassOptions = useMasterData("season-pass-options", eventSeriesId);
+  const programs = usePrograms(eventSeriesId);
 
   // Answered by the one spinner in the header, so this view places none of its own.
   useBusyWhile(loading || classes.loading);

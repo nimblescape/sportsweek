@@ -22,8 +22,8 @@ import { AssignmentBoard } from "./assignment-board";
  * Every figure is computed from the same live roster the cards are drawn from, so an assignment
  * shows up as soon as the subscription brings the record back.
  */
-export function AssignmentView() {
-  const { eventSeries, loading, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(); // prettier-ignore
+export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
+  const { eventSeries, loading, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
   const [saving, setSaving] = useState(false);
 
   // Answered by the one spinner in the header, so this view places none of its own.

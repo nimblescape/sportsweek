@@ -5,7 +5,13 @@
  */
 import { ReportView } from "@/components/report/report-view";
 
-// The teacher layout guards this route; the report itself is scoped to the active event series (US-13).
-export default function ReportPage() {
-  return <ReportView />;
+// The teacher layout guards this route; the report itself is scoped to the selected series (US-13).
+export default async function ReportPage({
+  params,
+}: {
+  params: Promise<{ eventSeriesId: string }>;
+}) {
+  const { eventSeriesId } = await params;
+
+  return <ReportView eventSeriesId={eventSeriesId} />;
 }

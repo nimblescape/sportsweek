@@ -11,11 +11,18 @@ import { ProgramsView } from "@/components/master-data/programs-view";
  * has its equipment open is named in a search parameter rather than in a path segment.
  */
 export default async function ProgramsPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ eventSeriesId: string }>;
   searchParams: Promise<{ equipment?: string }>;
 }) {
+  const { eventSeriesId } = await params;
   const { equipment } = await searchParams;
 
-  return equipment === undefined ? <ProgramsView /> : <ProgramEquipmentView program={equipment} />;
+  return equipment === undefined ? (
+    <ProgramsView eventSeriesId={eventSeriesId} />
+  ) : (
+    <ProgramEquipmentView program={equipment} eventSeriesId={eventSeriesId} />
+  );
 }

@@ -21,8 +21,14 @@ import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
  * live in a field on the program, so every change rewrites the whole list — which is what makes
  * adding, renaming and removing one atomic, and uniqueness checkable without a query.
  */
-export function ProgramEquipmentView({ program: named }: { program: string }) {
-  const { program, loading, error } = useProgram(named);
+export function ProgramEquipmentView({
+  program: named,
+  eventSeriesId,
+}: {
+  program: string;
+  eventSeriesId: string;
+}) {
+  const { program, loading, error } = useProgram(named, eventSeriesId);
   const report = useUsageReport("programs");
 
   const equipment = program?.requiredEquipment ?? [];

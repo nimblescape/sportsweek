@@ -19,6 +19,7 @@ import { useMasterData, useUsageReport } from "@/lib/master-data/use-master-data
 
 type MasterDataViewProps = {
   category: MasterDataCategoryKey;
+  eventSeriesId: string;
   /** Options offered to students that the teacher does not maintain, such as "Sonstiges" (US-9). */
   fixedItems?: readonly string[];
   fixedItemsHint?: string;
@@ -28,12 +29,13 @@ type MasterDataViewProps = {
 /** A teacher-maintained collection on the shared CRUD list (US-5 to US-10). */
 export function MasterDataView({
   category: key,
+  eventSeriesId,
   fixedItems,
   fixedItemsHint,
   renderRowAction,
 }: MasterDataViewProps) {
   const category = categoryOf(key);
-  const { items, loading, error } = useMasterData(key);
+  const { items, loading, error } = useMasterData(key, eventSeriesId);
   const report = useUsageReport(key);
 
   return (

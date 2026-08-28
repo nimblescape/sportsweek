@@ -18,8 +18,8 @@ import { ClassCards } from "./class-cards";
  * rather than a header on the board, because reading a class and assigning a week are two
  * things a teacher does at different times.
  */
-export function StatisticsView() {
-  const { eventSeries, loading, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(); // prettier-ignore
+export function StatisticsView({ eventSeriesId }: { eventSeriesId: string }) {
+  const { eventSeries, loading, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
 
   // Answered by the one spinner in the header, so this view places none of its own.
   useBusyWhile(loading);

@@ -5,6 +5,12 @@
  */
 import { MasterDataView } from "@/components/master-data/master-data-view";
 
-export default function SkillLevelsPage() {
-  return <MasterDataView category="skill-levels" />;
+export default async function SkillLevelsPage({
+  params,
+}: {
+  params: Promise<{ eventSeriesId: string }>;
+}) {
+  const { eventSeriesId } = await params;
+
+  return <MasterDataView category="skill-levels" eventSeriesId={eventSeriesId} />;
 }
