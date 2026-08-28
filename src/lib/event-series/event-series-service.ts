@@ -265,24 +265,30 @@ export async function updateEventSeries(
 }
 
 /**
- * Which event series `/app` sends a teacher into (Q8). An archived one is not selectable, so a
- * remembered id that has since been archived or deleted falls back to the first series in the
- * teacher's order rather than to a page that would refuse to render.
+ * Which event series `/app` sends a teacher into (Q8). Both that page and the navigation built
+ * from this answer are about registrations, so neither an archived series nor a template is
+ * selectable — a remembered id that has become either falls back to the first that is.
  *
  * Null means there is nothing to select, which the caller answers with the event series list.
  */
 export async function resolveSelectedEventSeriesId(preferredId?: string): Promise<string | null> {
+  const selectable = (data: Record<string, unknown> | undefined) =>
+    data?.isArchived !== true && data?.isTemplate !== true;
+
   if (preferredId) {
     const preferred = await eventSeriesDoc(preferredId).get();
-    if (preferred.exists && preferred.data()?.isArchived !== true) return preferred.id;
+    if (preferred.exists && selectable(preferred.data())) return preferred.id;
   }
 
-  const selectable = await adminDb
+  const unarchived = await adminDb
     .collection(COLLECTIONS.eventSeries)
     .where("isArchived", "==", false)
     .get();
 
-  const first = selectable.docs
+  // Templates are sieved out here rather than in the query, which would need an index of its own
+  // for a collection already read whole and ordered in memory.
+  const first = unarchived.docs
+    .filter((doc) => selectable(doc.data()))
     .map((doc) => ({ id: doc.id, position: Number(doc.data().position ?? 0) }))
     .sort((a, b) => a.position - b.position)[0];
 

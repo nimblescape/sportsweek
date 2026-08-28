@@ -16,7 +16,7 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const { createEventSeries, updateEventSeries, deleteEventSeries } =
+const { createEventSeries, updateEventSeries, deleteEventSeries, resolveSelectedEventSeriesId } =
   await import("./event-series-service");
 const { ServiceError } = await import("@/lib/service-error");
 
@@ -690,5 +690,48 @@ describe("updateEventSeries — opening needs a class to invite", () => {
     await updateEventSeries("s1", { isOpenToStudents: false });
 
     expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
+  });
+});
+
+/**
+ * What `/app` opens on, and what the navigation points at from a page that names no series (Q8).
+ * Both are pages about registrations, which is exactly what a template has none of (US-22).
+ */
+describe("resolveSelectedEventSeriesId", () => {
+  it("takes the remembered series when it is still selectable", async () => {
+    seedEventSeries("s1", { position: 0 });
+    seedEventSeries("s2", { position: 1 });
+
+    expect(await resolveSelectedEventSeriesId("s2")).toBe("s2");
+  });
+
+  it("falls back to the first in the teacher's order", async () => {
+    seedEventSeries("s2", { position: 1 });
+    seedEventSeries("s1", { position: 0 });
+
+    expect(await resolveSelectedEventSeriesId()).toBe("s1");
+  });
+
+  it.each([{ isArchived: true }, { isTemplate: true }])(
+    "passes over a remembered %o, which no longer has the pages that would be opened",
+    async (state) => {
+      seedEventSeries("remembered", { position: 0, ...state });
+      seedEventSeries("s1", { position: 1 });
+
+      expect(await resolveSelectedEventSeriesId("remembered")).toBe("s1");
+    },
+  );
+
+  it("skips a template when picking the first, however early it sorts", async () => {
+    seedEventSeries("t1", { position: 0, isTemplate: true });
+    seedEventSeries("s1", { position: 1 });
+
+    expect(await resolveSelectedEventSeriesId()).toBe("s1");
+  });
+
+  it("selects nothing when only templates remain, there being no series to run", async () => {
+    seedEventSeries("t1", { position: 0, isTemplate: true });
+
+    expect(await resolveSelectedEventSeriesId()).toBeNull();
   });
 });
