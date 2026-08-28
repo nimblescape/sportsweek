@@ -48,6 +48,8 @@
   --color-open-subtle: var(--open-subtle);
   --color-neutral-foreground: var(--neutral-foreground);
   --color-neutral: var(--neutral);
+  --color-template-foreground: var(--template-foreground);
+  --color-template: var(--template);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -81,6 +83,9 @@
   /* A chosen tag standing apart from the rest: a template among series, a report since edited. */
   --neutral: var(--color-gray-700);
   --neutral-foreground: var(--color-white);
+  /* A template, which is neither open nor closed and cannot become either (US-22). */
+  --template: var(--color-amber-500);
+  --template-foreground: var(--color-white);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -125,6 +130,8 @@
   --open-subtle: var(--color-green-600);
   --neutral: var(--color-gray-600);
   --neutral-foreground: var(--color-white);
+  --template: var(--color-amber-400);
+  --template-foreground: var(--color-white);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

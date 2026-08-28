@@ -51,7 +51,7 @@ const TagContext = createContext<TagState>({ pressed: false, disabled: false });
  * is not, which is what makes five states out of three: an open series stays green either way,
  * because whether students can register is worth seeing whether or not you are working in it.
  */
-export type TagVariant = "default" | "open" | "neutral";
+export type TagVariant = "default" | "open" | "neutral" | "template";
 
 /** Green survives being unpressed; nothing else has anything to say once it is not chosen. */
 const unpressed = (variant: TagVariant) => (variant === "open" ? "open-soft" : "outline");

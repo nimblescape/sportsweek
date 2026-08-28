@@ -59,7 +59,7 @@ export const closeActionLabel = (name: string) => `${name} für Schüler:innen s
  * neither and cannot become either.
  */
 function fillFor(one: EventSeries): TagVariant {
-  if (one.isTemplate) return "neutral";
+  if (one.isTemplate) return "template";
   return one.isOpenToStudents ? "open" : "default";
 }
 

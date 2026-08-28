@@ -14,7 +14,7 @@ const css = readFileSync("src/app/globals.css", "utf8");
  * The only tokens allowed to carry chroma: the accent, the danger colour, and the two greens of
  * a series taking registrations — the one state a teacher has to spot without reading (US-19).
  */
-const CHROMATIC_TOKENS = ["--brand", "--destructive", "--open", "--open-subtle"];
+const CHROMATIC_TOKENS = ["--brand", "--destructive", "--open", "--open-subtle", "--template"];
 
 function themeBlock(selector: string): string {
   const match = css.match(new RegExp(`${selector}\\s*\\{([\\s\\S]*?)\\n\\}`));
@@ -72,12 +72,14 @@ describe.each([
    * Selected means white on a fill, in either theme. A control that changed its ink between
    * themes would be two designs, and a row of them would agree in one and not the other.
    */
-  it.each(["--brand-foreground", "--open-foreground", "--neutral-foreground"])(
-    "writes %s in the white a selected control is written in",
-    (token) => {
-      expect(decls.find((d) => d.name === token)?.value).toBe("var(--color-white)");
-    },
-  );
+  it.each([
+    "--brand-foreground",
+    "--open-foreground",
+    "--neutral-foreground",
+    "--template-foreground",
+  ])("writes %s in the white a selected control is written in", (token) => {
+    expect(decls.find((d) => d.name === token)?.value).toBe("var(--color-white)");
+  });
 
   it("drives focus rings from the accent", () => {
     expect(decls.find((d) => d.name === "--ring")?.value).toContain("var(--brand)");
