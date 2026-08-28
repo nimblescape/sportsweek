@@ -199,8 +199,9 @@ student's answers, and nothing a student can write. See Q1.
   environment starts with is written by the provisioning scripts.
 - The `users` join in `src/lib/students/roster.ts`, and with it the teacher's permission to read
   every user record.
-- The `events` composite index in `firestore.indexes.json`. A collection group index on
-  `registrations` by student UPN takes its place, for the login refresh of US-26.
+- The `events` composite index in `firestore.indexes.json`, and every other entry in its
+  `indexes` array, which ends this refactoring empty. What remains is a single `fieldOverrides`
+  entry: see "The one index is a field override, not a composite" below.
 - `SavedReport.createdByUserId`. A saved report is a remembered selection and nothing else, so
   there is nobody for it to name: it is written on every create and read by nothing.
 - `position` on every master data item, event and saved report — an array has an order.
@@ -693,8 +694,8 @@ to the records around it.
   read-only in everything it holds (US-19). A name in last year's report is a record of what was
   true then.
 - Finding a student's registrations across every series is a collection group query on
-  `registrations` by the student's UPN, which needs a collection group index. It is the one index
-  this refactoring adds, against the one it removes.
+  `registrations` by the student's UPN. Collection group scope is not indexed automatically, so
+  this is the one index the refactoring declares — as a `fieldOverrides` entry, not a composite.
 - The registration names the event it is assigned to by name rather than by id, so that it holds
   no identifier that means nothing on its own.
 - The registration keeps exactly one identifying field: the UPN of the student it belongs to.
@@ -743,9 +744,10 @@ students write to it at the same time.
 - **The teacher pays**, which is the right way round: they are doing the rare and questionable
   thing — editing lists mid-registration — so theirs is the request that waits, and is told to
   try again if it cannot get through.
-- The narrow queries need one composite index per answer a list supplies, plus one for the
-  rentals. They are temporary: once a registration lives beneath the series it belongs to
-  (US-26), the series is the path rather than a field, and every one of them goes.
+- The narrow queries filter on the series **and** the value, which is two equalities and so needs
+  one composite index per answer a list supplies, plus one for the rentals. They are temporary:
+  once a registration lives beneath the series it belongs to (US-26), the series is the path
+  rather than a field, the query drops to a single equality, and every one of them goes.
 - Nothing outlives the request. There is no lock left standing, no progress record, no attempt
   count and nothing to resume, because an edit either commits whole or does not commit.
 
@@ -982,8 +984,9 @@ transaction too, reading the event series and validating its answers against it,
 the other direction. Those two changes are the whole of US-27.
 
 The narrow queries bring one composite index per answer a list supplies, plus one for the
-rentals. They are temporary and go again in slice 4, when a registration moves beneath its
-series and the series stops being a field to filter by.
+rentals, because filtering on the series and the value is two equalities. They are temporary and
+go again in slice 4, when a registration moves beneath its series and the series stops being a
+field to filter by.
 
 The saved reports move into the event series document in this slice, beside the lists they filter
 on — one document, one transaction, so a report and its lists cannot disagree.
@@ -1001,8 +1004,9 @@ keyed by the student's UPN, so which series it is in is where it is stored rathe
 carries. The event it is assigned to is already held by name, which slice 2 had to settle when
 the events lost their ids.
 
-This is the slice where the deploy order matters: the collection group index goes first, and the
-narrowed `users` rule goes last. Deploying that rule early denies the release still running.
+This is the slice where the deploy order matters: the collection group override on `studentUpn`
+goes **first**, because provisioning queries by it, and the narrowed `users` rule goes **last**.
+Deploying that rule early denies the release still running, whose roster still joins to `/users`.
 
 ### 5. Dropping the active season
 
@@ -1396,8 +1400,9 @@ somebody reviewed. The asymmetry is deliberate and stays.
 What this refactoring adds is an **ordering constraint**, because rules and indexes deploy on
 their own schedule while the code depends on both:
 
-- **A new index goes first** — the `registrations` collection group (US-26) and the `savedReports`
-  `fieldOverrides` (Q13) — because a build takes time and a query without its index fails.
+- **A new index goes first** — the `registrations` collection group override on `studentUpn`
+  (US-26) and the `savedReports` `fieldOverrides` (Q13) — because a build takes time and a query
+  without its index fails.
 - **A rule that widens goes before or with its code**, such as students reading the event series
   document (Q1).
 - **A rule that narrows goes after its code**, such as teachers losing the `users` read (US-26).
@@ -1410,6 +1415,51 @@ teacher's report.
 None of that bites while nothing is live (Q18) — with no users, any order works. It is worth
 following from the start regardless, because the ordering is a habit rather than a step, and the
 first deploy where it matters is not one anybody will remember to think about.
+
+#### The one index is a field override, not a composite
+
+`firestore.indexes.json` ends this refactoring with an empty `indexes` array and a single
+`fieldOverrides` entry. The distinction is worth stating, because getting it wrong fails in two
+different ways and neither is caught by a test.
+
+Firestore maintains a single-field index automatically for every field, but **only at collection
+scope**. Collection group scope is not automatic: it has to be asked for. So of the queries left,
+three are free and one is not:
+
+| Query                                                             | Served by              |
+| ----------------------------------------------------------------- | ---------------------- |
+| `.../registrations` where a list field equals one value           | automatic, collection  |
+| `.../registrations` where `rentedEquipment` array-contains a name | automatic array index  |
+| a student's own registration, by document id                      | no index at all        |
+| `collectionGroup("registrations").where("studentUpn", "==", upn)` | **the field override** |
+
+The composite indexes of slice 3 were needed because those queries filtered on the series **and**
+the value — two equalities. Moving a registration beneath its series turned the first equality
+into the path, and the second stands alone, which is why they all go.
+
+The one that remains cannot be declared in the `indexes` array. That array is for composite
+indexes, and a single-field entry in it is refused outright:
+
+```text
+HTTP 400 — this index is not necessary, configure using single field index controls
+```
+
+"Single field index controls" means `fieldOverrides`, and that message reads like "you need
+nothing here" — which is wrong, and fails later at the query instead:
+
+```text
+9 FAILED_PRECONDITION — The query requires a COLLECTION_GROUP_ASC index for
+collection registrations and field studentUpn
+```
+
+The override names only the collection group scope, so `studentUpn` keeps no collection-scoped
+index. Nothing queries it that way — a student's own registration is reached by document id — and
+if something ever does, it fails loudly with the message above rather than quietly scanning.
+
+**No test can catch either mistake.** The Firestore emulator does not enforce index requirements:
+a missing index passes `npm run test:rules` and fails in a real project, and a superfluous one
+passes too and fails the deploy. Index changes are verified by deploying and running the query
+against a real project — for development, `npm run rules:development` and a reseed.
 
 **Q10 — Saved reports are copied along with the lists. Decided.** They are part of the setup a
 teacher would otherwise rebuild, and they filter only on master data, which the copy has — so a

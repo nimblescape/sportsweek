@@ -1,10 +1,10 @@
 {
-  "indexes": [
+  "indexes": [],
+  "fieldOverrides": [
     {
       "collectionGroup": "registrations",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [{ "fieldPath": "studentUpn", "order": "ASCENDING" }]
+      "fieldPath": "studentUpn",
+      "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }]
     }
-  ],
-  "fieldOverrides": []
+  ]
 }
