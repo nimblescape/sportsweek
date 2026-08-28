@@ -76,8 +76,9 @@
   --open: oklch(0.55 0.14 150);
   --open-foreground: oklch(0.985 0 0);
   /* The same thing said quietly, for a series that is open but not the one being worked in.
-     Enough green to be read as green across a row, and no more. */
-  --open-subtle: color-mix(in oklch, var(--open) 25%, var(--background));
+     Dimmed by draining the chroma rather than by lightening: a paler green would have to take
+     dark text, and the two greens would then differ in two ways instead of one. */
+  --open-subtle: oklch(0.55 0.06 150);
   /* A chosen tag standing apart from the rest: a template among series, a report since edited.
      Filled, so it plainly is chosen, but the lightest fill that still says so. */
   --neutral: oklch(0.88 0 0);
@@ -121,7 +122,7 @@
   --brand-foreground: oklch(0.205 0 0);
   --open: oklch(0.72 0.13 150);
   --open-foreground: oklch(0.205 0 0);
-  --open-subtle: color-mix(in oklch, var(--open) 30%, var(--background));
+  --open-subtle: oklch(0.72 0.055 150);
   --neutral: oklch(0.32 0 0);
   --neutral-foreground: oklch(0.985 0 0);
   --background: oklch(0.145 0 0);
