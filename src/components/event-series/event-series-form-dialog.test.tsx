@@ -10,7 +10,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import type { ErrorCode } from "@/lib/errors";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { storedEventSeries } from "@/test/event-series";
-import { EventSeriesFormDialog } from "./event-series-form-dialog";
+import { EventSeriesFormDialog, type NewEventSeries } from "./event-series-form-dialog";
 
 const eventSeries: EventSeries = { id: "s1", ...storedEventSeries({ name: "Winter 2026" }) };
 
@@ -21,7 +21,8 @@ const eventSeries: EventSeries = { id: "s1", ...storedEventSeries({ name: "Winte
 function renderDialog(
   options: {
     eventSeries?: EventSeries | null;
-    onSubmit?: (name: string, eventSeries: EventSeries | null) => Promise<void>;
+    sources?: EventSeries[];
+    onSubmit?: (values: NewEventSeries, eventSeries: EventSeries | null) => Promise<void>;
   } = {},
 ) {
   const onSubmit = options.onSubmit ?? vi.fn().mockResolvedValue(undefined);
@@ -32,6 +33,7 @@ function renderDialog(
     <EventSeriesFormDialog
       open
       eventSeries={options.eventSeries ?? null}
+      sources={options.sources ?? []}
       onSubmit={onSubmit}
       onClose={onClose}
       onSaved={onSaved}
@@ -51,7 +53,73 @@ describe("EventSeriesFormDialog — creating", () => {
     await userEvent.type(screen.getByLabelText("Name"), "Wintersportwoche 2026");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith("Wintersportwoche 2026", null));
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        { name: "Wintersportwoche 2026", isTemplate: false, sourceId: null },
+        null,
+      ),
+    );
+  });
+
+  /**
+   * Three questions, one write (US-22). The kind is answered on its own, so a template copied
+   * from a template is as ordinary as a series copied from one.
+   */
+  it("makes a template when that is the kind chosen", async () => {
+    const { onSubmit } = renderDialog();
+
+    await userEvent.type(screen.getByLabelText("Name"), "Wintersportwochen");
+    await userEvent.click(screen.getByRole("radio", { name: "Vorlage" }));
+    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        { name: "Wintersportwochen", isTemplate: true, sourceId: null },
+        null,
+      ),
+    );
+  });
+
+  it("starts blank, which is what naming no source means", () => {
+    renderDialog({ sources: [eventSeries] });
+
+    expect(screen.getByRole("radio", { name: "Eventreihe" })).toBeChecked();
+    expect(screen.getByLabelText("Einstellungen übernehmen von")).toHaveTextContent("Ohne");
+  });
+
+  /** Colour is already spoken for, so what an entry is says so in words (US-22). */
+  it("says which sources are templates and which are archived", async () => {
+    renderDialog({
+      sources: [
+        { id: "t1", ...storedEventSeries({ name: "Wintersportwochen", isTemplate: true }) },
+        { id: "a1", ...storedEventSeries({ name: "Winter 2025", isArchived: true }) },
+        eventSeries,
+      ],
+    });
+
+    await userEvent.click(screen.getByLabelText("Einstellungen übernehmen von"));
+
+    expect(
+      await screen.findByRole("option", { name: "Wintersportwochen (Vorlage)" }),
+    ).toBeVisible();
+    expect(await screen.findByRole("option", { name: "Winter 2025 (Archiviert)" })).toBeVisible();
+    expect(await screen.findByRole("option", { name: "Winter 2026" })).toBeVisible();
+  });
+
+  it("hands over the source that was chosen", async () => {
+    const { onSubmit } = renderDialog({ sources: [eventSeries] });
+
+    await userEvent.type(screen.getByLabelText("Name"), "Winter 2027");
+    await userEvent.click(screen.getByLabelText("Einstellungen übernehmen von"));
+    await userEvent.click(await screen.findByRole("option", { name: "Winter 2026" }));
+    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        { name: "Winter 2027", isTemplate: false, sourceId: "s1" },
+        null,
+      ),
+    );
   });
 
   it("reports the saved event series to the caller so the list can react", async () => {
@@ -116,7 +184,20 @@ describe("EventSeriesFormDialog — editing", () => {
     await userEvent.type(screen.getByLabelText("Name"), "Winter 2027");
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith("Winter 2027", eventSeries));
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        { name: "Winter 2027", isTemplate: false, sourceId: null },
+        eventSeries,
+      ),
+    );
+  });
+
+  /** The kind and the source are answered at creation; renaming settles neither again (US-22). */
+  it("asks neither the kind nor the source of an event series that exists", () => {
+    renderDialog({ eventSeries, sources: [eventSeries] });
+
+    expect(screen.queryByRole("group", { name: "Art" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Einstellungen übernehmen von")).not.toBeInTheDocument();
   });
 
   it("closes without writing when cancelled", async () => {

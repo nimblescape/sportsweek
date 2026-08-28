@@ -123,13 +123,16 @@ export function EventSeriesView() {
           key={dialog.eventSeries?.id ?? "new"}
           open
           eventSeries={dialog.eventSeries}
-          onSubmit={(name, eventSeries) =>
-            run(eventSeries?.id ?? null, () =>
-              eventSeries === null
-                ? apiRequest("/api/event-series", { method: "POST", body: { name } })
-                : apiRequest(`/api/event-series/${eventSeries.id}`, {
+          // Every one of them, archived included: naming an archived series as the source is how
+          // the master data in it comes back into something that can be edited (US-22).
+          sources={eventSeries}
+          onSubmit={(values, existing) =>
+            run(existing?.id ?? null, () =>
+              existing === null
+                ? apiRequest("/api/event-series", { method: "POST", body: values })
+                : apiRequest(`/api/event-series/${existing.id}`, {
                     method: "PATCH",
-                    body: { name },
+                    body: { name: values.name },
                   }),
             ).then(() => {})
           }

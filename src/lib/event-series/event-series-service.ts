@@ -26,6 +26,9 @@ import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series"
 
 const nameSchema = eventSeriesSchema.shape.name;
 
+/** A report as the document holds it — the id lives in the path, so a copy never carries one. */
+const storedSavedReportSchema = savedReportSchema.omit({ id: true });
+
 function parseName(value: string): string {
   const parsed = nameSchema.safeParse(value);
   if (!parsed.success) {
@@ -144,13 +147,12 @@ export async function createEventSeries(input: CreateEventSeries): Promise<Event
     // Pruned as they are copied rather than overlooked on opening, so a copied report is
     // consistent with its own lists from the moment it exists (Q10).
     for (const report of sourceReports?.docs ?? []) {
-      const parsed = savedReportSchema.safeParse({ id: report.id, ...report.data() });
+      const parsed = storedSavedReportSchema.safeParse(report.data());
       if (!parsed.success) continue;
 
-      const { id: _id, filter, ...rest } = parsed.data;
       transaction.set(adminDb.collection(savedReportPath(reference.id)).doc(), {
-        ...rest,
-        filter: prunedToLists(filter, data),
+        ...parsed.data,
+        filter: prunedToLists(parsed.data.filter, data),
       });
     }
 
