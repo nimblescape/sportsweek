@@ -5,8 +5,9 @@
  */
 /**
  * Empties a test environment: every Firestore document and every Firebase Auth account. Nothing
- * is written back, so what is left is the project as it was on the day it was created — the
- * `seedState` marker goes too, and the next sign-in re-seeds the master data defaults.
+ * is written back, so what is left is the project as it was on the day it was created — which
+ * includes having no event series at all, so `npm run seed:<environment>` is what makes it
+ * usable again.
  *
  * The target is named on the command line and looked up in PURGEABLE_ENVIRONMENTS, which has no
  * production entry to disable. This deletes people's accounts, so the environments it can reach

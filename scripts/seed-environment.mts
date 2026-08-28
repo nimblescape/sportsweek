@@ -4,13 +4,14 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 /**
- * Fills a test database with a student body worth planning against: every class gets a roster, so
- * the assignment board and the report (US-12, US-13) have more than a handful of rows to show.
- * Every student is deleted first, which is what makes running it twice safe.
+ * Fills a project with what its environment is meant to hold, and takes the environment as its
+ * only argument — there is no mode to get wrong.
  *
- * The target is named on the command line and looked up in SEEDABLE_ENVIRONMENTS, which has no
- * production entry to disable. This invents people and deletes real ones, so the environments it
- * can reach are a closed list rather than whatever a variable happens to hold.
+ * | production           | the "Wintersportwochen" template, and nothing besides |
+ * | development, staging | the whole test environment, that template included    |
+ *
+ * Production therefore never receives invented students. That is true by construction rather than
+ * by a check: no argument asks for it, so there is nothing to pass by mistake.
  */
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, type Firestore, type WriteBatch } from "firebase-admin/firestore";
@@ -27,23 +28,17 @@ import { questionsAsked } from "@/lib/master-data/categories";
 import { EMPTY_REGISTRATION, registrationPath } from "@/lib/registration/registration";
 import { apphostingValue, fail } from "./environment.mjs";
 
+const ENVIRONMENTS = ["development", "staging", "production"] as const;
+
 /** Where invented students are allowed. Production is absent by construction, not by a check. */
 const SEEDABLE_ENVIRONMENTS = ["development", "staging"] as const;
 
 /**
- * What a purged environment gets so there is somewhere to put students. The application seeds
- * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
- * Kulturwoche — so a fresh project holds only what is written here.
+ * The lists a school configures once and every event series thereafter inherits by being made
+ * from the template (US-22). Its own two — the events it runs and the classes it invites — are
+ * not among them: those say which week it is rather than how the school works.
  */
-const DEFAULT_EVENT_SERIES_NAME = "Wintersportwochen 2026/2027";
-
-/**
- * The seven maintained lists of that event series: its events, then the six the master data menu
- * shows, in the order it shows them.
- */
-const MASTER_DATA_DEFAULTS = {
-  events: ["Woche 1", "Woche 2", "Woche 3"],
-  classOptions: ["2aWI", "2bWI", "2cWI"],
+const CATEGORY_DEFAULTS = {
   programs: [
     { name: "Ski", requiredEquipment: ["Ski", "Skischuhe", "Stöcke", "Helm"] },
     { name: "Snowboard", requiredEquipment: ["Board", "Boots", "Helm"] },
@@ -56,18 +51,36 @@ const MASTER_DATA_DEFAULTS = {
     "Golm-Bielerhöhe (Illwerke)",
     "Silvretta-Montafon",
   ],
-  busPickupPoints: ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Unterkunft"],
+  busPickupPoints: ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Heim Tschagguns"],
   foodOptions: ["Esse alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
 } satisfies Pick<
   EventSeries,
-  | "events"
-  | "classOptions"
-  | "programs"
-  | "skillLevels"
-  | "seasonPassOptions"
-  | "busPickupPoints"
-  | "foodOptions"
+  "programs" | "skillLevels" | "seasonPassOptions" | "busPickupPoints" | "foodOptions"
 >;
+
+/**
+ * Plural on purpose: a template is the pattern behind every Wintersportwoche the school runs,
+ * not one of them. What a teacher makes from it is singular and dated, so the two cannot collide
+ * under the uniqueness rule (Q14).
+ */
+const TEMPLATE_NAME = "Wintersportwochen";
+
+/**
+ * What a purged environment gets so there is somewhere to put students. The application seeds
+ * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
+ * Kulturwoche — so a fresh project holds only what is written here.
+ */
+const DEFAULT_EVENT_SERIES_NAME = "Wintersportwochen 2026/2027";
+
+/**
+ * The seven maintained lists of that event series: its own two, then the five the template hands
+ * on, taken from the same place production takes them.
+ */
+const MASTER_DATA_DEFAULTS = {
+  events: ["Woche 1", "Woche 2", "Woche 3"],
+  classOptions: ["2aWI", "2bWI", "2cWI"],
+  ...CATEGORY_DEFAULTS,
+} satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
 
 /** The shape of the sports week as it is wanted in a test environment. */
 const STUDENTS_PER_CLASS = { min: 20, max: 25 };
@@ -317,11 +330,54 @@ async function purgeStudents(db: Firestore): Promise<{ records: number; users: n
 }
 
 /**
- * Writes a record and the reservation that claims its name in one commit, which is what the
- * services do — a record whose name nobody reserved would let a teacher create it a second time.
- * The reservation is `create`d rather than `set`, so a name already taken fails the whole commit
- * instead of quietly stealing it.
+ * The one event series a school cannot be without: every teacher view is scoped to a selection,
+ * so with none at all the header offers nothing and the navigation bar points nowhere. Deleting
+ * the last unarchived template is refused, so once this has run that state is out of reach.
+ *
+ * Any unarchived template will do — a school that renamed theirs has not lost one — so a second
+ * is added only where there is none, which is what makes running this again harmless.
  */
+async function ensureTemplate(db: Firestore): Promise<{ name: string; created: boolean }> {
+  const templates = await db
+    .collection(COLLECTIONS.eventSeries)
+    .where("isTemplate", "==", true)
+    .where("isArchived", "==", false)
+    .limit(1)
+    .get();
+
+  const found = templates.docs[0];
+  if (found) return { name: String(found.data().name), created: false };
+
+  const clash = await db
+    .collection(COLLECTIONS.eventSeries)
+    .where("nameKey", "==", normalizeName(TEMPLATE_NAME))
+    .limit(1)
+    .get();
+  if (!clash.empty) {
+    fail(
+      `"${TEMPLATE_NAME}" is already taken by an event series that is not an unarchived template.`,
+      "Event series names are unique (Q14), so rename that one or make it the template.",
+    );
+  }
+
+  const total = (await db.collection(COLLECTIONS.eventSeries).count().get()).data().count;
+  await db.collection(COLLECTIONS.eventSeries).add({
+    name: TEMPLATE_NAME,
+    nameKey: normalizeName(TEMPLATE_NAME),
+    isTemplate: true,
+    isArchived: false,
+    isOpenToStudents: false,
+    hasRegistrations: false,
+    position: total,
+    // What differs every year, and what a teacher fills in for the series they make from this.
+    events: [],
+    classOptions: [],
+    ...CATEGORY_DEFAULTS,
+  });
+
+  return { name: TEMPLATE_NAME, created: true };
+}
+
 /** Opening the one it finds rather than adding a second: names are unique across event series. */
 async function ensureOpenEventSeries(db: Firestore): Promise<EventSeries> {
   const eventSeries = (await db.collection(COLLECTIONS.eventSeries).get()).docs.map((doc) =>
@@ -359,12 +415,8 @@ async function ensureOpenEventSeries(db: Firestore): Promise<EventSeries> {
 
 async function main(): Promise<void> {
   const [environment] = process.argv.slice(2);
-  if (!SEEDABLE_ENVIRONMENTS.some((allowed) => allowed === environment)) {
-    fail(
-      `Usage: npm run seed:<environment>, where <environment> is ${SEEDABLE_ENVIRONMENTS.join(" or ")}.`,
-      "Every student in the named project is deleted and replaced, so no other environment is",
-      "reachable from here — least of all one with real registrations in it.",
-    );
+  if (!ENVIRONMENTS.some((allowed) => allowed === environment)) {
+    fail(`Usage: npm run seed:<environment>, where <environment> is ${ENVIRONMENTS.join(", ")}.`);
   }
 
   const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
@@ -372,6 +424,18 @@ async function main(): Promise<void> {
   // Its own app rather than @/lib/firebase/admin: that one addresses whichever project the
   // ambient environment names, and this must address the one just named and nothing else.
   const db = getFirestore(initializeApp({ projectId }));
+
+  // A test environment gets what production gets and then some, so the template comes first —
+  // both because a school starts from one and because it takes position 0 in the teacher's order.
+  const template = await ensureTemplate(db);
+  console.log(
+    template.created
+      ? `Created the template "${template.name}" in ${projectId}.`
+      : `${projectId} already has the template "${template.name}".`,
+  );
+
+  // Production is done here: it adds, and it never invents a person or deletes one.
+  if (!SEEDABLE_ENVIRONMENTS.some((allowed) => allowed === environment)) return;
 
   // The lists are fields of the event series (US-21), so there is nothing to read until it
   // exists — and creating it is what seeds them, since the application no longer does.
