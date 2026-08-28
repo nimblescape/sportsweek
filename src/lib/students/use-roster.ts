@@ -6,13 +6,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, query, where } from "firebase/firestore";
+import { collection, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { subscribeWithRecovery } from "@/lib/firebase/live-query";
-import { COLLECTIONS } from "@/lib/schemas/collections";
+import { registrationPath } from "@/lib/registration/registration";
 import { registrationSchema, type Registration } from "@/lib/schemas/registration";
-import { userSchema, type User } from "@/lib/schemas/user";
-import { joinRoster, type RosterStudent } from "./roster";
+import { toRoster, type RosterStudent } from "./roster";
 
 type RosterState = {
   students: RosterStudent[];
@@ -23,71 +22,40 @@ type RosterState = {
 /**
  * Every registration of one event series, with the names to show them under (US-12, US-13).
  *
- * A live read rather than a handler: a teacher may read the collection outright (see
+ * A live read rather than a handler: a teacher may read the subcollection outright (see
  * firestore.rules), and it is the subscription that makes the overview tables follow an
- * assignment the moment it is stored.
+ * assignment the moment it is stored. One subscription and no join — the registration carries
+ * the student's name itself (US-26).
  */
 export function useRoster(eventSeriesId: string | null): RosterState {
   const [records, setRecords] = useState<Registration[] | null>(null);
-  const [users, setUsers] = useState<User[] | null>(null);
-  const [recordError, setRecordError] = useState<string | null>(null);
-  const [userError, setUserError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (eventSeriesId === null) return;
+    const path = registrationPath(eventSeriesId);
 
     return subscribeWithRecovery<Registration>({
-      label: COLLECTIONS.registrations,
-      buildQuery: () =>
-        query(
-          collection(db, COLLECTIONS.registrations),
-          where("eventSeriesId", "==", eventSeriesId),
-        ),
+      label: path,
+      buildQuery: () => query(collection(db, path)),
       parse: (id, data) => {
         const parsed = registrationSchema.safeParse({ id, ...data });
         if (!parsed.success) {
-          console.error(
-            `${COLLECTIONS.registrations}/${id} does not match the schema`,
-            parsed.error,
-          );
+          console.error(`${path}/${id} does not match the schema`, parsed.error);
           return null;
         }
         return parsed.data;
       },
       onData: setRecords,
-      onError: setRecordError,
+      onError: setError,
     });
   }, [eventSeriesId]);
 
-  // Only the students: a teacher keeps no registration of their own (US-15), so their record
-  // could never be joined to one.
-  useEffect(
-    () =>
-      subscribeWithRecovery<User>({
-        label: COLLECTIONS.users,
-        buildQuery: () => query(collection(db, COLLECTIONS.users), where("role", "==", "student")),
-        parse: (id, data) => {
-          const parsed = userSchema.safeParse({ id, ...data });
-          if (!parsed.success) {
-            console.error(`${COLLECTIONS.users}/${id} does not match the schema`, parsed.error);
-            return null;
-          }
-          return parsed.data;
-        },
-        onData: setUsers,
-        onError: setUserError,
-      }),
-    [],
-  );
-
-  const students = useMemo(
-    () => (records === null || users === null ? [] : joinRoster(records, users)),
-    [records, users],
-  );
+  const students = useMemo(() => (records === null ? [] : toRoster(records)), [records]);
 
   return {
     students,
-    loading: eventSeriesId !== null && (records === null || users === null),
-    error: recordError ?? userError,
+    loading: eventSeriesId !== null && records === null,
+    error,
   };
 }

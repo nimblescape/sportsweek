@@ -6,7 +6,6 @@
 import { describe, expect, it } from "vitest";
 import {
   activeEventSeriesOf,
-  isRecordArchived,
   EVENT_SERIES_STATE_LABELS,
   eventSeriesState,
   visibleEventSeries,
@@ -68,26 +67,6 @@ describe("visibleEventSeries", () => {
     const list = [eventSeries("a", { isActive: true })];
 
     expect(visibleEventSeries(list, false)).toHaveLength(1);
-  });
-});
-
-describe("isRecordArchived", () => {
-  it("reports a record of an archived event series as archived", () => {
-    const list = [eventSeries("s1", { isArchived: true })];
-
-    expect(isRecordArchived({ eventSeriesId: "s1" }, list)).toBe(true);
-  });
-
-  it("reports a record of a live event series as not archived", () => {
-    const list = [eventSeries("s1")];
-
-    expect(isRecordArchived({ eventSeriesId: "s1" }, list)).toBe(false);
-  });
-
-  it("treats a record whose event series is unknown as not archived", () => {
-    expect(
-      isRecordArchived({ eventSeriesId: "ghost" }, [eventSeries("s1", { isArchived: true })]),
-    ).toBe(false);
   });
 });
 

@@ -15,16 +15,27 @@ vi.mock("@/lib/firebase/admin", () => ({
 }));
 
 const { saveRegistration } = await import("./registration-service");
-const { ANSWER_NO_LONGER_OFFERED_HINT, REGISTRATION_NOT_OPEN_HINT, recordIdFor } =
+const { ANSWER_NO_LONGER_OFFERED_HINT, REGISTRATION_NOT_OPEN_HINT, registrationPath } =
   await import("./registration");
 const { FOOD_OPTION_OTHER } = await import("@/lib/schemas/master-data");
 const { ServiceError } = await import("@/lib/service-error");
 
 const STUDENT = "jane.doe@student.htldornbirn.at";
-const RECORD_ID = recordIdFor("s1", STUDENT);
+const REGISTRATIONS = registrationPath("s1");
 
-beforeEach(() => firestore.reset());
+beforeEach(() => {
+  firestore.reset();
+  seedStudent(STUDENT, { firstName: "Jane", lastName: "Doe" });
+});
 afterEach(() => vi.restoreAllMocks());
+
+/**
+ * The name a registration carries is read from the user record rather than sent (US-26), so a
+ * student who can save is one the directory has already provisioned (US-1).
+ */
+function seedStudent(upn: string, name: { firstName: string; lastName: string }) {
+  firestore.seed("users", upn, { ...name, email: upn, role: "student" });
+}
 
 /**
  * Registering needs a class to pick from as much as it needs an event series (US-6, US-11), and
@@ -82,12 +93,34 @@ describe("saveRegistration", () => {
 
     await saveRegistration(STUDENT, attending);
 
-    expect(firestore.get("registrations", RECORD_ID)).toMatchObject({
-      userId: STUDENT,
-      eventSeriesId: "s1",
+    expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({
+      studentUpn: STUDENT,
       class: "3AHME",
       program: "Ski",
     });
+  });
+
+  /** A reader takes the name from the registration and never joins to `users` (US-26). */
+  it("copies the student's name and e-mail address off the user record", async () => {
+    seedEventSeries("s1", { isActive: true });
+
+    const record = await saveRegistration(STUDENT, attending);
+
+    expect(record).toMatchObject({ firstName: "Jane", lastName: "Doe", email: STUDENT });
+    expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({
+      firstName: "Jane",
+      lastName: "Doe",
+      email: STUDENT,
+    });
+  });
+
+  it("refuses to save for somebody the directory has never provisioned", async () => {
+    seedEventSeries("s1", { isActive: true });
+
+    await expect(saveRegistration("ghost@student.htldornbirn.at", attending)).rejects.toMatchObject(
+      { code: "NOT_FOUND" },
+    );
+    expect(firestore.count(REGISTRATIONS)).toBe(0);
   });
 
   it("returns the stored record, id and all", async () => {
@@ -95,16 +128,18 @@ describe("saveRegistration", () => {
 
     const record = await saveRegistration(STUDENT, attending);
 
-    expect(record).toMatchObject({ id: RECORD_ID, userId: STUDENT, eventSeriesId: "s1" });
+    expect(record).toMatchObject({ id: STUDENT, studentUpn: STUDENT });
   });
 
-  it("binds the record to the active event series, not to one the student names", async () => {
+  /** Which series a registration is in is where it is stored, not a field it carries (US-26). */
+  it("stores the record beneath the active event series, not one the student names", async () => {
     seedEventSeries("old");
     seedEventSeries("current", { isActive: true });
 
-    const record = await saveRegistration(STUDENT, attending);
+    await saveRegistration(STUDENT, attending);
 
-    expect(record.eventSeriesId).toBe("current");
+    expect(firestore.count(registrationPath("current"))).toBe(1);
+    expect(firestore.count(registrationPath("old"))).toBe(0);
   });
 
   it("updates the record a second save produces instead of adding another one", async () => {
@@ -113,17 +148,18 @@ describe("saveRegistration", () => {
     await saveRegistration(STUDENT, attending);
     await saveRegistration(STUDENT, { ...attending, class: "4AHME" });
 
-    expect(firestore.count("registrations")).toBe(1);
-    expect(firestore.get("registrations", RECORD_ID)).toMatchObject({ class: "4AHME" });
+    expect(firestore.count(REGISTRATIONS)).toBe(1);
+    expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({ class: "4AHME" });
   });
 
   it("keeps one record per student per event series", async () => {
     seedEventSeries("s1", { isActive: true });
+    seedStudent("john@student.htldornbirn.at", { firstName: "John", lastName: "Doe" });
 
     await saveRegistration(STUDENT, attending);
     await saveRegistration("john@student.htldornbirn.at", attending);
 
-    expect(firestore.count("registrations")).toBe(2);
+    expect(firestore.count(REGISTRATIONS)).toBe(2);
   });
 
   it("refuses to save while no event series is active", async () => {
@@ -133,7 +169,7 @@ describe("saveRegistration", () => {
       code: "CONFLICT",
       message: REGISTRATION_NOT_OPEN_HINT,
     });
-    expect(firestore.count("registrations")).toBe(0);
+    expect(firestore.count(REGISTRATIONS)).toBe(0);
   });
 
   /** The class is asked of every student, attending or not, so a list without one is unusable. */
@@ -144,7 +180,7 @@ describe("saveRegistration", () => {
       code: "CONFLICT",
       message: REGISTRATION_NOT_OPEN_HINT,
     });
-    expect(firestore.count("registrations")).toBe(0);
+    expect(firestore.count(REGISTRATIONS)).toBe(0);
   });
 
   /**
@@ -162,7 +198,7 @@ describe("saveRegistration", () => {
       code: "CONFLICT",
       message: ANSWER_NO_LONGER_OFFERED_HINT,
     });
-    expect(firestore.count("registrations")).toBe(0);
+    expect(firestore.count(REGISTRATIONS)).toBe(0);
   });
 
   it("asks the student to reload rather than storing an answer nothing offers", async () => {
@@ -214,7 +250,7 @@ describe("saveRegistration", () => {
         foodOtherText: "Laktosefrei",
       }),
     ).rejects.toMatchObject({ code: "CONFLICT", message: ANSWER_NO_LONGER_OFFERED_HINT });
-    expect(firestore.count("registrations")).toBe(0);
+    expect(firestore.count(REGISTRATIONS)).toBe(0);
   });
 
   it("stores nothing when an answer is malformed", async () => {
@@ -223,7 +259,7 @@ describe("saveRegistration", () => {
     await expect(
       saveRegistration(STUDENT, { ...attending, phoneNumber: "06601234567" }),
     ).rejects.toBeInstanceOf(ServiceError);
-    expect(firestore.count("registrations")).toBe(0);
+    expect(firestore.count(REGISTRATIONS)).toBe(0);
   });
 
   /** A registration is filled in over time, so an unanswered question is not a failed save. */
@@ -241,7 +277,7 @@ describe("saveRegistration", () => {
     const record = await saveRegistration(STUDENT, { ...attending, gender: null });
 
     expect(record.isIncomplete).toBe(true);
-    expect(firestore.get("registrations", RECORD_ID)).toMatchObject({ isIncomplete: true });
+    expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({ isIncomplete: true });
   });
 
   it("clears the mark once nothing is missing", async () => {
@@ -270,12 +306,12 @@ describe("saveRegistration", () => {
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it("refuses a record that names an event series or a student of its own", async () => {
+  it("refuses a record that names a student or a name of its own", async () => {
     seedEventSeries("s1", { isActive: true });
     const smuggled = {
       ...attending,
-      eventSeriesId: "other",
-      userId: "someone.else@htldornbirn.at",
+      studentUpn: "someone.else@htldornbirn.at",
+      firstName: "Someone",
     };
 
     await expect(saveRegistration(STUDENT, smuggled as RegistrationInput)).rejects.toMatchObject({
@@ -302,8 +338,8 @@ describe("saveRegistration", () => {
   it("leaves an existing event assignment alone while the student is attending", async () => {
     seedEventSeries("s1", { isActive: true });
     await saveRegistration(STUDENT, attending);
-    firestore.seed("registrations", RECORD_ID, {
-      ...firestore.get("registrations", RECORD_ID),
+    firestore.seed(REGISTRATIONS, STUDENT, {
+      ...firestore.get(REGISTRATIONS, STUDENT),
       event: "Woche 1",
     });
 
@@ -315,8 +351,8 @@ describe("saveRegistration", () => {
   it("gives up the event assignment when the student answers 'no' (US-11)", async () => {
     seedEventSeries("s1", { isActive: true });
     await saveRegistration(STUDENT, attending);
-    firestore.seed("registrations", RECORD_ID, {
-      ...firestore.get("registrations", RECORD_ID),
+    firestore.seed(REGISTRATIONS, STUDENT, {
+      ...firestore.get(REGISTRATIONS, STUDENT),
       event: "Woche 1",
     });
 
@@ -355,7 +391,7 @@ describe("saveRegistration", () => {
 
     expect(firestore.transactionCount).toBe(1);
     expect(writes.mock.calls.map(([write]) => write.ref.path)).toEqual([
-      `registrations/${RECORD_ID}`,
+      `${REGISTRATIONS}/${STUDENT}`,
       "eventSeries/s1",
     ]);
   });
@@ -367,7 +403,7 @@ describe("saveRegistration", () => {
     await saveRegistration(STUDENT, attending);
 
     expect(writes.mock.calls.map(([write]) => write.ref.path)).toEqual([
-      `registrations/${RECORD_ID}`,
+      `${REGISTRATIONS}/${STUDENT}`,
     ]);
   });
 });

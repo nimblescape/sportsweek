@@ -9,11 +9,15 @@ import { adminDb } from "@/lib/firebase/admin";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
-import { COLLECTIONS } from "@/lib/schemas/collections";
+import { registrationPath } from "@/lib/registration/registration";
 import { IN_USE_HINT, type MasterDataCategory } from "./categories";
 
 /**
  * A registration of this event series holding this exact value, if there is one.
+ *
+ * Scoped by path rather than by a filter, since a registration lives beneath the series it
+ * belongs to (US-26) — so this is one equality on one field, which Firestore's automatic
+ * single-field index serves, and the range it locks cannot reach another series at all.
  *
  * The equality is exact where names elsewhere compare normalized, and that is deliberate: a
  * student picks from the list, so what they store is the list's own spelling, and a list holds
@@ -21,11 +25,7 @@ import { IN_USE_HINT, type MasterDataCategory } from "./categories";
  * spelling could only arrive through a rename — which is what this guard refuses.
  */
 function holdersOf(eventSeriesId: string, field: string, name: string): Query {
-  return adminDb
-    .collection(COLLECTIONS.registrations)
-    .where("eventSeriesId", "==", eventSeriesId)
-    .where(field, "==", name)
-    .limit(1);
+  return adminDb.collection(registrationPath(eventSeriesId)).where(field, "==", name).limit(1);
 }
 
 /**
@@ -34,8 +34,7 @@ function holdersOf(eventSeriesId: string, field: string, name: string): Query {
  */
 function rentersOf(eventSeriesId: string, name: string): Query {
   return adminDb
-    .collection(COLLECTIONS.registrations)
-    .where("eventSeriesId", "==", eventSeriesId)
+    .collection(registrationPath(eventSeriesId))
     .where("rentedEquipment", "array-contains", name)
     .limit(1);
 }
@@ -106,12 +105,7 @@ export async function usageReport(
   category: MasterDataCategory,
   items: readonly { name: string; requiredEquipment?: readonly string[] }[],
 ): Promise<MasterDataUsageReport> {
-  const registrations = (
-    await adminDb
-      .collection(COLLECTIONS.registrations)
-      .where("eventSeriesId", "==", eventSeriesId)
-      .get()
-  ).docs;
+  const registrations = (await adminDb.collection(registrationPath(eventSeriesId)).get()).docs;
 
   const held = new Set(
     normalizedNames(registrations.map((record) => record.data()?.[category.usage.field])),

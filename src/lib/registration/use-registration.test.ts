@@ -8,19 +8,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { storedEventSeries } from "@/test/event-series";
 
-type SnapshotHandler = (snapshot: { docs: { id: string; data: () => unknown }[] }) => void;
+type Snapshot = { id: string; data: () => unknown };
+type SnapshotHandler = (snapshot: Snapshot) => void;
 
 const onSnapshot = vi.fn();
 const onAuthStateChanged = vi.fn();
-const collection = vi.fn((_db: unknown, path: string) => path);
-const where = vi.fn((field: string, _op: string, value: unknown) => `where:${field}=${value}`);
+const doc = vi.fn((_db: unknown, path: string, id: string) => `${path}/${id}`);
 const useEventSeries = vi.fn();
 
 vi.mock("firebase/firestore", () => ({
-  collection: (...args: unknown[]) => collection(args[0], args[1] as string),
+  doc: (...args: unknown[]) => doc(args[0], args[1] as string, args[2] as string),
   onSnapshot,
-  query: vi.fn((...args: unknown[]) => args),
-  where: (...args: unknown[]) => where(args[0] as string, args[1] as string, args[2]),
 }));
 
 vi.mock("firebase/auth", () => ({ onAuthStateChanged }));
@@ -40,41 +38,47 @@ function signIn() {
   act(() => (onAuthStateChanged.mock.calls.at(-1)![1] as (user: unknown) => void)({ uid: "u1" }));
 }
 
-function emit(docs: { id: string; data: () => unknown }[]) {
-  act(() => (onSnapshot.mock.calls.at(-1)![1] as SnapshotHandler)({ docs }));
+/** What Firestore hands back for a document that is not there — how every student starts. */
+const MISSING: Snapshot = { id: STUDENT, data: () => undefined };
+
+function emit(snapshot: Snapshot) {
+  act(() => (onSnapshot.mock.calls.at(-1)![1] as SnapshotHandler)(snapshot));
 }
 
 function fail(message: string) {
   act(() => (onSnapshot.mock.calls.at(-1)![2] as (error: Error) => void)(new Error(message)));
 }
 
-function storedRecord(eventSeriesId: string, className: string) {
+function storedRecord(className: string): Snapshot {
   return {
-    userId: STUDENT,
-    eventSeriesId,
-    event: null,
-    isAttendingSportsWeek: true,
-    class: className,
-    program: null,
-    skillLevel: null,
-    busPickupPoint: null,
-    foodOption: null,
-    foodOtherText: null,
-    seasonPassOption: null,
-    dateOfBirth: null,
-    gender: null,
-    phoneNumber: null,
-    healthNotes: null,
-    hasMedication: null,
-    equipmentRentalNeeded: null,
-    rentedEquipment: [],
-    shoeSize: null,
-    heightCm: null,
-    weightKg: null,
+    id: STUDENT,
+    data: () => ({
+      studentUpn: STUDENT,
+      firstName: "Jane",
+      lastName: "Doe",
+      email: STUDENT,
+      event: null,
+      isAttendingSportsWeek: true,
+      class: className,
+      program: null,
+      skillLevel: null,
+      busPickupPoint: null,
+      foodOption: null,
+      foodOtherText: null,
+      seasonPassOption: null,
+      dateOfBirth: null,
+      gender: null,
+      phoneNumber: null,
+      healthNotes: null,
+      hasMedication: null,
+      equipmentRentalNeeded: null,
+      rentedEquipment: [],
+      shoeSize: null,
+      heightCm: null,
+      weightKg: null,
+    }),
   };
 }
-
-const doc = (id: string, data: unknown) => ({ id, data: () => data });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -103,7 +107,7 @@ describe("useRegistration", () => {
     await waitFor(() => expect(result.current.eventSeries?.id).toBe("s1"));
   });
 
-  it("reports no event series while none is active", async () => {
+  it("reports no event series while none is active, and reads nothing", async () => {
     useEventSeries.mockReturnValue({
       eventSeries: [eventSeries("s1", false)],
       loading: false,
@@ -111,25 +115,24 @@ describe("useRegistration", () => {
     });
 
     const { result } = renderHook(() => useRegistration(STUDENT));
-    signIn();
-    emit([]);
 
     await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(onAuthStateChanged).not.toHaveBeenCalled();
+    expect(onSnapshot).not.toHaveBeenCalled();
     expect(result.current.eventSeries).toBeNull();
     expect(result.current.record).toBeNull();
   });
 
   /**
-   * Rules deny a read of a document that does not exist — there is no `resource` to check
-   * ownership against — and not having registered yet is where every student starts. Asking for
-   * the student's records rather than for the one id they could derive answers "none" instead.
+   * Both halves of "which one is mine?" are known before the read: the series is the path and
+   * the UPN is the document's own name (US-26), which is also what the rule owns it by — so a
+   * student may read one that does not exist yet.
    */
-  it("asks for the records belonging to this student", () => {
+  it("reads its own document beneath the active event series", () => {
     renderHook(() => useRegistration(STUDENT));
     signIn();
 
-    expect(collection).toHaveBeenCalledWith(expect.anything(), "registrations");
-    expect(where).toHaveBeenCalledWith("userId", "==", STUDENT);
+    expect(doc).toHaveBeenCalledWith(expect.anything(), "eventSeries/s1/registrations", STUDENT);
   });
 
   it("waits for Firebase Auth before reading, so the session is restored first", () => {
@@ -142,26 +145,16 @@ describe("useRegistration", () => {
     const { result } = renderHook(() => useRegistration(STUDENT));
     signIn();
 
-    emit([doc(`s1__${STUDENT}`, storedRecord("s1", "3AHME"))]);
+    emit(storedRecord("3AHME"));
 
     await waitFor(() => expect(result.current.record?.class).toBe("3AHME"));
-  });
-
-  it("ignores what the student registered for in another event series", async () => {
-    const { result } = renderHook(() => useRegistration(STUDENT));
-    signIn();
-
-    emit([doc(`s0__${STUDENT}`, storedRecord("s0", "2AHME"))]);
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.record).toBeNull();
   });
 
   it("returns no record for a student who has not registered yet", async () => {
     const { result } = renderHook(() => useRegistration(STUDENT));
     signIn();
 
-    emit([]);
+    emit(MISSING);
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.record).toBeNull();
@@ -172,7 +165,7 @@ describe("useRegistration", () => {
     const { result } = renderHook(() => useRegistration(STUDENT));
     signIn();
 
-    emit([doc(`s1__${STUDENT}`, { eventSeriesId: "s1", class: 42 })]);
+    emit({ id: STUDENT, data: () => ({ studentUpn: STUDENT, class: 42 }) });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.record).toBeNull();

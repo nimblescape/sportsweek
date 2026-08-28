@@ -6,14 +6,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, query, where } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { subscribeWithRecovery } from "@/lib/firebase/live-query";
-import { COLLECTIONS } from "@/lib/schemas/collections";
+import { subscribeToDocument } from "@/lib/firebase/live-query";
 import { registrationSchema, type Registration } from "@/lib/schemas/registration";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
+import { registrationPath } from "./registration";
 
 type RegistrationState = {
   /** The event series the student registers for, or null while a teacher has activated none (US-4). */
@@ -27,14 +27,17 @@ type RegistrationState = {
 /**
  * The student's own registration, read live through the client SDK (see firestore.rules).
  *
- * A query rather than a read of the derived id, even though the id is known: rules deny a read
- * of a document that does not exist, because there is no `resource` to check ownership against
- * — and not having registered yet is where every student starts. A query is evaluated per
- * document returned, so the same rule answers "none of them" instead of "no permission".
+ * The document is read by its own id rather than found by a query: it lives beneath the series
+ * it belongs to and is named after the student, so both halves of "which one is mine?" are
+ * known before the read (US-26). That is also what lets a student read one that does not exist
+ * yet — where every student starts — since the rule owns them by the document's name rather
+ * than by a field only an existing document would have.
  */
-export function useRegistration(userId: string): RegistrationState {
+export function useRegistration(studentUpn: string): RegistrationState {
   const { eventSeries, loading: eventSeriesLoading, error: eventSeriesError } = useEventSeries();
-  const [records, setRecords] = useState<Registration[] | null>(null);
+  // Undefined while the read is still outstanding, which is what null cannot say: null is the
+  // answer for a student who has not registered yet.
+  const [record, setRecord] = useState<Registration | null | undefined>(undefined);
   const [recordError, setRecordError] = useState<string | null>(null);
 
   // Two active event series is a data defect the student cannot act on, so it is reported rather
@@ -52,34 +55,30 @@ export function useRegistration(userId: string): RegistrationState {
 
   const eventSeriesId = active.eventSeries?.id ?? null;
 
-  useEffect(
-    () =>
-      subscribeWithRecovery<Registration>({
-        label: COLLECTIONS.registrations,
-        buildQuery: () =>
-          query(collection(db, COLLECTIONS.registrations), where("userId", "==", userId)),
-        parse: (id, data) => {
-          const parsed = registrationSchema.safeParse({ id, ...data });
-          if (!parsed.success) {
-            console.error(
-              `${COLLECTIONS.registrations}/${id} does not match the schema`,
-              parsed.error,
-            );
-            return null;
-          }
-          return parsed.data;
-        },
-        onData: setRecords,
-        onError: setRecordError,
-      }),
-    [userId],
-  );
+  useEffect(() => {
+    if (eventSeriesId === null) return;
+    const path = registrationPath(eventSeriesId);
+
+    return subscribeToDocument<Registration>({
+      label: `${path}/${studentUpn}`,
+      buildReference: () => doc(db, path, studentUpn),
+      parse: (id, data) => {
+        const parsed = registrationSchema.safeParse({ id, ...data });
+        if (!parsed.success) {
+          console.error(`${path}/${id} does not match the schema`, parsed.error);
+          return null;
+        }
+        return parsed.data;
+      },
+      onData: setRecord,
+      onError: setRecordError,
+    });
+  }, [eventSeriesId, studentUpn]);
 
   return {
     eventSeries: active.eventSeries,
-    // A student keeps one record per event series they have registered for; this is the current one.
-    record: records?.find((candidate) => candidate.eventSeriesId === eventSeriesId) ?? null,
-    loading: eventSeriesLoading || records === null,
+    record: record ?? null,
+    loading: eventSeriesLoading || (eventSeriesId !== null && record === undefined),
     error: eventSeriesError ?? active.error ?? recordError,
   };
 }

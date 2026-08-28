@@ -10,12 +10,12 @@ type Doc = { id: string; data: () => unknown };
 
 const onSnapshot = vi.fn();
 const onAuthStateChanged = vi.fn();
+const collection = vi.fn((_db: unknown, path: string) => path);
 
 vi.mock("firebase/firestore", () => ({
-  collection: (_db: unknown, path: string) => path,
+  collection: (...args: unknown[]) => collection(args[0], args[1] as string),
   onSnapshot,
   query: (...args: unknown[]) => args,
-  where: (field: string, _operator: string, value: unknown) => `where:${field}=${value}`,
 }));
 
 vi.mock("firebase/auth", () => ({ onAuthStateChanged }));
@@ -24,23 +24,18 @@ vi.mock("@/lib/firebase/client", () => ({ auth: {}, db: {} }));
 const { useRoster } = await import("./use-roster");
 
 const ANNA = "anna@student.htldornbirn.at";
+const REGISTRATIONS = "eventSeries/s1/registrations";
 
-function subscription(collectionPath: string) {
-  const call = onSnapshot.mock.calls.find(
-    ([builtQuery]) => (builtQuery as string[])[0] === collectionPath,
-  );
-  if (!call) throw new Error(`Nothing subscribed to ${collectionPath}`);
-  return call;
-}
-
-const emit = (collectionPath: string, docs: Doc[]) =>
-  act(() => (subscription(collectionPath)[1] as (snapshot: { docs: Doc[] }) => void)({ docs }));
+const emit = (docs: Doc[]) =>
+  act(() => (onSnapshot.mock.calls.at(-1)![1] as (snapshot: { docs: Doc[] }) => void)({ docs }));
 
 const doc = (id: string, data: unknown): Doc => ({ id, data: () => data });
 
 const storedRecord = (overrides: Record<string, unknown> = {}) => ({
-  userId: ANNA,
-  eventSeriesId: "s1",
+  studentUpn: ANNA,
+  firstName: "Anna",
+  lastName: "Muster",
+  email: ANNA,
   event: null,
   isIncomplete: false,
   isAttendingSportsWeek: true,
@@ -64,8 +59,6 @@ const storedRecord = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const storedUser = { firstName: "Anna", lastName: "Muster", email: ANNA, role: "student" };
-
 /** The subscription waits for Firebase Auth, so a signed-in user has to be announced first. */
 function signIn() {
   for (const [, callback] of onAuthStateChanged.mock.calls) {
@@ -80,40 +73,38 @@ beforeEach(() => {
 });
 
 describe("useRoster", () => {
-  it("reads the registrations of the event series it was given", () => {
+  /** Which series a registration belongs to is its path, so the read needs no filter (US-26). */
+  it("reads the registrations beneath the event series it was given", () => {
     renderHook(() => useRoster("s1"));
     signIn();
 
-    expect(subscription("registrations")[0]).toEqual(["registrations", "where:eventSeriesId=s1"]);
+    expect(collection).toHaveBeenCalledWith(expect.anything(), REGISTRATIONS);
   });
 
-  it("reads the users it needs the names from, and only the students among them", () => {
+  it("reads nothing else, because the registration carries the name itself", () => {
     renderHook(() => useRoster("s1"));
     signIn();
 
-    expect(subscription("users")[0]).toEqual(["users", "where:role=student"]);
+    expect(onSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it("joins a registration to its name once both have arrived", async () => {
+  it("names a student from their own registration", async () => {
     const { result } = renderHook(() => useRoster("s1"));
     signIn();
 
-    emit("registrations", [doc(`s1__${ANNA}`, storedRecord())]);
-    emit("users", [doc(ANNA, storedUser)]);
+    emit([doc(ANNA, storedRecord())]);
 
     await waitFor(() =>
       expect(result.current.students).toEqual([
-        expect.objectContaining({ id: `s1__${ANNA}`, firstName: "Anna", lastName: "Muster" }),
+        expect.objectContaining({ id: ANNA, firstName: "Anna", lastName: "Muster" }),
       ]),
     );
     expect(result.current.loading).toBe(false);
   });
 
-  it("keeps loading until the names are there, so no row appears without one", () => {
+  it("is loading until the registrations have arrived", () => {
     const { result } = renderHook(() => useRoster("s1"));
     signIn();
-
-    emit("registrations", [doc(`s1__${ANNA}`, storedRecord())]);
 
     expect(result.current.loading).toBe(true);
     expect(result.current.students).toEqual([]);
@@ -123,7 +114,7 @@ describe("useRoster", () => {
     const { result } = renderHook(() => useRoster(null));
     signIn();
 
-    expect(onSnapshot.mock.calls.some(([q]) => (q as string[])[0] === "registrations")).toBe(false);
+    expect(onSnapshot).not.toHaveBeenCalled();
     expect(result.current.loading).toBe(false);
     expect(result.current.students).toEqual([]);
   });
@@ -133,12 +124,22 @@ describe("useRoster", () => {
     const { result } = renderHook(() => useRoster("s1"));
     signIn();
 
-    emit("registrations", [
-      doc("broken", { userId: ANNA, eventSeriesId: "s1" }),
-      doc(`s1__${ANNA}`, storedRecord()),
-    ]);
-    emit("users", [doc(ANNA, storedUser)]);
+    emit([doc("broken", { studentUpn: ANNA }), doc(ANNA, storedRecord())]);
 
     expect(result.current.students).toHaveLength(1);
+  });
+
+  it("surfaces a failed read rather than showing an empty roster", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result } = renderHook(() => useRoster("s1"));
+    signIn();
+
+    act(() =>
+      (onSnapshot.mock.calls.at(-1)![2] as (error: Error) => void)(
+        new Error("Missing or insufficient permissions."),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.error).toContain("permissions"));
   });
 });

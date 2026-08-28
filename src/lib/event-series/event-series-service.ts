@@ -13,6 +13,7 @@ import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { registrationPath } from "@/lib/registration/registration";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 
 const nameSchema = eventSeriesSchema.shape.name;
@@ -168,10 +169,10 @@ export async function updateEventSeries(
     // registration themselves (see firestore.rules).
     let hasRegistrations = current.hasRegistrations;
     if (wantsArchival) {
-      const masterData = await transaction.get(
-        adminDb.collection(COLLECTIONS.registrations).where("eventSeriesId", "==", id).limit(1),
+      const registrations = await transaction.get(
+        adminDb.collection(registrationPath(id)).limit(1),
       );
-      if (masterData.empty) {
+      if (registrations.empty) {
         throw new ServiceError(
           ErrorCode.Conflict,
           "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.",
@@ -216,12 +217,9 @@ export async function deleteEventSeries(id: string): Promise<void> {
 
   const eventSeries = eventSeriesSchema.parse({ id, ...snapshot.data() });
 
-  const masterDataSnapshot = await adminDb
-    .collection(COLLECTIONS.registrations)
-    .where("eventSeriesId", "==", id)
-    .get();
+  const registrationsSnapshot = await adminDb.collection(registrationPath(id)).get();
 
-  if (!eventSeries.isArchived && !masterDataSnapshot.empty) {
+  if (!eventSeries.isArchived && !registrationsSnapshot.empty) {
     throw new ServiceError(
       ErrorCode.Conflict,
       "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.",
@@ -232,7 +230,7 @@ export async function deleteEventSeries(id: string): Promise<void> {
   // deleting it takes them along — there is nothing hanging off it to clean up separately.
   // The lists the series maintained, its events among them, are fields of the document itself
   // and go with it (US-21).
-  const operations: BatchOperation[] = masterDataSnapshot.docs.map(
+  const operations: BatchOperation[] = registrationsSnapshot.docs.map(
     (record) => (batch) => batch.delete(record.ref),
   );
   await commitInChunks(operations);

@@ -13,9 +13,11 @@ import type { RosterStudent } from "@/lib/students/roster";
  */
 export function studentRecord(overrides: Partial<Registration> = {}): Registration {
   return {
-    id: "record1",
-    userId: "anna@student.htldornbirn.at",
-    eventSeriesId: "s1",
+    id: "anna@student.htldornbirn.at",
+    studentUpn: "anna@student.htldornbirn.at",
+    firstName: "Anna",
+    lastName: "Muster",
+    email: "anna@student.htldornbirn.at",
     event: null,
     isIncomplete: false,
     isAttendingSportsWeek: true,
@@ -56,8 +58,8 @@ export function rosterStudent(
   answers: Partial<Registration> = {},
 ): RosterStudent {
   const row = {
-    id: "record1",
-    userId: "anna@student.htldornbirn.at",
+    id: "anna@student.htldornbirn.at",
+    studentUpn: "anna@student.htldornbirn.at",
     email: "anna@student.htldornbirn.at",
     firstName: "Anna",
     lastName: "Muster",
@@ -81,7 +83,10 @@ export function rosterStudent(
     ...row,
     record: studentRecord({
       id: row.id,
-      userId: row.userId,
+      studentUpn: row.studentUpn,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      email: row.email,
       event: row.event,
       isAttendingSportsWeek: row.isAttending,
       isIncomplete: row.isIncomplete,

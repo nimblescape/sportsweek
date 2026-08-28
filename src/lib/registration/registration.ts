@@ -5,14 +5,15 @@
  */
 import type { Registration, RegistrationInput } from "@/lib/schemas/registration";
 import { EMPTY_EMERGENCY_CONTACT } from "@/lib/schemas/registration";
+import { COLLECTIONS } from "@/lib/schemas/collections";
 
 /**
- * A student holds exactly one record per event series, so the id is derived from both rather than
- * generated: document ids are unique by construction, which turns "does one exist yet?" into a
- * single-document read on the client and on the server alike (US-11).
+ * Where a student's registration for one event series lives. The series is the path and the UPN
+ * is the document id, so "does one exist yet?" is a single-document read rather than a query,
+ * and a student can hold exactly one per series by construction (US-11, US-26).
  */
-export function recordIdFor(eventSeriesId: string, userId: string): string {
-  return `${eventSeriesId}__${userId}`;
+export function registrationPath(eventSeriesId: string): string {
+  return `${COLLECTIONS.eventSeries}/${eventSeriesId}/${COLLECTIONS.registrations}`;
 }
 
 /**

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
 import { storedEventSeries } from "@/test/event-series";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { registrationPath } from "@/lib/registration/registration";
 
 const firestore = new FakeFirestore();
 
@@ -41,7 +42,7 @@ function storedList(field: keyof Omit<EventSeries, "id">) {
 
 /** A registration holds the plain text it selected (US-11), which is what the in-use rule reads. */
 function seedRegistration(id: string, answers: Record<string, unknown>) {
-  firestore.seed("registrations", id, { userId: `u-${id}`, eventSeriesId: ACTIVE, ...answers });
+  firestore.seed(registrationPath(ACTIVE), id, { studentUpn: id, ...answers });
 }
 
 describe("createMasterDataItem", () => {
@@ -316,11 +317,7 @@ describe("updateMasterDataItem", () => {
 
   it("leaves an item alone that only another event series' registrations select", async () => {
     seedActiveEventSeries({ classOptions: ["3AHIT"] });
-    firestore.seed("registrations", "other", {
-      userId: "u9",
-      eventSeriesId: "s2",
-      class: "3AHIT",
-    });
+    firestore.seed(registrationPath("s2"), "other", { studentUpn: "other", class: "3AHIT" });
 
     await updateMasterDataItem("classes", "3AHIT", { name: "3BHIT" });
 
@@ -454,7 +451,11 @@ describe("the transaction a list edit runs in", () => {
 
     await updateMasterDataItem("classes", "3AHIT", { name: "3BHIT" });
 
-    expect(order).toEqual(["read eventSeries", "read registrations", "write eventSeries"]);
+    expect(order).toEqual([
+      "read eventSeries",
+      `read ${registrationPath(ACTIVE)}`,
+      "write eventSeries",
+    ]);
   });
 
   it("asks again before deleting, so a hold taken since the list was read still counts", async () => {
@@ -464,7 +465,11 @@ describe("the transaction a list edit runs in", () => {
 
     await deleteMasterDataItem("classes", "3AHIT");
 
-    expect(order).toEqual(["read eventSeries", "read registrations", "write eventSeries"]);
+    expect(order).toEqual([
+      "read eventSeries",
+      `read ${registrationPath(ACTIVE)}`,
+      "write eventSeries",
+    ]);
   });
 
   /** One transaction, so the list the guard was asked about is the list that gets written. */

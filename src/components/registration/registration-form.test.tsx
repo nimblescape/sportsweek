@@ -32,9 +32,11 @@ const LISTS = {
 };
 
 const storedRecord: Registration = {
-  id: "s1__jane",
-  userId: "jane@student.htldornbirn.at",
-  eventSeriesId: "s1",
+  id: "jane@student.htldornbirn.at",
+  studentUpn: "jane@student.htldornbirn.at",
+  firstName: "Jane",
+  lastName: "Doe",
+  email: "jane@student.htldornbirn.at",
   event: null,
   isIncomplete: false,
   isAttendingSportsWeek: true,

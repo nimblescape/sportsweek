@@ -13,7 +13,7 @@ import { useRegistration } from "@/lib/registration/use-registration";
 import { RegistrationForm } from "./registration-form";
 
 type RegistrationViewProps = {
-  userId: string;
+  studentUpn: string;
   studentName: string;
 };
 
@@ -22,8 +22,8 @@ type RegistrationViewProps = {
  * student's to create — so until a teacher has set both up there is no form to show, only the
  * notice US-11 asks for.
  */
-export function RegistrationView({ userId, studentName }: RegistrationViewProps) {
-  const { eventSeries, record, loading, error } = useRegistration(userId);
+export function RegistrationView({ studentUpn, studentName }: RegistrationViewProps) {
+  const { eventSeries, record, loading, error } = useRegistration(studentUpn);
   const classes = useMasterData("classes");
   const skillLevels = useMasterData("skill-levels");
   const busPickupPoints = useMasterData("bus-pickup-points");

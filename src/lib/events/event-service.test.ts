@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
 import { storedEventSeries } from "@/test/event-series";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { registrationPath } from "@/lib/registration/registration";
 
 const firestore = new FakeFirestore();
 
@@ -28,7 +29,7 @@ const storedEvents = (id: string) => firestore.get("eventSeries", id)?.events;
 
 /** A registration names the event it is assigned to, exactly as it names its class (US-11). */
 function seedRegistration(id: string, eventSeriesId: string, answers: Record<string, unknown>) {
-  firestore.seed("registrations", id, { userId: `u-${id}`, eventSeriesId, ...answers });
+  firestore.seed(registrationPath(eventSeriesId), id, { studentUpn: id, ...answers });
 }
 
 describe("createEvent", () => {
@@ -192,8 +193,8 @@ describe("updateEvent", () => {
 
     await updateEvent("s1", "Woche 1", { name: "Semesterwoche" });
 
-    expect(firestore.get("registrations", "m1")).toMatchObject({ event: "Semesterwoche" });
-    expect(firestore.get("registrations", "m2")).toMatchObject({ event: null });
+    expect(firestore.get(registrationPath("s1"), "m1")).toMatchObject({ event: "Semesterwoche" });
+    expect(firestore.get(registrationPath("s1"), "m2")).toMatchObject({ event: null });
   });
 
   it("leaves the registrations of another event series alone", async () => {
@@ -203,7 +204,7 @@ describe("updateEvent", () => {
 
     await updateEvent("s1", "Woche 1", { name: "Semesterwoche" });
 
-    expect(firestore.get("registrations", "other")).toMatchObject({ event: "Woche 1" });
+    expect(firestore.get(registrationPath("s2"), "other")).toMatchObject({ event: "Woche 1" });
   });
 });
 
@@ -265,8 +266,8 @@ describe("deleteEvent", () => {
 
     await deleteEvent("s1", "Woche 1");
 
-    expect(firestore.get("registrations", "m1")).toMatchObject({ event: null });
-    expect(firestore.get("registrations", "m2")).toMatchObject({ event: null });
+    expect(firestore.get(registrationPath("s1"), "m1")).toMatchObject({ event: null });
+    expect(firestore.get(registrationPath("s1"), "m2")).toMatchObject({ event: null });
   });
 
   it("keeps the registration records themselves", async () => {
@@ -275,7 +276,7 @@ describe("deleteEvent", () => {
 
     await deleteEvent("s1", "Woche 1");
 
-    expect(firestore.count("registrations")).toBe(1);
+    expect(firestore.count(registrationPath("s1"))).toBe(1);
   });
 
   it("changes no answer other than the assignment", async () => {
@@ -288,9 +289,8 @@ describe("deleteEvent", () => {
 
     await deleteEvent("s1", "Woche 1");
 
-    expect(firestore.get("registrations", "m1")).toEqual({
-      userId: "u-m1",
-      eventSeriesId: "s1",
+    expect(firestore.get(registrationPath("s1"), "m1")).toEqual({
+      studentUpn: "m1",
       event: null,
       skillLevel: "Fortgeschritten",
       isAttendingSportsWeek: true,
@@ -304,7 +304,7 @@ describe("deleteEvent", () => {
 
     await deleteEvent("s1", "Woche 1");
 
-    expect(firestore.get("registrations", "keep")).toMatchObject({ event: "Woche 2" });
+    expect(firestore.get(registrationPath("s1"), "keep")).toMatchObject({ event: "Woche 2" });
   });
 
   it("leaves the same name in another event series assigned", async () => {
@@ -314,7 +314,7 @@ describe("deleteEvent", () => {
 
     await deleteEvent("s1", "Woche 1");
 
-    expect(firestore.get("registrations", "other")).toMatchObject({ event: "Woche 1" });
+    expect(firestore.get(registrationPath("s2"), "other")).toMatchObject({ event: "Woche 1" });
     expect(storedEvents("s2")).toEqual(["Woche 1"]);
   });
 
@@ -327,7 +327,7 @@ describe("deleteEvent", () => {
     await deleteEvent("s1", "Woche 1");
 
     expect(Math.max(...firestore.batchSizes)).toBeLessThanOrEqual(500);
-    const stillAssigned = Object.values(firestore.docs("registrations")).filter(
+    const stillAssigned = Object.values(firestore.docs(registrationPath("s1"))).filter(
       (record) => record.event === "Woche 1",
     );
     expect(stillAssigned).toHaveLength(0);

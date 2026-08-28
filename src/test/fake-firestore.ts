@@ -65,6 +65,10 @@ export class FakeDocumentReference {
     return `${this.collectionPath}/${this.id}`;
   }
 
+  get parent(): FakeCollectionReference {
+    return new FakeCollectionReference(this.firestore, this.collectionPath);
+  }
+
   async get(): Promise<FakeDocumentSnapshot> {
     return this.firestore.readDoc(this.collectionPath, this.id);
   }
@@ -95,9 +99,12 @@ export class FakeAggregateSnapshot {
 export class FakeQuery {
   constructor(
     protected readonly firestore: FakeFirestore,
+    /** A collection path, or the last segment alone while `group` is set. */
     protected readonly collectionPath: string,
     protected readonly filters: Filter[] = [],
     protected readonly limitCount: number | null = null,
+    /** Matches every collection whose last path segment is `collectionPath`, at any depth. */
+    protected readonly group = false,
   ) {}
 
   where(field: string, operator: string, value: unknown): FakeQuery {
@@ -111,11 +118,12 @@ export class FakeQuery {
       this.collectionPath,
       [...this.filters, { field, operator, value }],
       this.limitCount,
+      this.group,
     );
   }
 
   limit(count: number): FakeQuery {
-    return new FakeQuery(this.firestore, this.collectionPath, this.filters, count);
+    return new FakeQuery(this.firestore, this.collectionPath, this.filters, count, this.group);
   }
 
   /** Aggregates server-side, so the documents themselves never cross the wire. */
@@ -127,11 +135,25 @@ export class FakeQuery {
   }
 
   async get(): Promise<FakeQuerySnapshot> {
-    return this.firestore.runQuery(this.collectionPath, this.filters, this.limitCount);
+    return this.group
+      ? this.firestore.runGroupQuery(this.collectionPath, this.filters, this.limitCount)
+      : this.firestore.runQuery(this.collectionPath, this.filters, this.limitCount);
   }
 }
 
 export class FakeCollectionReference extends FakeQuery {
+  /** Null for a top-level collection, the owning document for a subcollection. */
+  get parent(): FakeDocumentReference | null {
+    const segments = this.collectionPath.split("/");
+    if (segments.length < 3) return null;
+
+    return new FakeDocumentReference(
+      this.firestore,
+      segments.slice(0, -2).join("/"),
+      segments[segments.length - 2],
+    );
+  }
+
   doc(id?: string): FakeDocumentReference {
     return new FakeDocumentReference(
       this.firestore,
@@ -242,6 +264,11 @@ export class FakeFirestore {
     return new FakeCollectionReference(this, path);
   }
 
+  /** Every collection with this name, wherever it sits — subcollections included. */
+  collectionGroup(collectionId: string): FakeQuery {
+    return new FakeQuery(this, collectionId, [], null, true);
+  }
+
   batch(): FakeWriteBatch {
     return new FakeWriteBatch(this);
   }
@@ -311,6 +338,27 @@ export class FakeFirestore {
         new FakeDocumentSnapshot(id, data, new FakeDocumentReference(this, collectionPath, id)),
     );
 
+    return this.take(matches, limitCount);
+  }
+
+  runGroupQuery(
+    collectionId: string,
+    filters: Filter[],
+    limitCount: number | null,
+  ): FakeQuerySnapshot {
+    const matches = [...this.store.keys()]
+      .filter((path) => path.split("/").at(-1) === collectionId)
+      .flatMap((path) =>
+        this.matching(path, filters).map(
+          ([id, data]) =>
+            new FakeDocumentSnapshot(id, data, new FakeDocumentReference(this, path, id)),
+        ),
+      );
+
+    return this.take(matches, limitCount);
+  }
+
+  private take(matches: FakeDocumentSnapshot[], limitCount: number | null): FakeQuerySnapshot {
     const returned = limitCount === null ? matches : matches.slice(0, limitCount);
     this.queryDocumentsRead += returned.length;
     return new FakeQuerySnapshot(returned);

@@ -6,32 +6,22 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_REGISTRATION,
-  recordIdFor,
+  registrationPath,
   REGISTRATION_NOT_OPEN_HINT,
   scopeRentalToProgram,
 } from "./registration";
 
-describe("recordIdFor", () => {
-  it("derives the id from the event series and the student", () => {
-    expect(recordIdFor("eventSeries1", "jane.doe@student.htldornbirn.at")).toBe(
-      "eventSeries1__jane.doe@student.htldornbirn.at",
-    );
+describe("registrationPath", () => {
+  it("puts a registration beneath the event series it belongs to (US-26)", () => {
+    expect(registrationPath("eventSeries1")).toBe("eventSeries/eventSeries1/registrations");
   });
 
   /**
-   * The point of deriving it: one student can hold exactly one record per event series without
-   * anyone having to query for it, because document ids are unique by construction.
+   * The point of deriving it: which series a registration is in is where it is stored rather
+   * than a field, so one student holds exactly one per series without anyone querying for it.
    */
-  it("gives the same student the same id for the same event series", () => {
-    expect(recordIdFor("eventSeries1", "jane@student.htldornbirn.at")).toBe(
-      recordIdFor("eventSeries1", "jane@student.htldornbirn.at"),
-    );
-  });
-
-  it("gives the same student a separate id per event series", () => {
-    expect(recordIdFor("eventSeries1", "jane@student.htldornbirn.at")).not.toBe(
-      recordIdFor("eventSeries2", "jane@student.htldornbirn.at"),
-    );
+  it("gives each event series its own collection", () => {
+    expect(registrationPath("eventSeries1")).not.toBe(registrationPath("eventSeries2"));
   });
 
   it("states the message US-11 asks for while registering is not open", () => {

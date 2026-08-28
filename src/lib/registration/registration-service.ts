@@ -19,10 +19,11 @@ import {
   type RegistrationInput,
 } from "@/lib/schemas/registration";
 import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
+import { userSchema } from "@/lib/schemas/user";
 import { isRegistrationIncomplete } from "./completeness";
 import {
   ANSWER_NO_LONGER_OFFERED_HINT,
-  recordIdFor,
+  registrationPath,
   REGISTRATION_NOT_OPEN_HINT,
 } from "./registration";
 
@@ -94,28 +95,51 @@ function assertAnswersAreOffered(eventSeries: EventSeries, fields: RegistrationI
 }
 
 /**
+ * The three fields a reader needs and a student may not give (US-26). They are read from the
+ * user record rather than sent, and that record is corrected from the directory at every login
+ * (US-1) — which is what keeps this copy from being a snapshot that drifts.
+ */
+async function identityOf(studentUpn: string) {
+  const stored = await adminDb.collection(COLLECTIONS.users).doc(studentUpn).get();
+  const user = userSchema.safeParse({ id: studentUpn, ...stored.data() });
+
+  if (!user.success) {
+    throw new ServiceError(ErrorCode.NotFound, "Dieses Benutzerkonto gibt es nicht.");
+  }
+  return {
+    studentUpn,
+    firstName: user.data.firstName,
+    lastName: user.data.lastName,
+    email: user.data.email,
+  };
+}
+
+/**
  * Writes the student's registration for the active event series, whole.
  *
  * A student cannot write this collection at all (see firestore.rules), and this is why: the
- * event series is resolved here rather than sent, answering "no" gives up the event assignment a
- * teacher made (US-11, US-12), and the event series' `hasRegistrations` mirror has to follow along so
- * the teacher's list can decide about archiving without reading records it may not read (US-4).
+ * event series is resolved here rather than sent, the name is copied here rather than typed,
+ * answering "no" gives up the event assignment a teacher made (US-11, US-12), and the event
+ * series' `hasRegistrations` mirror has to follow along so the teacher's list can decide about
+ * archiving without reading records it may not read (US-4).
  *
  * It is one transaction rather than a batch because the answers are validated against the series
  * as it stands: reading that document inside the transaction is what makes a teacher's
- * concurrent list edit conflict rather than slip past.
+ * concurrent list edit conflict rather than slip past (US-27).
  */
 export async function saveRegistration(
-  userId: string,
+  studentUpn: string,
   input: RegistrationInput,
 ): Promise<Registration> {
   const fields = parseInput(input);
+  const identity = await identityOf(studentUpn);
 
   return adminDb.runTransaction(async (transaction) => {
     const eventSeries = await requireOpenRegistration(transaction);
 
-    const id = recordIdFor(eventSeries.id, userId);
-    const reference = adminDb.collection(COLLECTIONS.registrations).doc(id);
+    // The series is the path and the UPN is the id, so one registration per student per series
+    // holds by construction rather than by a check (US-26).
+    const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUpn);
     const stored = await transaction.get(reference);
 
     assertAnswersAreOffered(eventSeries, fields);
@@ -125,15 +149,14 @@ export async function saveRegistration(
     const event = fields.isAttendingSportsWeek ? ((stored.data()?.event as string) ?? null) : null;
 
     const data = {
-      userId,
-      eventSeriesId: eventSeries.id,
+      ...identity,
       event,
       // Recomputed here rather than trusted from the client: it is what the report marks a
       // student by (US-13), so it has to follow the answers actually stored.
       isIncomplete: isRegistrationIncomplete(fields),
       ...fields,
     };
-    const record = registrationSchema.parse({ id, ...data });
+    const record = registrationSchema.parse({ id: identity.studentUpn, ...data });
 
     transaction.set(reference, data);
     if (!eventSeries.hasRegistrations) {

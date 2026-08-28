@@ -10,6 +10,7 @@ import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { registrationPath } from "@/lib/registration/registration";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema } from "@/lib/schemas/registration";
 import {
@@ -17,11 +18,8 @@ import {
   NO_ACTIVE_EVENT_SERIES_HINT,
 } from "@/lib/event-series/event-series-state";
 
-/** The two answers the assignment turns on, derived so a rename cannot pass this by. */
-const assignableSchema = registrationSchema.pick({
-  eventSeriesId: true,
-  isAttendingSportsWeek: true,
-});
+/** The one answer the assignment turns on, derived so a rename cannot pass this by. */
+const assignableSchema = registrationSchema.pick({ isAttendingSportsWeek: true });
 
 async function requireActiveEventSeries(): Promise<EventSeries> {
   const snapshot = await adminDb
@@ -71,14 +69,16 @@ function eventOfEventSeries(eventSeries: EventSeries, event: string): string {
  * cannot get stuck in an event.
  */
 export async function assignStudents(
-  recordIds: readonly string[],
+  studentUpns: readonly string[],
   event: string | null,
 ): Promise<void> {
   const eventSeries = await requireActiveEventSeries();
   const assigned = event === null ? null : eventOfEventSeries(eventSeries, event);
 
-  const references = recordIds.map((recordId) =>
-    adminDb.collection(COLLECTIONS.registrations).doc(recordId),
+  // Beneath the active series by construction, so "is this registration one of ours?" is the
+  // path rather than a field a caller could point elsewhere (US-26).
+  const references = studentUpns.map((studentUpn) =>
+    adminDb.collection(registrationPath(eventSeries.id)).doc(studentUpn),
   );
 
   // All in flight together. Read one after the other, moving a class was as many round trips as
@@ -91,12 +91,6 @@ export async function assignStudents(
     }
 
     const record = assignableSchema.parse(snapshot.data());
-    if (record.eventSeriesId !== eventSeries.id) {
-      throw new ServiceError(
-        ErrorCode.Conflict,
-        "Nur Anmeldungen der aktiven Eventreihe können zugeteilt werden.",
-      );
-    }
     if (assigned !== null && !record.isAttendingSportsWeek) {
       throw new ServiceError(
         ErrorCode.Conflict,

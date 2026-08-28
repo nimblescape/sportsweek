@@ -24,7 +24,7 @@ import { userRoleSchema, userSchema } from "@/lib/schemas/user";
 import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
-import { EMPTY_REGISTRATION, recordIdFor } from "@/lib/registration/registration";
+import { EMPTY_REGISTRATION, registrationPath } from "@/lib/registration/registration";
 import { apphostingValue, fail } from "./environment.mjs";
 
 /** Where invented students are allowed. Production is absent by construction, not by a check. */
@@ -302,7 +302,8 @@ async function inBatches(
  * since the fixed seed hands the same addresses back to the same people on the next run.
  */
 async function purgeStudents(db: Firestore): Promise<{ records: number; users: number }> {
-  const records = await db.collection(COLLECTIONS.registrations).get();
+  // Across every event series, since a registration lives beneath the one it belongs to (US-26).
+  const records = await db.collectionGroup(COLLECTIONS.registrations).get();
   const users = await db
     .collection(COLLECTIONS.users)
     .where("role", "==", userRoleSchema.enum.student)
@@ -432,9 +433,12 @@ async function main(): Promise<void> {
 
       const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, role: "student" }); // prettier-ignore
       const record = registrationSchema.parse({
-        id: recordIdFor(eventSeries.id, person.upn),
-        userId: person.upn,
-        eventSeriesId: eventSeries.id,
+        id: person.upn,
+        studentUpn: person.upn,
+        // Copied onto the record, which is what a reader takes the name from (US-26).
+        firstName: person.firstName,
+        lastName: person.lastName,
+        email: person.upn,
         // Unassigned on purpose: putting students into events is what the board is for (US-12).
         event: null,
         isIncomplete: isRegistrationIncomplete(registration),
@@ -445,7 +449,7 @@ async function main(): Promise<void> {
       const { id: recordId, ...recordFields } = record;
       writes.push((batch) => batch.set(db.collection(COLLECTIONS.users).doc(userId), userFields));
       writes.push((batch) =>
-        batch.set(db.collection(COLLECTIONS.registrations).doc(recordId), recordFields),
+        batch.set(db.collection(registrationPath(eventSeries.id)).doc(recordId), recordFields),
       );
     }
 
