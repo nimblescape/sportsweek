@@ -11,11 +11,11 @@ import { useBusy } from "@/lib/api/busy";
 const BARS = [0, 0.15, 0.3, 0.45];
 
 /**
- * One indicator for the whole app, centred on the screen (US-14, US-15).
+ * One indicator for the whole app, on the line between the header and the content (US-14, US-15).
  *
- * Not in the header: its middle is where the event series tags are (US-20), and an indicator
- * drawn on top of them cannot be read. Centred on the screen instead, over whatever is there —
- * a write takes what it is writing out of reach anyway (see BusyRegion), and one place always
+ * Not in the header's middle: that is where the event series tags are (US-20), and an indicator
+ * drawn over them cannot be read. It straddles the border instead — centred across the width,
+ * centred on the line itself — which is space nothing else occupies, and one place always
  * answering "the app is working on it" is easier to learn than an indicator that appears
  * somewhere new each time.
  *
@@ -32,15 +32,17 @@ export function BusyBar() {
     <div
       role="status"
       aria-label="Wird gespeichert"
-      className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center"
+      // Centred on the border rather than above it: half its height sits either side of the line.
+      className="pointer-events-none absolute inset-x-0 -bottom-1.5 z-20 flex justify-center"
     >
-      <div className="bg-background/80 flex items-end gap-1 rounded-lg p-3 shadow-sm">
+      <div className="bg-background flex h-3 items-center gap-0.5 px-1.5">
         {BARS.map((delay) => (
           <span
             key={delay}
             data-busy-bar
             style={{ animationDelay: `${delay}s` }}
-            className="bg-primary animate-busy-bar h-6 w-1.5 origin-bottom rounded-full"
+            // Short on purpose, so it stays on the line instead of reaching up into the tags.
+            className="bg-border animate-busy-bar block h-2 w-0.5 rounded-full"
           />
         ))}
       </div>

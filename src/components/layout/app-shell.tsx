@@ -18,10 +18,10 @@ export function AppShell({ children, scope }: { children: ReactNode; scope?: Rea
           {/* The scope sits immediately after the title, because it says what every page is about. */}
           {scope}
           <SignOutButton />
+          {/* Last, and positioned against the header, whose bottom border it sits on. */}
+          <BusyBar />
         </header>
         <main className="flex flex-1 flex-col">{children}</main>
-        {/* Outside the header: it centres on the screen, not on anything the shell lays out. */}
-        <BusyBar />
       </div>
     </BusyProvider>
   );

@@ -127,12 +127,30 @@ describe("BusyBar — where it reports from", () => {
     expect(new Set(delays).size).toBe(delays.length);
   });
 
-  it("sits in the middle of the screen, over whatever is there", async () => {
+  it("sits on the header's own line, centred across it", async () => {
     const bar = await busyShell();
 
-    expect(bar.className).toContain("fixed");
+    expect(bar.className).toContain("absolute");
+    expect(bar.className).toContain("inset-x-0");
     expect(bar.className).toContain("justify-center");
-    expect(bar.className).toContain("items-center");
+  });
+
+  /** Short, so it stays on the line rather than reaching up into the event series tags (US-20). */
+  it("keeps the bars shorter than the header's own row", async () => {
+    const bar = await busyShell();
+
+    for (const one of bar.querySelectorAll("[data-busy-bar]")) {
+      expect(one.className).toContain("h-2");
+    }
+  });
+
+  /** The line's own colour, so it reads as the line stirring rather than as something new. */
+  it("draws the bars in the border's colour", async () => {
+    const bar = await busyShell();
+
+    for (const one of bar.querySelectorAll("[data-busy-bar]")) {
+      expect(one.className).toContain("bg-border");
+    }
   });
 
   /** A bar drawn over the header would take the presses meant for what is under it. */
