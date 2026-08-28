@@ -72,19 +72,18 @@ describe("TeacherNav", () => {
     }
   });
 
-  /** The cookie is what the list page has instead of a selection in its own URL (Q8). */
+  /** The list page has no selection of its own, so the layout resolves one for it (Q8). */
   it("points at the remembered series while standing on the unscoped list", () => {
     pathname.mockReturnValue("/app/event-series");
 
-    render(<TeacherNav lastEventSeriesId="s7" />);
+    render(<TeacherNav fallbackEventSeriesId="s7" />);
 
     expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s7/report");
   });
 
   /**
-   * The cookie is read once, by a layout above the series id that does not render again while the
-   * teacher moves about below it — so on the first visit, before anything was remembered, it is
-   * null and stays null. What the bar saw in the URL is the more recent answer.
+   * The fallback is resolved by a layout above the series id, which does not render again while
+   * the teacher moves about below it — so on its own it goes stale the moment they select another.
    */
   it("keeps pointing at the series it was last in after leaving it for the list", () => {
     pathname.mockReturnValue("/app/s1/report");

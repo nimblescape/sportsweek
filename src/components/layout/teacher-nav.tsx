@@ -34,15 +34,19 @@ function itemClasses(active: boolean) {
 
 /**
  * Every page but the event series list is about one series (US-20), so the links are built from
- * the selection. On that one page the URL names none, and the cookie says which series the
- * teacher was last in — without it the whole bar would have nowhere to point (Q8).
+ * the selection. On that one page the URL names none, and the layout above resolves one to fall
+ * back to — without it the whole bar would have nowhere to point (Q8).
  */
-export function TeacherNav({ lastEventSeriesId = null }: { lastEventSeriesId?: string | null }) {
+export function TeacherNav({
+  fallbackEventSeriesId = null,
+}: {
+  fallbackEventSeriesId?: string | null;
+}) {
   const pathname = usePathname();
   const inUrl = selectedEventSeriesIdFrom(pathname);
-  // The cookie is read by a layout above the series id, which does not render again while the
-  // teacher moves about below it — so on a first visit it is null and stays null until a reload.
-  const [lastSeen, setLastSeen] = useState(lastEventSeriesId);
+  // The fallback is resolved by a layout above the series id, which does not render again while
+  // the teacher moves about below it, so what the bar has seen since is the fresher answer.
+  const [lastSeen, setLastSeen] = useState(fallbackEventSeriesId);
   if (inUrl !== null && inUrl !== lastSeen) setLastSeen(inUrl);
 
   const eventSeriesId = inUrl ?? lastSeen;
