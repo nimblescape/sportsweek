@@ -50,9 +50,14 @@ const MASTER_DATA_DEFAULTS = {
     { name: "Alternativ", requiredEquipment: [] },
   ],
   skillLevels: ["Keine Vorkenntnisse", "Anfänger:in", "Fortgeschritten", "Profi"],
-  seasonPassOptions: ["Keine", "Vielleicht", "Golm-Bielerhöhe (Illwerke)", "Silvretta-Montafon"],
+  seasonPassOptions: [
+    "Kein Skipass",
+    "Vielleicht Skipass",
+    "Golm-Bielerhöhe (Illwerke)",
+    "Silvretta-Montafon",
+  ],
   busPickupPoints: ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Unterkunft"],
-  foodOptions: ["Alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
+  foodOptions: ["Esse alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
 } satisfies Pick<
   EventSeries,
   | "events"

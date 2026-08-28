@@ -98,3 +98,27 @@ describe("apiRequest", () => {
     expect((error as Error).message).toBe("Keine Verbindung zum Server. Bitte versuche es erneut.");
   });
 });
+
+/** Some answers cannot be read from the client at all, so they are asked for through a handler. */
+describe("apiRequest — reading", () => {
+  it("reads with GET and sends no body", async () => {
+    const fetchMock = stubFetch(() => Promise.resolve(jsonResponse({ invitations: [] })));
+
+    await expect(
+      apiRequest("/api/event-series/s1/invitations", { method: "GET" }),
+    ).resolves.toEqual({ invitations: [] });
+    expect(fetchMock.mock.calls[0][1]).not.toHaveProperty("body");
+  });
+
+  it("surfaces a refused read the same way as a refused write", async () => {
+    stubFetch(() =>
+      Promise.resolve(
+        jsonResponse({ error: { code: "PERMISSION_DENIED", message: "Nicht erlaubt." } }, 403),
+      ),
+    );
+
+    await expect(
+      apiRequest("/api/event-series/s1/invitations", { method: "GET" }),
+    ).rejects.toMatchObject({ message: "Nicht erlaubt." });
+  });
+});

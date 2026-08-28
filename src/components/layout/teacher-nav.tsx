@@ -68,7 +68,9 @@ export function TeacherNav({ lastEventSeriesId = null }: { lastEventSeriesId?: s
         onClick={() => setCollapsed((on) => !on)}
         aria-expanded={!collapsed}
         aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
-        className={cn(itemClasses(false), "hidden md:flex md:justify-end")}
+        // Left, where every other row keeps its icon: pinned to the right it would travel the
+        // width of the bar each time it was pressed — with the pointer still over it.
+        className={cn(itemClasses(false), "hidden md:flex")}
       >
         {collapsed ? (
           <PanelLeftOpen aria-hidden className="size-4 shrink-0" />
