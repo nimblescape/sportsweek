@@ -10,12 +10,14 @@ import { InvitationQr } from "./invitation-qr";
 
 function show(onClose = vi.fn()) {
   render(
-    <InvitationQr
-      eventSeriesName="Wintersportwoche 2026"
-      className="5AHIF"
-      link="https://sportwoche.example/join/tok"
-      onClose={onClose}
-    />,
+    <div className="overflow-hidden" data-testid="card">
+      <InvitationQr
+        eventSeriesName="Wintersportwoche 2026"
+        className="5AHIF"
+        link="https://sportwoche.example/join/tok"
+        onClose={onClose}
+      />
+    </div>,
   );
   return onClose;
 }
@@ -59,9 +61,27 @@ describe("InvitationQr", () => {
   it("closes on Escape as well as on the cross", async () => {
     const onClose = show();
 
-    screen.getByRole("dialog").dispatchEvent(new Event("cancel"));
+    await userEvent.keyboard("{Escape}");
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  /**
+   * It opens from a card, and a card clips what overflows it — so the surface is put on the
+   * document instead of left where the press came from.
+   */
+  it("leaves the card it was opened from, which would otherwise clip it", () => {
+    show();
+
+    expect(screen.getByTestId("card")).not.toContainElement(screen.getByRole("dialog"));
+  });
+
+  /**
+   * White explicitly, not the page's own background: a code is read by a camera, and one drawn
+   * dark-on-dark in the evening theme does not scan at all.
+   */
+  it("stands on white, whatever the rest of the application is wearing", () => {
+    expect(show() && screen.getByRole("dialog").className).toContain("bg-white");
   });
 
   /**

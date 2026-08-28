@@ -9,8 +9,6 @@ import * as React from "react";
 import { CrudList, type CrudItem } from "@/components/master-data/crud-list";
 import { apiRequest } from "@/lib/api/client";
 import {
-  ARCHIVED_DATA_KEEPS_NAME_HINT,
-  ARCHIVED_DATA_UNCHANGED_HINT,
   categoryOf,
   CHILD_IN_USE_HINT,
   type MasterDataCategoryKey,
@@ -72,12 +70,12 @@ export function MasterDataView({
       }
       deleteNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird aus der Liste entfernt. {ARCHIVED_DATA_UNCHANGED_HINT}
+          <strong>{item.name}</strong> wird aus der Liste entfernt.
         </>
       )}
       editNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird umbenannt. {ARCHIVED_DATA_KEEPS_NAME_HINT}
+          <strong>{item.name}</strong> wird umbenannt.
         </>
       )}
     />

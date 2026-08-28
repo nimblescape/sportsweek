@@ -42,7 +42,8 @@ export function BusyBar() {
             data-busy-bar
             style={{ animationDelay: `${delay}s` }}
             // Short on purpose, so it stays on the line instead of reaching up into the tags.
-            className="bg-border animate-busy-bar block h-2 w-0.5 rounded-full"
+            // Darker than the line it sits on: in the line's own grey it went unnoticed.
+            className="bg-muted-foreground animate-busy-bar block h-2 w-0.5 rounded-full"
           />
         ))}
       </div>

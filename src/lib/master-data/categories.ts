@@ -199,15 +199,19 @@ export function masterDataSections(eventSeriesId: string | null) {
 /**
  * Lives here rather than next to the server-side guard because the list view shows the same
  * sentence on the controls it disables, and must not pull the Admin SDK in to do so.
+ *
+ * It names no way out on purpose. The list belongs to this event series (US-21) and the guard
+ * reads this series' own registrations, so archiving would not free the entry — it would take the
+ * whole series off every screen instead (US-19). What frees it is the registration going.
  */
 export const IN_USE_HINT =
-  "Dieser Eintrag wird in den Anmeldungen einer nicht archivierten Eventreihe noch " +
-  "verwendet. Archiviere diese Eventreihe, um ihn zu bearbeiten oder zu löschen.";
+  "Dieser Eintrag wurde in einer Anmeldung dieser Eventreihe gewählt und kann " +
+  "deshalb nicht umbenannt oder gelöscht werden.";
 
 /** Deleting a program takes its equipment with it, so a rented item holds the program back too. */
 export const CHILD_IN_USE_HINT =
-  "Ausrüstung dieses Programms wird in den Anmeldungen einer nicht archivierten Eventreihe " +
-  "noch verwendet. Archiviere diese Eventreihe, um das Programm zu löschen.";
+  "Ausrüstung dieses Programms wurde in einer Anmeldung dieser Eventreihe ausgeliehen. " +
+  "Das Programm kann deshalb nicht gelöscht werden.";
 
 /**
  * Shown while the answer is still on its way. The controls stay disabled until it arrives, so
@@ -216,18 +220,6 @@ export const CHILD_IN_USE_HINT =
  */
 export const USAGE_PENDING_HINT =
   "Es wird noch geprüft, ob dieser Eintrag in Anmeldungen verwendet wird.";
-
-/**
- * What is left behind when an item is removed or renamed — and it is only ever archived data,
- * because the in-use rule above is what allowed the edit in the first place: an entry a
- * non-archived event series still holds cannot be touched at all.
- */
-export const ARCHIVED_DATA_UNCHANGED_HINT =
-  "Bereits gespeicherte Anmeldungen in archivierten Eventreihen bleiben unverändert.";
-
-/** The records hold the name itself, so an archived one goes on holding the one it was given. */
-export const ARCHIVED_DATA_KEEPS_NAME_HINT =
-  "Bereits gespeicherte Anmeldungen in archivierten Eventreihen behalten den bisherigen Namen.";
 
 /** Labels for the equipment list a program carries, which is a field rather than a category. */
 export const EQUIPMENT_LABELS = {

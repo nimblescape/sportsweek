@@ -7,6 +7,8 @@ import { describe, expect, it } from "vitest";
 import { eventSeriesSchema } from "@/lib/schemas/event-series";
 import {
   ANSWER_LABELS,
+  CHILD_IN_USE_HINT,
+  IN_USE_HINT,
   MASTER_DATA_CATEGORIES,
   masterDataSections,
   masterDataCategorySchema,
@@ -139,5 +141,24 @@ describe("masterDataCategorySchema", () => {
   it("rejects an unknown key, so a URL segment cannot name a collection", () => {
     expect(masterDataCategorySchema.safeParse("users").success).toBe(false);
     expect(masterDataCategorySchema.safeParse("../users").success).toBe(false);
+  });
+});
+
+/**
+ * These sentences were written when the lists were global and shared across seasons, so an
+ * archived one put its registrations beyond the guard's reach. Each list now belongs to one
+ * event series (US-21) and the guard reads that series' own registrations — and archiving makes
+ * a series read-only (US-19), so advising it is advising the one thing that cannot help.
+ */
+describe("the in-use hints", () => {
+  it.each([IN_USE_HINT, CHILD_IN_USE_HINT])(
+    "does not send the teacher off to archive anything: %s",
+    (hint) => {
+      expect(hint).not.toMatch(/archivier/i);
+    },
+  );
+
+  it("says which registrations hold an entry back, since only this series' can", () => {
+    expect(IN_USE_HINT).toMatch(/dieser Eventreihe/);
   });
 });

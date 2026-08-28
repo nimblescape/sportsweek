@@ -144,12 +144,12 @@ describe("BusyBar — where it reports from", () => {
     }
   });
 
-  /** The line's own colour, so it reads as the line stirring rather than as something new. */
-  it("draws the bars in the border's colour", async () => {
+  /** Grey, but darker than the line it sits on, which was too faint to notice at a glance. */
+  it("draws the bars in the muted foreground grey", async () => {
     const bar = await busyShell();
 
     for (const one of bar.querySelectorAll("[data-busy-bar]")) {
-      expect(one.className).toContain("bg-border");
+      expect(one.className).toContain("bg-muted-foreground");
     }
   });
 
