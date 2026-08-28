@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
 import { storedEventSeries } from "@/test/event-series";
 import type { RegistrationInput } from "@/lib/schemas/registration";
@@ -15,20 +15,36 @@ vi.mock("@/lib/firebase/admin", () => ({
 }));
 
 const { saveRegistration } = await import("./registration-service");
-const { REGISTRATION_NOT_OPEN_HINT, recordIdFor } = await import("./registration");
+const { ANSWER_NO_LONGER_OFFERED_HINT, REGISTRATION_NOT_OPEN_HINT, recordIdFor } =
+  await import("./registration");
+const { FOOD_OPTION_OTHER } = await import("@/lib/schemas/master-data");
 const { ServiceError } = await import("@/lib/service-error");
 
 const STUDENT = "jane.doe@student.htldornbirn.at";
 const RECORD_ID = recordIdFor("s1", STUDENT);
 
 beforeEach(() => firestore.reset());
+afterEach(() => vi.restoreAllMocks());
 
-/** Registering needs a class to pick from as much as it needs an event series (US-6, US-11). */
+/**
+ * Registering needs a class to pick from as much as it needs an event series (US-6, US-11), and
+ * every other answer has to be one the series offers (US-27) — so the lists a student picks from
+ * are part of what makes a series registrable at all.
+ */
 function seedEventSeries(id: string, fields: Record<string, unknown> = {}) {
   firestore.seed(
     "eventSeries",
     id,
-    storedEventSeries({ name: `Eventreihe ${id}`, classOptions: ["3AHME"], ...fields }),
+    storedEventSeries({
+      name: `Eventreihe ${id}`,
+      classOptions: ["3AHME", "4AHME"],
+      programs: [{ name: "Ski", requiredEquipment: [] }],
+      skillLevels: ["Anfänger"],
+      seasonPassOptions: ["Keine"],
+      busPickupPoints: ["HTL Dornbirn"],
+      foodOptions: ["Vegetarisch"],
+      ...fields,
+    }),
   );
 }
 
@@ -128,6 +144,76 @@ describe("saveRegistration", () => {
       code: "CONFLICT",
       message: REGISTRATION_NOT_OPEN_HINT,
     });
+    expect(firestore.count("registrations")).toBe(0);
+  });
+
+  /**
+   * The other half of closing the in-use race (US-27): the series is read inside this save's own
+   * transaction, so a teacher removing an option makes the save conflict, retry, and be refused
+   * here rather than storing a value the series no longer offers.
+   */
+  it("refuses an answer the event series no longer offers", async () => {
+    seedEventSeries("s1", {
+      isActive: true,
+      programs: [{ name: "Snowboard", requiredEquipment: [] }],
+    });
+
+    await expect(saveRegistration(STUDENT, attending)).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: ANSWER_NO_LONGER_OFFERED_HINT,
+    });
+    expect(firestore.count("registrations")).toBe(0);
+  });
+
+  it("asks the student to reload rather than storing an answer nothing offers", async () => {
+    seedEventSeries("s1", { isActive: true, skillLevels: ["Profi"] });
+
+    await expect(saveRegistration(STUDENT, attending)).rejects.toMatchObject({
+      message: ANSWER_NO_LONGER_OFFERED_HINT,
+    });
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ hasRegistrations: false });
+  });
+
+  it("checks every list-backed answer, not only the one the form asks first", async () => {
+    seedEventSeries("s1", { isActive: true, busPickupPoints: ["Bregenz"] });
+
+    await expect(saveRegistration(STUDENT, attending)).rejects.toMatchObject({
+      message: ANSWER_NO_LONGER_OFFERED_HINT,
+    });
+  });
+
+  /** An empty list asks no question (US-21), so leaving it unanswered is not an unoffered answer. */
+  it("lets a question the event series no longer asks stay unanswered", async () => {
+    seedEventSeries("s1", { isActive: true, seasonPassOptions: [] });
+
+    const record = await saveRegistration(STUDENT, { ...attending, seasonPassOption: null });
+
+    expect(record.seasonPassOption).toBeNull();
+  });
+
+  /** "Sonstiges" is never a row a teacher keeps, but it is offered beside a non-empty list (US-9). */
+  it("accepts the free-text food choice while the food list has rows to offer", async () => {
+    seedEventSeries("s1", { isActive: true });
+
+    const record = await saveRegistration(STUDENT, {
+      ...attending,
+      foodOption: FOOD_OPTION_OTHER,
+      foodOtherText: "Laktosefrei",
+    });
+
+    expect(record.foodOption).toBe(FOOD_OPTION_OTHER);
+  });
+
+  it("refuses the free-text food choice where the food question is not asked at all", async () => {
+    seedEventSeries("s1", { isActive: true, foodOptions: [] });
+
+    await expect(
+      saveRegistration(STUDENT, {
+        ...attending,
+        foodOption: FOOD_OPTION_OTHER,
+        foodOtherText: "Laktosefrei",
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT", message: ANSWER_NO_LONGER_OFFERED_HINT });
     expect(firestore.count("registrations")).toBe(0);
   });
 
@@ -263,17 +349,25 @@ describe("saveRegistration", () => {
 
   it("writes the record and the mirror together, so neither can land without the other", async () => {
     seedEventSeries("s1", { isActive: true });
+    const writes = vi.spyOn(firestore, "applyWrite");
 
     await saveRegistration(STUDENT, attending);
 
-    expect(firestore.batchSizes).toEqual([2]);
+    expect(firestore.transactionCount).toBe(1);
+    expect(writes.mock.calls.map(([write]) => write.ref.path)).toEqual([
+      `registrations/${RECORD_ID}`,
+      "eventSeries/s1",
+    ]);
   });
 
   it("leaves the mirror alone once it already says so", async () => {
     seedEventSeries("s1", { isActive: true, hasRegistrations: true });
+    const writes = vi.spyOn(firestore, "applyWrite");
 
     await saveRegistration(STUDENT, attending);
 
-    expect(firestore.batchSizes).toEqual([1]);
+    expect(writes.mock.calls.map(([write]) => write.ref.path)).toEqual([
+      `registrations/${RECORD_ID}`,
+    ]);
   });
 });

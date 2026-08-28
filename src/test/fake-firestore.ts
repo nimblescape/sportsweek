@@ -82,7 +82,7 @@ export class FakeDocumentReference {
   }
 }
 
-type Filter = { field: string; value: unknown };
+type Filter = { field: string; operator: "==" | "array-contains"; value: unknown };
 
 export class FakeAggregateSnapshot {
   constructor(private readonly matches: number) {}
@@ -101,13 +101,15 @@ export class FakeQuery {
   ) {}
 
   where(field: string, operator: string, value: unknown): FakeQuery {
-    if (operator !== "==") {
-      throw new Error(`FakeFirestore only supports "==" queries, got "${operator}"`);
+    if (operator !== "==" && operator !== "array-contains") {
+      throw new Error(
+        `FakeFirestore supports "==" and "array-contains" queries, got "${operator}"`,
+      );
     }
     return new FakeQuery(
       this.firestore,
       this.collectionPath,
-      [...this.filters, { field, value }],
+      [...this.filters, { field, operator, value }],
       this.limitCount,
     );
   }
@@ -320,7 +322,12 @@ export class FakeFirestore {
 
   private matching(collectionPath: string, filters: Filter[]): [string, DocumentData][] {
     return [...this.collectionMap(collectionPath).entries()].filter(([, data]) =>
-      filters.every((filter) => data[filter.field] === filter.value),
+      filters.every((filter) => {
+        const stored = data[filter.field];
+        return filter.operator === "array-contains"
+          ? Array.isArray(stored) && stored.includes(filter.value)
+          : stored === filter.value;
+      }),
     );
   }
 
