@@ -46,10 +46,10 @@ function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps)
             aria-pressed={pressed}
             onClick={() => onSelect(one.id)}
           >
-            {one.name}
             {one.isOpenToStudents ? (
               <DoorOpen aria-label={OPEN_TO_STUDENTS_LABEL} className="size-4 shrink-0" />
             ) : null}
+            {one.name}
           </Button>
         );
       })}

@@ -6,13 +6,15 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Copy, RefreshCw } from "lucide-react";
+import { ChevronRight, Copy, QrCode, RefreshCw } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
 import { invitationLink } from "@/lib/invitations/invitation-link";
+import { InvitationQr } from "./invitation-qr";
 import { classFigures, type ClassGroup, type SkillColumn } from "@/lib/assignment/statistics";
 import {
   EMPTY_FILTER,
@@ -45,6 +47,8 @@ type ClassCardsProps = {
   columns: readonly SkillColumn[];
   filterGroups: readonly FilterGroup[];
   invitations: InvitationControls | null;
+  /** Shown beside the class on the QR surface, so a projected code names what it enrols into. */
+  eventSeriesName: string;
 };
 
 /**
@@ -59,6 +63,7 @@ export function ClassCards({
   columns,
   filterGroups,
   invitations,
+  eventSeriesName,
 }: ClassCardsProps) {
   // A card is one class already, so offering the class tags would only let it empty itself.
   const groups = filterGroups.filter((group) => group.category !== "class");
@@ -74,6 +79,7 @@ export function ClassCards({
           columns={columns}
           filterGroups={groups}
           invitations={invitations}
+          eventSeriesName={eventSeriesName}
         />
       ))}
     </div>
@@ -87,19 +93,23 @@ function ClassCard({
   columns,
   filterGroups,
   invitations,
+  eventSeriesName,
 }: Omit<ClassCardsProps, "rows"> & { row: ClassGroup }) {
   const [expanded, setExpanded] = useState(true);
   const [filter, setFilter] = useState<StudentFilter>(EMPTY_FILTER);
   const [countFiltered, setCountFiltered] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [shownCode, setShownCode] = useState<string | null>(null);
+  const [confirmingRegenerate, setConfirmingRegenerate] = useState(false);
 
   const shown = filterStudents(row.students, filter);
   const figures = countFiltered ? classFigures(shown, columns) : row;
 
-  async function handOut(mint: () => Promise<string>) {
+  /** Both controls mint where the class has no link yet, which is what opens the series (US-19). */
+  async function withLink(mint: () => Promise<string>, deliver: (link: string) => void) {
     setLinkError(null);
     try {
-      await navigator.clipboard.writeText(invitationLink(await mint()));
+      deliver(invitationLink(await mint()));
     } catch (caught) {
       setLinkError(
         caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
@@ -107,13 +117,30 @@ function ClassCard({
     }
   }
 
+  const handOut = (mint: () => Promise<string>) =>
+    withLink(mint, (link) => void navigator.clipboard.writeText(link));
+
   return (
     <Card size="sm" role="group" aria-label={row.class}>
       <CardContent className="flex flex-col gap-4">
-        {/* The controls sit at the card's edge rather than after the title, so they line up down
-            the page instead of moving with the length of each class's name and count. */}
         <CardTitle className="flex items-center justify-between gap-3">
-          <span>{`${row.class}: ${row.total}`}</span>
+          <span className="flex items-center gap-1.5">
+            <button
+              type="button"
+              aria-label={`Details zu ${row.class}`}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((open) => !open)}
+              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-md p-0.5 transition-colors outline-none focus-visible:ring-3"
+            >
+              <ChevronRight
+                aria-hidden
+                className={cn("size-4 transition-transform", expanded && "rotate-90")}
+              />
+            </button>
+            {`${row.class}: ${row.total}`}
+          </span>
+          {/* At the card's edge, so they line up down the page rather than moving with the
+              length of each class's name and count. */}
           <div className="flex shrink-0 items-center gap-1">
             {invitations === null ? null : (
               <>
@@ -128,6 +155,17 @@ function ClassCard({
                   </Button>
                 </Tooltip>
 
+                <Tooltip label="QR-Code zeigen">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`QR-Code für ${row.class} zeigen`}
+                    onClick={() => withLink(() => invitations.linkFor(row.class), setShownCode)}
+                  >
+                    <QrCode aria-hidden />
+                  </Button>
+                </Tooltip>
+
                 {/* Regenerating a link nobody was given undoes nothing, so it is offered only
                     once there is a link to invalidate (US-23). */}
                 {invitations.tokenFor(row.class) === null ? null : (
@@ -136,7 +174,7 @@ function ClassCard({
                       variant="ghost"
                       size="icon-sm"
                       aria-label={`Link für ${row.class} neu erstellen`}
-                      onClick={() => handOut(() => invitations.regenerate(row.class))}
+                      onClick={() => setConfirmingRegenerate(true)}
                     >
                       <RefreshCw aria-hidden />
                     </Button>
@@ -144,19 +182,6 @@ function ClassCard({
                 )}
               </>
             )}
-
-            <button
-              type="button"
-              aria-label={`Details zu ${row.class}`}
-              aria-expanded={expanded}
-              onClick={() => setExpanded((open) => !open)}
-              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-md p-0.5 transition-colors outline-none focus-visible:ring-3"
-            >
-              <ChevronRight
-                aria-hidden
-                className={cn("size-4 transition-transform", expanded && "rotate-90")}
-              />
-            </button>
           </div>
         </CardTitle>
 
@@ -164,6 +189,52 @@ function ClassCard({
           <p role="alert" className="text-destructive text-sm">
             {linkError}
           </p>
+        )}
+
+        {shownCode !== null && (
+          <InvitationQr
+            eventSeriesName={eventSeriesName}
+            className={row.class}
+            link={shownCode}
+            onClose={() => setShownCode(null)}
+          />
+        )}
+
+        {/* Asked rather than done, because the link may already be in a class's hands and the
+            control sits one press away from the one that copies it (US-23). */}
+        {confirmingRegenerate && invitations !== null && (
+          <Dialog
+            open
+            tone="destructive"
+            title="Link neu erstellen"
+            onClose={() => setConfirmingRegenerate(false)}
+            footer={
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setConfirmingRegenerate(false)}
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    setConfirmingRegenerate(false);
+                    void handOut(() => invitations.regenerate(row.class));
+                  }}
+                >
+                  Neu erstellen
+                </Button>
+              </>
+            }
+          >
+            <p className="text-sm">
+              {`Der bisherige Link für ${row.class} funktioniert danach nicht mehr. ` +
+                "Bereits angemeldete Schüler:innen bleiben angemeldet."}
+            </p>
+          </Dialog>
         )}
 
         {expanded && (

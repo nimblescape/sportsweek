@@ -49,6 +49,7 @@ function setup(students: RosterStudent[] = []) {
       columns={COLUMNS}
       filterGroups={FILTERS}
       invitations={null}
+      eventSeriesName="Wintersportwoche 2026"
     />,
   );
 }
@@ -243,6 +244,7 @@ describe("ClassCards — a dimension with no list", () => {
         columns={columns}
         filterGroups={FILTERS}
         invitations={null}
+        eventSeriesName="Wintersportwoche 2026"
       />,
     );
   }
@@ -313,6 +315,7 @@ describe("ClassCards — the invitation controls", () => {
         columns={COLUMNS}
         filterGroups={FILTERS}
         invitations={controls as never}
+        eventSeriesName="Wintersportwoche 2026"
       />,
     );
   }
@@ -342,6 +345,7 @@ describe("ClassCards — the invitation controls", () => {
     await userEvent.click(
       card("5AHIF").getByRole("button", { name: "Link für 5AHIF neu erstellen" }),
     );
+    await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
 
     expect(invitations.regenerate).toHaveBeenCalledWith("5AHIF");
     expect(invitations.regenerate).not.toHaveBeenCalledWith("5BHIF");
@@ -371,5 +375,155 @@ describe("ClassCards — the invitation controls", () => {
     setupWith(null);
 
     expect(card("5AHIF").queryByRole("button", { name: /Link f/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("ClassCards — showing a link as a QR code", () => {
+  const writeText = vi.fn();
+  const invitations = {
+    tokenFor: vi.fn(() => "tok" as string | null),
+    linkFor: vi.fn(async () => "tok"),
+    regenerate: vi.fn(async () => "fresh"),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    invitations.tokenFor.mockReturnValue("tok");
+    invitations.linkFor.mockResolvedValue("tok");
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+  });
+
+  function setupWith(controls: unknown = invitations) {
+    render(
+      <ClassCards
+        rows={classOverview([], CLASSES, COLUMNS)}
+        programs={PROGRAMS}
+        skillLevels={SKILL_LEVELS}
+        columns={COLUMNS}
+        filterGroups={FILTERS}
+        invitations={controls as never}
+        eventSeriesName="Wintersportwoche 2026"
+      />,
+    );
+  }
+
+  it("shows that class's link as a code, on a surface naming both", async () => {
+    setupWith();
+
+    await userEvent.click(card("5AHIF").getByRole("button", { name: "QR-Code für 5AHIF zeigen" }));
+
+    const surface = await screen.findByRole("dialog");
+    expect(surface).toHaveTextContent("Wintersportwoche 2026");
+    expect(surface).toHaveTextContent("5AHIF");
+  });
+
+  /** Generating the first link opens the series, so the code is offered before one exists. */
+  it("mints a link for a class that has none rather than showing an empty code", async () => {
+    invitations.tokenFor.mockReturnValue(null);
+    setupWith();
+
+    await userEvent.click(card("5AHIF").getByRole("button", { name: "QR-Code für 5AHIF zeigen" }));
+
+    expect(invitations.linkFor).toHaveBeenCalledWith("5AHIF");
+  });
+
+  it("copies nothing when the code is shown, since nothing was asked to be copied", async () => {
+    setupWith();
+
+    await userEvent.click(card("5AHIF").getByRole("button", { name: "QR-Code für 5AHIF zeigen" }));
+
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("takes the surface away again", async () => {
+    setupWith();
+    await userEvent.click(card("5AHIF").getByRole("button", { name: "QR-Code für 5AHIF zeigen" }));
+    await screen.findByRole("dialog");
+
+    await userEvent.click(screen.getByRole("button", { name: "Schließen" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("offers no code where the series cannot be opened", () => {
+    setupWith(null);
+
+    expect(card("5AHIF").queryByRole("button", { name: /QR-Code/ })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Regenerating stops a link a teacher may already have sent out. One icon-press away from copy,
+ * that is a mistake waiting to be made, so it is asked about first (US-23).
+ */
+describe("ClassCards — regenerating asks first", () => {
+  const invitations = {
+    tokenFor: vi.fn(() => "tok" as string | null),
+    linkFor: vi.fn(async () => "tok"),
+    regenerate: vi.fn(async () => "fresh"),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    invitations.tokenFor.mockReturnValue("tok");
+    invitations.regenerate.mockResolvedValue("fresh");
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn() },
+      configurable: true,
+    });
+  });
+
+  function setupWith() {
+    render(
+      <ClassCards
+        rows={classOverview([], CLASSES, COLUMNS)}
+        programs={PROGRAMS}
+        skillLevels={SKILL_LEVELS}
+        columns={COLUMNS}
+        filterGroups={FILTERS}
+        invitations={invitations as never}
+        eventSeriesName="Wintersportwoche 2026"
+      />,
+    );
+  }
+
+  const press = () =>
+    userEvent.click(card("5AHIF").getByRole("button", { name: "Link für 5AHIF neu erstellen" }));
+
+  it("regenerates nothing on the press itself", async () => {
+    setupWith();
+
+    await press();
+
+    expect(invitations.regenerate).not.toHaveBeenCalled();
+  });
+
+  it("names the class and says what the old link stops doing", async () => {
+    setupWith();
+
+    await press();
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("5AHIF");
+    expect(dialog).toHaveTextContent(/nicht mehr/i);
+  });
+
+  it("regenerates once it is confirmed", async () => {
+    setupWith();
+    await press();
+
+    await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
+
+    expect(invitations.regenerate).toHaveBeenCalledWith("5AHIF");
+  });
+
+  it("leaves the link alone when the teacher backs out", async () => {
+    setupWith();
+    await press();
+
+    await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    expect(invitations.regenerate).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

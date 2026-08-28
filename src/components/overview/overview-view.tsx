@@ -94,6 +94,7 @@ export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
           columns={columns}
           filterGroups={filterGroups}
           invitations={openable ? invitations : null}
+          eventSeriesName={eventSeries.name}
         />
       )}
     </div>
