@@ -11,6 +11,11 @@ const pathname = vi.fn(() => "/app/s1/report");
 
 vi.mock("next/navigation", () => ({ usePathname: () => pathname() }));
 
+// The bar carries it at its foot, and it reaches Firebase, which no test here has cause to start.
+vi.mock("@/components/auth/sign-out-button", () => ({
+  SignOutButton: () => <button type="button">Abmelden</button>,
+}));
+
 const { TeacherNav } = await import("@/components/layout/teacher-nav");
 
 const SUB_ITEMS = [

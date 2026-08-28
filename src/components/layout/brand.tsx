@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
  */
 export function Brand({ nameHidden = false }: { nameHidden?: boolean }) {
   return (
-    <span className="flex min-h-9 shrink-0 items-center gap-2 px-3 py-2">
+    <span className="flex min-h-9 shrink-0 items-center gap-3 px-2 py-2">
       <span className="flex w-6 shrink-0 items-center justify-center">
         <Image
           src="/htl-logo.svg"

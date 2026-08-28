@@ -11,6 +11,7 @@ import { usePathname } from "next/navigation";
 import { ChartColumn, ChevronLeft, ChevronRight, Database, FileText, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Brand } from "@/components/layout/brand";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { masterDataSections } from "@/lib/master-data/categories";
 import { selectedEventSeriesIdFrom } from "@/lib/event-series/event-series-selection";
 import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
@@ -28,7 +29,7 @@ function itemClasses(active: boolean) {
   return cn(
     // A fixed height, because collapsing takes the label out of the flow: without it every row
     // would shrink to its icon and the whole bar would shift as it closes.
-    "flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+    "flex min-h-9 w-full items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors",
     active ? "bg-accent text-accent-foreground font-medium" : "hover:bg-muted",
   );
 }
@@ -65,7 +66,7 @@ export function TeacherNav({
   return (
     <nav
       aria-label="Hauptnavigation"
-      className={cn("flex h-full flex-col gap-1 p-3", collapsed ? "md:w-16" : "md:w-56")}
+      className={cn("flex h-full flex-col gap-1 p-2", collapsed ? "md:w-16" : "md:w-56")}
     >
       {/* Heads the bar rather than the header, because the bar runs to the top of the window and
           the column beside it is where a page begins. */}
@@ -118,20 +119,26 @@ export function TeacherNav({
         </ul>
       )}
 
-      <button
-        type="button"
-        onClick={() => setCollapsed((on) => !on)}
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
-        className={cn(itemClasses(false), "mt-auto hidden justify-end md:flex")}
-      >
-        {/* Points the way the bar is about to move. */}
-        {collapsed ? (
-          <ChevronRight aria-hidden className="size-6 shrink-0" />
-        ) : (
-          <ChevronLeft aria-hidden className="size-6 shrink-0" />
-        )}
-      </button>
+      {/* The foot of the bar: who is signed in, and the bar's own control. Stacked rather than
+          side by side, because a collapsed rail is one icon wide. */}
+      <div className="mt-auto flex flex-col gap-1">
+        <SignOutButton labelHidden={collapsed} />
+
+        <button
+          type="button"
+          onClick={() => setCollapsed((on) => !on)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
+          className={cn(itemClasses(false), "hidden justify-end md:flex")}
+        >
+          {/* Points the way the bar is about to move. */}
+          {collapsed ? (
+            <ChevronRight aria-hidden className="size-6 shrink-0" />
+          ) : (
+            <ChevronLeft aria-hidden className="size-6 shrink-0" />
+          )}
+        </button>
+      </div>
     </nav>
   );
 }

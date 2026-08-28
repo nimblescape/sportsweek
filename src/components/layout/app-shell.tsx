@@ -44,7 +44,9 @@ export function AppShell({
           {nav ? null : <Brand />}
           {/* The scope leads the header, because it says what every page below it is about. */}
           {scope}
-          <SignOutButton />
+          {/* Where there is a bar, signing out sits at the foot of it, under the person's own
+              mark. A student has no bar, so it stays here. */}
+          {nav ? null : <SignOutButton />}
           {/* Last, and positioned against the header, whose bottom border it sits on. */}
           <BusyBar />
         </header>
