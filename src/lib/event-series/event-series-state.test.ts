@@ -52,8 +52,8 @@ describe("EVENT_SERIES_STATE_LABELS", () => {
     expect(EVENT_SERIES_STATE_LABELS).toEqual({
       archived: "Archiviert",
       template: "Vorlage",
-      open: "Anmeldung freigeschaltet",
-      closed: "Anmeldung nicht freigeschaltet",
+      open: "Schüler:innen-Anmeldung offen",
+      closed: "Schüler:innen-Anmeldung geschlossen",
     });
   });
 });

@@ -813,9 +813,9 @@ series up is one place rather than three.
 - It lists **one card per class** of the selected series, as it does today: the students of that
   class, attending and not, and that class's figures.
 - **The title line carries a tag that opens and closes the series to students.** It is the
-  application's one tag component with `aria-pressed`, reading "Anmeldung freigeschaltet" when the
-  series is open and "Anmeldung nicht freigeschaltet" when it is not — Q19's two labels with the
-  noun they are about, since a bare "Freigeschaltet" in a title line does not say what is.
+  application's one tag component with `aria-pressed`, reading "Schüler:innen-Anmeldung offen" when
+  the series is open and "Schüler:innen-Anmeldung geschlossen" when it is not — Q19's two labels
+  with the noun they are about, since a bare "Offen" in a title line does not say what is.
 - Pressing it is the whole of closing registration (US-19). There is no second control anywhere
   else: two controls for one decision would be two answers to the same question.
 - The tag is **absent rather than disabled** where the series can never be opened — a template

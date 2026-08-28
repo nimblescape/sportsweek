@@ -48,9 +48,9 @@ describe("EventSeriesList", () => {
   });
 
   it.each([
-    ["Wintersportwoche 2026", "Anmeldung freigeschaltet"],
+    ["Wintersportwoche 2026", "Schüler:innen-Anmeldung offen"],
     ["Wintersportwoche 2025", "Archiviert"],
-    ["Wintersportwoche 2027", "Anmeldung nicht freigeschaltet"],
+    ["Wintersportwoche 2027", "Schüler:innen-Anmeldung geschlossen"],
     ["Wintersportwochen", "Vorlage"],
   ])("shows %s with the state %s", (name, state) => {
     renderList();

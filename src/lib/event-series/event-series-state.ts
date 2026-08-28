@@ -40,8 +40,8 @@ export function eventSeriesState(
 export const EVENT_SERIES_STATE_LABELS: Record<EventSeriesState, string> = {
   archived: "Archiviert",
   template: "Vorlage",
-  open: "Anmeldung freigeschaltet",
-  closed: "Anmeldung nicht freigeschaltet",
+  open: "Schüler:innen-Anmeldung offen",
+  closed: "Schüler:innen-Anmeldung geschlossen",
 };
 
 /** Archived event series are hidden by default; the list offers a toggle to bring them back (US-19). */
