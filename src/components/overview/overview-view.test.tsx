@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -13,6 +14,7 @@ const useEventSeries = vi.fn();
 const useRoster = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
+const apiRequest = vi.fn();
 
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
@@ -21,9 +23,15 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
   usePrograms: () => usePrograms(),
 }));
 vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
+vi.mock("@/lib/api/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/client")>()),
+  apiRequest: (...args: unknown[]) => apiRequest(...args),
+}));
 
 const { OverviewView: ScopedOverviewView } = await import("./overview-view");
-const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");
+const { NO_EVENT_SERIES_HINT, EVENT_SERIES_STATE_LABELS } =
+  await import("@/lib/event-series/event-series-state");
+const { ApiRequestError } = await import("@/lib/api/client");
 
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
 // only has to be present.
@@ -53,6 +61,7 @@ const listOf = (...names: string[]) => ({ items: names, loading: false, error: n
 
 beforeEach(() => {
   vi.clearAllMocks();
+  apiRequest.mockResolvedValue(undefined);
   useEventSeries.mockReturnValue({ eventSeries: [eventSeries], loading: false, error: null });
   useRoster.mockReturnValue({
     students: [student("Muster"), student("Cerny", { isAttending: false })],
@@ -105,5 +114,93 @@ describe("OverviewView", () => {
     render(<OverviewView />);
 
     expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
+  });
+});
+
+/**
+ * Pressing this tag is the whole of opening and closing registration (US-19, US-29). There is no
+ * second control anywhere else — two controls for one decision would be two answers to it.
+ */
+describe("OverviewView — the registration tag", () => {
+  const tag = () => screen.getByRole("button", { name: EVENT_SERIES_STATE_LABELS.open });
+
+  it("reads that the series is open and shows the tag pressed", () => {
+    render(<OverviewView />);
+
+    expect(tag()).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("reads that a closed series is closed, and is not pressed", () => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, isOpenToStudents: false }],
+      loading: false,
+      error: null,
+    });
+
+    render(<OverviewView />);
+
+    const closed = screen.getByRole("button", { name: EVENT_SERIES_STATE_LABELS.closed });
+    expect(closed).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("opens the series when pressed", async () => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, isOpenToStudents: false }],
+      loading: false,
+      error: null,
+    });
+    render(<OverviewView />);
+
+    await userEvent.click(screen.getByRole("button", { name: EVENT_SERIES_STATE_LABELS.closed }));
+
+    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1", {
+      method: "PATCH",
+      body: { isOpenToStudents: true },
+    });
+  });
+
+  it("closes it again when pressed while open", async () => {
+    render(<OverviewView />);
+
+    await userEvent.click(tag());
+
+    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1", {
+      method: "PATCH",
+      body: { isOpenToStudents: false },
+    });
+  });
+
+  it("says what the server said when the change is refused", async () => {
+    apiRequest.mockRejectedValue(new ApiRequestError("Eine Vorlage geht nicht."));
+    render(<OverviewView />);
+
+    await userEvent.click(tag());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Eine Vorlage geht nicht.");
+  });
+
+  /** A page that offers to open what cannot be opened is a page explaining a refusal it need not make. */
+  it("offers no tag at all for a template, which can never be opened", () => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, isTemplate: true, isOpenToStudents: false }],
+      loading: false,
+      error: null,
+    });
+
+    render(<OverviewView />);
+
+    expect(screen.queryByRole("button", { name: /Anmeldung/ })).not.toBeInTheDocument();
+  });
+
+  it("offers no tag for an archived series, which cannot even be selected", () => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, isArchived: true, isOpenToStudents: false }],
+      loading: false,
+      error: null,
+    });
+
+    render(<OverviewView />);
+
+    expect(screen.queryByRole("button", { name: /Anmeldung/ })).not.toBeInTheDocument();
   });
 });

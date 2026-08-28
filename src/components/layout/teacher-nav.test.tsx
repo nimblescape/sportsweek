@@ -38,11 +38,11 @@ describe("TeacherNav", () => {
       .map((element) => element.textContent);
 
     expect(labels).toEqual(
-      expect.arrayContaining(["Bericht", "Zuteilung", "\u00dcbersicht", "Stammdaten"]),
+      expect.arrayContaining(["\u00dcbersicht", "Zuteilung", "Bericht", "Stammdaten"]),
     );
-    expect(labels.indexOf("Bericht")).toBeLessThan(labels.indexOf("Zuteilung"));
-    expect(labels.indexOf("Zuteilung")).toBeLessThan(labels.indexOf("\u00dcbersicht"));
-    expect(labels.indexOf("\u00dcbersicht")).toBeLessThan(labels.indexOf("Stammdaten"));
+    expect(labels.indexOf("\u00dcbersicht")).toBeLessThan(labels.indexOf("Zuteilung"));
+    expect(labels.indexOf("Zuteilung")).toBeLessThan(labels.indexOf("Bericht"));
+    expect(labels.indexOf("Bericht")).toBeLessThan(labels.indexOf("Stammdaten"));
   });
 
   it("gives every top-level item an icon to be recognised by once the labels are gone", () => {

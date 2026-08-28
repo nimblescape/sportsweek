@@ -83,20 +83,24 @@ function ClassCard({
   return (
     <Card size="sm" role="group" aria-label={row.class}>
       <CardContent className="flex flex-col gap-4">
-        <CardTitle className="flex items-center gap-1.5">
-          <button
-            type="button"
-            aria-label={`Details zu ${row.class}`}
-            aria-expanded={expanded}
-            onClick={() => setExpanded((open) => !open)}
-            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-md p-0.5 transition-colors outline-none focus-visible:ring-3"
-          >
-            <ChevronRight
-              aria-hidden
-              className={cn("size-4 transition-transform", expanded && "rotate-90")}
-            />
-          </button>
-          {`${row.class}: ${row.total}`}
+        {/* The controls sit at the card's edge rather than after the title, so they line up down
+            the page instead of moving with the length of each class's name and count. */}
+        <CardTitle className="flex items-center justify-between gap-3">
+          <span>{`${row.class}: ${row.total}`}</span>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              aria-label={`Details zu ${row.class}`}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((open) => !open)}
+              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-md p-0.5 transition-colors outline-none focus-visible:ring-3"
+            >
+              <ChevronRight
+                aria-hidden
+                className={cn("size-4 transition-transform", expanded && "rotate-90")}
+              />
+            </button>
+          </div>
         </CardTitle>
 
         {expanded && (

@@ -24,9 +24,9 @@ import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
 function topLevel(eventSeriesId: string) {
   const routes = eventSeriesRoutes(eventSeriesId);
   return [
-    { href: routes.report, label: "Bericht", Icon: FileText },
-    { href: routes.assignment, label: "Zuteilung", Icon: Shuffle },
     { href: routes.overview, label: "\u00dcbersicht", Icon: ChartColumn },
+    { href: routes.assignment, label: "Zuteilung", Icon: Shuffle },
+    { href: routes.report, label: "Bericht", Icon: FileText },
   ];
 }
 

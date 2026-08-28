@@ -5,11 +5,17 @@
  */
 "use client";
 
+import { useState } from "react";
 import { classOverview } from "@/lib/assignment/statistics";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
+import { ApiRequestError, apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
-import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
+import {
+  EVENT_SERIES_STATE_LABELS,
+  NO_EVENT_SERIES_HINT,
+} from "@/lib/event-series/event-series-state";
 import { PageHeading } from "@/components/layout/page-heading";
+import { Tag } from "@/components/ui/tag";
 import { ClassCards } from "./class-cards";
 
 /**
@@ -20,17 +26,57 @@ import { ClassCards } from "./class-cards";
  */
 export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
   const { eventSeries, loading, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading);
+  useBusyWhile(loading || saving);
+
+  // Neither can ever be open, so neither is offered the control: a page that offers to open what
+  // cannot be opened is a page explaining a refusal it did not have to make (US-19, US-22).
+  const openable = eventSeries !== null && !eventSeries.isTemplate && !eventSeries.isArchived;
+
+  async function setOpenToStudents(isOpenToStudents: boolean) {
+    setActionError(null);
+    setSaving(true);
+    try {
+      await apiRequest(`/api/event-series/${eventSeriesId}`, {
+        method: "PATCH",
+        body: { isOpenToStudents },
+      });
+    } catch (caught) {
+      setActionError(
+        caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <PageHeading>Übersicht</PageHeading>
+      <PageHeading
+        actions={
+          openable ? (
+            <Tag
+              label={
+                eventSeries.isOpenToStudents
+                  ? EVENT_SERIES_STATE_LABELS.open
+                  : EVENT_SERIES_STATE_LABELS.closed
+              }
+              size="sm"
+              pressed={eventSeries.isOpenToStudents}
+              onPress={() => setOpenToStudents(!eventSeries.isOpenToStudents)}
+            />
+          ) : undefined
+        }
+      >
+        Übersicht
+      </PageHeading>
 
-      {error !== null && (
+      {(error ?? actionError) !== null && (
         <p role="alert" className="text-destructive text-sm">
-          {error}
+          {error ?? actionError}
         </p>
       )}
 
