@@ -22,5 +22,5 @@ export default async function AppLandingPage() {
   const remembered = (await cookies()).get(EVENT_SERIES_COOKIE_NAME)?.value;
   const eventSeriesId = await resolveSelectedEventSeriesId(remembered);
 
-  redirect(eventSeriesId === null ? ROUTES.eventSeries : eventSeriesRoutes(eventSeriesId).report);
+  redirect(eventSeriesId === null ? ROUTES.eventSeries : eventSeriesRoutes(eventSeriesId).overview);
 }

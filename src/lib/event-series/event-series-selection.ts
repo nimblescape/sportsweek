@@ -34,14 +34,16 @@ export function selectedEventSeriesIdFrom(pathname: string): string | null {
 /**
  * Where pressing a header tag goes. Selecting another series re-scopes the page that is open
  * rather than navigating away from it (US-20) — the teacher asked a different question about the
- * same view. From a page that is about no series there is no view to keep, so the report opens.
+ * same view. From a page that is about no series there is no view to keep, so the overview opens:
+ * it is where a series is run from (US-29).
  */
 export function rescopedPath(pathname: string, eventSeriesId: string): string {
   const scope = `${ROUTES.appRoot}/${encodeURIComponent(eventSeriesId)}`;
-  if (selectedEventSeriesIdFrom(pathname) === null) return eventSeriesRoutes(eventSeriesId).report;
+  if (selectedEventSeriesIdFrom(pathname) === null)
+    return eventSeriesRoutes(eventSeriesId).overview;
 
   const rest = pathname.split("/").slice(3);
-  return rest.length === 0 ? `${scope}/report` : `${scope}/${rest.join("/")}`;
+  return rest.length === 0 ? `${scope}/overview` : `${scope}/${rest.join("/")}`;
 }
 
 /**

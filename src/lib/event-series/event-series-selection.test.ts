@@ -49,11 +49,11 @@ describe("rescopedPath", () => {
     expect(rescopedPath(pathname, "s2")).toBe(expected);
   });
 
-  /** From a page about no series there is no view worth keeping, so the report opens. */
+  /** From a page about no series there is no view worth keeping, so the overview opens. */
   it.each(["/app/event-series", "/app/event-series/s1", "/app"])(
-    "opens the report when leaving %s",
+    "opens the overview when leaving %s",
     (pathname) => {
-      expect(rescopedPath(pathname, "s2")).toBe("/app/s2/report");
+      expect(rescopedPath(pathname, "s2")).toBe("/app/s2/overview");
     },
   );
 
