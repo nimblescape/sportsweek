@@ -5,6 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
+import { storedEventSeries } from "@/test/event-series";
 import { FakeFirestore } from "@/test/fake-firestore";
 
 const firestore = new FakeFirestore();
@@ -29,7 +30,11 @@ const stored = {
   position: 0,
 };
 
-beforeEach(() => firestore.reset());
+beforeEach(() => {
+  firestore.reset();
+  firestore.seed("eventSeries", SERIES, storedEventSeries());
+  firestore.seed("eventSeries", "s2", storedEventSeries({ name: "Wintersportwoche 2027" }));
+});
 
 describe("createSavedReport", () => {
   it("stores both selections under its name, attributed to the teacher who saved it", async () => {
@@ -83,6 +88,17 @@ describe("createSavedReport", () => {
       createSavedReport(SERIES, { name: "   ", filter: selection, fields: [] }, TEACHER),
     ).rejects.toBeInstanceOf(ServiceError);
     expect(firestore.count(PATH)).toBe(0);
+  });
+
+  /**
+   * Firestore writes a subcollection under a document that is not there, so without this a save
+   * into a deleted series leaves a report nothing can reach and no delete will ever sweep.
+   */
+  it("refuses a series that is not there, rather than orphaning the report under it", async () => {
+    await expect(
+      createSavedReport("gone", { name: "5AHIF", filter: selection, fields: [] }, TEACHER),
+    ).rejects.toBeInstanceOf(ServiceError);
+    expect(firestore.count(savedReportPath("gone"))).toBe(0);
   });
 
   it("keeps only the categories the report filters by, so a stray one cannot be stored", async () => {

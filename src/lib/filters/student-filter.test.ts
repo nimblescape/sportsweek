@@ -14,6 +14,7 @@ import {
 } from "@/lib/registration/answer-labels";
 import { REPORT_FIELD_TAGS } from "@/lib/report/report-fields";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
+import { storedEventSeries } from "@/test/event-series";
 import {
   ATTENDANCE_VALUES,
   COMPLETENESS_VALUES,
@@ -27,6 +28,7 @@ import {
   filterSummary,
   hasNoTags,
   matchesFilter,
+  prunedToLists,
   sameFilter,
   scopeFilterToGroups,
   toggleTag,
@@ -557,6 +559,65 @@ describe("scopeFilterToGroups", () => {
     const filter = { ...withTags(["class", "3AHME"]), name: "Muster" };
 
     expect(scopeFilterToGroups(filter, GROUPS).name).toBe("Muster");
+  });
+});
+
+/**
+ * What a report copied into a new series keeps (US-22, Q10). Unlike the read-time scoping above,
+ * this is told which lists exist rather than which categories a view offers, so a category no
+ * list backs is never in question.
+ */
+describe("prunedToLists", () => {
+  const series = storedEventSeries({
+    events: ["Woche 1"],
+    classOptions: ["5AHIF"],
+    programs: [{ name: "Ski", requiredEquipment: [] }],
+    skillLevels: ["Profi"],
+    seasonPassOptions: ["Kein Skipass"],
+    busPickupPoints: ["HTL Dornbirn"],
+    foodOptions: ["Esse alles"],
+  });
+
+  it("keeps a tag the lists still offer", () => {
+    const filter = toggleTag(EMPTY_FILTER, "class", "5AHIF");
+
+    expect(prunedToLists(filter, series).tags.class).toEqual(["5AHIF"]);
+  });
+
+  it("drops a tag naming something the lists do not offer", () => {
+    const filter = toggleTag(EMPTY_FILTER, "class", "4AHIF");
+
+    expect(prunedToLists(filter, series).tags.class).toEqual([]);
+  });
+
+  it("reads a program by its name, which is what the tag holds", () => {
+    const filter = toggleTag(toggleTag(EMPTY_FILTER, "program", "Ski"), "program", "Rodeln");
+
+    expect(prunedToLists(filter, series).tags.program).toEqual(["Ski"]);
+  });
+
+  it("drops every tag of a list the copy left empty", () => {
+    const filter = toggleTag(EMPTY_FILTER, "skillLevel", "Profi");
+
+    expect(prunedToLists(filter, storedEventSeries()).tags.skillLevel).toEqual([]);
+  });
+
+  /** Attendance, gender, health and completeness are answers, not list entries. */
+  it("leaves a category no list backs alone", () => {
+    const filter = toggleTag(
+      toggleTag(EMPTY_FILTER, "attendance", ATTENDANCE_VALUES.attending),
+      "health",
+      HEALTH_VALUES.noted,
+    );
+
+    const pruned = prunedToLists(filter, storedEventSeries());
+
+    expect(pruned.tags.attendance).toEqual([ATTENDANCE_VALUES.attending]);
+    expect(pruned.tags.health).toEqual([HEALTH_VALUES.noted]);
+  });
+
+  it("leaves the name being searched for alone", () => {
+    expect(prunedToLists({ ...EMPTY_FILTER, name: "Muster" }, series).name).toBe("Muster");
   });
 });
 

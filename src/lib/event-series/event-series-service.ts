@@ -11,6 +11,7 @@ import { reorderCollection } from "@/lib/firebase/reorder";
 import {
   ARCHIVED_IS_READ_ONLY_HINT,
   LAST_TEMPLATE_HINT,
+  NO_SUCH_EVENT_SERIES,
 } from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { savedReportPath } from "@/lib/report/saved-reports";
@@ -122,7 +123,7 @@ export async function updateEventSeries(
     const reference = eventSeriesDoc(id);
     const snapshot = await transaction.get(reference);
     if (!snapshot.exists) {
-      throw new ServiceError(ErrorCode.NotFound, "Diese Eventreihe gibt es nicht.");
+      throw new ServiceError(ErrorCode.NotFound, NO_SUCH_EVENT_SERIES);
     }
 
     const current = eventSeriesSchema.parse({ id, ...snapshot.data() });
@@ -234,7 +235,7 @@ export async function deleteEventSeries(id: string): Promise<void> {
   const reference = eventSeriesDoc(id);
   const snapshot = await reference.get();
   if (!snapshot.exists) {
-    throw new ServiceError(ErrorCode.NotFound, "Diese Eventreihe gibt es nicht.");
+    throw new ServiceError(ErrorCode.NotFound, NO_SUCH_EVENT_SERIES);
   }
 
   const eventSeries = eventSeriesSchema.parse({ id, ...snapshot.data() });

@@ -8,6 +8,8 @@ import { adminDb } from "@/lib/firebase/admin";
 import { reorderCollection } from "@/lib/firebase/reorder";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
+import { NO_SUCH_EVENT_SERIES } from "@/lib/event-series/event-series-state";
+import { COLLECTIONS } from "@/lib/schemas/collections";
 import { savedReportPath } from "@/lib/report/saved-reports";
 import {
   savedReportEditSchema,
@@ -44,6 +46,10 @@ async function readReport(eventSeriesId: string, id: string): Promise<SavedRepor
  * is the session's and not the request's — the declarative write path stays closed (see
  * firestore.rules). They are shared among all teachers, so who saved one decides nothing about
  * who may open, rename or remove it (US-13).
+ *
+ * In a transaction that first reads the series, because Firestore writes a subcollection under a
+ * document that is not there: without the read, a save into a series deleted meanwhile would
+ * leave a report no teacher can reach and no delete will ever sweep.
  */
 export async function createSavedReport(
   eventSeriesId: string,
@@ -56,15 +62,23 @@ export async function createSavedReport(
   }
 
   const row = adminDb.collection(savedReportPath(eventSeriesId));
-  const reference = row.doc();
-  // A new report's tag goes to the end of the row, where the button that made it stands, and
-  // stays there (see Ordering). Two simultaneous saves would tie, which the name tiebreak
-  // absorbs and the next drop renumbers away.
-  const position = (await row.count().get()).data().count;
-  const data = { ...parsed.data, createdByUserId, position };
-  await reference.set(data);
 
-  return { id: reference.id, ...data };
+  return adminDb.runTransaction(async (transaction) => {
+    const series = await transaction.get(
+      adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId),
+    );
+    if (!series.exists) throw new ServiceError(ErrorCode.NotFound, NO_SUCH_EVENT_SERIES);
+
+    // A new report's tag goes to the end of the row, where the button that made it stands, and
+    // stays there (see Ordering). Counted in the transaction, so two saves cannot tie.
+    const existing = await transaction.get(row);
+
+    const reference = row.doc();
+    const data = { ...parsed.data, createdByUserId, position: existing.size };
+    transaction.set(reference, data);
+
+    return { id: reference.id, ...data };
+  });
 }
 
 /**

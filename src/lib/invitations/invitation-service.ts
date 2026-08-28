@@ -9,6 +9,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { NO_SUCH_EVENT_SERIES } from "@/lib/event-series/event-series-state";
 import { eventSeriesSchema } from "@/lib/schemas/event-series";
 import { invitationSchema, type Invitation } from "@/lib/schemas/invitation";
 import { normalizeName } from "@/lib/firebase/name-key";
@@ -47,7 +48,7 @@ export async function createInvitation(
     const reference = adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId);
     const stored = await transaction.get(reference);
     if (!stored.exists) {
-      throw new ServiceError(ErrorCode.NotFound, "Diese Eventreihe gibt es nicht.");
+      throw new ServiceError(ErrorCode.NotFound, NO_SUCH_EVENT_SERIES);
     }
 
     const series = eventSeriesSchema.parse({ id: stored.id, ...stored.data() });

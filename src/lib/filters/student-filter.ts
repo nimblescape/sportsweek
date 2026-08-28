@@ -4,8 +4,13 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { z } from "zod";
-import { ANSWER_LABELS } from "@/lib/master-data/categories";
+import {
+  ANSWER_LABELS,
+  MASTER_DATA_CATEGORIES,
+  type EventSeriesListField,
+} from "@/lib/master-data/categories";
 import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
+import type { EventSeries } from "@/lib/schemas/event-series";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import {
   ATTENDANCE_LABELS,
@@ -176,6 +181,34 @@ export function scopeFilterToGroups(
       }),
     ) as StudentFilter["tags"],
   };
+}
+
+/**
+ * The filter with every tag the given series' lists do not offer taken out.
+ *
+ * What a saved report keeps when it is copied into a new series (US-22, Q10). It differs from
+ * `scopeFilterToGroups` in what it is told: the lists themselves rather than the categories a
+ * view happens to offer, so a category no list backs — attendance, gender, health, completeness
+ * — is never in question and its tags always survive.
+ *
+ * Dropping at copy time rather than at read time is what keeps a copied report from opening as
+ * changed before anybody has changed anything: the report on screen would otherwise differ from
+ * the report as stored the very first time it was opened.
+ */
+export function prunedToLists(
+  filter: StudentFilter,
+  eventSeries: Pick<EventSeries, EventSeriesListField>,
+): StudentFilter {
+  const tags = { ...filter.tags };
+
+  for (const category of Object.values(MASTER_DATA_CATEGORIES)) {
+    const items: readonly (string | { name: string })[] = eventSeries[category.field];
+    const offered = new Set(items.map((item) => (typeof item === "string" ? item : item.name)));
+    const answer = category.usage.field;
+    tags[answer] = tags[answer].filter((value) => offered.has(value));
+  }
+
+  return { ...filter, tags };
 }
 
 /**
