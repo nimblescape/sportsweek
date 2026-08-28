@@ -42,18 +42,6 @@ export function visibleEventSeries<T extends Pick<EventSeries, "isArchived">>(
 }
 
 /**
- * A registration carries no archived flag of its own — its state is derived from the
- * event series it belongs to (US-4, US-11), so archiving an event series locks its records in one write.
- */
-export function isRecordArchived(
-  record: { eventSeriesId: string },
-  allEventSeries: Pick<EventSeries, "id" | "isArchived">[],
-): boolean {
-  const eventSeries = allEventSeries.find((candidate) => candidate.id === record.eventSeriesId);
-  return eventSeries?.isArchived ?? false;
-}
-
-/**
  * Registration, the assignment dialog and the report all bind to the active event series.
  * Having none is a legitimate state a teacher creates by deactivating (US-4) — callers then
  * lock their view instead — whereas an ambiguous result is a data defect and must surface loudly.

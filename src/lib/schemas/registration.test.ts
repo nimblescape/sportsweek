@@ -21,9 +21,11 @@ const validContact = {
 };
 
 const validRecord = {
-  id: "smd-1",
-  userId: "jane.doe@student.htldornbirn.at",
-  eventSeriesId: "event series-1",
+  id: "jane.doe@student.htldornbirn.at",
+  studentUpn: "jane.doe@student.htldornbirn.at",
+  firstName: "Jane",
+  lastName: "Doe",
+  email: "jane.doe@student.htldornbirn.at",
   event: null,
   isIncomplete: false,
   isAttendingSportsWeek: true,
@@ -52,8 +54,14 @@ describe("registrationSchema", () => {
     expect(registrationSchema.parse(validRecord)).toEqual(validRecord);
   });
 
-  it("binds the record to its event series through a genuine foreign key", () => {
-    expect(registrationSchema.safeParse({ ...validRecord, eventSeriesId: "" }).success).toBe(false);
+  /** The one identifying field it keeps, because a record naming nobody is owned by nobody. */
+  it("names the student it belongs to", () => {
+    expect(registrationSchema.safeParse({ ...validRecord, studentUpn: "" }).success).toBe(false);
+  });
+
+  /** The report, the board and both exports read the name from here rather than join (US-26). */
+  it.each(["firstName", "lastName", "email"])("carries the student's %s", (field) => {
+    expect(registrationSchema.safeParse({ ...validRecord, [field]: "" }).success).toBe(false);
   });
 
   it("stores a registration whose class has not been picked yet", () => {
@@ -175,10 +183,12 @@ describe("registrationSchema", () => {
 describe("registrationLockedFields", () => {
   it("locks the fields students must never write, so firestore.rules can deny them", () => {
     expect(Object.keys(registrationLockedFields.shape).sort()).toEqual([
+      "email",
       "event",
-      "eventSeriesId",
+      "firstName",
       "isIncomplete",
-      "userId",
+      "lastName",
+      "studentUpn",
     ]);
   });
 });
@@ -212,7 +222,7 @@ describe("registrationInputSchema", () => {
     expect(parse(attending).success).toBe(true);
   });
 
-  it.each(["id", "userId", "eventSeriesId", "event", "isIncomplete"])(
+  it.each(["id", "studentUpn", "firstName", "lastName", "email", "event", "isIncomplete"])(
     "refuses to take %s from the student, since the server owns it",
     (field) => {
       expect(parse({ ...attending, [field]: "smuggled" }).success).toBe(false);

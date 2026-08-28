@@ -12,15 +12,16 @@ const firestore = new FakeFirestore();
 vi.mock("@/lib/firebase/admin", () => ({ adminDb: firestore }));
 
 const { assignStudents } = await import("./assignment-service");
+const { registrationPath } = await import("@/lib/registration/registration");
 const { ServiceError } = await import("@/lib/service-error");
 
-const ANNA = "s1__anna@student.htldornbirn.at";
-const BENE = "s1__bene@student.htldornbirn.at";
+const ANNA = "anna@student.htldornbirn.at";
+const BENE = "bene@student.htldornbirn.at";
+const REGISTRATIONS = registrationPath("s1");
 
-function seedRecord(id: string, fields: Record<string, unknown> = {}) {
-  firestore.seed("registrations", id, {
-    userId: id.split("__")[1],
-    eventSeriesId: "s1",
+function seedRecord(studentUpn: string, fields: Record<string, unknown> = {}) {
+  firestore.seed(REGISTRATIONS, studentUpn, {
+    studentUpn,
     event: null,
     isAttendingSportsWeek: true,
     ...fields,
@@ -54,7 +55,7 @@ beforeEach(() => {
   seedRecord(BENE);
 });
 
-const eventOf = (id: string) => firestore.get("registrations", id)?.event;
+const eventOf = (id: string) => firestore.get(REGISTRATIONS, id)?.event;
 
 describe("assignStudents", () => {
   it("writes the event onto every record it was given", async () => {
@@ -91,9 +92,8 @@ describe("assignStudents", () => {
   it("changes nothing but the assignment", async () => {
     await assignStudents([ANNA], "Woche 1");
 
-    expect(firestore.get("registrations", ANNA)).toMatchObject({
-      userId: "anna@student.htldornbirn.at",
-      eventSeriesId: "s1",
+    expect(firestore.get(REGISTRATIONS, ANNA)).toMatchObject({
+      studentUpn: ANNA,
       isAttendingSportsWeek: true,
     });
   });
@@ -143,17 +143,17 @@ describe("assignStudents", () => {
     await expect(assignStudents(["ghost"], "Woche 1")).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("refuses a registration of an event series that is no longer the active one", async () => {
-    firestore.seed("registrations", "s0__anna@student.htldornbirn.at", {
-      userId: "anna@student.htldornbirn.at",
-      eventSeriesId: "s0",
+  /** The path is derived from the active series, so another series' record is out of reach. */
+  it("refuses a student whose only registration is in another event series", async () => {
+    const CLARA = "clara@student.htldornbirn.at";
+    firestore.seed(registrationPath("s0"), CLARA, {
+      studentUpn: CLARA,
       event: null,
       isAttendingSportsWeek: true,
     });
 
-    await expect(
-      assignStudents(["s0__anna@student.htldornbirn.at"], "Woche 1"),
-    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(assignStudents([CLARA], "Woche 1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(firestore.get(registrationPath("s0"), CLARA)).toMatchObject({ event: null });
   });
 
   it("writes nothing at all when one of the records is refused", async () => {
@@ -179,7 +179,7 @@ describe("assignStudents", () => {
    * drop once a whole class is moved at once.
    */
   it("reads every record at once rather than one round trip after another", async () => {
-    const CLARA = "s1__clara@student.htldornbirn.at";
+    const CLARA = "clara@student.htldornbirn.at";
     seedRecord(CLARA);
 
     const started: string[] = [];
@@ -189,7 +189,7 @@ describe("assignStudents", () => {
     vi.spyOn(FakeDocumentReference.prototype, "get").mockImplementation(async function (
       this: FakeDocumentReference,
     ) {
-      const isRecord = this.collectionPath === "registrations";
+      const isRecord = this.collectionPath === REGISTRATIONS;
       if (isRecord) started.push(this.id);
 
       const snapshot = await read.call(this);

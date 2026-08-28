@@ -15,6 +15,7 @@ vi.mock("@/lib/firebase/admin", () => ({
 }));
 
 const { assertEquipmentNotInUse, assertNotInUse, usageReport } = await import("./usage-guard");
+const { registrationPath } = await import("@/lib/registration/registration");
 const { adminDb } = await import("@/lib/firebase/admin");
 const { ServiceError } = await import("@/lib/service-error");
 
@@ -24,7 +25,7 @@ const SERIES = "s1";
 beforeEach(() => firestore.reset());
 
 function seedRegistration(id: string, eventSeriesId: string, answers: Record<string, unknown>) {
-  firestore.seed("registrations", id, { userId: `u-${id}`, eventSeriesId, ...answers });
+  firestore.seed(registrationPath(eventSeriesId), id, { studentUpn: id, ...answers });
 }
 
 /**

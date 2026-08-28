@@ -10,6 +10,7 @@ import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { registrationPath } from "@/lib/registration/registration";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import { listItemNameSchema, namedListSchema } from "@/lib/schemas/master-data";
 
@@ -119,15 +120,12 @@ async function readEvent(eventSeriesId: string, event: string): Promise<string> 
  * nothing at all. An assignment used to be a reference, so it survived a rename and had to be
  * cleared on a delete; now that it is the name itself, both are the same write (US-4, US-12).
  *
- * Only the event series is queried for. The event is compared here, so that reaching the
- * registrations of one series needs no index beyond the one Firestore keeps by itself.
+ * The whole subcollection is read and the event compared here, so reaching the registrations of
+ * one series needs no index beyond the one Firestore keeps by itself.
  */
 async function reassign(eventSeriesId: string, event: string, next: string | null): Promise<void> {
   const wanted = normalizeName(event);
-  const found = await adminDb
-    .collection(COLLECTIONS.registrations)
-    .where("eventSeriesId", "==", eventSeriesId)
-    .get();
+  const found = await adminDb.collection(registrationPath(eventSeriesId)).get();
 
   const operations: BatchOperation[] = found.docs
     .filter((record) => {

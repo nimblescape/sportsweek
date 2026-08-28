@@ -18,6 +18,7 @@ const { createEventSeries, updateEventSeries } =
   await import("@/lib/event-series/event-series-service");
 const { activeEventSeriesOf } = await import("@/lib/event-series/event-series-state");
 const { eventSeriesSchema } = await import("@/lib/schemas/event-series");
+const { registrationPath } = await import("@/lib/registration/registration");
 
 async function wipe(collection: string) {
   const snapshot = await adminDb.collection(collection).get();
@@ -25,12 +26,16 @@ async function wipe(collection: string) {
 }
 
 async function reset() {
-  for (const collection of ["eventSeries", "events", "registrations"]) await wipe(collection);
+  // The registrations go with the series they sit beneath, so wiping that collection is enough.
+  const registrations = await adminDb.collectionGroup("registrations").get();
+  await Promise.all(registrations.docs.map((doc) => doc.ref.delete()));
+  for (const collection of ["eventSeries", "events"]) await wipe(collection);
 }
 
 /** Archiving signs off on an event series' registrations (US-4), so there has to be some. */
 async function giveStudentData(eventSeriesId: string) {
-  await adminDb.collection("registrations").add({ eventSeriesId, studentId: "u1" });
+  const upn = "u1@student.htldornbirn.at";
+  await adminDb.collection(registrationPath(eventSeriesId)).doc(upn).set({ studentUpn: upn });
 }
 
 async function storedEventSeries() {

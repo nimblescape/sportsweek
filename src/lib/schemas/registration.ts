@@ -56,9 +56,21 @@ export const rentedEquipmentSchema = z
 
 const registrationFields = z.object({
   id: documentIdSchema,
-  userId: documentIdSchema,
-  // The only genuine reference on this record: it makes the archived state derivable (US-4, US-11).
-  eventSeriesId: documentIdSchema,
+  /**
+   * The one reference this record keeps, and the reason it keeps it: the access rules have to be
+   * able to say "yours" about a registration, and a record naming nobody could be owned by
+   * nobody (US-26). It is also the document's own id, so a student's registration in a series is
+   * reached without a query.
+   */
+  studentUpn: documentIdSchema,
+  /**
+   * Copied from the session on every save and refreshed at every login (US-1, US-26), so a
+   * reader needs no join: the report, the board, the overview and both exports read the name
+   * from here. Which event series a registration belongs to is where it is stored, not a field.
+   */
+  firstName: requiredText(100),
+  lastName: requiredText(100),
+  email: requiredText(320),
   /**
    * Teacher-managed assignment (US-12); null means unassigned. The event is named rather than
    * pointed at, like every other value chosen from one of the series' lists (US-11, US-21).
@@ -105,8 +117,10 @@ export type Registration = z.infer<typeof registrationSchema>;
 
 /** Set by the server on every save, so a student naming one of them is refused outright. */
 const SERVER_OWNED = {
-  userId: true,
-  eventSeriesId: true,
+  studentUpn: true,
+  firstName: true,
+  lastName: true,
+  email: true,
   event: true,
   isIncomplete: true,
 } as const;
@@ -117,7 +131,7 @@ export const registrationLockedFields = registrationFields.pick(SERVER_OWNED);
 /**
  * What a student may send. Derived from the record so a field added there cannot be forgotten
  * here, minus the id and everything the server owns — which is why the object is strict: a
- * smuggled `eventSeriesId` is a mistake worth reporting, not one worth silently dropping.
+ * smuggled name is a mistake worth reporting, not one worth silently dropping.
  */
 export const registrationInputSchema = registrationFields
   .omit({ id: true, ...SERVER_OWNED })

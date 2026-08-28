@@ -4,9 +4,12 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import "server-only";
+import type { DocumentReference } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { userSchema, type User } from "@/lib/schemas/user";
+import type { Registration } from "@/lib/schemas/registration";
+import { userRoleSchema, userSchema, type User } from "@/lib/schemas/user";
 import { fetchEntraName } from "./graph";
 import { refuseSignIn } from "./sign-in-policy";
 import { roleFromUpn } from "./upn";
@@ -56,6 +59,54 @@ function resolveName(claims: EntraClaims, localPart: string) {
   };
 }
 
+/** What a registration copies off the user record, derived so a field added there reaches this. */
+type StoredIdentity = Pick<Registration, "firstName" | "lastName" | "email">;
+
+/**
+ * Carries a corrected name into the registrations this student already holds (US-26).
+ *
+ * The copy on a registration is what lets the report, the board and both exports read a name
+ * without joining to `users`. This is the repair that makes the copy safe: it is not a snapshot
+ * that drifts, it is one that can never be more than a login out of date.
+ *
+ * Only a field that actually differs is written, so a login that changes nothing writes nothing
+ * and wakes no teacher's subscription to say so. Registrations in an archived series are left
+ * alone, because an archived series is read-only in everything it holds (US-19) — a name in last
+ * year's report is a record of what was true then.
+ */
+async function refreshRegistrations(upn: string, identity: StoredIdentity): Promise<void> {
+  const held = await adminDb
+    .collectionGroup(COLLECTIONS.registrations)
+    .where("studentUpn", "==", upn)
+    .get();
+  if (held.empty) return;
+
+  const series = new Map<string, DocumentReference>();
+  for (const registration of held.docs) {
+    const owner = registration.ref.parent.parent;
+    if (owner) series.set(owner.id, owner);
+  }
+
+  const archived = new Set(
+    (await Promise.all([...series.values()].map((owner) => owner.get())))
+      .filter((owner) => owner.data()?.isArchived === true)
+      .map((owner) => owner.id),
+  );
+
+  const operations = held.docs.flatMap((registration): BatchOperation[] => {
+    const owner = registration.ref.parent.parent;
+    if (!owner || archived.has(owner.id)) return [];
+
+    const stored = registration.data();
+    const corrections = Object.entries(identity).filter(([field, name]) => stored[field] !== name);
+    if (corrections.length === 0) return [];
+
+    return [(batch) => batch.update(registration.ref, Object.fromEntries(corrections))];
+  });
+
+  await commitInChunks(operations);
+}
+
 /**
  * Creates the user record on first login and keeps the role custom claim in sync (US-1, US-3).
  * Runs server-side only — the Admin SDK bypasses Security Rules, which deny client writes to `users`.
@@ -99,6 +150,11 @@ export async function provisionUser(
   }
 
   const user = userSchema.parse({ id: upn, firstName, lastName, email: upn, role });
+
+  // Only a student holds registrations: a teacher keeps none of their own (US-15).
+  if (role === userRoleSchema.enum.student) {
+    await refreshRegistrations(upn, { firstName, lastName, email: upn });
+  }
 
   if (claims.role !== role) {
     await adminAuth.setCustomUserClaims(claims.uid, { role });

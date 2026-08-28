@@ -5,12 +5,11 @@
  */
 import type { FilterableStudent } from "@/lib/filters/student-filter";
 import type { Registration } from "@/lib/schemas/registration";
-import type { User } from "@/lib/schemas/user";
 
 export type RosterStudent = FilterableStudent & {
   /** The registration, which is what an assignment is written to (US-12). */
   id: string;
-  userId: string;
+  studentUpn: string;
   /** On the report's master line, where it is the one contact detail always shown (US-13). */
   email: string;
   /**
@@ -24,50 +23,36 @@ export type RosterStudent = FilterableStudent & {
 const byName = new Intl.Collator("de-AT").compare;
 
 /**
- * One row per registration, named from the user record — the registration itself holds no name,
- * because a student never types theirs (US-1, US-11).
+ * One row per registration, named from the registration itself: it carries the student's name
+ * and e-mail address, written from the session on every save and corrected at every login
+ * (US-26), so a roster is a projection of one collection rather than a join to `users`.
  *
  * Sorted alphabetically rather than by a stored position: a teacher orders the lists they
  * maintain (see Ordering), but the students in them are looked up by name.
  */
-export function joinRoster(
-  records: readonly Registration[],
-  users: readonly User[],
-): RosterStudent[] {
-  const byId = new Map(users.map((user) => [user.id, user]));
-
+export function toRoster(records: readonly Registration[]): RosterStudent[] {
   return records
-    .flatMap((record) => {
-      const user = byId.get(record.userId);
-      if (!user) {
-        console.error(`No user record for ${record.userId}; leaving them out of the roster`);
-        return [];
-      }
-
-      return [
-        {
-          id: record.id,
-          userId: record.userId,
-          email: user.email,
-          record,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          class: record.class,
-          gender: record.gender,
-          program: record.program,
-          skillLevel: record.skillLevel,
-          isAttending: record.isAttendingSportsWeek,
-          isIncomplete: record.isIncomplete,
-          event: record.event,
-          equipmentRentalNeeded: record.equipmentRentalNeeded,
-          healthNotes: record.healthNotes,
-          hasMedication: record.hasMedication,
-          busPickupPoint: record.busPickupPoint,
-          seasonPassOption: record.seasonPassOption,
-          foodOption: record.foodOption,
-        },
-      ];
-    })
+    .map((record) => ({
+      id: record.id,
+      studentUpn: record.studentUpn,
+      email: record.email,
+      record,
+      firstName: record.firstName,
+      lastName: record.lastName,
+      class: record.class,
+      gender: record.gender,
+      program: record.program,
+      skillLevel: record.skillLevel,
+      isAttending: record.isAttendingSportsWeek,
+      isIncomplete: record.isIncomplete,
+      event: record.event,
+      equipmentRentalNeeded: record.equipmentRentalNeeded,
+      healthNotes: record.healthNotes,
+      hasMedication: record.hasMedication,
+      busPickupPoint: record.busPickupPoint,
+      seasonPassOption: record.seasonPassOption,
+      foodOption: record.foodOption,
+    }))
     .sort(
       (left, right) =>
         byName(left.lastName, right.lastName) || byName(left.firstName, right.firstName),

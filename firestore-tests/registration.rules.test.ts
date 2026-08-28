@@ -37,8 +37,9 @@ const student = () => signInAs(STUDENT_UPN);
 const otherStudent = () => signInAs(OTHER_STUDENT_UPN);
 const anonymous = () => testEnv.unauthenticatedContext().firestore();
 
-const OWN_RECORD = "eventSeries1__schuelerin@student.htldornbirn.at";
-const FOREIGN_RECORD = "eventSeries1__schueler@student.htldornbirn.at";
+/** Beneath the event series it belongs to, named after the student it belongs to (US-26). */
+const REGISTRATIONS = "eventSeries/eventSeries1/registrations";
+const OTHER_SERIES = "eventSeries/eventSeries2/registrations";
 
 async function seed(collection: string, id: string, data: Record<string, unknown>) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -56,111 +57,110 @@ beforeEach(async () => {
     await db.collection("users").doc(NEWCOMER_UPN).set({ role: "student" });
   });
 
-  await seed("registrations", OWN_RECORD, {
-    userId: STUDENT_UPN,
-    eventSeriesId: "eventSeries1",
+  await seed(REGISTRATIONS, STUDENT_UPN, {
+    studentUpn: STUDENT_UPN,
+    firstName: "Erika",
+    lastName: "Musterfrau",
+    email: STUDENT_UPN,
     isAttendingSportsWeek: true,
     class: "5AHIF",
     emergencyContact: { firstName: "Maria", lastName: "Muster", relationship: "mother" },
     rentedEquipment: ["Helm"],
   });
-  await seed("registrations", FOREIGN_RECORD, {
-    userId: OTHER_STUDENT_UPN,
-    eventSeriesId: "eventSeries1",
+  await seed(REGISTRATIONS, OTHER_STUDENT_UPN, {
+    studentUpn: OTHER_STUDENT_UPN,
+    firstName: "Max",
+    lastName: "Mustermann",
+    email: OTHER_STUDENT_UPN,
     isAttendingSportsWeek: true,
     class: "5AHIF",
   });
 });
 
 /**
- * A student's own record is theirs to read and no other student's. It carries everything it
- * needs — the emergency contact and the rented equipment are fields of it, so there is no child
- * document whose ownership would have to be worked out separately.
+ * A student's own record is theirs to read and no other student's. Ownership is the document's
+ * own name, so the rule needs nothing from `resource` — which is what lets a student read one
+ * that does not exist yet (US-26). It carries everything it needs: the emergency contact and
+ * the rented equipment are fields of it, so there is no child document whose ownership would
+ * have to be worked out separately.
  *
- * A teacher reads all of them, which is what the assignment dialog (US-12) and the report
- * (US-13) are: a view of every registration in the active event series at once.
+ * A teacher reads the whole subcollection, which is what the assignment board (US-12) and the
+ * report (US-13) are: a view of every registration in one event series at once.
  *
  * Writes are closed for the reason they are everywhere else: a save carries invariants rules
- * cannot run a query for — it belongs to *the* active event series, answering "no" gives up the event
- * assignment (US-12), and the event series' `hasRegistrations` mirror follows it (US-4).
+ * cannot run a query for — every answer has to be one the series still offers (US-27),
+ * answering "no" gives up the event assignment (US-12), and the event series'
+ * `hasRegistrations` mirror follows it (US-4).
  */
-describe("/registration", () => {
+describe("/eventSeries/{id}/registrations", () => {
   it("lets a student read their own record", async () => {
-    await assertSucceeds(student().collection("registrations").doc(OWN_RECORD).get());
-  });
-
-  it("lets a student query for their own record, which is what the form subscribes to", async () => {
-    await assertSucceeds(
-      student().collection("registrations").where("userId", "==", STUDENT_UPN).get(),
-    );
+    await assertSucceeds(student().collection(REGISTRATIONS).doc(STUDENT_UPN).get());
   });
 
   /**
-   * Where every student starts. A `get` of the id the form could derive is denied instead —
-   * there is no `resource` on a document that does not exist, so ownership cannot be checked —
-   * which is why the form queries rather than reading that id.
+   * Where every student starts. The rule owns the document by its name rather than by a field
+   * only an existing document would have, so this is a permitted read of nothing — which is
+   * why the form reads the id it derives rather than querying for it.
    */
-  it("answers a student who has no record yet with an empty result, not a refusal", async () => {
+  it("lets a student who has no record yet read the id they would have", async () => {
     const newcomer = signInAs(NEWCOMER_UPN);
 
-    await assertSucceeds(
-      newcomer.collection("registrations").where("userId", "==", NEWCOMER_UPN).get(),
-    );
+    await assertSucceeds(newcomer.collection(REGISTRATIONS).doc(NEWCOMER_UPN).get());
   });
 
   /**
-   * The whole collection, because a teacher plans across it: the assignment dialog counts every
-   * class and every event of the active event series (US-12) and the report lists every student
+   * The whole subcollection, because a teacher plans across it: the assignment board counts
+   * every class and every event of the series (US-12) and the report lists every student
    * (US-13). Both watch it live, so the tables follow an assignment the moment it is stored.
    */
-  it("lets a teacher query every record, which is what the assignment dialog subscribes to", async () => {
-    await assertSucceeds(teacher().collection("registrations").get());
+  it("lets a teacher query every record, which is what the assignment board subscribes to", async () => {
+    await assertSucceeds(teacher().collection(REGISTRATIONS).get());
   });
 
   it("lets a teacher read a single record", async () => {
-    await assertSucceeds(teacher().collection("registrations").doc(FOREIGN_RECORD).get());
+    await assertSucceeds(teacher().collection(REGISTRATIONS).doc(OTHER_STUDENT_UPN).get());
   });
 
   it("denies a student reading another student's record", async () => {
-    await assertFails(student().collection("registrations").doc(FOREIGN_RECORD).get());
+    await assertFails(student().collection(REGISTRATIONS).doc(OTHER_STUDENT_UPN).get());
   });
 
-  it("denies a student querying the whole collection", async () => {
-    await assertFails(student().collection("registrations").get());
+  it("denies a student querying the whole subcollection", async () => {
+    await assertFails(student().collection(REGISTRATIONS).get());
   });
 
   it("denies an unauthenticated read", async () => {
-    await assertFails(anonymous().collection("registrations").doc(OWN_RECORD).get());
+    await assertFails(anonymous().collection(REGISTRATIONS).doc(STUDENT_UPN).get());
   });
 
   it("denies a student writing their own record, so the save keeps going through the handler", async () => {
     await assertFails(
-      student().collection("registrations").doc(OWN_RECORD).update({ class: "5BHIF" }),
+      student().collection(REGISTRATIONS).doc(STUDENT_UPN).update({ class: "5BHIF" }),
     );
   });
 
-  it("denies a student creating a record for an event series of their choosing", async () => {
+  it("denies a student creating a record in an event series of their choosing", async () => {
     await assertFails(
       student()
-        .collection("registrations")
-        .doc("eventSeries2__schuelerin@student.htldornbirn.at")
-        .set({ userId: STUDENT_UPN, eventSeriesId: "eventSeries2", isAttendingSportsWeek: true }),
+        .collection(OTHER_SERIES)
+        .doc(STUDENT_UPN)
+        .set({ studentUpn: STUDENT_UPN, isAttendingSportsWeek: true }),
     );
   });
 
   it("denies a student assigning themselves to an event", async () => {
     await assertFails(
-      student().collection("registrations").doc(OWN_RECORD).update({ event: "Woche 1" }),
+      student().collection(REGISTRATIONS).doc(STUDENT_UPN).update({ event: "Woche 1" }),
     );
   });
 
   it("denies a student deleting their own record", async () => {
-    await assertFails(student().collection("registrations").doc(OWN_RECORD).delete());
+    await assertFails(student().collection(REGISTRATIONS).doc(STUDENT_UPN).delete());
   });
 
   it("denies a teacher writing a record", async () => {
     await assertFails(
-      teacher().collection("registrations").doc(OWN_RECORD).update({ class: "5BHIF" }),
+      teacher().collection(REGISTRATIONS).doc(STUDENT_UPN).update({ class: "5BHIF" }),
     );
   });
 });
@@ -210,8 +210,8 @@ describe("/savedReports", () => {
 });
 
 /** Cross-checks that the record another student owns is genuinely reachable by its owner. */
-describe("ownership is read from the record, not from the id", () => {
-  it("lets the other student read the record that names them", async () => {
-    await assertSucceeds(otherStudent().collection("registrations").doc(FOREIGN_RECORD).get());
+describe("ownership is the document's own name", () => {
+  it("lets the other student read the record named after them", async () => {
+    await assertSucceeds(otherStudent().collection(REGISTRATIONS).doc(OTHER_STUDENT_UPN).get());
   });
 });

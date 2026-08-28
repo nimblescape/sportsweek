@@ -4,6 +4,8 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FakeFirestore } from "@/test/fake-firestore";
+import { storedEventSeries } from "@/test/event-series";
 
 const docGet = vi.fn();
 const docSet = vi.fn();
@@ -13,8 +15,19 @@ const collection = vi.fn(() => ({ doc }));
 const setCustomUserClaims = vi.fn();
 const fetchEntraName = vi.fn();
 
+/**
+ * The user record stays a mock, so the tests below can stage a login that finds one or does
+ * not. The registrations are a real store: what the refresh has to get right is which documents
+ * a collection group query reaches and which series each of them sits beneath (US-26).
+ */
+const firestore = new FakeFirestore();
+
 vi.mock("@/lib/firebase/admin", () => ({
-  adminDb: { collection },
+  adminDb: {
+    collection,
+    collectionGroup: (id: string) => firestore.collectionGroup(id),
+    batch: () => firestore.batch(),
+  },
   adminAuth: { setCustomUserClaims },
 }));
 
@@ -26,6 +39,7 @@ const refuseSignIn = vi.fn();
 vi.mock("@/lib/auth/sign-in-policy", () => ({ refuseSignIn }));
 
 const { provisionUser } = await import("@/lib/auth/provision-user");
+const { registrationPath } = await import("@/lib/registration/registration");
 
 const teacherClaims = {
   uid: "firebase-uid-1",
@@ -307,5 +321,121 @@ describe("provisionUser", () => {
     await provisionUser({ ...teacherClaims, email: "jane@gmail.com" }, "graph-token");
 
     expect(fetchEntraName).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The name on a registration is a copy (US-26), and this is the repair that makes it safe: it
+ * can never be more than one login out of date.
+ */
+describe("the login refresh of a student's registrations", () => {
+  const STUDENT = studentClaims.email;
+
+  function seedEventSeries(id: string, isArchived = false) {
+    firestore.seed("eventSeries", id, storedEventSeries({ name: `Eventreihe ${id}`, isArchived }));
+  }
+
+  function seedRegistration(eventSeriesId: string, name: Record<string, unknown>) {
+    firestore.seed(registrationPath(eventSeriesId), STUDENT, {
+      studentUpn: STUDENT,
+      email: STUDENT,
+      class: "3AHME",
+      ...name,
+    });
+  }
+
+  const stored = (eventSeriesId: string) => firestore.get(registrationPath(eventSeriesId), STUDENT);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    firestore.reset();
+    refuseSignIn.mockReturnValue(null);
+    docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    fetchEntraName.mockResolvedValue(null);
+  });
+
+  it("corrects a name the directory has since changed", async () => {
+    seedEventSeries("s1");
+    seedRegistration("s1", { firstName: "Maks", lastName: "Mustermann" });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(stored("s1")).toMatchObject({ firstName: "Max", lastName: "Mustermann" });
+  });
+
+  it("writes only the field that differs, so a correction is not a rewrite", async () => {
+    seedEventSeries("s1");
+    seedRegistration("s1", { firstName: "Maks", lastName: "Mustermann" });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(firestore.batchSizes).toEqual([1]);
+  });
+
+  /** A login that changes nothing must not wake every teacher's subscription to say so. */
+  it("writes nothing at all when the name has not changed", async () => {
+    seedEventSeries("s1");
+    seedRegistration("s1", { firstName: "Max", lastName: "Mustermann" });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(firestore.commitCount).toBe(0);
+  });
+
+  /** An archived series is read-only in everything it holds (US-19). */
+  it("leaves a registration in an archived event series as it was", async () => {
+    seedEventSeries("archived", true);
+    seedRegistration("archived", { firstName: "Maks", lastName: "Mustermann" });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(stored("archived")).toMatchObject({ firstName: "Maks" });
+    expect(firestore.commitCount).toBe(0);
+  });
+
+  it("reaches every event series the student has registered in", async () => {
+    seedEventSeries("s1");
+    seedEventSeries("s2");
+    seedEventSeries("archived", true);
+    seedRegistration("s1", { firstName: "Maks", lastName: "Mustermann" });
+    seedRegistration("s2", { firstName: "Maks", lastName: "Mustermann" });
+    seedRegistration("archived", { firstName: "Maks", lastName: "Mustermann" });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(stored("s1")).toMatchObject({ firstName: "Max" });
+    expect(stored("s2")).toMatchObject({ firstName: "Max" });
+    expect(stored("archived")).toMatchObject({ firstName: "Maks" });
+  });
+
+  it("leaves somebody else's registration alone", async () => {
+    seedEventSeries("s1");
+    firestore.seed(registrationPath("s1"), "other@student.htldornbirn.at", {
+      studentUpn: "other@student.htldornbirn.at",
+      firstName: "Maks",
+      lastName: "Mustermann",
+      email: "other@student.htldornbirn.at",
+    });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(firestore.get(registrationPath("s1"), "other@student.htldornbirn.at")).toMatchObject({
+      firstName: "Maks",
+    });
+  });
+
+  /** A teacher keeps no registration of their own (US-15), so there is nothing to look for. */
+  it("asks nothing of the registrations when a teacher signs in", async () => {
+    const read = vi.spyOn(firestore, "runGroupQuery");
+
+    await provisionUser({ ...teacherClaims, ...ENTRA });
+
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing for a student who has not registered anywhere", async () => {
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(firestore.commitCount).toBe(0);
   });
 });

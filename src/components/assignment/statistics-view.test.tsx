@@ -30,7 +30,7 @@ function student(
 ): RosterStudent {
   return rosterStudent({
     id: `record-${lastName}`,
-    userId: `${lastName}@student.htldornbirn.at`,
+    studentUpn: `${lastName}@student.htldornbirn.at`,
     firstName: "Vorname",
     lastName,
     ...overrides,

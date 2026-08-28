@@ -54,7 +54,7 @@ beforeEach(() => {
 });
 
 function renderView() {
-  render(<RegistrationView userId="jane@student.htldornbirn.at" studentName="Jane Doe" />);
+  render(<RegistrationView studentUpn="jane@student.htldornbirn.at" studentName="Jane Doe" />);
 }
 
 describe("RegistrationView", () => {

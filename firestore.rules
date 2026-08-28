@@ -39,8 +39,16 @@ service cloud.firestore {
       return upn() != '' && upn() == uid;
     }
 
+    /**
+     * A caller's own record, and nobody else's. A teacher used to read every user because the
+     * roster joined registrations to them for the student's name; the registration now carries
+     * that name itself (US-26), so the permission has no reader left and is withdrawn.
+     *
+     * The fake login's list of existing users (US-16) is unaffected: it is read server-side
+     * with the Admin SDK, which bypasses these rules.
+     */
     match /users/{uid} {
-      allow read: if isSelf(uid) || isTeacher();
+      allow read: if isSelf(uid);
 
       // Records are provisioned on first login by the Admin SDK, which bypasses these rules.
       allow create: if false;
@@ -53,23 +61,25 @@ service cloud.firestore {
     }
 
     /**
-     * A student's own registration (US-11). Ownership is the record's `userId`, which holds the
-     * UPN, so the same check serves a direct read and the query the form subscribes to. The
-     * record carries the emergency contact and the rented equipment in its own fields, so there
-     * is no child document whose ownership would have to be worked out separately.
+     * A student's own registration (US-11), stored beneath the event series it belongs to so
+     * that which series it is in is its path rather than a field it carries (US-26). Its id is
+     * the student's UPN, so ownership is the document's own name and a read needs no query.
+     * The record carries the emergency contact and the rented equipment in its own fields, so
+     * there is no child document whose ownership would have to be worked out separately.
      *
-     * A teacher reads the whole collection, because planning is what it is for: the assignment
-     * dialog counts every class and every event of the active event series (US-12) and the report
+     * A teacher reads the whole subcollection, because planning is what it is for: the
+     * assignment board counts every class and every event of the series (US-12) and the report
      * lists every student (US-13). Checked first, so a list is answered without touching
      * `resource`, which a list has none of until a document is returned.
      *
-     * Writes are closed for the reason the collections below are: a save carries invariants
-     * rules cannot run a query for — it belongs to *the* active event series, answering "no" gives
-     * up the event assignment (US-12), and the event series' `hasRegistrations` mirror follows it
-     * (US-4). The teacher's assignment goes the same way, through a handler that owns `event`.
+     * Writes are closed for the reason the event series document's are: a save carries
+     * invariants rules cannot run a query for — every answer has to be one the series still
+     * offers (US-27), answering "no" gives up the event assignment (US-12), and the series'
+     * `hasRegistrations` mirror follows it (US-4). The teacher's assignment goes the same way,
+     * through a handler that owns `event`.
      */
-    match /registrations/{recordId} {
-      allow read: if isTeacher() || (isSignedIn() && resource.data.userId == upn());
+    match /eventSeries/{eventSeriesId}/registrations/{studentUpn} {
+      allow read: if isTeacher() || isSelf(studentUpn);
       allow write: if false;
     }
 

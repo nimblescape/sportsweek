@@ -12,12 +12,14 @@ import { RegistrationView } from "@/components/registration/registration-view";
 /**
  * Only the shared header sits above this page — no left-side navigation (US-15). The name comes
  * from the user record rather than the form, which shows it without letting it be edited (US-11).
+ * Not from the registration, which carries one too (US-26): the header names the student before
+ * they have registered, and there is no record to read it from until they have.
  */
 export default async function RegistrationPage() {
   const user = await requireStudent();
-  const userId = (user.email ?? "").toLowerCase();
+  const studentUpn = (user.email ?? "").toLowerCase();
 
-  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(userId).get();
+  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(studentUpn).get();
   const stored = userSchema.safeParse({ id: snapshot.id, ...snapshot.data() });
   const studentName = stored.success
     ? `${stored.data.firstName} ${stored.data.lastName}`
@@ -27,7 +29,7 @@ export default async function RegistrationPage() {
     // Capped rather than stretched: the form is one column of short fields, and a line of
     // inputs the full width of a desktop screen is a long way from its own label.
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 md:p-6">
-      <RegistrationView userId={userId} studentName={studentName} />
+      <RegistrationView studentUpn={studentUpn} studentName={studentName} />
     </div>
   );
 }

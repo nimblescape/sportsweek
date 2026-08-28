@@ -139,6 +139,8 @@ describe.each([
   ["programs", { name: "Ski" }],
   ["reservedNames", { scope: "classOptions", name: "5AHIF", ownerId: "c1" }],
   ["seedState", { seededKeys: ["classes|5ahif"] }],
+  // A registration lives beneath its event series now (US-26); a top-level one is nothing.
+  ["registrations", { studentUpn: "schuelerin@student.htldornbirn.at" }],
 ])("/%s stays invisible to every client", (collection, valid) => {
   it("denies a teacher reading it", async () => {
     await seed(collection, "item1", valid);

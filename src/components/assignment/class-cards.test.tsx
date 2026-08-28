@@ -31,7 +31,7 @@ function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): Roster
   seed += 1;
   return rosterStudent({
     id: `record${seed}`,
-    userId: `student${seed}@student.htldornbirn.at`,
+    studentUpn: `student${seed}@student.htldornbirn.at`,
     firstName: `Vorname${seed}`,
     lastName: `Nachname${seed}`,
     ...overrides,
