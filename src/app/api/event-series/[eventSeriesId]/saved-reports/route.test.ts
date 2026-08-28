@@ -19,19 +19,21 @@ vi.mock("@/lib/report/saved-report-service", () => ({
 const { PATCH, POST } = await import("./route");
 
 const TEACHER = "jane.doe@htldornbirn.at";
+const SERIES = "s1";
+const context = { params: Promise.resolve({ eventSeriesId: SERIES }) };
 const selection = toggleTag(EMPTY_FILTER, "class", "5AHIF");
 const fields = ["class", "contact"];
 const input = { name: "5AHIF", filter: selection, fields };
 
 function postRequest(body: unknown) {
-  return new Request("https://example.com/api/saved-reports", {
+  return new Request(`https://example.com/api/event-series/${SERIES}/saved-reports`, {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
 function patchRequest(body: unknown) {
-  return new Request("https://example.com/api/saved-reports", {
+  return new Request(`https://example.com/api/event-series/${SERIES}/saved-reports`, {
     method: "PATCH",
     body: JSON.stringify(body),
   });
@@ -44,9 +46,9 @@ beforeEach(() => {
   reorderSavedReports.mockResolvedValue(undefined);
 });
 
-describe("POST /api/saved-reports", () => {
+describe("POST /api/event-series/[eventSeriesId]/saved-reports", () => {
   it("saves both selections under one name", async () => {
-    const response = await POST(postRequest(input));
+    const response = await POST(postRequest(input), context);
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({
@@ -55,21 +57,22 @@ describe("POST /api/saved-reports", () => {
   });
 
   it("attributes it to the session rather than to anything the request says", async () => {
-    await POST(postRequest({ ...input, createdByUserId: "someone@else.at" }));
+    await POST(postRequest({ ...input, createdByUserId: "someone@else.at" }), context);
 
     expect(createSavedReport).not.toHaveBeenCalled();
   });
 
-  it("takes the author from the session", async () => {
-    await POST(postRequest(input));
+  /** A report filters on one series' lists, so which series is the path rather than a field. */
+  it("saves it into the series the address names, and takes the author from the session", async () => {
+    await POST(postRequest(input), context);
 
-    expect(createSavedReport).toHaveBeenCalledWith(input, TEACHER);
+    expect(createSavedReport).toHaveBeenCalledWith(SERIES, input, TEACHER);
   });
 
   it("rejects a student with 403, since the report is a teacher's (US-13)", async () => {
     getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x.at", role: "student" });
 
-    const response = await POST(postRequest(input));
+    const response = await POST(postRequest(input), context);
 
     expect(response.status).toBe(403);
     expect(createSavedReport).not.toHaveBeenCalled();
@@ -78,11 +81,11 @@ describe("POST /api/saved-reports", () => {
   it("rejects an unauthenticated caller with 401", async () => {
     getUserWithRole.mockResolvedValue(null);
 
-    expect((await POST(postRequest(input))).status).toBe(401);
+    expect((await POST(postRequest(input), context)).status).toBe(401);
   });
 
   it("rejects a blank name with the shared envelope", async () => {
-    const response = await POST(postRequest({ ...input, name: "  " }));
+    const response = await POST(postRequest({ ...input, name: "  " }), context);
     const body = await response.json();
 
     expect(response.status).toBe(400);
@@ -95,29 +98,29 @@ describe("POST /api/saved-reports", () => {
       Object.entries(selection.tags).filter(([category]) => category !== "event"),
     );
 
-    await POST(postRequest({ ...input, filter: { ...selection, tags } }));
+    await POST(postRequest({ ...input, filter: { ...selection, tags } }), context);
 
-    expect(createSavedReport).toHaveBeenCalledWith(input, TEACHER);
+    expect(createSavedReport).toHaveBeenCalledWith(SERIES, input, TEACHER);
   });
 });
 
-describe("PATCH /api/saved-reports", () => {
+describe("PATCH /api/event-series/[eventSeriesId]/saved-reports", () => {
   it("renumbers the row in the order the tags were dropped into", async () => {
-    const response = await PATCH(patchRequest({ order: ["r2", "r1"] }));
+    const response = await PATCH(patchRequest({ order: ["r2", "r1"] }), context);
 
     expect(response.status).toBe(204);
-    expect(reorderSavedReports).toHaveBeenCalledWith(["r2", "r1"]);
+    expect(reorderSavedReports).toHaveBeenCalledWith(SERIES, ["r2", "r1"]);
   });
 
   it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
     getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x.at", role: "student" });
 
-    expect((await PATCH(patchRequest({ order: ["r1"] }))).status).toBe(403);
+    expect((await PATCH(patchRequest({ order: ["r1"] }), context)).status).toBe(403);
     expect(reorderSavedReports).not.toHaveBeenCalled();
   });
 
   it("rejects a body that is not an order", async () => {
-    const response = await PATCH(patchRequest({ order: ["r1"], name: "5AHIF" }));
+    const response = await PATCH(patchRequest({ order: ["r1"], name: "5AHIF" }), context);
 
     expect(response.status).toBe(400);
     expect(reorderSavedReports).not.toHaveBeenCalled();

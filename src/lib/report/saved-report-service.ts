@@ -8,7 +8,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { reorderCollection } from "@/lib/firebase/reorder";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
-import { COLLECTIONS } from "@/lib/schemas/collections";
+import { savedReportPath } from "@/lib/report/saved-reports";
 import {
   savedReportEditSchema,
   savedReportInputSchema,
@@ -18,16 +18,16 @@ import {
   type SavedReportInput,
 } from "@/lib/schemas/saved-report";
 
-function reportDoc(id: string) {
-  return adminDb.collection(COLLECTIONS.savedReports).doc(id);
+function reportDoc(eventSeriesId: string, id: string) {
+  return adminDb.collection(savedReportPath(eventSeriesId)).doc(id);
 }
 
 function reject(message: string): never {
   throw new ServiceError(ErrorCode.ValidationError, message);
 }
 
-async function readReport(id: string): Promise<SavedReport> {
-  const snapshot = await reportDoc(id).get();
+async function readReport(eventSeriesId: string, id: string): Promise<SavedReport> {
+  const snapshot = await reportDoc(eventSeriesId, id).get();
   if (!snapshot.exists) {
     throw new ServiceError(ErrorCode.NotFound, "Diesen Bericht gibt es nicht.");
   }
@@ -46,6 +46,7 @@ async function readReport(id: string): Promise<SavedReport> {
  * who may open, rename or remove it (US-13).
  */
 export async function createSavedReport(
+  eventSeriesId: string,
   input: SavedReportInput,
   createdByUserId: string,
 ): Promise<SavedReport> {
@@ -54,11 +55,12 @@ export async function createSavedReport(
     reject(parsed.error.issues[0]?.message ?? "Dieser Bericht lässt sich nicht speichern.");
   }
 
-  const reference = adminDb.collection(COLLECTIONS.savedReports).doc();
+  const row = adminDb.collection(savedReportPath(eventSeriesId));
+  const reference = row.doc();
   // A new report's tag goes to the end of the row, where the button that made it stands, and
   // stays there (see Ordering). Two simultaneous saves would tie, which the name tiebreak
   // absorbs and the next drop renumbers away.
-  const position = (await adminDb.collection(COLLECTIONS.savedReports).count().get()).data().count;
+  const position = (await row.count().get()).data().count;
   const data = { ...parsed.data, createdByUserId, position };
   await reference.set(data);
 
@@ -70,24 +72,31 @@ export async function createSavedReport(
  * write rather than two: the tag a teacher renames is the report they are looking at, and
  * storing the name without the selection is what left it reading as changed afterwards (US-13).
  */
-export async function updateSavedReport(id: string, input: SavedReportEdit): Promise<SavedReport> {
+export async function updateSavedReport(
+  eventSeriesId: string,
+  id: string,
+  input: SavedReportEdit,
+): Promise<SavedReport> {
   const parsed = savedReportEditSchema.safeParse(input);
   if (!parsed.success) {
     reject(parsed.error.issues[0]?.message ?? "Dieser Bericht lässt sich nicht speichern.");
   }
 
-  const current = await readReport(id);
+  const current = await readReport(eventSeriesId, id);
 
-  await reportDoc(id).update(parsed.data);
+  await reportDoc(eventSeriesId, id).update(parsed.data);
   return { ...current, ...parsed.data };
 }
 
-export async function deleteSavedReport(id: string): Promise<void> {
-  await readReport(id);
-  await reportDoc(id).delete();
+export async function deleteSavedReport(eventSeriesId: string, id: string): Promise<void> {
+  await readReport(eventSeriesId, id);
+  await reportDoc(eventSeriesId, id).delete();
 }
 
 /** Ordering changes nothing a report holds, so it is open to any teacher (see Ordering). */
-export async function reorderSavedReports(orderedIds: readonly string[]): Promise<void> {
-  await reorderCollection({ collection: COLLECTIONS.savedReports, orderedIds });
+export async function reorderSavedReports(
+  eventSeriesId: string,
+  orderedIds: readonly string[],
+): Promise<void> {
+  await reorderCollection({ collection: savedReportPath(eventSeriesId), orderedIds });
 }

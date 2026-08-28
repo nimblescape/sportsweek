@@ -88,9 +88,9 @@ describe("createSavedReport", () => {
   it("keeps only the categories the report filters by, so a stray one cannot be stored", async () => {
     const filter = { ...selection, tags: { ...selection.tags, nonsense: ["x"] } } as never;
 
-    const saved = await createSavedReport({ name: "5AHIF", filter, fields: [] }, TEACHER);
+    const saved = await createSavedReport(SERIES, { name: "5AHIF", filter, fields: [] }, TEACHER);
 
-    expect(firestore.get("savedReports", saved.id)).toMatchObject({ filter: selection });
+    expect(firestore.get(PATH, saved.id)).toMatchObject({ filter: selection });
   });
 
   it("reads a category that did not exist yet as no restriction from it", async () => {
@@ -99,6 +99,7 @@ describe("createSavedReport", () => {
     );
 
     const saved = await createSavedReport(
+      SERIES,
       { name: "5AHIF", filter: { ...selection, tags } as never, fields: [] },
       TEACHER,
     );
@@ -110,27 +111,27 @@ describe("createSavedReport", () => {
 describe("updateSavedReport", () => {
   const replacement = { name: "5AHIF", filter: EMPTY_FILTER, fields: ["contact"] };
 
-  beforeEach(() => firestore.seed("savedReports", "r1", stored));
+  beforeEach(() => firestore.seed(PATH, "r1", stored));
 
   it("replaces the name and both selections at once, leaving the author as it was", async () => {
     const edit = { ...replacement, name: "5BHIF" };
 
-    const updated = await updateSavedReport("r1", edit);
+    const updated = await updateSavedReport(SERIES, "r1", edit);
 
     expect(updated).toEqual({ id: "r1", ...stored, ...edit });
-    expect(firestore.get("savedReports", "r1")).toEqual({ ...stored, ...edit });
+    expect(firestore.get(PATH, "r1")).toEqual({ ...stored, ...edit });
   });
 
   it("lets any teacher edit one, since saved reports are shared (US-13)", async () => {
-    await expect(updateSavedReport("r1", { ...replacement, name: "Alle" })).resolves.toMatchObject({
-      name: "Alle",
-    });
+    await expect(
+      updateSavedReport(SERIES, "r1", { ...replacement, name: "Alle" }),
+    ).resolves.toMatchObject({ name: "Alle" });
   });
 
   it("keeps only the categories the report filters by, so a stray one cannot be stored", async () => {
     const filter = { ...selection, tags: { ...selection.tags, nonsense: ["x"] } } as never;
 
-    const updated = await updateSavedReport("r1", { ...replacement, filter });
+    const updated = await updateSavedReport(SERIES, "r1", { ...replacement, filter });
 
     expect(updated.filter).toEqual(selection);
   });
@@ -138,51 +139,70 @@ describe("updateSavedReport", () => {
   it("refuses the author, which the session decides and no request may claim", async () => {
     const edit = { ...replacement, createdByUserId: "someone.else@htldornbirn.at" } as never;
 
-    await expect(updateSavedReport("r1", edit)).rejects.toBeInstanceOf(ServiceError);
-    expect(firestore.get("savedReports", "r1")).toEqual(stored);
+    await expect(updateSavedReport(SERIES, "r1", edit)).rejects.toBeInstanceOf(ServiceError);
+    expect(firestore.get(PATH, "r1")).toEqual(stored);
   });
 
   it("rejects a blank name", async () => {
-    await expect(updateSavedReport("r1", { ...replacement, name: " " })).rejects.toBeInstanceOf(
-      ServiceError,
-    );
-    expect(firestore.get("savedReports", "r1")).toMatchObject({ name: "5AHIF" });
+    await expect(
+      updateSavedReport(SERIES, "r1", { ...replacement, name: " " }),
+    ).rejects.toBeInstanceOf(ServiceError);
+    expect(firestore.get(PATH, "r1")).toMatchObject({ name: "5AHIF" });
   });
 
   it("reports a saved report that is not there rather than creating it", async () => {
-    await expect(updateSavedReport("gone", replacement)).rejects.toBeInstanceOf(ServiceError);
-    expect(firestore.count("savedReports")).toBe(1);
+    await expect(updateSavedReport(SERIES, "gone", replacement)).rejects.toBeInstanceOf(
+      ServiceError,
+    );
+    expect(firestore.count(PATH)).toBe(1);
+  });
+
+  /** The id is unique within its own row only, so the series has to decide which row that is. */
+  it("leaves a report of the same id in another series alone", async () => {
+    firestore.seed(savedReportPath("s2"), "r1", stored);
+
+    await updateSavedReport(SERIES, "r1", { ...replacement, name: "5BHIF" });
+
+    expect(firestore.get(savedReportPath("s2"), "r1")).toEqual(stored);
   });
 });
 
 describe("deleteSavedReport", () => {
-  beforeEach(() => firestore.seed("savedReports", "r1", stored));
+  beforeEach(() => firestore.seed(PATH, "r1", stored));
 
   it("removes it", async () => {
-    await deleteSavedReport("r1");
+    await deleteSavedReport(SERIES, "r1");
 
-    expect(firestore.count("savedReports")).toBe(0);
+    expect(firestore.count(PATH)).toBe(0);
   });
 
   it("reports one that is already gone", async () => {
-    await expect(deleteSavedReport("gone")).rejects.toBeInstanceOf(ServiceError);
+    await expect(deleteSavedReport(SERIES, "gone")).rejects.toBeInstanceOf(ServiceError);
+  });
+
+  it("leaves a report of the same id in another series alone", async () => {
+    firestore.seed(savedReportPath("s2"), "r1", stored);
+
+    await deleteSavedReport(SERIES, "r1");
+
+    expect(firestore.count(savedReportPath("s2"))).toBe(1);
   });
 });
 
 describe("reorderSavedReports", () => {
   beforeEach(() => {
-    firestore.seed("savedReports", "r1", { ...stored, position: 0 });
-    firestore.seed("savedReports", "r2", { ...stored, name: "5BHIF", position: 1 });
+    firestore.seed(PATH, "r1", { ...stored, position: 0 });
+    firestore.seed(PATH, "r2", { ...stored, name: "5BHIF", position: 1 });
   });
 
   it("renumbers the row from zero, in the order the tags were dropped into", async () => {
-    await reorderSavedReports(["r2", "r1"]);
+    await reorderSavedReports(SERIES, ["r2", "r1"]);
 
-    expect(firestore.get("savedReports", "r2")?.position).toBe(0);
-    expect(firestore.get("savedReports", "r1")?.position).toBe(1);
+    expect(firestore.get(PATH, "r2")?.position).toBe(0);
+    expect(firestore.get(PATH, "r1")?.position).toBe(1);
   });
 
   it("reports a report that is not there rather than renumbering around it", async () => {
-    await expect(reorderSavedReports(["r1", "gone"])).rejects.toBeInstanceOf(ServiceError);
+    await expect(reorderSavedReports(SERIES, ["r1", "gone"])).rejects.toBeInstanceOf(ServiceError);
   });
 });

@@ -21,8 +21,9 @@ const { ServiceError } = await import("@/lib/service-error");
 const { ErrorCode } = await import("@/lib/errors");
 
 const TEACHER = "jane.doe@htldornbirn.at";
+const SERIES = "s1";
 const selection = toggleTag(EMPTY_FILTER, "class", "5AHIF");
-const params = Promise.resolve({ reportId: "r1" });
+const params = Promise.resolve({ eventSeriesId: SERIES, reportId: "r1" });
 const report = {
   id: "r1",
   name: "5BHIF",
@@ -32,7 +33,7 @@ const report = {
 };
 
 function patchRequest(body: unknown) {
-  return new Request("https://example.com/api/saved-reports/r1", {
+  return new Request(`https://example.com/api/event-series/${SERIES}/saved-reports/r1`, {
     method: "PATCH",
     body: JSON.stringify(body),
   });
@@ -45,14 +46,14 @@ beforeEach(() => {
   deleteSavedReport.mockResolvedValue(undefined);
 });
 
-describe("PATCH /api/saved-reports/[reportId]", () => {
-  it("stores the name and both selections as one edit", async () => {
+describe("PATCH /api/event-series/[eventSeriesId]/saved-reports/[reportId]", () => {
+  it("stores the name and both selections as one edit, in the series the address names", async () => {
     const edit = { name: "5BHIF", filter: selection, fields: ["class"] };
 
     const response = await PATCH(patchRequest(edit), { params });
 
     expect(response.status).toBe(200);
-    expect(updateSavedReport).toHaveBeenCalledWith("r1", edit);
+    expect(updateSavedReport).toHaveBeenCalledWith(SERIES, "r1", edit);
   });
 
   it("refuses a name on its own, which would store half a report", async () => {
@@ -100,12 +101,12 @@ describe("PATCH /api/saved-reports/[reportId]", () => {
   });
 });
 
-describe("DELETE /api/saved-reports/[reportId]", () => {
+describe("DELETE /api/event-series/[eventSeriesId]/saved-reports/[reportId]", () => {
   it("removes the saved report", async () => {
     const response = await DELETE(new Request("https://example.com"), { params });
 
     expect(response.status).toBe(204);
-    expect(deleteSavedReport).toHaveBeenCalledWith("r1");
+    expect(deleteSavedReport).toHaveBeenCalledWith(SERIES, "r1");
   });
 
   it("rejects a student with 403", async () => {
