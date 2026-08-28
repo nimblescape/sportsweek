@@ -98,10 +98,11 @@ describe("SavedReportTagList", () => {
     expect(onOpen).toHaveBeenCalledWith(REPORTS[0]);
   });
 
-  it("says so while nothing has been saved yet", () => {
+  it("offers no tags while nothing has been saved yet, and still offers to save", () => {
     setup([]);
 
-    expect(screen.getByText("Noch keine Berichte gespeichert.")).toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: /^Gespeicherter Bericht:/ })).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Bericht speichern" })).toBeInTheDocument();
   });
 });
 

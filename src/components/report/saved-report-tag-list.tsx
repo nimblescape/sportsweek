@@ -43,7 +43,6 @@ const nameSchema = savedReportSchema.shape.name;
 
 const ROW_LABEL = "Gespeicherte Berichte";
 const NAME_LABEL = "Name des Berichts";
-const EMPTY_HINT = "Noch keine Berichte gespeichert.";
 const CHANGED_HINT = "Geändert gegenüber dem gespeicherten Bericht.";
 
 type SavedReportTagListProps = {
@@ -118,71 +117,67 @@ export function SavedReportTagList({
       <SortableContext items={ordered} strategy={rectSortingStrategy}>
         <DraggingCursor />
         <div role="group" aria-label={ROW_LABEL} className="flex flex-wrap items-center gap-1.5">
-          {ordered.length === 0 && editing === null ? (
-            <p className="text-muted-foreground text-sm">{EMPTY_HINT}</p>
-          ) : (
-            ordered.map((report) =>
-              // Renaming happens where the tag is, so the row neither grows nor reorders itself.
-              editing?.kind === "rename" && editing.report.id === report.id ? (
-                <NameForm
-                  key={report.id}
-                  initialName={report.name}
-                  submitLabel="Umbenennen"
-                  pending={pending}
-                  onSubmit={async (name) => {
-                    await run(report.id, () => onRename(report.id, { name, ...current }));
-                    setEditing(null);
-                  }}
-                  onCancel={() => setEditing(null)}
-                />
-              ) : (
-                <SavedReportTag
-                  key={report.id}
-                  report={report}
-                  marked={report.id === markedId}
-                  changed={report.id === markedId && !sameSelection(report, current)}
-                  confirming={confirming === report.id}
-                  pending={pending}
-                  onOpen={() => {
-                    closeForms();
-                    if (report.id === markedId) {
-                      // Changed since it was opened: pressing its name puts it back, which is the
-                      // only way to undo an edit without having remembered what it undid.
-                      if (!sameSelection(report, current)) {
-                        onOpen(report);
-                        return;
-                      }
-                      // Otherwise the press lets go of the tag and leaves the two tag lists
-                      // alone: what is on screen is the teacher's, not the tag's, to give back.
-                      setMarkedId(null);
+          {ordered.map((report) =>
+            // Renaming happens where the tag is, so the row neither grows nor reorders itself.
+            editing?.kind === "rename" && editing.report.id === report.id ? (
+              <NameForm
+                key={report.id}
+                initialName={report.name}
+                submitLabel="Umbenennen"
+                pending={pending}
+                onSubmit={async (name) => {
+                  await run(report.id, () => onRename(report.id, { name, ...current }));
+                  setEditing(null);
+                }}
+                onCancel={() => setEditing(null)}
+              />
+            ) : (
+              <SavedReportTag
+                key={report.id}
+                report={report}
+                marked={report.id === markedId}
+                changed={report.id === markedId && !sameSelection(report, current)}
+                confirming={confirming === report.id}
+                pending={pending}
+                onOpen={() => {
+                  closeForms();
+                  if (report.id === markedId) {
+                    // Changed since it was opened: pressing its name puts it back, which is the
+                    // only way to undo an edit without having remembered what it undid.
+                    if (!sameSelection(report, current)) {
+                      onOpen(report);
                       return;
                     }
-                    setMarkedId(report.id);
-                    onOpen(report);
-                  }}
-                  onUpdate={() => {
-                    closeForms();
-                    return run(report.id, () =>
-                      onUpdate(report.id, { name: report.name, ...current }),
-                    );
-                  }}
-                  onStartRename={() => {
-                    closeForms();
-                    setEditing({ kind: "rename", report });
-                  }}
-                  onStartDelete={() => {
-                    closeForms();
-                    setConfirming(report.id);
-                  }}
-                  onDelete={async () => {
-                    await run(report.id, () => onDelete(report.id));
-                    setConfirming(null);
+                    // Otherwise the press lets go of the tag and leaves the two tag lists
+                    // alone: what is on screen is the teacher's, not the tag's, to give back.
                     setMarkedId(null);
-                  }}
-                  onCancel={() => setConfirming(null)}
-                />
-              ),
-            )
+                    return;
+                  }
+                  setMarkedId(report.id);
+                  onOpen(report);
+                }}
+                onUpdate={() => {
+                  closeForms();
+                  return run(report.id, () =>
+                    onUpdate(report.id, { name: report.name, ...current }),
+                  );
+                }}
+                onStartRename={() => {
+                  closeForms();
+                  setEditing({ kind: "rename", report });
+                }}
+                onStartDelete={() => {
+                  closeForms();
+                  setConfirming(report.id);
+                }}
+                onDelete={async () => {
+                  await run(report.id, () => onDelete(report.id));
+                  setConfirming(null);
+                  setMarkedId(null);
+                }}
+                onCancel={() => setConfirming(null)}
+              />
+            ),
           )}
 
           {editing?.kind === "save" ? (
