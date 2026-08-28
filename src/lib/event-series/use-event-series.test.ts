@@ -5,6 +5,7 @@
  */
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { storedEventSeries } from "@/test/event-series";
 
 type SnapshotHandler = (snapshot: { docs: { id: string; data: () => unknown }[] }) => void;
 type ErrorHandler = (error: Error) => void;
@@ -28,13 +29,7 @@ function docOf(id: string, data: unknown) {
   return { id, data: () => data };
 }
 
-const validEventSeries = {
-  name: "Wintersportwoche 2026",
-  isActive: true,
-  isArchived: false,
-  hasRegistrations: false,
-  position: 0,
-};
+const validEventSeries = storedEventSeries({ isActive: true });
 
 /** The hook waits for Firebase Auth, so tests have to announce a signed-in user first. */
 function signIn() {

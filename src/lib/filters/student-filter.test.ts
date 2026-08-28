@@ -287,12 +287,12 @@ describe("filterStudents", () => {
 
 describe("filterGroups", () => {
   const lists = {
-    classes: [{ name: "5AHIF" }, { name: "5BHIF" }],
+    classes: ["5AHIF", "5BHIF"],
     programs: [{ name: "Ski" }, { name: "Snowboard" }],
-    skillLevels: [{ name: "Keine Vorkenntnisse" }],
-    busPickupPoints: [{ name: "Dornbirn" }, { name: "Bregenz" }],
-    seasonPassOptions: [{ name: "Keine" }],
-    foodOptions: [{ name: "Alles" }, { name: "Vegetarisch" }],
+    skillLevels: ["Keine Vorkenntnisse"],
+    busPickupPoints: ["Dornbirn", "Bregenz"],
+    seasonPassOptions: ["Keine"],
+    foodOptions: ["Alles", "Vegetarisch"],
   };
   const everything = {
     attendance: true,
@@ -480,14 +480,45 @@ describe("filterGroups", () => {
       { value: "5BHIF", label: "5BHIF" },
     ]);
   });
+
+  /**
+   * An empty list is a question the student was never asked (US-21), so nothing is stored to
+   * filter by — offering the category would put a heading over an empty row.
+   */
+  it("offers no category whose list is empty", () => {
+    const empty = {
+      classes: [],
+      programs: [],
+      skillLevels: [],
+      busPickupPoints: [],
+      seasonPassOptions: [],
+      foodOptions: [],
+    };
+
+    expect(filterGroups(empty, everything).map((group) => group.category)).toEqual([
+      "attendance",
+      "event",
+      "gender",
+      "equipmentRental",
+      "health",
+      "completeness",
+    ]);
+  });
+
+  /** An answer cannot summon its own question: with no list there is no food question to ask. */
+  it("offers no food category at all when the list is empty, not even Sonstiges", () => {
+    const groups = filterGroups({ ...lists, foodOptions: [] }, everything);
+
+    expect(groups.map((group) => group.category)).not.toContain("foodOption");
+  });
 });
 
 describe("scopeFilterToGroups", () => {
   const GROUPS = filterGroups(
     {
-      classes: [{ name: "5AHIF" }],
+      classes: ["5AHIF"],
       programs: [{ name: "Ski" }],
-      skillLevels: [{ name: "Keine Vorkenntnisse" }],
+      skillLevels: ["Keine Vorkenntnisse"],
     },
     { attendance: true },
   );
@@ -510,16 +541,19 @@ describe("scopeFilterToGroups", () => {
     expect(scopeFilterToGroups(filter, GROUPS).tags.event).toEqual([]);
   });
 
-  /** An empty category has not answered — its list may still be loading — so it drops nothing. */
-  it("keeps the tags of a category that offers nothing yet", () => {
-    const loading = filterGroups(
-      { classes: [], programs: [], skillLevels: [] },
+  /**
+   * One document carries every list, so by the time the groups are built they have all arrived —
+   * an empty category means an empty list, not a subscription still on its way (US-21).
+   */
+  it("drops the tags of a category whose list is empty, since nothing offers it", () => {
+    const withoutPickupPoints = filterGroups(
+      { classes: ["5AHIF"], programs: [], skillLevels: [], busPickupPoints: [] },
       { busPickupPoint: true },
     );
     const filter = withTags(["busPickupPoint", "Bregenz"], ["class", "5AHIF"]);
 
-    expect(scopeFilterToGroups(filter, loading).tags.busPickupPoint).toEqual(["Bregenz"]);
-    expect(scopeFilterToGroups(filter, loading).tags.class).toEqual(["5AHIF"]);
+    expect(scopeFilterToGroups(filter, withoutPickupPoints).tags.busPickupPoint).toEqual([]);
+    expect(scopeFilterToGroups(filter, withoutPickupPoints).tags.class).toEqual(["5AHIF"]);
   });
 
   it("leaves the name being searched for alone, which no list has to offer", () => {
@@ -531,9 +565,9 @@ describe("scopeFilterToGroups", () => {
 
 describe("filterSummary", () => {
   const lists = {
-    classes: [{ name: "5AHIF" }, { name: "5BHIF" }],
+    classes: ["5AHIF", "5BHIF"],
     programs: [{ name: "Ski" }],
-    skillLevels: [{ name: "Keine Vorkenntnisse" }],
+    skillLevels: ["Keine Vorkenntnisse"],
   };
   const GROUPS = filterGroups(lists, { attendance: true });
 

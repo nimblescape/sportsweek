@@ -9,16 +9,10 @@ import userEvent from "@testing-library/user-event";
 import { ApiRequestError } from "@/lib/api/client";
 import type { ErrorCode } from "@/lib/errors";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { storedEventSeries } from "@/test/event-series";
 import { EventSeriesFormDialog } from "./event-series-form-dialog";
 
-const eventSeries: EventSeries = {
-  id: "s1",
-  name: "Winter 2026",
-  isActive: false,
-  isArchived: false,
-  hasRegistrations: false,
-  position: 0,
-};
+const eventSeries: EventSeries = { id: "s1", ...storedEventSeries({ name: "Winter 2026" }) };
 
 /**
  * The dialog owns the form and nothing else — which endpoint a name goes to is the list's

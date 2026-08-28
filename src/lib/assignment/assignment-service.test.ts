@@ -5,6 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeDocumentReference, FakeFirestore } from "@/test/fake-firestore";
+import { storedEventSeries } from "@/test/event-series";
 
 const firestore = new FakeFirestore();
 
@@ -28,22 +29,33 @@ function seedRecord(id: string, fields: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   firestore.reset();
-  firestore.seed("eventSeries", "s1", {
-    name: "2026",
-    isActive: true,
-    isArchived: false,
-    hasRegistrations: true,
+  firestore.seed(
+    "eventSeries",
+    "s1",
+    storedEventSeries({ name: "2026", isActive: true, hasRegistrations: true }),
+  );
+  firestore.seed(
+    "eventSeries",
+    "s0",
+    storedEventSeries({
+      name: "2025",
+      isArchived: true,
+      hasRegistrations: true,
+      position: 1,
+    }),
+  );
+  firestore.seed("events", "event1", {
+    eventSeriesId: "s1",
+    name: "Montafon",
+    nameKey: "montafon",
     position: 0,
   });
-  firestore.seed("eventSeries", "s0", {
-    name: "2025",
-    isActive: false,
-    isArchived: true,
-    hasRegistrations: true,
-    position: 1,
+  firestore.seed("events", "event2", {
+    eventSeriesId: "s0",
+    name: "Gardasee",
+    nameKey: "gardasee",
+    position: 0,
   });
-  firestore.seed("events", "event1", { eventSeriesId: "s1", name: "Montafon", position: 0 });
-  firestore.seed("events", "event2", { eventSeriesId: "s0", name: "Gardasee", position: 0 });
   seedRecord(ANNA);
   seedRecord(BENE);
 });
@@ -67,7 +79,12 @@ describe("assignStudents", () => {
   });
 
   it("moves a student to another event by unassigning and assigning again", async () => {
-    firestore.seed("events", "event3", { eventSeriesId: "s1", name: "Bregenzerwald", position: 1 });
+    firestore.seed("events", "event3", {
+      eventSeriesId: "s1",
+      name: "Bregenzerwald",
+      nameKey: "bregenzerwald",
+      position: 1,
+    });
     await assignStudents([ANNA], "event1");
 
     await assignStudents([ANNA], null);

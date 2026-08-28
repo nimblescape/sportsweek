@@ -183,20 +183,19 @@ export async function updateEventSeries(
       await assertNameIsFree(transaction, { name, ownerId: id });
     }
 
-    // `set` replaces the document, so everything the teacher owns has to be carried across.
-    const next = {
-      ...current,
+    // `update` rather than `set`: the document now also carries the six maintained lists (US-21),
+    // and naming them here only to preserve them would drop the next one somebody adds.
+    const changed = {
       name: name ?? current.name,
       nameKey: normalizeName(name ?? current.name),
       isActive,
       isArchived,
       hasRegistrations,
     };
-    const { id: _id, ...stored } = next;
-    transaction.set(reference, stored);
+    transaction.update(reference, changed);
     for (const doc of previouslyActive) transaction.update(doc.ref, { isActive: false });
 
-    return next;
+    return { ...current, ...changed };
   });
 }
 

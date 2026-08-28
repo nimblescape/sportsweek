@@ -40,10 +40,8 @@ const eventSeries = {
   position: 0,
 };
 
-const named = (name: string) => ({ id: name, name, position: 0 });
-
 function listOf(names: string[]) {
-  return { items: names.map(named), loading: false, error: null };
+  return { items: names, loading: false, error: null };
 }
 
 beforeEach(() => {

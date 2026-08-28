@@ -68,11 +68,7 @@ const eventSeries = {
   position: 0,
 };
 
-const listOf = (...names: string[]) => ({
-  items: names.map((name, position) => ({ id: name, name, position })),
-  loading: false,
-  error: null,
-});
+const listOf = (...names: string[]) => ({ items: names, loading: false, error: null });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -91,7 +87,7 @@ beforeEach(() => {
     return listOf("Profi");
   });
   usePrograms.mockReturnValue({
-    programs: [{ id: "p1", name: "Ski", position: 0, requiredEquipment: [] }],
+    programs: [{ name: "Ski", requiredEquipment: [] }],
     loading: false,
     error: null,
   });
@@ -406,27 +402,43 @@ describe("the saved reports", () => {
   });
 
   /**
-   * A list still on its way offers nothing to check a tag against. Dropping it there would strip
-   * the report of what it holds and then call it changed for the rest of the session.
+   * Every list now arrives on the one event series document (US-21), so a list still on its way
+   * is a series still on its way — and there is no report to open against lists nobody has read.
+   * That is what lets an empty list mean a question nobody was asked rather than one pending.
    */
-  it("does not read as changed when a list it filters by has not arrived yet", async () => {
+  it("offers nothing to open while the event series has not arrived", () => {
+    useSavedReports.mockReturnValue({ reports: [saved], loading: false, error: null });
+    useEventSeries.mockReturnValue({ eventSeries: [], loading: true, error: null });
+
+    render(<ReportView />);
+
+    expect(
+      screen.queryByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }),
+    ).not.toBeInTheDocument();
+  });
+
+  /** An empty list is a question nobody was asked, so the tag standing for it cannot be shown. */
+  it("drops a tag of a category the event series keeps no list for", async () => {
     const pickup = {
       ...saved,
-      filter: toggleTag(EMPTY_FILTER, "busPickupPoint", "Bregenz"),
+      filter: toggleTag(saved.filter, "busPickupPoint", "Bregenz"),
       fields: [],
     };
     useSavedReports.mockReturnValue({ reports: [pickup], loading: false, error: null });
     useMasterData.mockImplementation((key: string) => {
-      if (key === "bus-pickup-points") return { items: [], loading: true, error: null };
+      if (key === "bus-pickup-points") return listOf();
       if (key === "classes") return listOf("5AHIF", "5BHIF");
       return listOf("Profi");
     });
 
     render(<ReportView />);
-    const tag = screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" });
-    await userEvent.click(tag);
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: Nur 5BHIF" }));
 
-    expect(tag).toHaveAccessibleDescription("");
+    expect(
+      screen.queryByRole("button", { name: "Zustiegsstelle: Bregenz" }),
+    ).not.toBeInTheDocument();
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Berger")).toBeInTheDocument();
   });
 
   it("saves the report the teacher is looking at, under the name they type", async () => {

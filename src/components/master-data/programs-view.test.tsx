@@ -21,12 +21,7 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
 const { ProgramsView } = await import("./programs-view");
 const { ProgramEquipmentView } = await import("./program-equipment-view");
 
-const programs = [
-  { id: "ski", name: "Ski" },
-  { id: "alt", name: "Alternativ" },
-];
-
-const ski = { id: "ski", name: "Ski", requiredEquipment: ["Helm", "Stöcke"] };
+const ski = { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] };
 
 function stubFetch() {
   const fetchMock = vi.fn(() =>
@@ -48,10 +43,10 @@ function bodyOf(fetchMock: ReturnType<typeof stubFetch>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useMasterData.mockReturnValue({ items: programs, loading: false, error: null });
+  useMasterData.mockReturnValue({ items: ["Ski", "Alternativ"], loading: false, error: null });
   useProgram.mockReturnValue({ program: ski, loading: false, error: null });
   useUsageReport.mockReturnValue({
-    blockedIds: new Set<string>(),
+    blockedNames: new Set<string>(),
     blockedEquipment: {},
     loading: false,
   });
@@ -67,18 +62,29 @@ describe("ProgramsView", () => {
     expect(screen.getByText("Ski")).toBeInTheDocument();
   });
 
-  it("links each program to its own equipment list", () => {
+  /** A name is the identity (US-21), and it may hold a character a path segment cannot carry. */
+  it("names the program its equipment list belongs to in a search parameter", () => {
     render(<ProgramsView />);
 
     expect(screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski" })).toHaveAttribute(
       "href",
-      "/app/master-data/programs/ski",
+      "/app/master-data/programs?equipment=Ski",
     );
+  });
+
+  it("percent-encodes a name a URL would otherwise read as structure", () => {
+    useMasterData.mockReturnValue({ items: ["Ski & Board"], loading: false, error: null });
+
+    render(<ProgramsView />);
+
+    expect(
+      screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski & Board" }),
+    ).toHaveAttribute("href", "/app/master-data/programs?equipment=Ski%20%26%20Board");
   });
 
   it("keeps the equipment list reachable for a program the in-use guard blocks", () => {
     useUsageReport.mockReturnValue({
-      blockedIds: new Set(["ski"]),
+      blockedNames: new Set(["Ski"]),
       blockedEquipment: {},
       loading: false,
     });
@@ -114,13 +120,13 @@ describe("ProgramsView", () => {
 
 describe("ProgramEquipmentView", () => {
   it("reads the program named in the URL", () => {
-    render(<ProgramEquipmentView programId="ski" />);
+    render(<ProgramEquipmentView program="Ski" />);
 
-    expect(useProgram).toHaveBeenCalledWith("ski");
+    expect(useProgram).toHaveBeenCalledWith("Ski");
   });
 
   it("lists the entries the program carries, and names the program", () => {
-    render(<ProgramEquipmentView programId="ski" />);
+    render(<ProgramEquipmentView program="Ski" />);
 
     expect(screen.getByRole("heading", { name: /Ski/ })).toBeInTheDocument();
     expect(screen.getByText("Helm")).toBeInTheDocument();
@@ -128,7 +134,7 @@ describe("ProgramEquipmentView", () => {
   });
 
   it("offers a way back to the programs list", () => {
-    render(<ProgramEquipmentView programId="ski" />);
+    render(<ProgramEquipmentView program="Ski" />);
 
     expect(screen.getByRole("link", { name: /alle programme/i })).toHaveAttribute(
       "href",
@@ -138,19 +144,20 @@ describe("ProgramEquipmentView", () => {
 
   it("renders a program with no equipment as an empty list rather than an error", () => {
     useProgram.mockReturnValue({
-      program: { id: "alt", name: "Alternativ", requiredEquipment: [] },
+      program: { name: "Alternativ", requiredEquipment: [] },
       loading: false,
       error: null,
     });
 
-    render(<ProgramEquipmentView programId="alt" />);
+    render(<ProgramEquipmentView program="Alternativ" />);
 
     expect(screen.getByText("Dieses Programm benötigt keine Ausrüstung.")).toBeInTheDocument();
   });
 
+  /** The list is a field of the program, so a change names the program and rewrites it whole. */
   it("appends a new entry rather than replacing the list", async () => {
     const fetchMock = stubFetch();
-    render(<ProgramEquipmentView programId="ski" />);
+    render(<ProgramEquipmentView program="Ski" />);
 
     await userEvent.click(screen.getByRole("button", { name: /neuer ausrüstungsgegenstand/i }));
     await userEvent.type(screen.getByLabelText("Name"), "Brille");
@@ -158,14 +165,17 @@ describe("ProgramEquipmentView", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("/api/master-data/programs/ski");
+    expect(url).toBe("/api/master-data/programs");
     expect(init.method).toBe("PATCH");
-    expect(bodyOf(fetchMock)).toEqual({ requiredEquipment: ["Helm", "Stöcke", "Brille"] });
+    expect(bodyOf(fetchMock)).toEqual({
+      item: "Ski",
+      requiredEquipment: ["Helm", "Stöcke", "Brille"],
+    });
   });
 
   it("renames an entry in place, keeping the order", async () => {
     const fetchMock = stubFetch();
-    render(<ProgramEquipmentView programId="ski" />);
+    render(<ProgramEquipmentView program="Ski" />);
 
     await userEvent.click(
       screen.getByRole("button", { name: "Ausrüstungsgegenstand Helm bearbeiten" }),
@@ -176,12 +186,12 @@ describe("ProgramEquipmentView", () => {
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(bodyOf(fetchMock)).toEqual({ requiredEquipment: ["Skihelm", "Stöcke"] });
+    expect(bodyOf(fetchMock)).toEqual({ item: "Ski", requiredEquipment: ["Skihelm", "Stöcke"] });
   });
 
   it("removes an entry by rewriting the list without it", async () => {
     const fetchMock = stubFetch();
-    render(<ProgramEquipmentView programId="ski" />);
+    render(<ProgramEquipmentView program="Ski" />);
 
     await userEvent.click(
       screen.getByRole("button", { name: "Ausrüstungsgegenstand Helm löschen" }),
@@ -190,17 +200,18 @@ describe("ProgramEquipmentView", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Löschen" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(bodyOf(fetchMock)).toEqual({ requiredEquipment: ["Stöcke"] });
+    expect(bodyOf(fetchMock)).toEqual({ item: "Ski", requiredEquipment: ["Stöcke"] });
   });
 
+  /** The report is keyed by program name, since a name is what identifies a program (US-21). */
   it("disables an entry a student of an open event series still rents", () => {
     useUsageReport.mockReturnValue({
-      blockedIds: new Set<string>(),
-      blockedEquipment: { ski: ["Helm"] },
+      blockedNames: new Set<string>(),
+      blockedEquipment: { Ski: ["Helm"] },
       loading: false,
     });
 
-    render(<ProgramEquipmentView programId="ski" />);
+    render(<ProgramEquipmentView program="Ski" />);
 
     expect(
       screen.getByRole("button", { name: "Ausrüstungsgegenstand Helm bearbeiten" }),
@@ -213,12 +224,12 @@ describe("ProgramEquipmentView", () => {
 
   it("leaves the entries of other programs alone", () => {
     useUsageReport.mockReturnValue({
-      blockedIds: new Set<string>(),
-      blockedEquipment: { board: ["Helm"] },
+      blockedNames: new Set<string>(),
+      blockedEquipment: { Snowboard: ["Helm"] },
       loading: false,
     });
 
-    render(<ProgramEquipmentView programId="ski" />);
+    render(<ProgramEquipmentView program="Ski" />);
 
     expect(
       screen.getByRole("button", { name: "Ausrüstungsgegenstand Helm löschen" }),

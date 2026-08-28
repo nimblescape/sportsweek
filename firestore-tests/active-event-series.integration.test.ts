@@ -25,8 +25,7 @@ async function wipe(collection: string) {
 }
 
 async function reset() {
-  for (const collection of ["eventSeries", "events", "reservedNames", "registrations"])
-    await wipe(collection);
+  for (const collection of ["eventSeries", "events", "registrations"]) await wipe(collection);
 }
 
 /** Archiving signs off on an event series' registrations (US-4), so there has to be some. */

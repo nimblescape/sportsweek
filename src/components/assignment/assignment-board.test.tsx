@@ -17,12 +17,12 @@ const PROGRAMS = ["Ski"];
 const SKILL_LEVELS = ["Profi"];
 const COLUMNS = skillColumns(
   PROGRAMS.map((name) => ({ name })),
-  SKILL_LEVELS.map((name) => ({ name })),
+  SKILL_LEVELS,
 );
 const FILTERS = filterGroups({
-  classes: [{ name: "5AHIF" }, { name: "5BHIF" }],
+  classes: ["5AHIF", "5BHIF"],
   programs: [{ name: "Ski" }],
-  skillLevels: [{ name: "Profi" }],
+  skillLevels: SKILL_LEVELS,
 });
 const EVENTS = [
   { id: "event1", name: "Montafon" },

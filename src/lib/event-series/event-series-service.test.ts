@@ -5,6 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
+import { storedEventSeries } from "@/test/event-series";
 
 const firestore = new FakeFirestore();
 
@@ -18,34 +19,29 @@ const { ServiceError } = await import("@/lib/service-error");
 
 beforeEach(() => firestore.reset());
 
-/** Mirrors createEventSeries: an event series and the reservation that holds its name (US-4). */
+/** Mirrors createEventSeries: the name key is derived, so nothing else holds the name (US-4). */
 function seedEventSeries(id: string, overrides: Record<string, unknown> = {}) {
-  const eventSeries = {
-    name: `Eventreihe ${id}`,
-    isActive: false,
-    isArchived: false,
-    hasRegistrations: false,
-    position: 0,
-    ...overrides,
-  };
-  firestore.seed("eventSeries", id, eventSeries);
-  firestore.seed("reservedNames", `eventSeries|${String(eventSeries.name).trim().toLowerCase()}`, {
-    scope: "eventSeries",
-    name: eventSeries.name,
-    ownerId: id,
-  });
+  firestore.seed("eventSeries", id, storedEventSeries({ name: `Eventreihe ${id}`, ...overrides }));
 }
 
 describe("createEventSeries", () => {
   it("stores a new event series as neither active nor archived", async () => {
     const eventSeries = await createEventSeries({ name: "Wintersportwoche 2026" });
 
-    expect(firestore.get("eventSeries", eventSeries.id)).toEqual({
-      name: "Wintersportwoche 2026",
-      isActive: false,
-      isArchived: false,
-      hasRegistrations: false,
-      position: 0,
+    expect(firestore.get("eventSeries", eventSeries.id)).toEqual(storedEventSeries());
+  });
+
+  /** A Kulturwoche must not inherit a Wintersportwoche's lists, so a new one starts blank (US-21). */
+  it("starts every maintained list empty, since the lists belong to the series", async () => {
+    const eventSeries = await createEventSeries({ name: "Wintersportwoche 2026" });
+
+    expect(eventSeries).toMatchObject({
+      classOptions: [],
+      programs: [],
+      skillLevels: [],
+      seasonPassOptions: [],
+      busPickupPoints: [],
+      foodOptions: [],
     });
   });
 
@@ -108,18 +104,14 @@ describe("updateEventSeries", () => {
     });
   });
 
-  it("leaves untouched fields alone", async () => {
-    seedEventSeries("s1", { isActive: true });
+  it("leaves untouched fields alone, the maintained lists among them", async () => {
+    seedEventSeries("s1", { isActive: true, classOptions: ["5AHIF"] });
 
     await updateEventSeries("s1", { name: "Neuer Name" });
 
-    expect(firestore.get("eventSeries", "s1")).toEqual({
-      name: "Neuer Name",
-      isActive: true,
-      isArchived: false,
-      hasRegistrations: false,
-      position: 0,
-    });
+    expect(firestore.get("eventSeries", "s1")).toEqual(
+      storedEventSeries({ name: "Neuer Name", isActive: true, classOptions: ["5AHIF"] }),
+    );
   });
 });
 
@@ -422,12 +414,7 @@ describe("deleteEventSeries", () => {
     firestore.seed("events", "orphan", { eventSeriesId: "s1", name: "Übrig" });
 
     await deleteEventSeries("s1");
-    firestore.seed("eventSeries", "s1", {
-      name: "Eventreihe s1",
-      isActive: false,
-      isArchived: true,
-      hasRegistrations: false,
-    });
+    seedEventSeries("s1", { isArchived: true });
     firestore.seed("events", "orphan", { eventSeriesId: "s1", name: "Übrig" });
 
     await expect(deleteEventSeries("s1")).resolves.toBeUndefined();

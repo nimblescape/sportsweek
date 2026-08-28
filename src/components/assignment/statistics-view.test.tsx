@@ -47,11 +47,7 @@ const eventSeries = {
   position: 0,
 };
 
-const listOf = (...names: string[]) => ({
-  items: names.map((name, position) => ({ id: name, name, position })),
-  loading: false,
-  error: null,
-});
+const listOf = (...names: string[]) => ({ items: names, loading: false, error: null });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -66,7 +62,7 @@ beforeEach(() => {
     key === "classes" ? listOf("5AHIF", "5BHIF") : listOf("Profi"),
   );
   usePrograms.mockReturnValue({
-    programs: [{ id: "p1", name: "Ski", position: 0, requiredEquipment: [] }],
+    programs: [{ name: "Ski", requiredEquipment: [] }],
     loading: false,
     error: null,
   });

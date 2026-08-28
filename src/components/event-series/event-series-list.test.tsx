@@ -6,41 +6,14 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { storedEventSeries } from "@/test/event-series";
 import { EventSeriesList } from "@/components/event-series/event-series-list";
 
 const allEventSeries = [
-  {
-    id: "s1",
-    name: "Wintersportwoche 2026",
-    isActive: true,
-    isArchived: false,
-    hasRegistrations: true,
-    position: 0,
-  },
-  {
-    id: "s2",
-    name: "Wintersportwoche 2025",
-    isActive: false,
-    isArchived: true,
-    hasRegistrations: true,
-    position: 0,
-  },
-  {
-    id: "s3",
-    name: "Wintersportwoche 2027",
-    isActive: false,
-    isArchived: false,
-    hasRegistrations: true,
-    position: 0,
-  },
-  {
-    id: "s4",
-    name: "Wintersportwoche 2024",
-    isActive: false,
-    isArchived: false,
-    hasRegistrations: false,
-    position: 0,
-  },
+  { id: "s1", ...storedEventSeries({ name: "Wintersportwoche 2026", isActive: true, hasRegistrations: true }) }, // prettier-ignore
+  { id: "s2", ...storedEventSeries({ name: "Wintersportwoche 2025", isArchived: true, hasRegistrations: true }) }, // prettier-ignore
+  { id: "s3", ...storedEventSeries({ name: "Wintersportwoche 2027", hasRegistrations: true }) },
+  { id: "s4", ...storedEventSeries({ name: "Wintersportwoche 2024" }) },
 ];
 
 function renderList(overrides: Record<string, unknown> = {}) {

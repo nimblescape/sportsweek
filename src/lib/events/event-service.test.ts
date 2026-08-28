@@ -5,6 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
+import { storedEventSeries } from "@/test/event-series";
 
 const firestore = new FakeFirestore();
 
@@ -18,22 +19,16 @@ const { ServiceError } = await import("@/lib/service-error");
 beforeEach(() => firestore.reset());
 
 function seedEventSeries(id: string, overrides: Record<string, unknown> = {}) {
-  firestore.seed("eventSeries", id, {
-    name: `Eventreihe ${id}`,
-    isActive: false,
-    isArchived: false,
-    hasRegistrations: false,
-    ...overrides,
-  });
+  firestore.seed("eventSeries", id, storedEventSeries({ name: `Eventreihe ${id}`, ...overrides }));
 }
 
-/** Mirrors createEvent: an event and the reservation that holds its name within its event series. */
-function seedEvent(id: string, eventSeriesId: string, name: string) {
-  firestore.seed("events", id, { eventSeriesId, name });
-  firestore.seed("reservedNames", `events:${eventSeriesId}|${name.trim().toLowerCase()}`, {
-    scope: `events:${eventSeriesId}`,
+/** Mirrors createEvent: the name key is derived, so it is what the uniqueness query compares. */
+function seedEvent(id: string, eventSeriesId: string, name: string, position = 0) {
+  firestore.seed("events", id, {
+    eventSeriesId,
     name,
-    ownerId: id,
+    nameKey: name.trim().toLocaleLowerCase("de-AT"),
+    position,
   });
 }
 
@@ -46,6 +41,7 @@ describe("createEvent", () => {
     expect(firestore.get("events", event.id)).toEqual({
       eventSeriesId: "s1",
       name: "Montafon",
+      nameKey: "montafon",
       position: 0,
     });
   });
@@ -98,18 +94,23 @@ describe("createEvent", () => {
 });
 
 describe("updateEvent", () => {
-  it("renames an event", async () => {
+  it("renames an event, carrying the key the uniqueness query compares on", async () => {
     seedEventSeries("s1");
-    firestore.seed("events", "e1", { eventSeriesId: "s1", name: "Montafon" });
+    seedEvent("e1", "s1", "Montafon");
 
     await updateEvent("e1", { name: "Montafon Nord" });
 
-    expect(firestore.get("events", "e1")).toEqual({ eventSeriesId: "s1", name: "Montafon Nord" });
+    expect(firestore.get("events", "e1")).toEqual({
+      eventSeriesId: "s1",
+      name: "Montafon Nord",
+      nameKey: "montafon nord",
+      position: 0,
+    });
   });
 
   it("rejects a blank name", async () => {
     seedEventSeries("s1");
-    firestore.seed("events", "e1", { eventSeriesId: "s1", name: "Montafon" });
+    seedEvent("e1", "s1", "Montafon");
 
     await expect(updateEvent("e1", { name: "   " })).rejects.toBeInstanceOf(ServiceError);
   });
@@ -230,7 +231,7 @@ describe("event names are unique within their event series", () => {
   it("allows the same event name in a different event series", async () => {
     seedEventSeries("s1");
     seedEventSeries("s2");
-    firestore.seed("events", "e1", { eventSeriesId: "s1", name: "Montafon" });
+    seedEvent("e1", "s1", "Montafon");
 
     await expect(createEvent({ eventSeriesId: "s2", name: "Montafon" })).resolves.toMatchObject({
       name: "Montafon",
@@ -250,7 +251,7 @@ describe("event names are unique within their event series", () => {
 
   it("lets an event keep its own name", async () => {
     seedEventSeries("s1");
-    firestore.seed("events", "e1", { eventSeriesId: "s1", name: "Montafon" });
+    seedEvent("e1", "s1", "Montafon");
 
     await expect(updateEvent("e1", { name: "Montafon" })).resolves.toMatchObject({
       name: "Montafon",
@@ -259,8 +260,8 @@ describe("event names are unique within their event series", () => {
 
   it("allows renaming onto a name used only in another event series", async () => {
     seedEventSeries("s1");
-    firestore.seed("events", "e1", { eventSeriesId: "s1", name: "Montafon" });
-    firestore.seed("events", "other", { eventSeriesId: "s2", name: "Lech" });
+    seedEvent("e1", "s1", "Montafon");
+    seedEvent("other", "s2", "Lech");
 
     await expect(updateEvent("e1", { name: "Lech" })).resolves.toMatchObject({ name: "Lech" });
   });

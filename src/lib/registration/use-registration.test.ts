@@ -6,6 +6,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { storedEventSeries } from "@/test/event-series";
 
 type SnapshotHandler = (snapshot: { docs: { id: string; data: () => unknown }[] }) => void;
 
@@ -31,14 +32,7 @@ const { useRegistration } = await import("./use-registration");
 const STUDENT = "jane.doe@student.htldornbirn.at";
 
 function eventSeries(id: string, isActive: boolean): EventSeries {
-  return {
-    id,
-    name: `Eventreihe ${id}`,
-    isActive,
-    isArchived: false,
-    hasRegistrations: false,
-    position: 0,
-  };
+  return { id, ...storedEventSeries({ name: `Eventreihe ${id}`, isActive }) };
 }
 
 /** The subscription waits for Firebase Auth, so tests have to announce a signed-in user first. */

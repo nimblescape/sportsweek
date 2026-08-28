@@ -23,8 +23,8 @@ function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): Roster
 }
 
 const PROGRAMS = [{ name: "Ski" }, { name: "Snowboard" }];
-const SKILL_LEVELS = [{ name: "Keine Vorkenntnisse" }, { name: "Fortgeschritten" }];
-const CLASSES = [{ name: "5AHIF" }, { name: "5BHIF" }];
+const SKILL_LEVELS = ["Keine Vorkenntnisse", "Fortgeschritten"];
+const CLASSES = ["5AHIF", "5BHIF"];
 const COLUMNS = skillColumns(PROGRAMS, SKILL_LEVELS);
 
 const columnKey = (program: string, skillLevel: string) =>

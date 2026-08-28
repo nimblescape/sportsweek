@@ -23,8 +23,7 @@ async function wipe(collection: string) {
   await Promise.all(snapshot.docs.map((doc) => doc.ref.delete()));
 }
 
-// reservedNames has to go too: a leftover reservation blocks the name it still holds.
-const COLLECTIONS_UNDER_TEST = ["eventSeries", "events", "reservedNames"];
+const COLLECTIONS_UNDER_TEST = ["eventSeries", "events"];
 
 async function reset() {
   for (const collection of COLLECTIONS_UNDER_TEST) await wipe(collection);
@@ -175,13 +174,14 @@ describe("names are freed again when their owner goes", () => {
     await expect(createEvent({ eventSeriesId: reused.id, name: "Lech" })).resolves.toBeTruthy();
   });
 
-  it("leaves no reservation behind after an event series cascade", async () => {
+  it("frees an event series' name for reuse once the cascade has removed it", async () => {
     const eventSeries = await createEventSeries({ name: "Winter 2026" });
     await createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" });
 
     await deleteEventSeries(eventSeries.id);
 
-    const snapshot = await adminDb.collection("reservedNames").get();
-    expect(snapshot.size).toBe(0);
+    // Nothing outlives the document, because the name is unique by a query over the documents
+    // themselves rather than by a reservation that would have to be cleaned up (US-21).
+    await expect(createEventSeries({ name: "Winter 2026" })).resolves.toBeTruthy();
   });
 });

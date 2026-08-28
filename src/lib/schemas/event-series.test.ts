@@ -9,15 +9,23 @@ import { eventSchema, eventSeriesSchema } from "@/lib/schemas/event-series";
 const validEventSeries = {
   id: "event series-1",
   name: "Wintersportwoche 2026",
+  nameKey: "wintersportwoche 2026",
   isActive: true,
   isArchived: false,
   hasRegistrations: false,
   position: 0,
+  classOptions: ["3AHIT"],
+  programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+  skillLevels: ["Keine Vorkenntnisse"],
+  seasonPassOptions: ["Saisonkarte"],
+  busPickupPoints: ["Dornbirn"],
+  foodOptions: ["Vegetarisch"],
 };
 const validEvent = {
   id: "event-1",
   eventSeriesId: "event series-1",
   name: "Montafon",
+  nameKey: "montafon",
   position: 0,
 };
 
@@ -41,8 +49,40 @@ describe("eventSeriesSchema", () => {
 
   it("carries no third state field, since the displayed state is derived", () => {
     expect(Object.keys(eventSeriesSchema.shape).sort()).toEqual(
-      ["id", "isActive", "isArchived", "hasRegistrations", "name", "position"].sort(),
+      [
+        "id",
+        "isActive",
+        "isArchived",
+        "hasRegistrations",
+        "name",
+        "nameKey",
+        "position",
+        "classOptions",
+        "programs",
+        "skillLevels",
+        "seasonPassOptions",
+        "busPickupPoints",
+        "foodOptions",
+      ].sort(),
     );
+  });
+
+  it("requires the derived name key, which the uniqueness query compares on", () => {
+    expect(eventSeriesSchema.safeParse({ ...validEventSeries, nameKey: "" }).success).toBe(false);
+  });
+
+  it.each([
+    "classOptions",
+    "programs",
+    "skillLevels",
+    "seasonPassOptions",
+    "busPickupPoints",
+    "foodOptions",
+  ] as const)("reads %s as empty on a series stored before the field existed", (field) => {
+    const withoutList: Record<string, unknown> = { ...validEventSeries };
+    delete withoutList[field];
+
+    expect(eventSeriesSchema.parse(withoutList)[field]).toEqual([]);
   });
 });
 
@@ -57,5 +97,9 @@ describe("eventSchema", () => {
 
   it("requires a name", () => {
     expect(eventSchema.safeParse({ ...validEvent, name: "" }).success).toBe(false);
+  });
+
+  it("requires the derived name key, which the uniqueness query compares on", () => {
+    expect(eventSchema.safeParse({ ...validEvent, nameKey: "" }).success).toBe(false);
   });
 });

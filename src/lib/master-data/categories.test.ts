@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { COLLECTIONS } from "@/lib/schemas/collections";
+import { eventSeriesSchema } from "@/lib/schemas/event-series";
 import {
   ANSWER_LABELS,
   MASTER_DATA_CATEGORIES,
@@ -15,11 +15,12 @@ import {
 } from "./categories";
 
 describe("MASTER_DATA_CATEGORIES", () => {
-  it("points every category at a known collection", () => {
-    const known = new Set<string>(Object.values(COLLECTIONS));
+  it("points every category at a list the event series document holds", () => {
+    const stored = eventSeriesSchema.shape;
 
     for (const category of Object.values(MASTER_DATA_CATEGORIES)) {
-      expect(known).toContain(category.collection);
+      expect(Object.keys(stored)).toContain(category.field);
+      expect(stored[category.field].parse(undefined)).toEqual([]);
     }
   });
 
