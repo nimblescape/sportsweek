@@ -5,9 +5,13 @@
  */
 "use client";
 
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { DoorClosed, DoorOpen, LayoutTemplate } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { DoorClosed, DoorOpen, LayoutTemplate, LogIn, LogOut } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { TAG_ICON_CLASSES } from "@/components/ui/tag";
+import { ApiRequestError, apiRequest } from "@/lib/api/client";
+import { useBusyWhile } from "@/lib/api/busy";
 import { cn } from "@/lib/utils";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import {
@@ -43,19 +47,26 @@ type RowProps = {
   label: string;
   eventSeries: EventSeries[];
   selectedId: string | null;
-  /** Accent for a series, grey for a template — both already in the base palette (Q21). */
-  variant: "default" | "secondary";
   onSelect: (eventSeries: EventSeries) => void;
+  onSetOpen: (eventSeries: EventSeries, isOpenToStudents: boolean) => void;
+  pending: boolean;
 };
 
-/**
- * The grey a pressed template is filled with. `secondary` is greyscale but sits at 0.97, which
- * against a white row leaves pressed and unpressed telling each other apart by nothing.
- */
-const PRESSED_TEMPLATE =
-  "bg-foreground/75 text-background hover:bg-foreground/65 active:bg-foreground/60";
+export const openActionLabel = (name: string) => `${name} für Schüler:innen öffnen`;
+export const closeActionLabel = (name: string) => `${name} für Schüler:innen schließen`;
 
-function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps) {
+/**
+ * What the fill of a pressed tag says. Green is the series taking registrations, which is what a
+ * teacher scans the row for; blue is simply the one being worked in; grey is a template, which is
+ * neither and cannot become either.
+ */
+function pressedFill(one: EventSeries): string {
+  if (one.isTemplate) return "bg-foreground/75 text-background hover:bg-foreground/65";
+  if (one.isOpenToStudents) return "bg-open text-open-foreground hover:bg-open/85";
+  return "bg-primary text-primary-foreground hover:bg-primary/80";
+}
+
+function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }: RowProps) {
   return (
     // `contents` rather than a box of its own: two boxes cannot share a line once the first one
     // fills it, so the templates would drop below the series instead of following them. The
@@ -64,17 +75,39 @@ function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps)
       {eventSeries.map((one) => {
         const pressed = one.id === selectedId;
         return (
-          <Button
+          <div
             key={one.id}
-            type="button"
-            variant={pressed ? variant : "outline"}
-            className={cn(pressed && variant === "secondary" && PRESSED_TEMPLATE)}
-            aria-pressed={pressed}
-            onClick={() => onSelect(one)}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "gap-1 px-1.5",
+              pressed && ["border-transparent", pressedFill(one)],
+            )}
           >
             <StateIcon eventSeries={one} />
-            {one.name}
-          </Button>
+            <button
+              type="button"
+              aria-pressed={pressed}
+              onClick={() => onSelect(one)}
+              className="focus-visible:ring-ring/50 max-w-60 truncate rounded-md px-0.5 outline-none focus-visible:ring-3"
+            >
+              {one.name}
+            </button>
+            {/* Only on the tag that is selected, so a press cannot land on another series, and
+                never on a template, which can never be opened (US-19, US-22). */}
+            {pressed && !one.isTemplate ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={(one.isOpenToStudents ? closeActionLabel : openActionLabel)(one.name)}
+                disabled={pending}
+                onClick={() => onSetOpen(one, !one.isOpenToStudents)}
+                className={TAG_ICON_CLASSES}
+              >
+                {one.isOpenToStudents ? <LogOut aria-hidden /> : <LogIn aria-hidden />}
+              </Button>
+            ) : null}
+          </div>
         );
       })}
     </div>
@@ -82,10 +115,14 @@ function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps)
 }
 
 /**
- * Which event series a teacher is working in (US-20). One row: the series that carry data first,
- * the templates after them — and exactly one tag is pressed across both, because exactly one
- * thing is scoped. Archived series are in neither, which is what makes archiving the thing that
- * takes a series off every screen (US-19).
+ * Which event series a teacher is working in (US-20), and whether it is taking registrations
+ * (US-19, US-29). One row: the series that carry data first, the templates after them — and
+ * exactly one tag is pressed across both, because exactly one thing is scoped. Archived series
+ * are in neither, which is what makes archiving the thing that takes a series off every screen.
+ *
+ * Opening and closing lives on the tag rather than on a page, because the tag names the series
+ * it concerns and is on screen wherever the teacher happens to be. There is no second control
+ * for it anywhere: two controls for one decision would be two answers to it.
  *
  * It wraps rather than scrolling sideways, so a school with many of either can still see them
  * all, and each group carries its own name because colour alone does not say which is which.
@@ -95,6 +132,10 @@ export function EventSeriesTagRows() {
   const pathname = usePathname();
   const router = useRouter();
   const selectedId = selectedEventSeriesIdFrom(pathname);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useBusyWhile(saving);
 
   const live = eventSeries.filter((one) => !one.isArchived);
   const series = live.filter((one) => !one.isTemplate);
@@ -107,27 +148,43 @@ export function EventSeriesTagRows() {
     router.push(rescopedPath(pathname, one.id, one.isTemplate));
   }
 
+  async function setOpenToStudents(one: EventSeries, isOpenToStudents: boolean) {
+    setActionError(null);
+    setSaving(true);
+    try {
+      await apiRequest(`/api/event-series/${one.id}`, {
+        method: "PATCH",
+        body: { isOpenToStudents },
+      });
+    } catch (caught) {
+      setActionError(
+        caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (live.length === 0) return null;
 
+  const rowProps = { selectedId, onSelect: select, onSetOpen: setOpenToStudents, pending: saving };
+
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-      <TagRow
-        label={EVENT_SERIES_ROW_LABEL}
-        eventSeries={series}
-        selectedId={selectedId}
-        variant="default"
-        onSelect={select}
-      />
-      {/* Absent rather than empty, so a school that never makes a template never sees a space
-          set aside for one. */}
-      {templates.length === 0 ? null : (
-        <TagRow
-          label={TEMPLATE_ROW_LABEL}
-          eventSeries={templates}
-          selectedId={selectedId}
-          variant="secondary"
-          onSelect={select}
-        />
+    <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <TagRow label={EVENT_SERIES_ROW_LABEL} eventSeries={series} {...rowProps} />
+        {/* Absent rather than empty, so a school that never makes a template never sees a space
+            set aside for one. */}
+        {templates.length === 0 ? null : (
+          <TagRow label={TEMPLATE_ROW_LABEL} eventSeries={templates} {...rowProps} />
+        )}
+      </div>
+
+      {/* The press happened here, so the refusal is answered here (US-19). */}
+      {actionError === null ? null : (
+        <p role="alert" className="text-destructive text-sm">
+          {actionError}
+        </p>
       )}
     </div>
   );

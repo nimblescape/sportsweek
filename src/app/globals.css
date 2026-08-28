@@ -43,6 +43,8 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-open-foreground: var(--open-foreground);
+  --color-open: var(--open);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -60,9 +62,13 @@
 /* Breakpoints follow the Tailwind defaults: base = mobile, md = tablet, lg = desktop. */
 
 :root {
-  /* The single accent colour, at the hue of the HTL logo's slate. Nothing else may add chroma. */
+  /* The accent colour, at the hue of the HTL logo's slate. */
   --brand: oklch(0.55 0.17 250);
   --brand-foreground: oklch(0.985 0 0);
+  /* The only other chroma in the palette: a series taking registrations. It earns a hue because
+     an open series is the state that must be spotted without reading the tag (US-19). */
+  --open: oklch(0.55 0.14 150);
+  --open-foreground: oklch(0.985 0 0);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -100,6 +106,8 @@
 .dark {
   --brand: oklch(0.7 0.15 250);
   --brand-foreground: oklch(0.205 0 0);
+  --open: oklch(0.72 0.13 150);
+  --open-foreground: oklch(0.205 0 0);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

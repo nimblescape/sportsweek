@@ -15,6 +15,12 @@ type TagProps = {
   onPress: () => void;
 };
 
+/**
+ * An icon control living inside a filled tag. The tag owns the surface, so the control takes
+ * none of its own — a second fill inside the first would read as a tag within a tag.
+ */
+export const TAG_ICON_CLASSES = "hover:bg-transparent hover:text-inherit hover:opacity-70";
+
 /** One tag of a wrapping tag row — the report has two of them, and they look alike (US-13). */
 export function Tag({ label, text = label, pressed, onPress }: TagProps) {
   return (

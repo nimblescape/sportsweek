@@ -26,6 +26,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Check, GripVertical, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { TAG_ICON_CLASSES } from "@/components/ui/tag";
 import { DraggingCursor } from "@/components/ui/dragging-cursor";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -229,7 +230,7 @@ type SavedReportTagProps = {
 };
 
 // The tag carries the colour, so an icon in it neither repaints itself nor its background.
-const ICON_CLASSES = "hover:bg-transparent hover:text-inherit hover:opacity-70";
+const ICON_CLASSES = TAG_ICON_CLASSES;
 
 function SavedReportTag({
   report,

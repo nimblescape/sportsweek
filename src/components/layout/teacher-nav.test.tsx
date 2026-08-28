@@ -17,7 +17,6 @@ vi.mock("@/components/auth/sign-out-button", () => ({
 }));
 
 const { TeacherNav } = await import("@/components/layout/teacher-nav");
-const { NAV_TOGGLE_LABEL } = await import("@/components/layout/brand");
 
 const SUB_ITEMS = [
   "Eventreihen",
@@ -157,65 +156,31 @@ describe("TeacherNav", () => {
 });
 
 /**
- * The logo folds the bar and unfolds it again, and nothing else does. Every other row is
- * somewhere to go, and a row that sometimes goes there and sometimes folds the bar instead
- * cannot be pressed without first knowing which of the two it is about to do.
+ * The bar does not fold. It had a control on the logo and, before that, on whichever row you
+ * were already standing on; both are gone until the width is worth the second state.
  */
-describe("TeacherNav — collapsing", () => {
+describe("TeacherNav — always open", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pathname.mockReturnValue("/app/s1/report");
   });
 
   const openSubItems = () => screen.queryByRole("link", { name: "Klassen" });
-  const logo = () => screen.getByRole("button", { name: NAV_TOGGLE_LABEL });
 
-  it("folds away when the logo is pressed, and comes back when it is pressed again", async () => {
+  it("offers nothing that folds it", () => {
     render(<TeacherNav />);
 
-    await userEvent.click(logo());
-    expect(openSubItems()).not.toBeInTheDocument();
-
-    await userEvent.click(logo());
-    expect(openSubItems()).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /navigation/i })).not.toBeInTheDocument();
   });
 
-  it("says which way it is about to go, the mark itself saying nothing", async () => {
-    render(<TeacherNav />);
+  it.each(["Bericht", "\u00dcbersicht", "Stammdaten"])(
+    "stays open when %s is pressed, whether it is where you already are or not",
+    async (label) => {
+      render(<TeacherNav />);
 
-    expect(logo()).toHaveAttribute("aria-expanded", "true");
+      await userEvent.click(screen.getByRole("link", { name: label }));
 
-    await userEvent.click(logo());
-    expect(logo()).toHaveAttribute("aria-expanded", "false");
-  });
-
-  /** Pressing the page you are already on used to fold the bar, which made every row two rows. */
-  it("leaves the bar alone when the page it is already on is pressed", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(screen.getByRole("link", { name: "Bericht" }));
-
-    expect(openSubItems()).toBeInTheDocument();
-  });
-
-  it("keeps every destination reachable by name while collapsed", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(logo());
-
-    for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht", "Stammdaten"]) {
-      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
-    }
-  });
-
-  // The bar is collapsed because the teacher wants the width, so going somewhere else must not
-  // take that decision back.
-  it("stays collapsed when another destination is chosen", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(logo());
-    await userEvent.click(screen.getByRole("link", { name: "\u00dcbersicht" }));
-
-    expect(openSubItems()).not.toBeInTheDocument();
-  });
+      expect(openSubItems()).toBeInTheDocument();
+    },
+  );
 });

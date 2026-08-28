@@ -10,8 +10,11 @@ import { describe, expect, it } from "vitest";
 // and red reserved for warning dialogs / error messages.
 const css = readFileSync("src/app/globals.css", "utf8");
 
-/** The only tokens allowed to carry chroma: the single accent, and the danger colour. */
-const CHROMATIC_TOKENS = ["--brand", "--destructive"];
+/**
+ * The only tokens allowed to carry chroma: the accent, the danger colour, and the green of a
+ * series taking registrations — the one state a teacher has to spot without reading (US-19).
+ */
+const CHROMATIC_TOKENS = ["--brand", "--destructive", "--open"];
 
 function themeBlock(selector: string): string {
   const match = css.match(new RegExp(`${selector}\\s*\\{([\\s\\S]*?)\\n\\}`));
@@ -44,7 +47,7 @@ describe.each([
     expect(chroma(brand!.value)).toBeGreaterThan(0);
   });
 
-  it("introduces no colour beyond the accent and the danger token", () => {
+  it("introduces no colour beyond the accent, the danger and the open token", () => {
     const chromatic = decls
       .filter((d) => (chroma(d.value) ?? 0) > 0)
       .map((d) => d.name)

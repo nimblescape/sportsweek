@@ -23,11 +23,9 @@ import { cn } from "@/lib/utils";
  */
 export function SignOutButton({
   className,
-  labelHidden = false,
   photo = null,
 }: {
   className?: string;
-  labelHidden?: boolean;
   photo?: string | null;
 }) {
   const router = useRouter();
@@ -54,7 +52,7 @@ export function SignOutButton({
           className="size-6 shrink-0 rounded-full object-cover"
         />
       )}
-      <span className={cn(labelHidden && "md:sr-only")}>Abmelden</span>
+      <span>Abmelden</span>
     </Button>
   );
 }

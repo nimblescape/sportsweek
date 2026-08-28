@@ -59,23 +59,13 @@ export function TeacherNav({
     pathname === ROUTES.eventSeries ||
     pathname.startsWith(`${ROUTES.eventSeries}/`) ||
     (masterData !== null && pathname.startsWith(masterData));
-  const [collapsed, setCollapsed] = useState(false);
-
   const sections = masterDataSections(eventSeriesId);
-  // Collapsing is offered where the bar is a column; on a narrow screen it is a strip across the
-  // top, which is why the labels only go away from the same breakpoint the toggle appears at.
-  const labelClasses = cn(collapsed && "md:sr-only");
 
   return (
-    <nav
-      aria-label="Hauptnavigation"
-      // Collapsed, the rail is exactly one row wide — its own padding, the row's, and the icon —
-      // so the icon keeps the position it had and its highlight has the same margin either side.
-      className={cn("flex h-full flex-col gap-1 p-2", collapsed ? "md:w-14" : "md:w-56")}
-    >
+    <nav aria-label="Hauptnavigation" className="flex h-full flex-col gap-1 p-2 md:w-56">
       {/* Heads the bar rather than the header, because the bar runs to the top of the window and
           the column beside it is where a page begins. */}
-      <Brand nameHidden={collapsed} onToggle={() => setCollapsed((on) => !on)} />
+      <Brand />
 
       {(eventSeriesId === null ? [] : topLevel(eventSeriesId)).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
@@ -84,51 +74,40 @@ export function TeacherNav({
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            title={collapsed ? label : undefined}
             className={itemClasses(active)}
           >
             <Icon aria-hidden className="size-6 shrink-0" />
-            <span className={labelClasses}>{label}</span>
+            <span>{label}</span>
           </Link>
         );
       })}
 
       {/* The section has no view of its own, so it opens on the first list beneath it. */}
-      <Link
-        href={sections[0].href}
-        title={collapsed ? "Stammdaten" : undefined}
-        className={itemClasses(inMasterData)}
-      >
+      <Link href={sections[0].href} className={itemClasses(inMasterData)}>
         <Database aria-hidden className="size-6 shrink-0" />
-        <span className={labelClasses}>Stammdaten</span>
+        <span>Stammdaten</span>
       </Link>
 
-      {collapsed ? null : (
-        <ul className="flex flex-col gap-1">
-          {sections.map(({ href, label }) => (
-            <li key={href}>
-              <Link
-                href={href}
-                aria-current={pathname === href ? "page" : undefined}
-                className={itemClasses(pathname === href)}
-              >
-                {/* Stands in for the icon above it, so the text lines up by being laid out the
-                    same way rather than by a padding that has to add up to the same number. */}
-                <span aria-hidden className="size-6 shrink-0" />
-                {label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="flex flex-col gap-1">
+        {sections.map(({ href, label }) => (
+          <li key={href}>
+            <Link
+              href={href}
+              aria-current={pathname === href ? "page" : undefined}
+              className={itemClasses(pathname === href)}
+            >
+              {/* Stands in for the icon above it, so the text lines up by being laid out the
+                  same way rather than by a padding that has to add up to the same number. */}
+              <span aria-hidden className="size-6 shrink-0" />
+              {label}
+            </Link>
+          </li>
+        ))}
+      </ul>
 
       {/* The foot of the bar: who is signed in. */}
       <div className="mt-auto">
-        <SignOutButton
-          className="min-h-9 w-full justify-start px-2 py-2"
-          labelHidden={collapsed}
-          photo={photo}
-        />
+        <SignOutButton className="min-h-9 w-full justify-start px-2 py-2" photo={photo} />
       </div>
     </nav>
   );
