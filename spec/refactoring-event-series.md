@@ -390,8 +390,9 @@ its lists with a Wintersportwoche.
   registration stores its answer in. A list's document field is the collection name it had, so
   the definitions gain a field name where they carried a collection name and nothing else about
   them changes.
-- Events join the master data section as the seventh list. Reaching them is no longer a step
-  inside a season's row; they are maintained like any other list, for the selected series.
+- **The events are not in that menu.** They are a field of the document like the other six, but
+  they are the series itself divided into weeks rather than a list of answers to a question, and
+  they are reached from the event series list, on the page for the series they belong to.
 - An item's identity is its name. There is no id beside it, because the name is already unique
   within its list, and because the values registrations and saved reports hold are names.
 - Which item a request means is therefore the name it carries, compared the one way the
@@ -861,7 +862,7 @@ series up is one place rather than three.
 | US-11                   | The season becomes the event series the invitation named, and the class comes from that invitation rather than being answered (US-23). **A question whose list is empty is not asked at all** (US-21). List values stop being snapshots and become references the server keeps in step (Q4). Self-containment is US-26. |
 | US-12                   | Scoped to the selected event series rather than the active season. `eventId` becomes `event`. Otherwise unchanged.                                                                                                                                                                                                      |
 | US-13                   | Scoped to the selected event series. Saved reports become per series (US-25). The tolerance on opening a saved report is kept.                                                                                                                                                                                          |
-| US-14                   | The header gains the event series tag row (US-20). Master data gains an "Events" sub-item, and the seasons sub-item becomes the event series list — the one page under it that is not scoped. The "Statistik" entry becomes "Übersicht" (US-29).                                                                        |
+| US-14                   | The header gains the event series tag row (US-20). The seasons sub-item becomes the event series list — the one page under master data that is not scoped, and the page an event series' events are still reached from. The "Statistik" entry becomes "Übersicht" (US-29).                                              |
 | US-15                   | A student may hold registrations in several series, but is asked to choose only when more than one is **open**; otherwise they go straight in (Q7).                                                                                                                                                                     |
 | US-16                   | Unchanged. It substitutes the identity provider and touches nothing this refactoring moves.                                                                                                                                                                                                                             |
 | US-17, US-18            | Unchanged in shape; both read a registration that no longer needs a join.                                                                                                                                                                                                                                               |
@@ -943,8 +944,8 @@ another, which is the thing the reservation documents existed to avoid in the fi
 
 The pages follow the same reasoning as the scope does. The header selection that says which
 series a teacher is working in is slice 5, so until then the six menu lists are the **active**
-series' lists, and the events of any series stay where they already are — on that series' own
-page, which is the one place in the application that already carries an event series id.
+series' lists. The events stay on their own series' page for good (US-21) — they are the series
+divided into weeks rather than answers to a question, and that page already carries the id.
 
 What the category definitions own is the base this starts from and is carried through unchanged:
 the menu order that the report fields, the filter categories and the registration form all

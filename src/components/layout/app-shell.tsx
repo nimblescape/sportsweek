@@ -9,13 +9,15 @@ import { BusyProvider } from "@/lib/api/busy";
 import { HeaderSpinner } from "@/components/layout/header-spinner";
 
 /** Header row shared by the teacher dashboard (US-14) and the student view (US-15). */
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, scope }: { children: ReactNode; scope?: ReactNode }) {
   return (
     <BusyProvider>
       <div className="flex min-h-dvh flex-col">
         {/* `sticky` already positions the header, which is what the spinner centres against. */}
-        <header className="border-border bg-background sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-4 border-b px-4 md:px-6">
+        <header className="border-border bg-background sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b px-4 py-2 md:px-6">
           <span className="font-heading text-xl font-semibold tracking-tight">Sportsweek</span>
+          {/* The scope sits immediately after the title, because it says what every page is about. */}
+          {scope}
           <HeaderSpinner />
           <SignOutButton />
         </header>
