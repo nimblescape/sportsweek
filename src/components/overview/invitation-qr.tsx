@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { INVITATION_LINK_LABEL } from "@/lib/invitations/invitation-link";
 
 type InvitationQrProps = {
   eventSeriesName: string;
@@ -81,7 +82,7 @@ export function InvitationQr({ eventSeriesName, className, link, onClose }: Invi
       <QRCodeSVG
         value={link}
         role="img"
-        aria-label={`Anmeldelink für ${className}`}
+        aria-label={`${INVITATION_LINK_LABEL} für ${className}`}
         style={{ width: "min(60vh, 80vw)", height: "auto" }}
         marginSize={2}
         level="M"

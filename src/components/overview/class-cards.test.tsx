@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { classOverview, skillColumns } from "@/lib/assignment/statistics";
 import { filterGroups } from "@/lib/filters/student-filter";
+import { INVITATION_LINK_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
 import { ClassCards } from "./class-cards";
@@ -340,7 +341,9 @@ describe("ClassCards — the invitation controls", () => {
   it("copies that class's link, and only that class's", async () => {
     setupWith();
 
-    await userEvent.click(card("5AHIF").getByRole("button", { name: "Link für 5AHIF kopieren" }));
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren` }),
+    );
 
     expect(invitations.linkFor).toHaveBeenCalledWith("5AHIF");
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/join/tok`);
@@ -352,7 +355,7 @@ describe("ClassCards — the invitation controls", () => {
     setupWith();
 
     expect(
-      card("5AHIF").getByRole("button", { name: "Link für 5AHIF kopieren" }),
+      card("5AHIF").getByRole("button", { name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren` }),
     ).toBeInTheDocument();
   });
 
@@ -360,7 +363,9 @@ describe("ClassCards — the invitation controls", () => {
     setupWith();
 
     await userEvent.click(
-      card("5AHIF").getByRole("button", { name: "Link für 5AHIF neu erstellen" }),
+      card("5AHIF").getByRole("button", {
+        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+      }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
 
@@ -374,7 +379,9 @@ describe("ClassCards — the invitation controls", () => {
     setupWith();
 
     expect(
-      card("5AHIF").queryByRole("button", { name: "Link für 5AHIF neu erstellen" }),
+      card("5AHIF").queryByRole("button", {
+        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+      }),
     ).not.toBeInTheDocument();
   });
 
@@ -382,7 +389,9 @@ describe("ClassCards — the invitation controls", () => {
     invitations.linkFor.mockRejectedValue(new Error("nope"));
     setupWith();
 
-    await userEvent.click(card("5AHIF").getByRole("button", { name: "Link für 5AHIF kopieren" }));
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren` }),
+    );
 
     expect(await card("5AHIF").findByRole("alert")).toBeInTheDocument();
   });
@@ -391,7 +400,9 @@ describe("ClassCards — the invitation controls", () => {
   it("offers no invitation controls at all where the series cannot be opened", () => {
     setupWith(null);
 
-    expect(card("5AHIF").queryByRole("button", { name: /Link f/ })).not.toBeInTheDocument();
+    expect(
+      card("5AHIF").queryByRole("button", { name: new RegExp(INVITATION_LINK_LABEL) }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -505,7 +516,11 @@ describe("ClassCards — regenerating asks first", () => {
   }
 
   const press = () =>
-    userEvent.click(card("5AHIF").getByRole("button", { name: "Link für 5AHIF neu erstellen" }));
+    userEvent.click(
+      card("5AHIF").getByRole("button", {
+        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+      }),
+    );
 
   it("regenerates nothing on the press itself", async () => {
     setupWith();

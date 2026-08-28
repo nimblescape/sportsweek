@@ -6,14 +6,14 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Copy, QrCode, RefreshCw } from "lucide-react";
+import { ChevronRight, Copy, Link, QrCode } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
-import { invitationLink } from "@/lib/invitations/invitation-link";
+import { invitationLink, INVITATION_LINK_LABEL } from "@/lib/invitations/invitation-link";
 import { InvitationQr } from "./invitation-qr";
 import { classFigures, type ClassGroup, type SkillColumn } from "@/lib/assignment/statistics";
 import {
@@ -144,11 +144,11 @@ function ClassCard({
           <div className="flex shrink-0 items-center gap-1">
             {invitations === null ? null : (
               <>
-                <Tooltip label="Link kopieren">
+                <Tooltip label={`${INVITATION_LINK_LABEL} kopieren`}>
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={`Link für ${row.class} kopieren`}
+                    aria-label={`${INVITATION_LINK_LABEL} für ${row.class} kopieren`}
                     onClick={() => handOut(() => invitations.linkFor(row.class))}
                   >
                     <Copy aria-hidden />
@@ -169,14 +169,14 @@ function ClassCard({
                 {/* Regenerating a link nobody was given undoes nothing, so it is offered only
                     once there is a link to invalidate (US-23). */}
                 {invitations.tokenFor(row.class) === null ? null : (
-                  <Tooltip label="Link neu erstellen">
+                  <Tooltip label={`${INVITATION_LINK_LABEL} neu erstellen`}>
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label={`Link für ${row.class} neu erstellen`}
+                      aria-label={`${INVITATION_LINK_LABEL} für ${row.class} neu erstellen`}
                       onClick={() => setConfirmingRegenerate(true)}
                     >
-                      <RefreshCw aria-hidden />
+                      <Link aria-hidden />
                     </Button>
                   </Tooltip>
                 )}
@@ -206,7 +206,7 @@ function ClassCard({
           <Dialog
             open
             tone="destructive"
-            title="Link neu erstellen"
+            title={`${INVITATION_LINK_LABEL} neu erstellen`}
             onClose={() => setConfirmingRegenerate(false)}
             footer={
               <>

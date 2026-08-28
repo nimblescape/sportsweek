@@ -6,6 +6,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { INVITATION_LINK_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
 import { storedEventSeries } from "@/test/event-series";
@@ -223,7 +224,7 @@ describe("OverviewView — handing out links", () => {
     expect(useInvitations).toHaveBeenCalledWith("s1");
     expect(
       within(screen.getByRole("group", { name: "5AHIF" })).getByRole("button", {
-        name: "Link für 5AHIF kopieren",
+        name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren`,
       }),
     ).toBeInTheDocument();
   });
@@ -238,7 +239,9 @@ describe("OverviewView — handing out links", () => {
 
     render(<OverviewView />);
 
-    expect(screen.queryByRole("button", { name: /Link für/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: new RegExp(INVITATION_LINK_LABEL) }),
+    ).not.toBeInTheDocument();
   });
 
   it("offers no links for an archived series", () => {
@@ -250,7 +253,9 @@ describe("OverviewView — handing out links", () => {
 
     render(<OverviewView />);
 
-    expect(screen.queryByRole("button", { name: /Link für/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: new RegExp(INVITATION_LINK_LABEL) }),
+    ).not.toBeInTheDocument();
   });
 
   it("reports a refused read of the links rather than showing none", () => {

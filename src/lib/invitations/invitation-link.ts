@@ -14,3 +14,9 @@
 export function invitationLink(token: string, origin = window.location.origin): string {
   return `${origin}/join/${encodeURIComponent(token)}`;
 }
+
+/**
+ * What the link is called wherever a teacher is offered one. A bare "Link" on a class card says
+ * nothing about where it leads, and a card carries several controls that could each own one.
+ */
+export const INVITATION_LINK_LABEL = "Schüler:innen-Anmeldelink";
