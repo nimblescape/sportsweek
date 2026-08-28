@@ -105,6 +105,21 @@ service cloud.firestore {
      * Handlers, which use the Admin SDK and bypass these rules — leaving a second, unchecked way
      * in would make those guarantees worthless.
      *
+    /**
+     * The invitation tokens (US-23). Closed to everybody, in both directions: a token is what
+     * enrols somebody, so handing it to a reader would hand them the enrolment. It is resolved
+     * server-side by the Route Handler behind the link, which uses the Admin SDK.
+     *
+     * The catch-all below would deny this collection anyway, since it lists what may be read.
+     * This says so out loud, so that adding `invitations` to that list reads as the mistake it
+     * would be rather than as one more name in a list.
+     */
+    match /invitations/{token} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    /**
      * The name below is a copy: this language cannot import application code. It is owned by
      * COLLECTIONS in src/lib/schemas/collections.ts and has to be kept in step by hand.
      */

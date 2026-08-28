@@ -192,3 +192,46 @@ describe("invariants that rules cannot express are not left half-guarded", () =>
     );
   });
 });
+
+/**
+ * A token is what enrols somebody (US-23), so reading one is enrolling. Nobody may — not a
+ * student, not a teacher, not the person who generated it. The Route Handler behind the link
+ * resolves it with the Admin SDK, which these rules do not govern.
+ */
+describe("/invitations/{token}", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context
+        .firestore()
+        .collection("invitations")
+        .doc("secret-token")
+        .set({ eventSeriesId: "s1", class: "3aWI" });
+    });
+  });
+
+  it.each([
+    ["a teacher", () => teacher()],
+    ["a student", () => student()],
+    ["a signed-out visitor", () => anonymous()],
+  ])("refuses to hand the token to %s", async (_who, as) => {
+    await assertFails(as().collection("invitations").doc("secret-token").get());
+  });
+
+  it("refuses to let anyone list the tokens", async () => {
+    await assertFails(teacher().collection("invitations").get());
+  });
+
+  /** Minting one is a teacher's act, but it goes through the handler, never from a client. */
+  it.each([
+    ["a teacher", () => teacher()],
+    ["a student", () => student()],
+  ])("refuses to let %s mint one", async (_who, as) => {
+    await assertFails(
+      as().collection("invitations").doc("mine").set({ eventSeriesId: "s1", class: "3aWI" }),
+    );
+  });
+
+  it("refuses to let anyone delete one, which would invalidate a class's link", async () => {
+    await assertFails(teacher().collection("invitations").doc("secret-token").delete());
+  });
+});
