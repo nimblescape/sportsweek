@@ -14,7 +14,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "rules:development": "firebase deploy --only firestore:rules,firestore:indexes,storage --project htld-sportsweek-development",
+    "rules:development": "firebase deploy --only firestore:rules,firestore:indexes --project htld-sportsweek-development",
     "purge:development": "tsx scripts/purge-environment.mts development",
     "purge:staging": "tsx scripts/purge-environment.mts staging",
     "seed:development": "tsx scripts/seed-students.mts development",
