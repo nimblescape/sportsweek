@@ -4,34 +4,52 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 /**
- * Fills a project with what its environment is meant to hold, and takes the environment as its
- * only argument — there is no mode to get wrong.
+ * Resets a project to its defaults: everything is deleted, and what this script writes is then
+ * all it holds. The environment is the only argument — there is no mode to get wrong.
  *
  * | production           | the "Wintersportwochen" template, and nothing besides |
- * | development, staging | the whole test environment, that template included    |
+ * | development, staging | that template, then a series, a roster and its registrations |
  *
- * Production therefore never receives invented students. That is true by construction rather than
- * by a check: no argument asks for it, so there is nothing to pass by mistake.
+ * Seeding on top of what a project already holds says nothing about whether the application put
+ * it there, so the point of a seeded environment — that its contents are known — needs the delete
+ * as much as the write. Production therefore never receives an invented person, which is true by
+ * construction rather than by a check: no argument asks for one.
+ *
+ * Emptying production is a legitimate admin task and is not fenced off, but it is the one thing
+ * here that cannot be undone, so it asks for the project id to be typed back first.
  */
+import { createInterface } from "node:readline/promises";
 import { initializeApp } from "firebase-admin/app";
+import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore, type WriteBatch } from "firebase-admin/firestore";
 import { buildUpn } from "@/lib/auth/fake/upn-builder";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Gender } from "@/lib/schemas/common";
 import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
-import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
+import type { EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
 import { userRoleSchema, userSchema } from "@/lib/schemas/user";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import { questionsAsked } from "@/lib/master-data/categories";
 import { EMPTY_REGISTRATION, registrationPath } from "@/lib/registration/registration";
-import { apphostingValue, fail } from "./environment.mjs";
+import {
+  apphostingValue,
+  DEVELOPMENT,
+  ENVIRONMENTS,
+  fail,
+  STAGING,
+  type Environment,
+} from "./environment.mjs";
 
-const ENVIRONMENTS = ["development", "staging", "production"] as const;
+/**
+ * Where inventing people is allowed. Production is absent by construction, not by a check: it
+ * gets the defaults and stops, because no argument can ask for anything else.
+ */
+const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
 
-/** Where invented students are allowed. Production is absent by construction, not by a check. */
-const SEEDABLE_ENVIRONMENTS = ["development", "staging"] as const;
+/** Both listUsers and deleteUsers cap a single call at this many accounts. */
+const USER_PAGE_SIZE = 1000;
 
 /**
  * The lists a school configures once and every event series thereafter inherits by being made
@@ -309,24 +327,44 @@ async function inBatches(
 }
 
 /**
- * Firestore only — the Firebase Auth accounts impersonation creates on demand are left alone,
- * since the fixed seed hands the same addresses back to the same people on the next run.
+ * Collections are discovered rather than taken from COLLECTIONS: a purge that only removes the
+ * names the code still knows about leaves the ones a rename or a deletion orphaned.
  */
-async function purgeStudents(db: Firestore): Promise<{ records: number; users: number }> {
-  // Across every event series, since a registration lives beneath the one it belongs to (US-26).
-  const records = await db.collectionGroup(COLLECTIONS.registrations).get();
-  const users = await db
-    .collection(COLLECTIONS.users)
-    .where("role", "==", userRoleSchema.enum.student)
-    .get();
-
-  const doomed = [...records.docs, ...users.docs];
-  await inBatches(
-    db,
-    doomed.map((doc) => (batch: WriteBatch) => batch.delete(doc.ref)),
+async function purgeFirestore(db: Firestore): Promise<[string, number][]> {
+  const collections = await db.listCollections();
+  const counted = await Promise.all(
+    collections.map(async (collection): Promise<[string, number]> => [
+      collection.id,
+      (await collection.count().get()).data().count,
+    ]),
   );
 
-  return { records: records.size, users: users.size };
+  await Promise.all(collections.map((collection) => db.recursiveDelete(collection)));
+  return counted;
+}
+
+/**
+ * Re-lists from the front after every round instead of paging: the page just deleted is gone,
+ * and a token taken before it points into a list that no longer exists.
+ */
+async function purgeAuth(auth: Auth): Promise<number> {
+  let deleted = 0;
+
+  for (;;) {
+    const { users } = await auth.listUsers(USER_PAGE_SIZE);
+    if (users.length === 0) return deleted;
+
+    const { successCount, errors } = await auth.deleteUsers(users.map((user) => user.uid));
+    // Without this the loop would re-list the same undeletable accounts for ever.
+    if (successCount === 0) {
+      fail(
+        `Deleted ${deleted} account(s), then could not delete any of the remaining ${users.length}:`,
+        ...errors.map(({ error }) => `  ${error.message}`),
+      );
+    }
+
+    deleted += successCount;
+  }
 }
 
 /**
@@ -334,33 +372,10 @@ async function purgeStudents(db: Firestore): Promise<{ records: number; users: n
  * so with none at all the header offers nothing and the navigation bar points nowhere. Deleting
  * the last unarchived template is refused, so once this has run that state is out of reach.
  *
- * Any unarchived template will do — a school that renamed theirs has not lost one — so a second
- * is added only where there is none, which is what makes running this again harmless.
+ * An ordinary event series with the template flag set, indistinguishable from one a teacher could
+ * have made by hand — so the first real series is created from it through US-22's ordinary copy.
  */
-async function ensureTemplate(db: Firestore): Promise<{ name: string; created: boolean }> {
-  const templates = await db
-    .collection(COLLECTIONS.eventSeries)
-    .where("isTemplate", "==", true)
-    .where("isArchived", "==", false)
-    .limit(1)
-    .get();
-
-  const found = templates.docs[0];
-  if (found) return { name: String(found.data().name), created: false };
-
-  const clash = await db
-    .collection(COLLECTIONS.eventSeries)
-    .where("nameKey", "==", normalizeName(TEMPLATE_NAME))
-    .limit(1)
-    .get();
-  if (!clash.empty) {
-    fail(
-      `"${TEMPLATE_NAME}" is already taken by an event series that is not an unarchived template.`,
-      "Event series names are unique (Q14), so rename that one or make it the template.",
-    );
-  }
-
-  const total = (await db.collection(COLLECTIONS.eventSeries).count().get()).data().count;
+async function createTemplate(db: Firestore): Promise<void> {
   await db.collection(COLLECTIONS.eventSeries).add({
     name: TEMPLATE_NAME,
     nameKey: normalizeName(TEMPLATE_NAME),
@@ -368,34 +383,16 @@ async function ensureTemplate(db: Firestore): Promise<{ name: string; created: b
     isArchived: false,
     isOpenToStudents: false,
     hasRegistrations: false,
-    position: total,
+    position: 0,
     // What differs every year, and what a teacher fills in for the series they make from this.
     events: [],
     classOptions: [],
     ...CATEGORY_DEFAULTS,
   });
-
-  return { name: TEMPLATE_NAME, created: true };
 }
 
-/** Opening the one it finds rather than adding a second: names are unique across event series. */
-async function ensureOpenEventSeries(db: Firestore): Promise<EventSeries> {
-  const eventSeries = (await db.collection(COLLECTIONS.eventSeries).get()).docs.map((doc) =>
-    eventSeriesSchema.parse({ id: doc.id, ...doc.data() }),
-  );
-
-  const existing = eventSeries.find(
-    (eventSeries) => eventSeries.name === DEFAULT_EVENT_SERIES_NAME && !eventSeries.isArchived,
-  );
-  if (existing) {
-    // Seeding stands in for the invitation link the teacher would otherwise hand out (US-23).
-    await db
-      .collection(COLLECTIONS.eventSeries)
-      .doc(existing.id)
-      .update({ isOpenToStudents: true });
-    return { ...existing, isOpenToStudents: true };
-  }
-
+/** Open from the start: seeding stands in for the invitation link a teacher would hand out (US-23). */
+async function createOpenEventSeries(db: Firestore): Promise<EventSeries> {
   // The lists live in this document (US-21), so seeding them is part of creating it.
   const data = {
     name: DEFAULT_EVENT_SERIES_NAME,
@@ -404,7 +401,8 @@ async function ensureOpenEventSeries(db: Firestore): Promise<EventSeries> {
     isArchived: false,
     isOpenToStudents: true,
     hasRegistrations: false,
-    position: eventSeries.length,
+    // After the template, which took the first place.
+    position: 1,
     ...MASTER_DATA_DEFAULTS,
   };
   const reference = db.collection(COLLECTIONS.eventSeries).doc();
@@ -413,33 +411,59 @@ async function ensureOpenEventSeries(db: Firestore): Promise<EventSeries> {
   return { id: reference.id, ...data };
 }
 
+/**
+ * The one thing here that cannot be undone. Typing the project id back is the ceremony the
+ * application already asks of a teacher deleting an event series that holds registrations
+ * (US-19) — and it is not something a mistyped script name or a tab-completion can produce.
+ */
+async function confirmed(projectId: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const typed = await rl.question(
+      `This deletes everything in ${projectId}, including real registrations.\n` +
+        `Type the project id to continue: `,
+    );
+    return typed.trim() === projectId;
+  } finally {
+    rl.close();
+  }
+}
+
 async function main(): Promise<void> {
-  const [environment] = process.argv.slice(2);
-  if (!ENVIRONMENTS.some((allowed) => allowed === environment)) {
+  const [argument] = process.argv.slice(2);
+  const environment = ENVIRONMENTS.find((allowed) => allowed === argument);
+  if (environment === undefined) {
     fail(`Usage: npm run seed:<environment>, where <environment> is ${ENVIRONMENTS.join(", ")}.`);
   }
 
   const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+  const isTest = TEST_ENVIRONMENTS.includes(environment);
+
+  if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
 
   // Its own app rather than @/lib/firebase/admin: that one addresses whichever project the
   // ambient environment names, and this must address the one just named and nothing else.
-  const db = getFirestore(initializeApp({ projectId }));
+  const app = initializeApp({ projectId });
+  const db = getFirestore(app);
 
-  // A test environment gets what production gets and then some, so the template comes first —
-  // both because a school starts from one and because it takes position 0 in the teacher's order.
-  const template = await ensureTemplate(db);
-  console.log(
-    template.created
-      ? `Created the template "${template.name}" in ${projectId}.`
-      : `${projectId} already has the template "${template.name}".`,
-  );
+  const collections = await purgeFirestore(db);
+  const accounts = await purgeAuth(getAuth(app));
 
-  // Production is done here: it adds, and it never invents a person or deletes one.
-  if (!SEEDABLE_ENVIRONMENTS.some((allowed) => allowed === environment)) return;
+  console.log(`Purged ${projectId}:`);
+  for (const [name, count] of collections) console.log(`  ${name}: ${count} document(s)`);
+  if (collections.length === 0) console.log("  no collections");
+  console.log(`  ${accounts} account(s)`);
+
+  // First, both because a school starts from one and because it takes position 0 in the order.
+  await createTemplate(db);
+  console.log(`Created the template "${TEMPLATE_NAME}".`);
+
+  // Production is done here: it holds the defaults and nothing that was invented.
+  if (!isTest) return;
 
   // The lists are fields of the event series (US-21), so there is nothing to read until it
   // exists — and creating it is what seeds them, since the application no longer does.
-  const eventSeries = await ensureOpenEventSeries(db);
+  const eventSeries = await createOpenEventSeries(db);
 
   const programs = eventSeries.programs;
   const named = PROGRAM_SHARES.map(([name]) => programs.find((program) => program.name === name));
@@ -471,11 +495,6 @@ async function main(): Promise<void> {
   if (classNames.length === 0) {
     fail(`"${eventSeries.name}" in ${projectId} has no classes to register students into.`);
   }
-
-  const purged = await purgeStudents(db);
-  console.log(
-    `Purged ${purged.records} registration(s) and ${purged.users} student(s) from ${projectId}.`,
-  );
 
   const taken = new Set<string>();
   const writes: ((batch: WriteBatch) => void)[] = [];
