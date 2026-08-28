@@ -79,7 +79,7 @@
   /* The same green said quietly, for a series that is open but not the one being worked in. */
   --open-subtle: var(--color-green-800);
   /* A chosen tag standing apart from the rest: a template among series, a report since edited. */
-  --neutral: var(--color-gray-500);
+  --neutral: var(--color-gray-700);
   --neutral-foreground: var(--color-white);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -123,7 +123,7 @@
   --open: var(--color-green-500);
   --open-foreground: var(--color-white);
   --open-subtle: var(--color-green-700);
-  --neutral: var(--color-gray-500);
+  --neutral: var(--color-gray-600);
   --neutral-foreground: var(--color-white);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
