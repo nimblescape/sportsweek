@@ -316,6 +316,9 @@ function Cloud({
   label: string;
   students: readonly RosterStudent[];
 }) {
+  // A heading over an empty space would say a class answered nothing; the tally already does.
+  if (students.length === 0) return null;
+
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-muted-foreground text-xs font-medium">{label}</p>

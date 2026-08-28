@@ -94,13 +94,30 @@ describe("ClassCards", () => {
 
 describe("ClassCards — the students", () => {
   it("holds those taking part above those who are not", () => {
-    setup();
+    setup([student(), student({ isAttending: false })]);
 
     expect(
       card("5AHIF")
         .getAllByRole("list")
         .map((list) => list.getAttribute("aria-label")),
     ).toEqual(["5AHIF: Teilnahme", "5AHIF: Keine Teilnahme"]);
+  });
+
+  /** A heading over an empty space says a class answered nothing; the tally already says that. */
+  it("heads neither cloud in a class nobody has registered for", () => {
+    setup();
+
+    expect(card("5AHIF").queryAllByRole("list")).toHaveLength(0);
+  });
+
+  it("heads only the cloud that has anybody in it", () => {
+    setup([student()]);
+
+    expect(
+      card("5AHIF")
+        .getAllByRole("list")
+        .map((list) => list.getAttribute("aria-label")),
+    ).toEqual(["5AHIF: Teilnahme"]);
   });
 
   it("puts each student into the cloud their answer belongs in", () => {
