@@ -87,4 +87,22 @@ describe("rescopedPath", () => {
   it("encodes the id it puts in the path", () => {
     expect(rescopedPath("/app/s1/report", "a/b")).toBe("/app/a%2Fb/report");
   });
+
+  /**
+   * A template holds lists and no registrations (US-22), so an overview, an assignment or a
+   * report has nothing to show for one — and the row offering the tag is gone from those pages,
+   * so pressing it would take the tag away with it.
+   */
+  it.each(["/app/event-series", "/app/s1/overview", "/app/s1/report", "/app/s1/assignment"])(
+    "opens the master data of a template rather than a page it has nothing for, from %s",
+    (pathname) => {
+      expect(rescopedPath(pathname, "t1", true)).toBe("/app/t1/master-data/events");
+    },
+  );
+
+  it("keeps the list open when re-scoping it to a template, that being what a template has", () => {
+    expect(rescopedPath("/app/s1/master-data/classes", "t1", true)).toBe(
+      "/app/t1/master-data/classes",
+    );
+  });
 });

@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
+import { firstMasterDataPath } from "@/lib/master-data/categories";
 
 /**
  * Which event series a teacher is working in lives in the URL (Q8), so a report can be linked to
@@ -49,14 +50,17 @@ export function isMasterDataPath(pathname: string): boolean {
  * rather than navigating away from it (US-20) — the teacher asked a different question about the
  * same view. From a page that is about no series there is no view to keep, so the overview opens:
  * it is where a series is run from (US-29).
+ *
+ * A template is the exception: it holds lists and no registrations (US-22), so it is only ever
+ * scoped to the master data, which is also the only place its tag is offered.
  */
-export function rescopedPath(pathname: string, eventSeriesId: string): string {
+export function rescopedPath(pathname: string, eventSeriesId: string, isTemplate = false): string {
   const scope = `${ROUTES.appRoot}/${encodeURIComponent(eventSeriesId)}`;
-  if (selectedEventSeriesIdFrom(pathname) === null)
-    return eventSeriesRoutes(eventSeriesId).overview;
+  const rest = selectedEventSeriesIdFrom(pathname) === null ? [] : pathname.split("/").slice(3);
+  const kept =
+    rest.length === 0 ? eventSeriesRoutes(eventSeriesId).overview : `${scope}/${rest.join("/")}`;
 
-  const rest = pathname.split("/").slice(3);
-  return rest.length === 0 ? `${scope}/overview` : `${scope}/${rest.join("/")}`;
+  return isTemplate && !isMasterDataPath(kept) ? firstMasterDataPath(eventSeriesId) : kept;
 }
 
 /**

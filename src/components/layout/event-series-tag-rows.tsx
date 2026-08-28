@@ -45,7 +45,7 @@ type RowProps = {
   selectedId: string | null;
   /** Accent for a series, grey for a template — both already in the base palette (Q21). */
   variant: "default" | "secondary";
-  onSelect: (id: string) => void;
+  onSelect: (eventSeries: EventSeries) => void;
 };
 
 /**
@@ -71,7 +71,7 @@ function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps)
             variant={pressed ? variant : "outline"}
             className={cn(pressed && variant === "secondary" && PRESSED_TEMPLATE)}
             aria-pressed={pressed}
-            onClick={() => onSelect(one.id)}
+            onClick={() => onSelect(one)}
           >
             <StateIcon eventSeries={one} />
             {one.name}
@@ -103,9 +103,9 @@ export function EventSeriesTagRows() {
   // a report could show. Only where the lists are maintained is it worth offering (US-22).
   const templates = isMasterDataPath(pathname) ? live.filter((one) => one.isTemplate) : [];
 
-  function select(id: string) {
-    rememberEventSeries(id);
-    router.push(rescopedPath(pathname, id));
+  function select(one: EventSeries) {
+    rememberEventSeries(one.id);
+    router.push(rescopedPath(pathname, one.id, one.isTemplate));
   }
 
   if (live.length === 0) return null;
