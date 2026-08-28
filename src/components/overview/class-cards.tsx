@@ -6,10 +6,10 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Copy, Link, QrCode } from "lucide-react";
+import { Copy, Link, QrCode } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeading, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
@@ -28,7 +28,6 @@ import {
 } from "@/lib/filters/student-filter";
 import { ATTENDANCE_LABELS } from "@/lib/registration/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
-import { cn } from "@/lib/utils";
 import { AREA, AREAS, AreaTitle, FilteredTag } from "@/components/assignment/card-areas";
 import { GenderTable } from "@/components/assignment/gender-table";
 import { SkillMatrix } from "@/components/assignment/skill-matrix";
@@ -127,26 +126,10 @@ function ClassCard({
   return (
     <Card size="sm" role="group" aria-label={row.class}>
       <CardContent className="flex flex-col gap-4">
-        <CardTitle className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-1.5">
-            <button
-              type="button"
-              aria-label={`Details zu ${row.class}`}
-              aria-expanded={expanded}
-              onClick={() => setExpanded((open) => !open)}
-              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-md p-0.5 transition-colors outline-none focus-visible:ring-3"
-            >
-              <ChevronRight
-                aria-hidden
-                className={cn("size-4 transition-transform", expanded && "rotate-90")}
-              />
-            </button>
-            {`${row.class}: ${row.total}`}
-          </span>
-          {/* At the card's edge, so they line up down the page rather than moving with the
-              length of each class's name and count. */}
-          <div className="flex shrink-0 items-center gap-1">
-            {invitations === null ? null : (
+        <CardHeading
+          fold={{ open: expanded, label: `Details zu ${row.class}`, onOpenChange: setExpanded }}
+          control={
+            invitations === null ? null : (
               <>
                 <Tooltip label={`${INVITATION_LINK_LABEL} kopieren`}>
                   <Button
@@ -185,9 +168,11 @@ function ClassCard({
                   </Tooltip>
                 )}
               </>
-            )}
-          </div>
-        </CardTitle>
+            )
+          }
+        >
+          <CardTitle className="truncate">{`${row.class}: ${row.total}`}</CardTitle>
+        </CardHeading>
 
         {linkError !== null && (
           <p role="alert" className="text-destructive text-sm">

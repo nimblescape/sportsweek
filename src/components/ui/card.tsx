@@ -7,6 +7,7 @@
  * See LICENSE and THIRD-PARTY-NOTICES.md in the repository root for details.
  */
 import * as React from "react";
+import { ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -80,6 +81,51 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+type CardHeadingProps = {
+  /** The title, in whatever type the level calls for: a card's heading, an area's label. */
+  children: React.ReactNode;
+  /** At the card's edge, so controls line up down the page rather than after the title. */
+  control?: React.ReactNode;
+  /** Given this, the heading grows a fold control. A chevron alone says nothing, hence a name. */
+  fold?: { open: boolean; label: string; onOpenChange: (open: boolean) => void };
+  className?: string;
+};
+
+/**
+ * The line a card is headed by, whether it is a card of its own or an area within one: a fold,
+ * a title, and whatever the card offers, at its edge.
+ *
+ * Floored at the height of a control, so a title with one beside it sits where a title without
+ * one does — otherwise a row carrying a tag stands taller than its neighbours and the headings
+ * across a card stop lining up.
+ */
+function CardHeading({ children, control, fold, className }: CardHeadingProps) {
+  return (
+    <div
+      className={cn("flex min-h-(--control-height) items-center justify-between gap-3", className)}
+    >
+      <span className="flex min-w-0 items-center gap-1.5">
+        {fold ? (
+          <button
+            type="button"
+            aria-label={fold.label}
+            aria-expanded={fold.open}
+            onClick={() => fold.onOpenChange(!fold.open)}
+            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 rounded-md p-0.5 transition-colors outline-none focus-visible:ring-3"
+          >
+            <ChevronRight
+              aria-hidden
+              className={cn("size-4 transition-transform", fold.open && "rotate-90")}
+            />
+          </button>
+        ) : null}
+        {children}
+      </span>
+      {control ? <div className="flex shrink-0 items-center gap-1">{control}</div> : null}
+    </div>
+  );
+}
+
 function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -93,4 +139,13 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-export { Card, CardHeader, CardFooter, CardTitle, CardAction, CardDescription, CardContent };
+export {
+  Card,
+  CardHeader,
+  CardHeading,
+  CardFooter,
+  CardTitle,
+  CardAction,
+  CardDescription,
+  CardContent,
+};
