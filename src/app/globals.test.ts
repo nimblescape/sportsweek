@@ -68,6 +68,17 @@ describe.each([
     expect(chromatic).toEqual([...CHROMATIC_TOKENS].sort());
   });
 
+  /**
+   * Selected means white on a fill, in either theme. A control that changed its ink between
+   * themes would be two designs, and a row of them would agree in one and not the other.
+   */
+  it.each(["--brand-foreground", "--open-foreground", "--neutral-foreground"])(
+    "writes %s in the white a selected control is written in",
+    (token) => {
+      expect(decls.find((d) => d.name === token)?.value).toBe("var(--color-white)");
+    },
+  );
+
   it("drives focus rings from the accent", () => {
     expect(decls.find((d) => d.name === "--ring")?.value).toContain("var(--brand)");
   });
