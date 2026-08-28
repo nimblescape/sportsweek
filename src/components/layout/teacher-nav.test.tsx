@@ -17,6 +17,7 @@ vi.mock("@/components/auth/sign-out-button", () => ({
 }));
 
 const { TeacherNav } = await import("@/components/layout/teacher-nav");
+const { NAV_TOGGLE_LABEL } = await import("@/components/layout/brand");
 
 const SUB_ITEMS = [
   "Eventreihen",
@@ -58,8 +59,18 @@ describe("TeacherNav", () => {
       expect(screen.getByRole("link", { name: label }).querySelector("svg")).toBeInTheDocument();
     }
     expect(
-      screen.getByRole("button", { name: /stammdaten/i }).querySelector("svg"),
+      screen.getByRole("link", { name: /stammdaten/i }).querySelector("svg"),
     ).toBeInTheDocument();
+  });
+
+  /** The section has no view of its own, so it opens on the first list the bar offers under it. */
+  it("opens the section on its first list when Stammdaten is pressed", () => {
+    render(<TeacherNav />);
+
+    expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
+      "href",
+      "/app/event-series",
+    );
   });
 
   /**
@@ -111,7 +122,7 @@ describe("TeacherNav", () => {
   it("leaves them there when Stammdaten is clicked, which folds nothing", async () => {
     render(<TeacherNav />);
 
-    await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
+    await userEvent.click(screen.getByRole("link", { name: /stammdaten/i }));
 
     for (const label of SUB_ITEMS) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
@@ -146,9 +157,9 @@ describe("TeacherNav", () => {
 });
 
 /**
- * There is no control of its own for this. Pressing the page you are already on folds the bar
- * away and pressing it again brings it back, as an activity bar does — a second press of what
- * you are already looking at has nowhere else to take you, so it is free to mean this.
+ * The logo folds the bar and unfolds it again, and nothing else does. Every other row is
+ * somewhere to go, and a row that sometimes goes there and sometimes folds the bar instead
+ * cannot be pressed without first knowing which of the two it is about to do.
  */
 describe("TeacherNav — collapsing", () => {
   beforeEach(() => {
@@ -157,53 +168,54 @@ describe("TeacherNav — collapsing", () => {
   });
 
   const openSubItems = () => screen.queryByRole("link", { name: "Klassen" });
+  const logo = () => screen.getByRole("button", { name: NAV_TOGGLE_LABEL });
 
-  it("offers no control of its own", () => {
+  it("folds away when the logo is pressed, and comes back when it is pressed again", async () => {
     render(<TeacherNav />);
 
-    expect(
-      screen.queryByRole("button", { name: /navigation (ein|aus)klappen/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("folds away when the page it is on is pressed, and comes back when it is pressed again", async () => {
-    render(<TeacherNav />);
-    const here = () => screen.getByRole("link", { name: "Bericht" });
-
-    await userEvent.click(here());
+    await userEvent.click(logo());
     expect(openSubItems()).not.toBeInTheDocument();
 
-    await userEvent.click(here());
+    await userEvent.click(logo());
+    expect(openSubItems()).toBeInTheDocument();
+  });
+
+  it("says which way it is about to go, the mark itself saying nothing", async () => {
+    render(<TeacherNav />);
+
+    expect(logo()).toHaveAttribute("aria-expanded", "true");
+
+    await userEvent.click(logo());
+    expect(logo()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  /** Pressing the page you are already on used to fold the bar, which made every row two rows. */
+  it("leaves the bar alone when the page it is already on is pressed", async () => {
+    render(<TeacherNav />);
+
+    await userEvent.click(screen.getByRole("link", { name: "Bericht" }));
+
     expect(openSubItems()).toBeInTheDocument();
   });
 
   it("keeps every destination reachable by name while collapsed", async () => {
     render(<TeacherNav />);
 
-    await userEvent.click(screen.getByRole("link", { name: "Bericht" }));
+    await userEvent.click(logo());
 
-    for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht"]) {
+    for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht", "Stammdaten"]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
   });
 
   // The bar is collapsed because the teacher wants the width, so going somewhere else must not
-  // take that decision back — only asking for something the rail has no room for may.
+  // take that decision back.
   it("stays collapsed when another destination is chosen", async () => {
     render(<TeacherNav />);
 
-    await userEvent.click(screen.getByRole("link", { name: "Bericht" }));
+    await userEvent.click(logo());
     await userEvent.click(screen.getByRole("link", { name: "\u00dcbersicht" }));
 
     expect(openSubItems()).not.toBeInTheDocument();
-  });
-
-  it("opens the bar when the sub-items are asked for, there being no width to read them in", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(screen.getByRole("link", { name: "Bericht" }));
-    await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
-
-    expect(openSubItems()).toBeInTheDocument();
   });
 });

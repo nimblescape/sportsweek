@@ -59,6 +59,7 @@ export function TeacherNav({
     (masterData !== null && pathname.startsWith(masterData));
   const [collapsed, setCollapsed] = useState(false);
 
+  const sections = masterDataSections(eventSeriesId);
   // Collapsing is offered where the bar is a column; on a narrow screen it is a strip across the
   // top, which is why the labels only go away from the same breakpoint the toggle appears at.
   const labelClasses = cn(collapsed && "md:sr-only");
@@ -66,11 +67,13 @@ export function TeacherNav({
   return (
     <nav
       aria-label="Hauptnavigation"
-      className={cn("flex h-full flex-col gap-1 p-2", collapsed ? "md:w-16" : "md:w-56")}
+      // Collapsed, the rail is exactly one row wide — its own padding, the row's, and the icon —
+      // so the icon keeps the position it had and its highlight has the same margin either side.
+      className={cn("flex h-full flex-col gap-1 p-2", collapsed ? "md:w-14" : "md:w-56")}
     >
       {/* Heads the bar rather than the header, because the bar runs to the top of the window and
           the column beside it is where a page begins. */}
-      <Brand nameHidden={collapsed} />
+      <Brand nameHidden={collapsed} onToggle={() => setCollapsed((on) => !on)} />
 
       {(eventSeriesId === null ? [] : topLevel(eventSeriesId)).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
@@ -80,16 +83,6 @@ export function TeacherNav({
             href={href}
             aria-current={active ? "page" : undefined}
             title={collapsed ? label : undefined}
-            // A second press of the page you are already looking at has nowhere to take you, so
-            // it folds the bar away instead — which is what saves the bar a control of its own.
-            onClick={
-              active
-                ? (event) => {
-                    event.preventDefault();
-                    setCollapsed((on) => !on);
-                  }
-                : undefined
-            }
             className={itemClasses(active)}
           >
             <Icon aria-hidden className="size-6 shrink-0" />
@@ -98,21 +91,19 @@ export function TeacherNav({
         );
       })}
 
-      <button
-        type="button"
-        // Its own section never folds, so the only thing left to ask of it is the width to read
-        // that section in.
-        onClick={() => setCollapsed(false)}
+      {/* The section has no view of its own, so it opens on the first list beneath it. */}
+      <Link
+        href={sections[0].href}
         title={collapsed ? "Stammdaten" : undefined}
-        className={cn(itemClasses(inMasterData), "text-left")}
+        className={itemClasses(inMasterData)}
       >
         <Database aria-hidden className="size-6 shrink-0" />
         <span className={labelClasses}>Stammdaten</span>
-      </button>
+      </Link>
 
       {collapsed ? null : (
         <ul className="flex flex-col gap-1">
-          {masterDataSections(eventSeriesId).map(({ href, label }) => (
+          {sections.map(({ href, label }) => (
             <li key={href}>
               <Link
                 href={href}
