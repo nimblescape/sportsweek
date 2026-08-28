@@ -196,7 +196,7 @@ export function SavedReportTagList({
             <Button
               type="button"
               variant="outline"
-              size="lg"
+              size="sm"
               disabled={pending}
               onClick={() => {
                 setConfirming(null);
@@ -259,7 +259,7 @@ function SavedReportTag({
         // Three states, and the middle one is the point: opened, and since changed (US-13).
         buttonVariants({
           variant: marked ? (changed ? "secondary" : "default") : "outline",
-          size: "lg",
+          size: "sm",
         }),
         "gap-0.5 px-1",
         // The handle offers the grab; the tag itself is pressed, and only says so once a drag is

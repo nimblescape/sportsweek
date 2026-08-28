@@ -66,7 +66,6 @@ export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
                   ? EVENT_SERIES_STATE_LABELS.open
                   : EVENT_SERIES_STATE_LABELS.closed
               }
-              size="sm"
               pressed={eventSeries.isOpenToStudents}
               onPress={() => setOpenToStudents(!eventSeries.isOpenToStudents)}
             />

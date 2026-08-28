@@ -11,18 +11,16 @@ type TagProps = {
   /** The accessible name, which says which row the tag belongs to; the row carries no heading. */
   label: string;
   text?: string;
-  /** Smaller where a tag stands on a title line rather than in a row of its own. */
-  size?: "sm" | "lg";
   pressed: boolean;
   onPress: () => void;
 };
 
 /** One tag of a wrapping tag row — the report has two of them, and they look alike (US-13). */
-export function Tag({ label, text = label, size = "lg", pressed, onPress }: TagProps) {
+export function Tag({ label, text = label, pressed, onPress }: TagProps) {
   return (
     <Button
       type="button"
-      size={size}
+      size="sm"
       variant={pressed ? "default" : "outline"}
       aria-label={label}
       aria-pressed={pressed}
