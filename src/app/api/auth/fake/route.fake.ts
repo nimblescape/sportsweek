@@ -79,7 +79,7 @@ const bodySchema = z.object({
   role: userRoleSchema,
 });
 
-const listedUserSchema = userSchema.omit({ id: true, email: true });
+const listedUserSchema = userSchema.omit({ id: true, email: true, photo: true });
 
 /** The UPNs already in Firestore, so a known user can be picked instead of retyped. */
 export async function GET() {

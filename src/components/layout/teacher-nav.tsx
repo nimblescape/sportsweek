@@ -41,8 +41,10 @@ function itemClasses(active: boolean) {
  */
 export function TeacherNav({
   fallbackEventSeriesId = null,
+  photo = null,
 }: {
   fallbackEventSeriesId?: string | null;
+  photo?: string | null;
 }) {
   const pathname = usePathname();
   const inUrl = selectedEventSeriesIdFrom(pathname);
@@ -122,7 +124,11 @@ export function TeacherNav({
 
       {/* The foot of the bar: who is signed in. */}
       <div className="mt-auto">
-        <SignOutButton className="min-h-9 w-full justify-start px-2 py-2" labelHidden={collapsed} />
+        <SignOutButton
+          className="min-h-9 w-full justify-start px-2 py-2"
+          labelHidden={collapsed}
+          photo={photo}
+        />
       </div>
     </nav>
   );

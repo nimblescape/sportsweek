@@ -196,7 +196,6 @@ export function SavedReportTagList({
             <Button
               type="button"
               variant="outline"
-              size="sm"
               disabled={pending}
               onClick={() => {
                 setConfirming(null);
@@ -259,7 +258,6 @@ function SavedReportTag({
         // Three states, and the middle one is the point: opened, and since changed (US-13).
         buttonVariants({
           variant: marked ? (changed ? "secondary" : "default") : "outline",
-          size: "sm",
         }),
         "gap-0.5 px-1",
         // The handle offers the grab; the tag itself is pressed, and only says so once a drag is
@@ -311,7 +309,7 @@ function SavedReportTag({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             aria-label={`Löschen von ${report.name} bestätigen`}
             disabled={pending}
             onClick={onDelete}
@@ -322,7 +320,7 @@ function SavedReportTag({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             aria-label={`Löschen von ${report.name} abbrechen`}
             disabled={pending}
             onClick={onCancel}
@@ -338,7 +336,7 @@ function SavedReportTag({
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
+              size="icon"
               aria-label={`Bericht ${report.name} aktualisieren`}
               disabled={pending}
               onClick={onUpdate}
@@ -350,7 +348,7 @@ function SavedReportTag({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             aria-label={`Bericht ${report.name} umbenennen`}
             disabled={pending}
             onClick={onStartRename}
@@ -361,7 +359,7 @@ function SavedReportTag({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             aria-label={`Bericht ${report.name} löschen`}
             disabled={pending}
             onClick={onStartDelete}
@@ -415,7 +413,7 @@ function NameForm({ initialName = "", submitLabel, pending, onSubmit, onCancel }
   return (
     <form onSubmit={submit} className="flex flex-wrap items-center gap-1.5" noValidate>
       {/* Shaped as a tag, with its controls inside it, exactly as a tag being deleted is. */}
-      <div className={cn(buttonVariants({ variant: "outline", size: "lg" }), "gap-0.5 px-1")}>
+      <div className={cn(buttonVariants({ variant: "outline" }), "gap-0.5 px-1")}>
         <Input
           autoFocus
           aria-label={NAME_LABEL}
@@ -429,7 +427,7 @@ function NameForm({ initialName = "", submitLabel, pending, onSubmit, onCancel }
         <Button
           type="submit"
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           aria-label={submitLabel}
           disabled={pending}
           className={ICON_CLASSES}
@@ -439,7 +437,7 @@ function NameForm({ initialName = "", submitLabel, pending, onSubmit, onCancel }
         <Button
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           aria-label="Abbrechen"
           disabled={pending}
           onClick={onCancel}

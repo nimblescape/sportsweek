@@ -20,7 +20,6 @@ export function Tag({ label, text = label, pressed, onPress }: TagProps) {
   return (
     <Button
       type="button"
-      size="sm"
       variant={pressed ? "default" : "outline"}
       aria-label={label}
       aria-pressed={pressed}

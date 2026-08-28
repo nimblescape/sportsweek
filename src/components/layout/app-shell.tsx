@@ -26,10 +26,12 @@ export function AppShell({
   children,
   nav,
   scope,
+  photo = null,
 }: {
   children: ReactNode;
   nav?: ReactNode;
   scope?: ReactNode;
+  photo?: string | null;
 }) {
   return (
     <BusyProvider>
@@ -46,7 +48,7 @@ export function AppShell({
           {scope}
           {/* Where there is a bar, signing out sits at the foot of it, under the person's own
               mark. A student has no bar, so it stays here. */}
-          {nav ? null : <SignOutButton />}
+          {nav ? null : <SignOutButton photo={photo} />}
           {/* Last, and positioned against the header, whose bottom border it sits on. */}
           <BusyBar />
         </header>

@@ -10,7 +10,7 @@ import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Registration } from "@/lib/schemas/registration";
 import { userRoleSchema, userSchema, type User } from "@/lib/schemas/user";
-import { fetchEntraName } from "./graph";
+import { fetchEntraName, fetchEntraPhoto } from "./graph";
 import { refuseSignIn } from "./sign-in-policy";
 import { roleFromUpn } from "./upn";
 
@@ -132,7 +132,9 @@ export async function provisionUser(
   // Graph is the authoritative source, field by field: its `givenName` is the first name and
   // its `surname` the last one, so neither can be mistaken for the other. Whichever it cannot
   // supply falls back below.
-  const fromGraph = graphAccessToken ? await fetchEntraName(graphAccessToken) : null;
+  const [fromGraph, photo] = graphAccessToken
+    ? await Promise.all([fetchEntraName(graphAccessToken), fetchEntraPhoto(graphAccessToken)])
+    : [null, null];
   const fallback = resolveName(claims, localPart);
   const firstName = fromGraph?.firstName ?? fallback.firstName;
   const lastName = fromGraph?.lastName ?? fallback.lastName;
@@ -144,12 +146,13 @@ export async function provisionUser(
     // The role is assigned once, at creation; a later login never recomputes it (US-3).
     const stored = userSchema.shape.role.safeParse(snapshot.data()?.role);
     if (stored.success) role = stored.data;
-    await ref.update({ firstName, lastName, email: upn });
+    // The photo is written even when there is none, so removing it in Entra removes it here.
+    await ref.update({ firstName, lastName, email: upn, photo });
   } else {
-    await ref.set({ firstName, lastName, email: upn, role });
+    await ref.set({ firstName, lastName, email: upn, role, photo });
   }
 
-  const user = userSchema.parse({ id: upn, firstName, lastName, email: upn, role });
+  const user = userSchema.parse({ id: upn, firstName, lastName, email: upn, role, photo });
 
   // Only a student holds registrations: a teacher keeps none of their own (US-15).
   if (role === userRoleSchema.enum.student) {

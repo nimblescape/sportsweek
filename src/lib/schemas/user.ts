@@ -16,6 +16,9 @@ export const userSchema = z.object({
   lastName: requiredText(100),
   email: z.email(),
   role: userRoleSchema,
+  // The Entra photo itself, as a data URL, rather than an address: Graph serves it to a bearer
+  // token, and the token belongs to the sign-in that fetched it. Absent for most accounts.
+  photo: z.string().nullish(),
 });
 export type User = z.infer<typeof userSchema>;
 

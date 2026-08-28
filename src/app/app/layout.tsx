@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 import { AppShell } from "@/components/layout/app-shell";
 import { EventSeriesTagRows } from "@/components/layout/event-series-tag-rows";
 import { TeacherNav } from "@/components/layout/teacher-nav";
-import { requireUser } from "@/lib/auth/guards";
+import { requireUser, fetchUserPhoto } from "@/lib/auth/guards";
 import { resolveSelectedEventSeriesId } from "@/lib/event-series/event-series-service";
 import { EVENT_SERIES_COOKIE_NAME } from "@/lib/event-series/event-series-selection";
 
@@ -24,12 +24,18 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
     ? ((await cookies()).get(EVENT_SERIES_COOKIE_NAME)?.value ?? undefined)
     : undefined;
   const fallbackEventSeriesId = isTeacher ? await resolveSelectedEventSeriesId(remembered) : null;
+  const photo = await fetchUserPhoto(user.email);
 
   // Students manage no event series and reach their registration through a link (US-20, US-23).
   return (
     <AppShell
-      nav={isTeacher ? <TeacherNav fallbackEventSeriesId={fallbackEventSeriesId} /> : null}
+      nav={
+        isTeacher ? (
+          <TeacherNav fallbackEventSeriesId={fallbackEventSeriesId} photo={photo} />
+        ) : null
+      }
       scope={isTeacher ? <EventSeriesTagRows /> : null}
+      photo={photo}
     >
       {children}
     </AppShell>

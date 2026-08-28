@@ -148,7 +148,6 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => exportReport(downloadReportPdf)}
               disabled={eventSeries === null || exporting}
             >
@@ -158,7 +157,6 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => exportReport(downloadReportWorkbook)}
               disabled={eventSeries === null || exporting}
             >

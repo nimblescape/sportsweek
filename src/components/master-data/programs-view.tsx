@@ -33,11 +33,11 @@ export function ProgramsView({ eventSeriesId }: { eventSeriesId: string }) {
             tabIndex={disabled ? -1 : undefined}
             onClick={disabled ? (clicked) => clicked.preventDefault() : undefined}
             className={cn(
-              buttonVariants({ variant: "ghost", size: "icon-sm" }),
+              buttonVariants({ variant: "ghost", size: "icon" }),
               disabled && "pointer-events-none opacity-50",
             )}
           >
-            <Package aria-hidden className="size-3.5" />
+            <Package aria-hidden className="size-4" />
           </Link>
         </Tooltip>
       )}

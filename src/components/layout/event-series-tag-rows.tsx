@@ -67,7 +67,6 @@ function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps)
           <Button
             key={one.id}
             type="button"
-            size="sm"
             variant={pressed ? variant : "outline"}
             className={cn(pressed && variant === "secondary" && PRESSED_TEMPLATE)}
             aria-pressed={pressed}
