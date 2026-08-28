@@ -122,7 +122,7 @@ export function TeacherNav({
       {/* The foot of the bar: who is signed in, and the bar's own control. Stacked rather than
           side by side, because a collapsed rail is one icon wide. */}
       <div className="mt-auto flex flex-col gap-1">
-        <SignOutButton labelHidden={collapsed} />
+        <SignOutButton className="min-h-9 w-full justify-start px-2 py-2" labelHidden={collapsed} />
 
         <button
           type="button"
