@@ -80,14 +80,14 @@
   /* Selected always means white on a fill, so every one of these is dark enough to carry it. */
   --open-foreground: var(--color-white);
   /* The same green said quietly, for a series that is open but not the one being worked in. */
-  --open-subtle: var(--color-green-900);
+  --open-subtle: var(--color-green-800);
   /* A chosen tag standing apart from the rest: a template among series, a report since edited. */
   --neutral: var(--color-gray-700);
   --neutral-foreground: var(--color-white);
   /* A template, which is neither open nor closed and cannot become either (US-22). */
   --template: var(--color-amber-500);
   --template-foreground: var(--color-white);
-  --template-subtle: var(--color-amber-900);
+  --template-subtle: var(--color-amber-800);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -129,12 +129,12 @@
   --brand-foreground: var(--color-white);
   --open: var(--color-green-400);
   --open-foreground: var(--color-white);
-  --open-subtle: var(--color-green-900);
+  --open-subtle: var(--color-green-800);
   --neutral: var(--color-gray-600);
   --neutral-foreground: var(--color-white);
   --template: var(--color-amber-400);
   --template-foreground: var(--color-white);
-  --template-subtle: var(--color-amber-900);
+  --template-subtle: var(--color-amber-800);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
