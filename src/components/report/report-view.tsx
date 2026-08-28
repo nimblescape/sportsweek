@@ -32,8 +32,6 @@ import { SavedReportTagList } from "./saved-report-tag-list";
 
 const FILTER_LABEL = "Bericht";
 
-const reportUrl = (id: string) => `/api/saved-reports/${encodeURIComponent(id)}`;
-
 /** Two tag rows sit under each other and decide different things, so each says which it is. */
 function CardHeading({ children }: { children: string }) {
   return (
@@ -60,7 +58,7 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
       events: true,
     },
   );
-  const { reports: savedReports } = useSavedReports();
+  const { reports: savedReports } = useSavedReports(eventSeriesId);
   const [filter, setFilter] = useState(EMPTY_FILTER);
   const [activeFields, setActiveFields] = useState<string[]>([]);
   const [outputError, setOutputError] = useState<string | null>(null);
@@ -86,8 +84,11 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
 
   // Writes go through handlers because the author is the session's, not the request's (US-13);
   // the list itself comes back from the subscription rather than from these answers.
+  const row = `/api/event-series/${encodeURIComponent(eventSeriesId)}/saved-reports`;
+  const reportUrl = (id: string) => `${row}/${encodeURIComponent(id)}`;
+
   async function saveReport(name: string, saved: ReportSelection) {
-    const answer = await apiRequest<{ report: SavedReport }>("/api/saved-reports", {
+    const answer = await apiRequest<{ report: SavedReport }>(row, {
       method: "POST",
       body: { name, ...saved },
     });
@@ -104,7 +105,7 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
   }
 
   async function reorderReports(order: string[]) {
-    await apiRequest("/api/saved-reports", { method: "PATCH", body: { order } });
+    await apiRequest(row, { method: "PATCH", body: { order } });
   }
 
   /**
