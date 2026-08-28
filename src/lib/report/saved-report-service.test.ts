@@ -13,8 +13,11 @@ vi.mock("@/lib/firebase/admin", () => ({ adminDb: firestore }));
 
 const { createSavedReport, deleteSavedReport, reorderSavedReports, updateSavedReport } =
   await import("./saved-report-service");
+const { savedReportPath } = await import("./saved-reports");
 const { ServiceError } = await import("@/lib/service-error");
 
+const SERIES = "s1";
+const PATH = savedReportPath(SERIES);
 const TEACHER = "jane.doe@htldornbirn.at";
 const selection = toggleTag(EMPTY_FILTER, "class", "5AHIF");
 const FIELDS = ["class", "contact"];
@@ -31,17 +34,33 @@ beforeEach(() => firestore.reset());
 describe("createSavedReport", () => {
   it("stores both selections under its name, attributed to the teacher who saved it", async () => {
     const saved = await createSavedReport(
+      SERIES,
       { name: "5AHIF", filter: selection, fields: FIELDS },
       TEACHER,
     );
 
-    expect(firestore.get("savedReports", saved.id)).toEqual(stored);
+    expect(firestore.get(PATH, saved.id)).toEqual(stored);
+  });
+
+  /** Two series filter on lists of their own, so neither sees what the other saved (US-13). */
+  it("leaves another series' row alone", async () => {
+    firestore.seed(savedReportPath("s2"), "r1", stored);
+
+    const saved = await createSavedReport(
+      SERIES,
+      { name: "5BHIF", filter: selection, fields: [] },
+      TEACHER,
+    );
+
+    expect(saved.position).toBe(0);
+    expect(firestore.count(savedReportPath("s2"))).toBe(1);
   });
 
   it("puts the new report at the end of the row, where the button that made it stands", async () => {
-    firestore.seed("savedReports", "r1", stored);
+    firestore.seed(PATH, "r1", stored);
 
     const saved = await createSavedReport(
+      SERIES,
       { name: "5BHIF", filter: selection, fields: [] },
       TEACHER,
     );
@@ -51,6 +70,7 @@ describe("createSavedReport", () => {
 
   it("trims the name, so two teachers do not read the same report differently", async () => {
     const saved = await createSavedReport(
+      SERIES,
       { name: "  5AHIF  ", filter: selection, fields: [] },
       TEACHER,
     );
@@ -60,9 +80,9 @@ describe("createSavedReport", () => {
 
   it("rejects a blank name rather than storing a report nothing can be opened by", async () => {
     await expect(
-      createSavedReport({ name: "   ", filter: selection, fields: [] }, TEACHER),
+      createSavedReport(SERIES, { name: "   ", filter: selection, fields: [] }, TEACHER),
     ).rejects.toBeInstanceOf(ServiceError);
-    expect(firestore.count("savedReports")).toBe(0);
+    expect(firestore.count(PATH)).toBe(0);
   });
 
   it("keeps only the categories the report filters by, so a stray one cannot be stored", async () => {
