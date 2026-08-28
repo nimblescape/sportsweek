@@ -53,8 +53,11 @@ const TagContext = createContext<TagState>({ pressed: false, disabled: false });
  */
 export type TagVariant = "default" | "open" | "neutral" | "template";
 
-/** Green survives being unpressed; nothing else has anything to say once it is not chosen. */
-const unpressed = (variant: TagVariant) => (variant === "open" ? "open-soft" : "outline");
+/** Green and amber survive being unpressed; nothing else has anything to say once it is not chosen. */
+const SOFT = { open: "open-soft", template: "template-soft" } as const;
+
+const unpressed = (variant: TagVariant) =>
+  variant in SOFT ? SOFT[variant as keyof typeof SOFT] : ("outline" as const);
 
 type TagProps = {
   pressed?: boolean;

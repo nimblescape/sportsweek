@@ -15,6 +15,7 @@ const VARIANTS = [
   "open-soft",
   "neutral",
   "template",
+  "template-soft",
   "ghost",
   "destructive",
   "link",

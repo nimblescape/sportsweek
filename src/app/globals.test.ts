@@ -14,7 +14,14 @@ const css = readFileSync("src/app/globals.css", "utf8");
  * The only tokens allowed to carry chroma: the accent, the danger colour, and the two greens of
  * a series taking registrations — the one state a teacher has to spot without reading (US-19).
  */
-const CHROMATIC_TOKENS = ["--brand", "--destructive", "--open", "--open-subtle", "--template"];
+const CHROMATIC_TOKENS = [
+  "--brand",
+  "--destructive",
+  "--open",
+  "--open-subtle",
+  "--template",
+  "--template-subtle",
+];
 
 function themeBlock(selector: string): string {
   const match = css.match(new RegExp(`${selector}\\s*\\{([\\s\\S]*?)\\n\\}`));

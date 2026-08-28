@@ -32,6 +32,8 @@ const buttonVariants = cva(
           "bg-neutral text-neutral-foreground hover:bg-[color-mix(in_oklch,var(--neutral),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--neutral),var(--foreground)_20%)]",
         template:
           "bg-template text-template-foreground hover:bg-[color-mix(in_oklch,var(--template),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--template),var(--foreground)_20%)]",
+        "template-soft":
+          "bg-template-subtle text-template-foreground border-transparent hover:bg-[color-mix(in_oklch,var(--template-subtle),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--template-subtle),var(--foreground)_20%)]",
         ghost:
           "hover:bg-muted hover:text-foreground active:bg-accent aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
