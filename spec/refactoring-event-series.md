@@ -1043,10 +1043,10 @@ Renaming it earlier would rename a page for a reason nobody could see yet.
 US-22's source choice, which needs everything above: the lists have to be in the document to be
 copied, and the invitation link has to exist to be left behind.
 
-The provisioning scripts follow in the same slice, because what production is seeded with is a
-template and templates do not exist until now: `seed-students.mts` becomes `seed-environment.mts`
-with the mapping of Q9, and `purge-environment.mts` trades its closed list of environments for
-the typed-back project id.
+The provisioning script follows in the same slice, because what production is seeded with is a
+template and templates do not exist until now: `seed-students.mts` and `purge-environment.mts`
+become one `seed-environment.mts` with the mapping of Q9, trading their closed lists of
+environments for the typed-back project id.
 
 ### 7. Removing a registration
 
@@ -1322,27 +1322,28 @@ Three things follow:
   in, or the seeding script is asked for it deliberately. Either way it happens once, and every
   series after it names an earlier one as its source.
 
-### Seeding moves to a script, and the environment decides what it gets
+### Seeding and purging become one script, and the environment decides what it gets
 
-`scripts/seed-students.mts` becomes **`scripts/seed-environment.mts`**, pairing it with the
-`purge-environment.mts` it is the inverse of: one empties a project, the other fills it. It stops
+`scripts/seed-students.mts` and `scripts/purge-environment.mts` become a single
+**`scripts/seed-environment.mts`**: they were never two tasks. Seeding on top of whatever a
+project already holds says nothing about whether the application put it there, and the point of a
+seeded environment is that its contents are known — so the delete is half of the write. It stops
 being about students, because nothing else builds a working state any more.
 
-**It takes the environment and nothing else**, exactly as it does today, and what an environment
+**It takes the environment and nothing else**, exactly as both did today, and what an environment
 gets is fixed rather than chosen:
 
-| Environment          | What it seeds                                         | Purges first |
-| -------------------- | ----------------------------------------------------- | ------------ |
-| production           | the "Wintersportwochen" template, and nothing besides | no           |
-| development, staging | the whole test environment, that template included    | yes          |
+| Environment          | What it is left holding                               | Confirms first |
+| -------------------- | ----------------------------------------------------- | -------------- |
+| production           | the "Wintersportwochen" template, and nothing besides | yes            |
+| development, staging | the whole test environment, that template included    | no             |
 
 That is safer than a mode argument, and simpler: **there is no mode to get wrong.** The dangerous
 case was ever seeding test data into production — which would fill it with invented students that
 look like real ones — and it is now unreachable by construction rather than refused by a check,
 because no argument can ask for it.
 
-Purging is a different matter, and is dealt with below: emptying production is a legitimate admin
-task, where filling it with lies is not.
+Emptying production is a legitimate admin task, dealt with below; filling it with lies is not.
 
 #### Production gets one template, through the ordinary mechanism
 
@@ -1361,14 +1362,12 @@ dated — "Wintersportwoche 2026/2027" — so the two names cannot collide under
   ordinary event series with the template flag set, indistinguishable from one a teacher could
   have made by hand, so production starts from something the application already understands and
   the first real series is created from it through US-22's ordinary copy.
-- It **adds**; it never purges. A project that already holds data keeps it.
-- Running it twice is refused rather than duplicating: the name is already unique (Q14), so the
-  second run fails on the name it would have to reuse.
+- It is a **reset**: the project is emptied first, so what it holds afterwards is the template and
+  nothing else. That is what makes running it twice mean the same thing as running it once.
 
 #### Development and staging get a whole environment
 
-Everything above plus enough to exercise the application by hand, purging first exactly as the
-script does today:
+Everything above plus enough to exercise the application by hand, on the same emptied project:
 
 - the "Wintersportwochen" template, so the copy path of US-22 can be tried;
 - at least one open event series with all seven lists filled, and one archived series beside it,
@@ -1378,25 +1377,24 @@ script does today:
 - the roster it already writes, spread over those classes with the distributions it already uses,
   and assigned to events.
 
-#### Purging is an admin task, and production stops being fenced off from it
+#### Emptying is an admin task, and production stops being fenced off from it
 
-`purge-environment.mts` excludes production by construction today, and **that exclusion is
-withdrawn**. Q18's clean break needs it, standing a project back up needs it, and the list was
-never as protective as it looked: anyone holding credentials the script can use holds credentials
-the Firebase console will accept. **It defended against a typo, not against a person** — and
-fencing off the legitimate path only pushes an admin towards deleting collections by hand, which
-is slower and less complete.
+Purging excluded production by construction, and **that exclusion is withdrawn**. Q18's clean
+break needs it, standing a project back up needs it, and the list was never as protective as it
+looked: anyone holding credentials the script can use holds credentials the Firebase console will
+accept. **It defended against a typo, not against a person** — and fencing off the legitimate path
+only pushes an admin towards deleting collections by hand, which is slower and less complete.
 
 So the closed list is replaced by a guard aimed at the thing that was actually being guarded
-against: **purging production asks for the project id to be typed back** — `htld-sportsweek` — and
-does nothing until it matches. That is the ceremony the application already asks of a teacher
+against: **resetting production asks for the project id to be typed back** — `htld-sportsweek` —
+and does nothing until it matches. That is the ceremony the application already asks of a teacher
 deleting an event series that holds registrations (US-19), reused rather than invented, and it is
 not something a mistyped script name or a tab-completion can produce.
 
-- Development and staging keep their unceremonious `purge:development` and `purge:staging`. There
-  is nothing in either worth a confirmation.
-- **Seeding keeps its mapping regardless.** Emptying production and filling it with invented
-  students are not the same risk: the first is a deliberate reset, the second leaves records that
+- Development and staging reset unceremoniously. There is nothing in either worth a confirmation.
+- **What is written back still follows the environment.** Emptying production and filling it with
+  invented students are not the same risk: the first is a deliberate reset, the second leaves
+  records that
   look real and are not.
 
 #### Rules and indexes reach production through the workflow, never from a laptop
