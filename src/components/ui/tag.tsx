@@ -51,10 +51,14 @@ const TagContext = createContext<TagState>({ pressed: false, disabled: false });
  * is not, which is what makes five states out of three: an open series stays green either way,
  * because whether students can register is worth seeing whether or not you are working in it.
  */
-export type TagVariant = "default" | "open" | "neutral" | "template";
+export type TagVariant = "default" | "series" | "open" | "neutral" | "template";
 
-/** Green and amber survive being unpressed; nothing else has anything to say once it is not chosen. */
-const SOFT = { open: "open-soft", template: "template-soft" } as const;
+/**
+ * The event series colours survive being unpressed — which series exist, and which of them is
+ * taking registrations, is worth seeing whether or not you are working in one. Every other tag
+ * has nothing to say once it is not the chosen one, and goes back to the outline.
+ */
+const SOFT = { series: "series-soft", open: "open-soft", template: "template-soft" } as const;
 
 const unpressed = (variant: TagVariant) =>
   variant in SOFT ? SOFT[variant as keyof typeof SOFT] : ("outline" as const);

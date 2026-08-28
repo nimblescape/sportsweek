@@ -11,6 +11,8 @@ const VARIANTS = [
   "default",
   "outline",
   "secondary",
+  "series",
+  "series-soft",
   "open",
   "open-soft",
   "neutral",

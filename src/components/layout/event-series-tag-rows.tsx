@@ -60,7 +60,7 @@ export const closeActionLabel = (name: string) => `${name} für Schüler:innen s
  */
 function fillFor(one: EventSeries): TagVariant {
   if (one.isTemplate) return "template";
-  return one.isOpenToStudents ? "open" : "default";
+  return one.isOpenToStudents ? "open" : "series";
 }
 
 function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }: RowProps) {

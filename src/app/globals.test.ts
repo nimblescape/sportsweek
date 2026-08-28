@@ -16,6 +16,7 @@ const css = readFileSync("src/app/globals.css", "utf8");
  */
 const CHROMATIC_TOKENS = [
   "--brand",
+  "--brand-subtle",
   "--destructive",
   "--open",
   "--open-subtle",
