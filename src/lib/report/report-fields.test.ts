@@ -13,15 +13,12 @@ import { NO_ANSWER, REPORT_FIELD_TAGS, reportFieldsOf } from "./report-fields";
 
 const keys = REPORT_FIELD_TAGS.map((tag) => tag.key);
 
-const EVENT_NAMES = new Map([["event1", "Woche 1"]]);
-const context = { eventNames: EVENT_NAMES };
-
 const lineFor = (label: string, record: Registration) => {
   const field = REPORT_FIELD_TAGS.flatMap((tag) => tag.fields).find(
     (candidate) => candidate.label === label,
   );
   if (!field) throw new Error(`No report field labelled ${label}`);
-  return field.valueOf(record, context);
+  return field.valueOf(record);
 };
 
 describe("REPORT_FIELD_TAGS", () => {
@@ -184,15 +181,12 @@ describe("a field's value", () => {
     expect(lineFor("Registrierung", studentRecord({ isIncomplete: true }))).toBe("Unvollständig");
   });
 
-  it("names the event a student is assigned to, since the record points at it by id", () => {
-    expect(lineFor("Event", studentRecord({ eventId: "event1" }))).toBe("Woche 1");
+  // The record holds the name rather than a reference, so the line needs nothing but the record.
+  it("names the event a student is assigned to", () => {
+    expect(lineFor("Event", studentRecord({ event: "Woche 1" }))).toBe("Woche 1");
   });
 
   it("leaves the event unanswered while nobody has assigned them a week yet", () => {
-    expect(lineFor("Event", studentRecord({ eventId: null }))).toBeNull();
-  });
-
-  it("leaves it unanswered too when the event it points at is gone", () => {
-    expect(lineFor("Event", studentRecord({ eventId: "deleted" }))).toBeNull();
+    expect(lineFor("Event", studentRecord({ event: null }))).toBeNull();
   });
 });

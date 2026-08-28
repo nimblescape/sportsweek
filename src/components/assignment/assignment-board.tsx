@@ -20,11 +20,7 @@ import {
   type DragStartEvent,
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
-import {
-  UNASSIGNED_GROUP,
-  type AssignmentGroup,
-  type SkillColumn,
-} from "@/lib/assignment/statistics";
+import type { AssignmentGroup, SkillColumn } from "@/lib/assignment/statistics";
 import {
   EMPTY_FILTER,
   filterStudents,
@@ -76,7 +72,7 @@ type AssignmentBoardProps = {
   registered: readonly RosterStudent[];
   filterGroups: readonly FilterGroup[];
   /** Given the students to move and the week to move them to, or null to take the week away. */
-  onMove: (recordIds: string[], eventId: string | null) => Promise<void>;
+  onMove: (recordIds: string[], event: string | null) => Promise<void>;
 };
 
 /**
@@ -127,10 +123,10 @@ export function AssignmentBoard({
         : [...current, ...shown.filter((id) => !current.includes(id))];
     });
 
-  async function move(recordIds: string[], groupId: string) {
+  async function move(recordIds: string[], target: AssignmentGroup) {
     setError(null);
     try {
-      await onMove(recordIds, groupId === UNASSIGNED_GROUP ? null : groupId);
+      await onMove(recordIds, target.event);
       // Only what moved: a student picked in another card is still picked there.
       setPicked((current) => current.filter((id) => !recordIds.includes(id)));
     } catch (caught) {
@@ -145,11 +141,12 @@ export function AssignmentBoard({
     if (!over || from === undefined || over.id === from) return;
 
     const source = groups.find((group) => group.id === from);
-    if (!source) return;
+    const target = groups.find((group) => group.id === String(over.id));
+    if (!source || !target) return;
 
     void move(
       carriedBy(active, source, filters[source.id], picked).map((student) => student.id),
-      String(over.id),
+      target,
     );
   }
 

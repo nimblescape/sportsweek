@@ -210,7 +210,7 @@ describe("saveRegistration", () => {
 
     const record = await saveRegistration(STUDENT, attending);
 
-    expect(record.eventId).toBeNull();
+    expect(record.event).toBeNull();
   });
 
   it("leaves an existing event assignment alone while the student is attending", async () => {
@@ -218,12 +218,12 @@ describe("saveRegistration", () => {
     await saveRegistration(STUDENT, attending);
     firestore.seed("registrations", RECORD_ID, {
       ...firestore.get("registrations", RECORD_ID),
-      eventId: "event1",
+      event: "Woche 1",
     });
 
     const record = await saveRegistration(STUDENT, { ...attending, class: "4AHME" });
 
-    expect(record.eventId).toBe("event1");
+    expect(record.event).toBe("Woche 1");
   });
 
   it("gives up the event assignment when the student answers 'no' (US-11)", async () => {
@@ -231,7 +231,7 @@ describe("saveRegistration", () => {
     await saveRegistration(STUDENT, attending);
     firestore.seed("registrations", RECORD_ID, {
       ...firestore.get("registrations", RECORD_ID),
-      eventId: "event1",
+      event: "Woche 1",
     });
 
     const record = await saveRegistration(STUDENT, {
@@ -239,7 +239,7 @@ describe("saveRegistration", () => {
       isAttendingSportsWeek: false,
     });
 
-    expect(record.eventId).toBeNull();
+    expect(record.event).toBeNull();
   });
 
   it("keeps the values a student entered before answering 'no'", async () => {

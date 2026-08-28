@@ -9,10 +9,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
+import { storedEventSeries } from "@/test/event-series";
 
 const useEventSeries = vi.fn();
 const useRoster = vi.fn();
-const useEvents = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
 const useSavedReports = vi.fn();
@@ -22,7 +22,6 @@ const downloadReportWorkbook = vi.fn();
 
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
-vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (key: string) => useMasterData(key),
   usePrograms: () => usePrograms(),
@@ -59,13 +58,15 @@ function student(
 const ANNA = student("Anna", "Muster");
 const BENE = student("Bene", "Berger", { isAttending: false, class: "5BHIF" });
 
+/** The events are a field of this document, so the event tags arrive with the series (US-21). */
 const eventSeries = {
   id: "s1",
-  name: "2026",
-  isActive: true,
-  isArchived: false,
-  hasRegistrations: true,
-  position: 0,
+  ...storedEventSeries({
+    name: "2026",
+    isActive: true,
+    hasRegistrations: true,
+    events: ["Woche 1"],
+  }),
 };
 
 const listOf = (...names: string[]) => ({ items: names, loading: false, error: null });
@@ -74,11 +75,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   useEventSeries.mockReturnValue({ eventSeries: [eventSeries], loading: false, error: null });
   useRoster.mockReturnValue({ students: [BENE, ANNA], loading: false, error: null });
-  useEvents.mockReturnValue({
-    events: [{ id: "event1", eventSeriesId: "s1", name: "Woche 1", position: 0 }],
-    loading: false,
-    error: null,
-  });
   useMasterData.mockImplementation((key: string) => {
     if (key === "classes") return listOf("5AHIF", "5BHIF");
     if (key === "bus-pickup-points") return listOf("Dornbirn", "Bregenz");
@@ -165,7 +161,7 @@ describe("ReportView", () => {
   });
 
   it("filters by the event a student is assigned to", async () => {
-    const assigned = student("Dora", "Dorn", { eventId: "event1" });
+    const assigned = student("Dora", "Dorn", { event: "Woche 1" });
     useRoster.mockReturnValue({ students: [assigned, ANNA], loading: false, error: null });
 
     render(<ReportView />);
@@ -318,8 +314,8 @@ describe("the fields tag list", () => {
     expect(detailsOf("Muster")).toEqual(["Klasse:"]);
   });
 
-  it("names the event a student is assigned to, which the record holds only by id", async () => {
-    const assigned = student("Dora", "Dorn", { eventId: "event1" });
+  it("names the event a student is assigned to", async () => {
+    const assigned = student("Dora", "Dorn", { event: "Woche 1" });
     useRoster.mockReturnValue({ students: [assigned], loading: false, error: null });
 
     render(<ReportView />);

@@ -8,7 +8,7 @@ import type { EventSeries } from "@/lib/schemas/event-series";
 
 /**
  * An event series exactly as the document holds it — no id, since that lives in the path. The
- * six maintained lists are fields of this document (US-21), so every service reading one parses
+ * seven maintained lists are fields of this document (US-21), so every service reading one parses
  * the whole shape; stating it once here is what keeps four service tests from each guessing.
  *
  * `nameKey` follows the name rather than being passed in: it is derived on every write, so a
@@ -23,6 +23,7 @@ export function storedEventSeries(
     isArchived: false,
     hasRegistrations: false,
     position: 0,
+    events: [],
     classOptions: [],
     programs: [],
     skillLevels: [],

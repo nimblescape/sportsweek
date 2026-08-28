@@ -26,14 +26,18 @@ export const eventSeriesSchema = z.object({
   position: positionSchema,
 
   /**
-   * The teacher-maintained lists, in the order the master data menu states (US-14). They are
-   * fields of this document rather than collections of their own, so that a Kulturwoche is not
-   * made to share its lists with a Wintersportwoche (US-21). Array order is the teacher's order,
-   * so no item carries a position, and a name is an identity, so no item carries an id.
+   * The teacher-maintained lists. They are fields of this document rather than collections of
+   * their own, so that a Kulturwoche is not made to share its lists with a Wintersportwoche
+   * (US-21). Array order is the teacher's order, so no item carries a position, and a name is an
+   * identity, so no item carries an id.
+   *
+   * The events lead, because they are the series itself divided into weeks and are maintained on
+   * a page of their own (US-4); the rest follow in the order the master data menu states (US-14).
    *
    * Each defaults to empty, which is what a series created before the field existed looks like —
    * and an empty list is a question the student is never asked (US-21).
    */
+  events: namedListSchema.default([]),
   classOptions: namedListSchema.default([]),
   programs: programListSchema.default([]),
   skillLevels: namedListSchema.default([]),
@@ -42,13 +46,3 @@ export const eventSeriesSchema = z.object({
   foodOptions: namedListSchema.default([]),
 });
 export type EventSeries = z.infer<typeof eventSeriesSchema>;
-
-export const eventSchema = z.object({
-  id: documentIdSchema,
-  eventSeriesId: documentIdSchema,
-  name: requiredText(120),
-  /** As on the event series, and for the same reason: a Firestore equality compares exactly. */
-  nameKey: z.string().min(1),
-  position: positionSchema,
-});
-export type Event = z.infer<typeof eventSchema>;

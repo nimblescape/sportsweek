@@ -52,7 +52,7 @@ function storedRecord(eventSeriesId: string, className: string) {
   return {
     userId: STUDENT,
     eventSeriesId,
-    eventId: null,
+    event: null,
     isAttendingSportsWeek: true,
     class: className,
     program: null,

@@ -23,10 +23,14 @@ async function wipe(collection: string) {
   await Promise.all(snapshot.docs.map((doc) => doc.ref.delete()));
 }
 
-const COLLECTIONS_UNDER_TEST = ["eventSeries", "events"];
-
+/** Events are entries of the event series document, so emptying that collection takes them too. */
 async function reset() {
-  for (const collection of COLLECTIONS_UNDER_TEST) await wipe(collection);
+  await wipe("eventSeries");
+}
+
+async function eventsOf(eventSeriesId: string): Promise<string[]> {
+  const snapshot = await adminDb.collection("eventSeries").doc(eventSeriesId).get();
+  return (snapshot.data()?.events ?? []) as string[];
 }
 
 beforeEach(reset);
@@ -95,8 +99,13 @@ describe("event series name uniqueness against a real Firestore", () => {
   });
 });
 
+/**
+ * Event names are unique within their own series, and that is now decided by a comparison rather
+ * than a query: the whole list is in the document the write already holds (US-21). The index
+ * locking these tests were written to catch cannot arise, because no query is made.
+ */
 describe("event name uniqueness against a real Firestore", () => {
-  it("does not serialise writes to unrelated event series", async () => {
+  it("does not make writes to unrelated event series wait for one another", async () => {
     const eventSeries = await Promise.all(
       Array.from({ length: 4 }, (_, i) => createEventSeries({ name: `Eventreihe ${i}` })),
     );
@@ -109,8 +118,9 @@ describe("event name uniqueness against a real Firestore", () => {
     );
     const elapsed = Date.now() - started;
 
-    expect(await adminDb.collection("events").get()).toHaveProperty("size", 4);
-    // Querying siblings inside the transaction used to take ~20s here through index locks.
+    for (const series of eventSeries) expect(await eventsOf(series.id)).toEqual(["Montafon"]);
+    // Four separate documents, so nothing is shared to contend over. A sibling query used to
+    // lock the index range it scanned and take seconds over exactly this.
     expect(elapsed).toBeLessThan(3000);
   });
 
@@ -122,8 +132,18 @@ describe("event name uniqueness against a real Firestore", () => {
       createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
     ]);
 
-    const snapshot = await adminDb.collection("events").get();
-    expect(snapshot.size).toBe(1);
+    expect(await eventsOf(eventSeries.id)).toEqual(["Montafon"]);
+  });
+
+  it("treats a case-only difference as the same name under contention", async () => {
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
+
+    await Promise.allSettled([
+      createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: eventSeries.id, name: "MONTAFON" }),
+    ]);
+
+    expect(await eventsOf(eventSeries.id)).toHaveLength(1);
   });
 
   it("allows the same name concurrently in two different event series", async () => {
@@ -133,21 +153,21 @@ describe("event name uniqueness against a real Firestore", () => {
     ]);
 
     await Promise.all([
-      createEvent({ eventSeriesId: a.id, name: "Montafon" }),
-      createEvent({ eventSeriesId: b.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: a!.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: b!.id, name: "Montafon" }),
     ]);
 
-    const snapshot = await adminDb.collection("events").get();
-    expect(snapshot.size).toBe(2);
+    expect(await eventsOf(a!.id)).toEqual(["Montafon"]);
+    expect(await eventsOf(b!.id)).toEqual(["Montafon"]);
   });
 });
 
 describe("names are freed again when their owner goes", () => {
   it("frees an event name when the event is deleted", async () => {
     const eventSeries = await createEventSeries({ name: "Winter 2026" });
-    const event = await createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" });
+    await createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" });
 
-    await deleteEvent(event.id);
+    await deleteEvent(eventSeries.id, "Montafon");
 
     await expect(
       createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
@@ -169,19 +189,9 @@ describe("names are freed again when their owner goes", () => {
 
     await deleteEventSeries(eventSeries.id);
 
+    // The events went with the document, so nothing outlives it to keep a name claimed (US-21).
     const reused = await createEventSeries({ name: "Winter 2026" });
     await expect(createEvent({ eventSeriesId: reused.id, name: "Montafon" })).resolves.toBeTruthy();
     await expect(createEvent({ eventSeriesId: reused.id, name: "Lech" })).resolves.toBeTruthy();
-  });
-
-  it("frees an event series' name for reuse once the cascade has removed it", async () => {
-    const eventSeries = await createEventSeries({ name: "Winter 2026" });
-    await createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" });
-
-    await deleteEventSeries(eventSeries.id);
-
-    // Nothing outlives the document, because the name is unique by a query over the documents
-    // themselves rather than by a reservation that would have to be cleaned up (US-21).
-    await expect(createEventSeries({ name: "Winter 2026" })).resolves.toBeTruthy();
   });
 });

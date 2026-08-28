@@ -71,11 +71,11 @@ const READABLE_COLLECTIONS: [string, Record<string, unknown>][] = [
       nameKey: "winter 2026",
       isActive: false,
       isArchived: false,
+      events: ["Montafon"],
       classOptions: ["5AHIF"],
       programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
     },
   ],
-  ["events", { eventSeriesId: "s1", name: "Montafon", nameKey: "montafon" }],
 ];
 
 describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
@@ -134,6 +134,7 @@ describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
  * collections this refactoring deleted — is denied rather than merely unused (US-21).
  */
 describe.each([
+  ["events", { eventSeriesId: "s1", name: "Montafon" }],
   ["classOptions", { name: "5AHIF" }],
   ["programs", { name: "Ski" }],
   ["reservedNames", { scope: "classOptions", name: "5AHIF", ownerId: "c1" }],

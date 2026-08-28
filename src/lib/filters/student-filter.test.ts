@@ -42,7 +42,7 @@ function student(overrides: Partial<FilterableStudent> = {}): FilterableStudent 
     program: "Ski",
     skillLevel: "Keine Vorkenntnisse",
     isAttending: true,
-    eventId: null,
+    event: null,
     isIncomplete: false,
     equipmentRentalNeeded: false,
     healthNotes: null,
@@ -138,12 +138,12 @@ describe("matchesFilter", () => {
   });
 
   it("filters by the event a student is assigned to (US-12, US-13)", () => {
-    const montafon = student({ eventId: "event1" });
-    const filter = withTags(["event", "event1"]);
+    const montafon = student({ event: "Woche 1" });
+    const filter = withTags(["event", "Woche 1"]);
 
     expect(matchesFilter(montafon, filter)).toBe(true);
-    expect(matchesFilter(student({ eventId: "event2" }), filter)).toBe(false);
-    expect(matchesFilter(student({ eventId: null }), filter)).toBe(false);
+    expect(matchesFilter(student({ event: "Woche 2" }), filter)).toBe(false);
+    expect(matchesFilter(student({ event: null }), filter)).toBe(false);
   });
 
   it("filters by whether a registration is still missing answers (US-11, US-13)", () => {
@@ -302,7 +302,7 @@ describe("filterGroups", () => {
     busPickupPoint: true,
     seasonPassOption: true,
     foodOption: true,
-    events: [{ id: "event1", name: "Woche 1" }],
+    events: ["Woche 1"],
   };
 
   it("offers class, gender, program and skill level, in that order", () => {
@@ -325,17 +325,14 @@ describe("filterGroups", () => {
   });
 
   it("offers the events of the event series as tags, in the order the teacher set them", () => {
-    const events = [
-      { id: "event1", name: "Woche 1" },
-      { id: "event2", name: "Woche 2" },
-    ];
+    const events = ["Woche 1", "Woche 2"];
 
     const [event] = filterGroups(lists, { events }).filter((group) => group.category === "event");
 
     expect(event.label).toBe("Event");
     expect(event.options).toEqual([
-      { value: "event1", label: "Woche 1" },
-      { value: "event2", label: "Woche 2" },
+      { value: "Woche 1", label: "Woche 1" },
+      { value: "Woche 2", label: "Woche 2" },
     ]);
   });
 
@@ -536,7 +533,7 @@ describe("scopeFilterToGroups", () => {
   });
 
   it("drops every tag of a category nothing offers at all", () => {
-    const filter = withTags(["event", "event1"]);
+    const filter = withTags(["event", "Woche 1"]);
 
     expect(scopeFilterToGroups(filter, GROUPS).tags.event).toEqual([]);
   });

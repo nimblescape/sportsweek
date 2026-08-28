@@ -11,11 +11,10 @@
 export const COLLECTIONS = {
   users: "users",
   /**
-   * Carries the six teacher-maintained lists in its own document rather than in collections of
-   * their own, so that each series' lists are its own (US-21).
+   * Carries the seven teacher-maintained lists — its events among them — in its own document
+   * rather than in collections of their own, so that each series' lists are its own (US-21).
    */
   eventSeries: "eventSeries",
-  events: "events",
   // The emergency contact and the rented equipment are fields of this record rather than
   // collections of their own: neither exists apart from it, and nothing else refers to them.
   registrations: "registrations",

@@ -4,12 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { Column, Content, DynamicContent, TDocumentDefinitions } from "pdfmake/interfaces";
-import {
-  NO_ANSWER,
-  NO_STUDENTS_HINT,
-  type ReportField,
-  type ReportFieldContext,
-} from "./report-fields";
+import { NO_ANSWER, NO_STUDENTS_HINT, type ReportField } from "./report-fields";
 import {
   exportedAtLine,
   REPORT_TITLE,
@@ -48,7 +43,6 @@ export const pageLabel = (currentPage: number, pageCount: number) =>
   `Seite ${currentPage} von ${pageCount}`;
 
 export type ReportDocumentOptions = {
-  context: ReportFieldContext;
   provenance: ReportProvenance;
   /** The HTL logo as a data URL, or null where it could not be loaded (US-17). */
   logo: string | null;
@@ -89,11 +83,7 @@ function footer({ exportedAt }: ReportProvenance): DynamicContent {
   });
 }
 
-function studentBlock(
-  student: RosterStudent,
-  fields: readonly ReportField[],
-  context: ReportFieldContext,
-): Content {
+function studentBlock(student: RosterStudent, fields: readonly ReportField[]): Content {
   const master: Content = {
     text: [
       { text: `${student.firstName} ${student.lastName}`, bold: true },
@@ -106,10 +96,7 @@ function studentBlock(
 
   const details: Content[] = fields.map((field) => ({
     margin: [DETAIL_INDENT, 2, 0, 0],
-    text: [
-      { text: `${field.label}: `, color: MUTED },
-      field.valueOf(student.record, context) ?? NO_ANSWER,
-    ],
+    text: [{ text: `${field.label}: `, color: MUTED }, field.valueOf(student.record) ?? NO_ANSWER],
   }));
 
   // A name and the answers under it are one thing to read, so they are one thing to break (US-17).
@@ -123,9 +110,9 @@ function studentBlock(
 export function reportDocument(
   students: readonly RosterStudent[],
   fields: readonly ReportField[],
-  { context, provenance, logo }: ReportDocumentOptions,
+  { provenance, logo }: ReportDocumentOptions,
 ): TDocumentDefinitions {
-  const blocks = students.map((student) => studentBlock(student, fields, context));
+  const blocks = students.map((student) => studentBlock(student, fields));
 
   return {
     info: { title: REPORT_TITLE },

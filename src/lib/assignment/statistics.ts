@@ -35,6 +35,12 @@ export const UNASSIGNED_GROUP_TITLE = "Nicht zugeteilt";
 export type AssignmentGroup = AttendingCounts & {
   id: string;
   title: string;
+  /**
+   * The event these students are assigned to, or null on the card of those who have none yet.
+   * Stated rather than read back off the id, so an event a teacher happens to name "unassigned"
+   * is still an event (US-12, US-21).
+   */
+  event: string | null;
   students: RosterStudent[];
 };
 
@@ -131,18 +137,18 @@ export function classOverview(
  */
 export function assignmentGroups(
   students: readonly RosterStudent[],
-  events: readonly { id: string; name: string }[],
+  events: readonly string[],
   columns: readonly SkillColumn[],
 ): AssignmentGroup[] {
   const attending = students.filter((student) => student.isAttending);
 
-  const group = (id: string, title: string, eventId: string | null): AssignmentGroup => {
-    const own = attending.filter((student) => student.eventId === eventId);
-    return { id, title, students: own, ...attendingCounts(own, columns) };
+  const group = (id: string, title: string, event: string | null): AssignmentGroup => {
+    const own = attending.filter((student) => student.event === event);
+    return { id, title, event, students: own, ...attendingCounts(own, columns) };
   };
 
   return [
     group(UNASSIGNED_GROUP, UNASSIGNED_GROUP_TITLE, null),
-    ...events.map((event) => group(event.id, event.name, event.id)),
+    ...events.map((event) => group(event, event, event)),
   ];
 }

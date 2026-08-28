@@ -6,19 +6,39 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@/lib/api/handler";
-import { eventSchema } from "@/lib/schemas/event-series";
-import { orderSchema } from "@/lib/schemas/order";
-import { createEvent, reorderEvents } from "@/lib/events/event-service";
+import { documentIdSchema } from "@/lib/schemas/common";
+import { listItemNameSchema } from "@/lib/schemas/master-data";
+import { createEvent, deleteEvent, reorderEvents, updateEvent } from "@/lib/events/event-service";
 
+/**
+ * The event series is always named, because this page is reached through one and its id is the
+ * one identifier the URL already carries (US-4). The event itself is named rather than pointed
+ * at, since its name is its identity (US-21) — and it travels in the body rather than in the
+ * path, because a name may contain a slash and a path segment may not.
+ */
 const createEventSchema = z.strictObject({
-  eventSeriesId: eventSchema.shape.eventSeriesId,
-  name: eventSchema.shape.name,
+  eventSeriesId: documentIdSchema,
+  name: listItemNameSchema,
 });
 
-// Scoped to an event series, so reordering one event series' events can never renumber another's.
 const reorderSchema = z.strictObject({
-  eventSeriesId: eventSchema.shape.eventSeriesId,
-  order: orderSchema,
+  eventSeriesId: documentIdSchema,
+  order: z.array(listItemNameSchema),
+});
+
+// Strict on purpose: the series is named but never changed, so an event cannot be moved out of it.
+const renameSchema = z.strictObject({
+  eventSeriesId: documentIdSchema,
+  event: listItemNameSchema,
+  name: listItemNameSchema,
+});
+
+/** One PATCH, two intents: reorder the whole list, or rename one of its events. */
+const patchSchema = z.union([reorderSchema, renameSchema]);
+
+const deleteEventSchema = z.strictObject({
+  eventSeriesId: documentIdSchema,
+  event: listItemNameSchema,
 });
 
 export async function POST(request: Request) {
@@ -36,18 +56,38 @@ export async function POST(request: Request) {
   }
 }
 
-/** Reorders one event series' events (see Ordering); it changes no name, so it needs no guard. */
+/** Reordering changes no name, so no registration can be affected by it (see Ordering). */
 export async function PATCH(request: Request) {
   const denied = await requireTeacherOrResponse();
   if (denied) return denied;
 
-  const body = await parseJsonBody(request, reorderSchema);
+  const body = await parseJsonBody(request, patchSchema);
   if (!body.ok) return body.response;
 
   try {
-    await reorderEvents(body.data.eventSeriesId, body.data.order);
+    if ("order" in body.data) {
+      await reorderEvents(body.data.eventSeriesId, body.data.order);
+      return new NextResponse(null, { status: 204 });
+    }
+
+    const { eventSeriesId, event, name } = body.data;
+    return NextResponse.json({ event: await updateEvent(eventSeriesId, event, { name }) });
+  } catch (error) {
+    return handleServiceFailure(error, "Updating an event");
+  }
+}
+
+export async function DELETE(request: Request) {
+  const denied = await requireTeacherOrResponse();
+  if (denied) return denied;
+
+  const body = await parseJsonBody(request, deleteEventSchema);
+  if (!body.ok) return body.response;
+
+  try {
+    await deleteEvent(body.data.eventSeriesId, body.data.event);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    return handleServiceFailure(error, "Reordering events");
+    return handleServiceFailure(error, "Deleting an event");
   }
 }

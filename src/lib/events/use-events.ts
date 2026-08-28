@@ -5,46 +5,21 @@
  */
 "use client";
 
-import { useEffect, useState } from "react";
-import { collection, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
-import { subscribeWithRecovery } from "@/lib/firebase/live-query";
-import { COLLECTIONS } from "@/lib/schemas/collections";
-import { byPosition } from "@/lib/schemas/position";
-import { eventSchema, type Event } from "@/lib/schemas/event-series";
+import { useMemo } from "react";
+import { useEventSeries } from "@/lib/event-series/use-event-series";
 
-/** Real-time read scoped to one event series, governed by Security Rules. */
+/**
+ * The events of one event series, in the teacher's order (US-4). They are a field of that
+ * series' document (US-21), so this derives from the subscription the views already hold rather
+ * than running a live query of its own — which is also what lets a caller tell an empty list
+ * from one that has not arrived yet, since both now share one loading flag.
+ */
 export function useEvents(eventSeriesId: string) {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { eventSeries, loading, error } = useEventSeries();
 
-  useEffect(
-    () =>
-      subscribeWithRecovery<Event>({
-        label: "events",
-        // Sorted here rather than in the query: Firestore's orderBy silently omits documents
-        // that lack the field, which would hide any event stored before ordering existed.
-        buildQuery: () =>
-          query(collection(db, COLLECTIONS.events), where("eventSeriesId", "==", eventSeriesId)),
-        parse: (id, data) => {
-          const parsed = eventSchema.safeParse({ id, ...data });
-          if (!parsed.success) {
-            console.error(`Event ${id} does not match the schema`, parsed.error);
-            return null;
-          }
-          return parsed.data;
-        },
-        onData: (items) => {
-          setEvents([...items].sort(byPosition));
-          setLoading(false);
-        },
-        onError: (message) => {
-          setError(message);
-          if (message !== null) setLoading(false);
-        },
-      }),
-    [eventSeriesId],
+  const events = useMemo(
+    () => eventSeries.find((candidate) => candidate.id === eventSeriesId)?.events ?? [],
+    [eventSeries, eventSeriesId],
   );
 
   return { events, loading, error };

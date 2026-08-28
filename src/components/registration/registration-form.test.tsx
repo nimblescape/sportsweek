@@ -35,7 +35,7 @@ const storedRecord: Registration = {
   id: "s1__jane",
   userId: "jane@student.htldornbirn.at",
   eventSeriesId: "s1",
-  eventId: null,
+  event: null,
   isIncomplete: false,
   isAttendingSportsWeek: true,
   class: "3AHME",

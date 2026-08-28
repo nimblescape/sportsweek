@@ -150,7 +150,7 @@ describe("/registration", () => {
 
   it("denies a student assigning themselves to an event", async () => {
     await assertFails(
-      student().collection("registrations").doc(OWN_RECORD).update({ eventId: "event1" }),
+      student().collection("registrations").doc(OWN_RECORD).update({ event: "Woche 1" }),
     );
   });
 

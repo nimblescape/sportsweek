@@ -8,10 +8,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
+import { storedEventSeries } from "@/test/event-series";
 import { stubBoardLayout } from "@/test/stub-board-layout";
 
 const useEventSeries = vi.fn();
-const useEvents = vi.fn();
 const useRoster = vi.fn();
 const useMasterData = vi.fn();
 const usePrograms = vi.fn();
@@ -19,7 +19,6 @@ const apiRequest = vi.fn();
 const useBusyWhile = vi.fn();
 
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
-vi.mock("@/lib/events/use-events", () => ({ useEvents: (id: string) => useEvents(id) }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (key: string) => useMasterData(key),
@@ -48,16 +47,18 @@ function student(
 }
 
 const ANNA = student("Anna", "Muster");
-const BENE = student("Bene", "Berger", { eventId: "event1" });
+const BENE = student("Bene", "Berger", { event: "Montafon" });
 const CLARA = student("Clara", "Cerny", { isAttending: false });
 
+/** The events are a field of this document, so a series arrives with its own weeks (US-21). */
 const eventSeries = {
   id: "s1",
-  name: "2026",
-  isActive: true,
-  isArchived: false,
-  hasRegistrations: true,
-  position: 0,
+  ...storedEventSeries({
+    name: "2026",
+    isActive: true,
+    hasRegistrations: true,
+    events: ["Montafon", "Gardasee"],
+  }),
 };
 
 const listOf = (...names: string[]) => ({ items: names, loading: false, error: null });
@@ -66,14 +67,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   stubBoardLayout();
   useEventSeries.mockReturnValue({ eventSeries: [eventSeries], loading: false, error: null });
-  useEvents.mockReturnValue({
-    events: [
-      { id: "event1", eventSeriesId: "s1", name: "Montafon", position: 0 },
-      { id: "event2", eventSeriesId: "s1", name: "Gardasee", position: 1 },
-    ],
-    loading: false,
-    error: null,
-  });
   useRoster.mockReturnValue({ students: [ANNA, BENE, CLARA], loading: false, error: null });
   useMasterData.mockImplementation((key: string) =>
     key === "classes" ? listOf("5AHIF", "5BHIF") : listOf("Profi"),
@@ -139,7 +132,7 @@ describe("AssignmentView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/assignments", {
         method: "PATCH",
-        body: { recordIds: ["record-Muster"], eventId: "event1" },
+        body: { recordIds: ["record-Muster"], event: "Montafon" },
       }),
     );
   });
@@ -152,7 +145,7 @@ describe("AssignmentView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/assignments", {
         method: "PATCH",
-        body: { recordIds: ["record-Berger"], eventId: null },
+        body: { recordIds: ["record-Berger"], event: null },
       }),
     );
   });
@@ -173,7 +166,11 @@ describe("AssignmentView", () => {
   });
 
   it("tells the teacher when an event series has no events to assign to yet", () => {
-    useEvents.mockReturnValue({ events: [], loading: false, error: null });
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, events: [] }],
+      loading: false,
+      error: null,
+    });
 
     render(<AssignmentView />);
 

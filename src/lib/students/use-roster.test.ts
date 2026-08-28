@@ -41,7 +41,7 @@ const doc = (id: string, data: unknown): Doc => ({ id, data: () => data });
 const storedRecord = (overrides: Record<string, unknown> = {}) => ({
   userId: ANNA,
   eventSeriesId: "s1",
-  eventId: null,
+  event: null,
   isIncomplete: false,
   isAttendingSportsWeek: true,
   class: "5AHIF",

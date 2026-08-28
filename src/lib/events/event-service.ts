@@ -4,20 +4,27 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import "server-only";
-import type { Transaction } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
-import { reorderCollection } from "@/lib/firebase/reorder";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { eventSchema, eventSeriesSchema, type Event } from "@/lib/schemas/event-series";
+import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
+import { listItemNameSchema, namedListSchema } from "@/lib/schemas/master-data";
 
-const nameSchema = eventSchema.shape.name;
+/**
+ * The events of one event series, held in an ordered array on its document like every other list
+ * it maintains (US-21). They are not a master data category: their page is reached through an
+ * event series rather than through the master data menu, so every call here names the series it
+ * acts on instead of working out which one was meant (US-4).
+ */
+function eventSeriesDoc(id: string) {
+  return adminDb.collection(COLLECTIONS.eventSeries).doc(id);
+}
 
 function parseName(value: string): string {
-  const parsed = nameSchema.safeParse(value);
+  const parsed = listItemNameSchema.safeParse(value);
   if (!parsed.success) {
     throw new ServiceError(
       ErrorCode.ValidationError,
@@ -27,46 +34,45 @@ function parseName(value: string): string {
   return parsed.data;
 }
 
-function eventDoc(id: string) {
-  return adminDb.collection(COLLECTIONS.events).doc(id);
+/**
+ * Which event a request means. The comparison is the one the whole application uses for names,
+ * so a caller that saw "Woche 1" still finds the event now spelled "woche 1" — and one that saw
+ * a name since changed to something else finds nothing, which is the honest answer (US-21).
+ */
+function indexOf(events: readonly string[], event: string): number {
+  const wanted = normalizeName(event);
+  return events.findIndex((candidate) => normalizeName(candidate) === wanted);
+}
+
+function requireIndex(events: readonly string[], event: string): number {
+  const index = indexOf(events, event);
+  if (index === -1) throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es nicht.");
+  return index;
+}
+
+function duplicate(name: string): ServiceError {
+  return new ServiceError(ErrorCode.Conflict, `Den Namen „${name.trim()}" gibt es hier bereits.`);
 }
 
 /**
- * Unique within its own event series, so two series may both hold a "Montafon" (US-4). The
- * comparison ignores surrounding whitespace and letter case, which a Firestore equality does
- * not — hence the stored `nameKey`, derived here and never sent by a client.
- *
- * The query shares the write's transaction, so Firestore locks the index range it scans and a
- * second create racing the first waits and then sees it. Reads precede writes, so this runs
- * before the document is written.
+ * Back to what the document holds, validated on the way — which is where uniqueness and the
+ * length cap are decided, so no caller can write a list the schema would refuse. Two series may
+ * each hold a "Montafon" without either ever looking at the other (US-4, US-21).
  */
-async function assertNameIsFree(
-  transaction: Transaction,
-  { eventSeriesId, name, ownerId }: { eventSeriesId: string; name: string; ownerId?: string },
-): Promise<string> {
-  const nameKey = normalizeName(name);
-  const taken = await transaction.get(
-    adminDb
-      .collection(COLLECTIONS.events)
-      .where("eventSeriesId", "==", eventSeriesId)
-      .where("nameKey", "==", nameKey)
-      .limit(2),
-  );
-
-  if (taken.docs.some((doc) => doc.id !== ownerId)) {
-    throw new ServiceError(ErrorCode.Conflict, `Den Namen „${name.trim()}" gibt es hier bereits.`);
+function storedEvents(events: readonly string[]): string[] {
+  const parsed = namedListSchema.safeParse(events);
+  if (!parsed.success) {
+    throw new ServiceError(
+      ErrorCode.Conflict,
+      parsed.error.issues[0]?.message ?? "Diese Liste ist ungültig.",
+    );
   }
-  return nameKey;
+  return parsed.data;
 }
 
-async function requireOpenEventSeries(eventSeriesId: string) {
-  const snapshot = await adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId).get();
-  if (!snapshot.exists) {
-    throw new ServiceError(ErrorCode.NotFound, "Diese Eventreihe gibt es nicht.");
-  }
-
-  const eventSeries = eventSeriesSchema.parse({ id: eventSeriesId, ...snapshot.data() });
-  if (eventSeries.isArchived) {
+/** An archived event series is read-only, so nothing new can be attached to it (US-4). */
+function requireOpen(series: EventSeries): void {
+  if (series.isArchived) {
     throw new ServiceError(
       ErrorCode.Conflict,
       "Zu einer archivierten Eventreihe können keine Events hinzugefügt werden.",
@@ -74,92 +80,132 @@ async function requireOpenEventSeries(eventSeriesId: string) {
   }
 }
 
-export async function createEvent(input: { eventSeriesId: string; name: string }): Promise<Event> {
-  const name = parseName(input.name);
-  await requireOpenEventSeries(input.eventSeriesId);
-
-  // A new event goes to the end of its event series' order (see Ordering).
-  const position = (
-    await adminDb
-      .collection(COLLECTIONS.events)
-      .where("eventSeriesId", "==", input.eventSeriesId)
-      .count()
-      .get()
-  ).data().count;
-
-  // Scoped to the event series, so two event series may both hold a "Montafon".
-  return adminDb.runTransaction(async (transaction) => {
-    const reference = adminDb.collection(COLLECTIONS.events).doc();
-    const nameKey = await assertNameIsFree(transaction, {
-      eventSeriesId: input.eventSeriesId,
-      name,
-    });
-
-    const data = { eventSeriesId: input.eventSeriesId, name, nameKey, position };
-    transaction.set(reference, data);
-    return { id: reference.id, ...data };
-  });
-}
-
-/** Ordering is per event series, so one event series' list can never renumber another's (see Ordering). */
-export async function reorderEvents(
+/**
+ * Rewrites the event list of one event series in a single transaction, so two teachers editing
+ * the same series cannot lose one another's work. The document is re-read inside it and `change`
+ * is applied to what it actually holds, never to the list the client was holding — so a stale
+ * caller edits the list as it stands or fails, rather than overwriting what it never saw.
+ */
+async function writeEvents(
   eventSeriesId: string,
-  orderedIds: readonly string[],
+  change: (events: string[], series: EventSeries) => string[],
 ): Promise<void> {
-  await reorderCollection({
-    collection: COLLECTIONS.events,
-    orderedIds,
-    scope: { field: "eventSeriesId", value: eventSeriesId },
-  });
-}
+  const reference = eventSeriesDoc(eventSeriesId);
 
-/** Only the name is editable — an event never moves between event series (US-4). */
-export async function updateEvent(id: string, update: { name: string }): Promise<Event> {
-  const name = parseName(update.name);
-
-  const reference = eventDoc(id);
-
-  return adminDb.runTransaction(async (transaction) => {
+  await adminDb.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(reference);
     if (!snapshot.exists) {
-      throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es nicht.");
+      throw new ServiceError(ErrorCode.NotFound, "Diese Eventreihe gibt es nicht.");
     }
 
-    const current = eventSchema.parse({ id, ...snapshot.data() });
+    const series = eventSeriesSchema.parse({ id: eventSeriesId, ...snapshot.data() });
+    transaction.update(reference, { events: storedEvents(change([...series.events], series)) });
+  });
+}
 
-    if (name !== current.name) {
-      await assertNameIsFree(transaction, {
-        eventSeriesId: current.eventSeriesId,
-        name,
-        ownerId: id,
-      });
+/** The stored spelling of one event, which is the text the registrations hold (US-11). */
+async function readEvent(eventSeriesId: string, event: string): Promise<string> {
+  const snapshot = await eventSeriesDoc(eventSeriesId).get();
+  if (!snapshot.exists) {
+    throw new ServiceError(ErrorCode.NotFound, "Diese Eventreihe gibt es nicht.");
+  }
+
+  const series = eventSeriesSchema.parse({ id: eventSeriesId, ...snapshot.data() });
+  return series.events[requireIndex(series.events, event)]!;
+}
+
+/**
+ * Every registration of this series assigned to `event` follows it — to a new name, or to
+ * nothing at all. An assignment used to be a reference, so it survived a rename and had to be
+ * cleared on a delete; now that it is the name itself, both are the same write (US-4, US-12).
+ *
+ * Only the event series is queried for. The event is compared here, so that reaching the
+ * registrations of one series needs no index beyond the one Firestore keeps by itself.
+ */
+async function reassign(eventSeriesId: string, event: string, next: string | null): Promise<void> {
+  const wanted = normalizeName(event);
+  const found = await adminDb
+    .collection(COLLECTIONS.registrations)
+    .where("eventSeriesId", "==", eventSeriesId)
+    .get();
+
+  const operations: BatchOperation[] = found.docs
+    .filter((record) => {
+      const assigned = record.data()?.event;
+      return typeof assigned === "string" && normalizeName(assigned) === wanted;
+    })
+    .map((record) => (batch) => batch.update(record.ref, { event: next }));
+
+  await commitInChunks(operations);
+}
+
+export type EventItem = { eventSeriesId: string; name: string };
+
+export async function createEvent(input: EventItem): Promise<EventItem> {
+  const name = parseName(input.name);
+
+  // A new event goes to the end of the teacher's order (see Ordering).
+  await writeEvents(input.eventSeriesId, (events, series) => {
+    requireOpen(series);
+    if (indexOf(events, name) !== -1) throw duplicate(name);
+    return [...events, name];
+  });
+
+  return { eventSeriesId: input.eventSeriesId, name };
+}
+
+/** Ordering is per event series, so one series' list can never renumber another's (see Ordering). */
+export async function reorderEvents(
+  eventSeriesId: string,
+  orderedNames: readonly string[],
+): Promise<void> {
+  await writeEvents(eventSeriesId, (events) => {
+    // A permutation and nothing else: an order naming an event that has since gone, or leaving
+    // one out, would silently drop it — so it is refused and the list is left as it stands.
+    if (orderedNames.length !== events.length) {
+      throw new ServiceError(ErrorCode.Conflict, "Diese Reihenfolge passt nicht zur Liste.");
     }
-
-    transaction.update(reference, { name, nameKey: normalizeName(name) });
-    return { ...current, name };
+    return orderedNames.map((name) => events[requireIndex(events, name)]!);
   });
 }
 
 /**
- * Clearing `eventId` happens before the event disappears, so a failed run leaves records
- * pointing at an event that still exists rather than at a ghost (US-4, US-12).
+ * Only the name is editable — an event never moves between event series (US-4). The students
+ * assigned to it are rewritten first, so a run that fails midway leaves them naming an event
+ * that still exists rather than one that never did.
  */
-export async function deleteEvent(id: string): Promise<void> {
-  const reference = eventDoc(id);
-  const snapshot = await reference.get();
-  if (!snapshot.exists) {
-    throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es nicht.");
+export async function updateEvent(
+  eventSeriesId: string,
+  event: string,
+  update: { name: string },
+): Promise<EventItem> {
+  const name = parseName(update.name);
+  const current = await readEvent(eventSeriesId, event);
+
+  if (normalizeName(current) !== normalizeName(name)) {
+    await reassign(eventSeriesId, current, name);
   }
 
-  const assigned = await adminDb
-    .collection(COLLECTIONS.registrations)
-    .where("eventId", "==", id)
-    .get();
+  await writeEvents(eventSeriesId, (events) => {
+    const index = requireIndex(events, event);
+    const clash = indexOf(events, name);
+    if (clash !== -1 && clash !== index) throw duplicate(name);
 
-  const operations: BatchOperation[] = assigned.docs.map(
-    (record) => (batch) => batch.update(record.ref, { eventId: null }),
+    return events.map((stored, at) => (at === index ? name : stored));
+  });
+
+  return { eventSeriesId, name };
+}
+
+/**
+ * Unassigning happens before the event leaves the list, so a failed run leaves records naming an
+ * event that still exists rather than one that is gone (US-4, US-12).
+ */
+export async function deleteEvent(eventSeriesId: string, event: string): Promise<void> {
+  const current = await readEvent(eventSeriesId, event);
+  await reassign(eventSeriesId, current, null);
+
+  await writeEvents(eventSeriesId, (events) =>
+    events.filter((_, at) => at !== requireIndex(events, event)),
   );
-  await commitInChunks(operations);
-
-  await reference.delete();
 }

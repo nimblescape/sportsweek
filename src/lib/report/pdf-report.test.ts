@@ -19,7 +19,6 @@ const BENE = rosterStudent({
   class: "5BHIF",
 });
 
-const context = { eventNames: new Map([["event1", "Woche 1"]]) };
 const PROVENANCE: ReportProvenance = {
   reportName: null,
   filterSummary: null,
@@ -32,7 +31,7 @@ const document = (
   fields = reportFieldsOf([]),
   provenance = PROVENANCE,
   logo: string | null = "data:image/png;base64,AAA",
-) => reportDocument(students, fields, { context, provenance, logo });
+) => reportDocument(students, fields, { provenance, logo });
 
 /** Everything a piece of the document would put on the page, whatever it is nested in. */
 function textOf(node: unknown): string {

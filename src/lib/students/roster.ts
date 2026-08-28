@@ -58,7 +58,7 @@ export function joinRoster(
           skillLevel: record.skillLevel,
           isAttending: record.isAttendingSportsWeek,
           isIncomplete: record.isIncomplete,
-          eventId: record.eventId,
+          event: record.event,
           equipmentRentalNeeded: record.equipmentRentalNeeded,
           healthNotes: record.healthNotes,
           hasMedication: record.hasMedication,

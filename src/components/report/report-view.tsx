@@ -49,7 +49,7 @@ function CardHeading({ children }: { children: string }) {
  * dialog and is why its filter carries categories the board has no use for.
  */
 export function ReportView() {
-  const { eventSeries, loading, error, students, events, filterGroups } = useEventSeriesRoster({
+  const { eventSeries, loading, error, students, filterGroups } = useEventSeriesRoster({
     attendance: true,
     completeness: true,
     equipmentRental: true,
@@ -72,11 +72,6 @@ export function ReportView() {
   const selection = useMemo<ReportSelection>(
     () => ({ filter, fields: activeFields }),
     [filter, activeFields],
-  );
-  // A record points at its event by id, so the detail line needs the event series' events to name it.
-  const context = useMemo(
-    () => ({ eventNames: new Map(events.map((event) => [event.id, event.name])) }),
-    [events],
   );
 
   function openReport(saved: ReportSelection) {
@@ -128,7 +123,6 @@ export function ReportView() {
       await download({
         students: shown,
         fields,
-        context,
         provenance: {
           reportName: savedReportName,
           filterSummary: filterDescription,
@@ -225,7 +219,7 @@ export function ReportView() {
 
           <Card>
             <CardContent>
-              <ReportList students={shown} fields={fields} context={context} />
+              <ReportList students={shown} fields={fields} />
             </CardContent>
           </Card>
         </>

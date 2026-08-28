@@ -75,6 +75,7 @@ export async function createEventSeries(input: { name: string }): Promise<EventS
       isArchived: false,
       hasRegistrations: false,
       position,
+      events: [],
       classOptions: [],
       programs: [],
       skillLevels: [],
@@ -227,18 +228,13 @@ export async function deleteEventSeries(id: string): Promise<void> {
     );
   }
 
-  const eventsSnapshot = await adminDb
-    .collection(COLLECTIONS.events)
-    .where("eventSeriesId", "==", id)
-    .get();
-
-  const doomed = eventsSnapshot.docs.map((event) => event.ref);
-
   // A registration carries its emergency contact and rentals in its own fields, so
   // deleting it takes them along — there is nothing hanging off it to clean up separately.
-  doomed.push(...masterDataSnapshot.docs.map((record) => record.ref));
-
-  const operations: BatchOperation[] = doomed.map((target) => (batch) => batch.delete(target));
+  // The lists the series maintained, its events among them, are fields of the document itself
+  // and go with it (US-21).
+  const operations: BatchOperation[] = masterDataSnapshot.docs.map(
+    (record) => (batch) => batch.delete(record.ref),
+  );
   await commitInChunks(operations);
 
   await reference.delete();

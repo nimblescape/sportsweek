@@ -37,12 +37,15 @@ entity "EventSeries" as eventSeries {
                               ' collection it may not read; the server re-checks and decides (US-4)
   position : number  ' teacher-defined order, not alphabetical (see Ordering)
   --
-  ' The six teacher-maintained lists, in the order the master data menu shows them (US-14).
-  ' They are fields of this document rather than collections of their own, so a Kulturwoche is
-  ' not made to share its lists with a Wintersportwoche (US-21). An item is a name: array order
-  ' is the teacher-defined order, so none carries a position, and a name is its identity within
-  ' its own list, so none carries an id. Uniqueness is decided in the write that changes the
-  ' list, because the whole list is present in it — no reservation document is needed.
+  ' The seven teacher-maintained lists, in the order the master data menu shows them (US-14),
+  ' with the events at the head because they are reached through this event series rather than
+  ' through the menu. They are fields of this document rather than collections of their own, so a
+  ' Kulturwoche is not made to share its lists with a Wintersportwoche (US-21). An item is a name:
+  ' array order is the teacher-defined order, so none carries a position, and a name is its
+  ' identity within its own list, so none carries an id. Uniqueness is decided in the write that
+  ' changes the list, because the whole list is present in it — no reservation document is needed,
+  ' and two event series may each hold a "Montafon" without either ever looking at the other.
+  events : string[]  ' the weeks of this event series, assigned to in US-12
   classOptions : string[]  ' Klasse (US-6)
   programs : { name, requiredEquipment[] }[]  ' the one list whose entries are not bare names,
                                               ' because a program carries the equipment it
@@ -63,18 +66,10 @@ entity "EventSeries" as eventSeries {
   ' Displayed state is derived, not stored: active (isActive), archived (isArchived),
   ' or inactive (neither). An event series with no registrations can be deleted in any state but
   ' cannot be archived; one with registrations must be archived before it can be deleted.
-  ' Deleting cascades to its events and to all Registration records for that event series (US-4).
+  ' Deleting takes its lists with it, since they are fields of this document, and cascades to
+  ' all Registration records for that event series (US-4).
   ' An empty list is a question the student is never asked, which is what lets one application
   ' serve a Kulturwoche as well as a Wintersportwoche (US-21).
-}
-
-entity "Event" as event {
-  PK id : string
-  FK eventSeriesId : string
-  --
-  name : string
-  nameKey : string  ' as on EventSeries, and for the same reason; unique within this event series
-  position : number  ' teacher-defined order within the event series (see Ordering)
 }
 
 entity "Registration" as registration {
@@ -101,7 +96,9 @@ entity "Registration" as registration {
   foodOtherText : string <<nullable>>   ' set when foodOption = "other"
   seasonPassOption : string  ' copied from EventSeries.seasonPassOptions
   --
-  FK eventId : string <<nullable>>  ' assignment result (US-12); null = unassigned
+  event : string <<nullable>>  ' assignment result (US-12); null = unassigned. Copied from
+                               ' EventSeries.events by name, like every other list value — an
+                               ' array entry has no id to point at (US-21)
   --
   dateOfBirth : date
   gender : enum(male, female)
@@ -139,26 +136,26 @@ entity "SavedReport" as savedReport {
   ' The three below are US-13 only — the assignment dialog has no use for any of them: its
   ' cards are already one per event, and it lists only the students who are attending (US-12).
   filter.tags.attendance : enum(attending, notAttending)[]
-  filter.tags.event : Event.id[]
+  filter.tags.event : string[]
   filter.tags.completeness : enum(complete, incomplete)[]
   ' The activated field tags of the fields tag list, by key — a key nothing offers any more
   ' simply adds no detail line, so a report saved by an older release still opens (US-13).
   fields : string[]
 }
 
-' Event series & Events (US-4)
-eventSeries ||--o{ event : "contains"
+' Event series (US-4)
 eventSeries ||--o{ registration : "registered in (US-11)"
-event  |o--o{ registration : "assigned to (US-12); removing an event unassigns its students"
 
-' Sports Week Master Data teacher-maintained lists (US-5 .. US-10)
-' None of them is an entity any more: all six are ordered array fields of EventSeries (US-21),
-' as are Program.requiredEquipment, Registration.emergencyContact and .rentedEquipment.
+' Sports Week Master Data teacher-maintained lists (US-4 .. US-10)
+' None of them is an entity any more: all seven, the events included, are ordered array fields
+' of EventSeries (US-21), as are a program's requiredEquipment, Registration.emergencyContact
+' and .rentedEquipment.
 
 ' The dotted line below is NOT a foreign key — it indicates that several Registration fields are
-' plain-text copies of a list entry's name at the time it was selected (US-11): .class, .program,
-' .skillLevel, .busPickupPoint, .seasonPassOption, .foodOption, and .rentedEquipment from the
-' chosen program's own requiredEquipment.
+' plain-text copies of a list entry's name at the time it was selected (US-11): .event, .class,
+' .program, .skillLevel, .busPickupPoint, .seasonPassOption, .foodOption, and .rentedEquipment
+' from the chosen program's own requiredEquipment. Removing an event unassigns its students and
+' renaming one rewrites what they hold (US-12).
 eventSeries       .down.> registration : "list values copied by name"
 
 ' Student edits own registration (US-11)

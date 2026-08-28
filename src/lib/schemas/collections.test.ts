@@ -11,10 +11,9 @@ describe("COLLECTIONS", () => {
     expect(Object.keys(COLLECTIONS).sort()).toEqual(
       [
         "users",
-        // The six teacher-maintained lists are fields of this document rather than collections
-        // of their own, so each series keeps its own lists (US-21).
+        // The seven teacher-maintained lists — the events among them — are fields of this
+        // document rather than collections of their own, so each series keeps its own (US-21).
         "eventSeries",
-        "events",
         // Emergency contact and rented equipment are fields of this record, not collections of
         // their own: neither has an identity outside it, and nothing else refers to them (US-11).
         "registrations",

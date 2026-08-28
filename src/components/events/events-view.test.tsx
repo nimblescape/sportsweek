@@ -21,10 +21,7 @@ vi.mock("@/lib/event-series/use-event-series", () => ({
 const { EventsView } = await import("./events-view");
 
 const eventSeries = { id: "s1", name: "Winter 2026", isActive: true, isArchived: false };
-const events = [
-  { id: "e1", eventSeriesId: "s1", name: "Montafon" },
-  { id: "e2", eventSeriesId: "s1", name: "Lech" },
-];
+const events = ["Montafon", "Lech"];
 
 function stubFetch(implementation: (...args: unknown[]) => unknown) {
   const fetchMock = vi.fn(implementation);
@@ -34,7 +31,7 @@ function stubFetch(implementation: (...args: unknown[]) => unknown) {
 
 const created = () =>
   Promise.resolve(
-    new Response(JSON.stringify({ event: { id: "e3", eventSeriesId: "s1", name: "Neu" } }), {
+    new Response(JSON.stringify({ event: { eventSeriesId: "s1", name: "Neu" } }), {
       status: 201,
       headers: { "content-type": "application/json" },
     }),
@@ -44,7 +41,7 @@ const noContent = () => Promise.resolve(new Response(null, { status: 204 }));
 
 afterEach(() => vi.unstubAllGlobals());
 
-function renderView(overrides: { events?: typeof events; eventSeries?: unknown[] } = {}) {
+function renderView(overrides: { events?: string[]; eventSeries?: unknown[] } = {}) {
   useEvents.mockReturnValue({ events: overrides.events ?? events, loading: false, error: null });
   useEventSeries.mockReturnValue({
     eventSeries: overrides.eventSeries ?? [eventSeries],
@@ -137,7 +134,8 @@ describe("EventsView — editing", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("Montafon");
   });
 
-  it("patches the event", async () => {
+  // The event travels in the body, since a name may contain a slash and a path segment may not.
+  it("patches the event, naming it and the event series it belongs to", async () => {
     const fetchMock = stubFetch(created);
     renderView();
 
@@ -148,10 +146,14 @@ describe("EventsView — editing", () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/events/e1",
+        "/api/events",
         expect.objectContaining({
           method: "PATCH",
-          body: JSON.stringify({ name: "Montafon Nord" }),
+          body: JSON.stringify({
+            eventSeriesId: "s1",
+            event: "Montafon",
+            name: "Montafon Nord",
+          }),
         }),
       ),
     );
@@ -177,8 +179,11 @@ describe("EventsView — removing", () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/events/e1",
-        expect.objectContaining({ method: "DELETE" }),
+        "/api/events",
+        expect.objectContaining({
+          method: "DELETE",
+          body: JSON.stringify({ eventSeriesId: "s1", event: "Montafon" }),
+        }),
       ),
     );
   });

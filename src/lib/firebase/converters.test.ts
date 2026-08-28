@@ -18,6 +18,7 @@ const storedEventSeries = {
   isArchived: false,
   hasRegistrations: false,
   position: 0,
+  events: ["Woche 1"],
   classOptions: ["3AHIT"],
   programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
   skillLevels: ["Keine Vorkenntnisse"],

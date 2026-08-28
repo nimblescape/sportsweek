@@ -6,10 +6,11 @@
 import "server-only";
 import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
+import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { eventSchema, eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
+import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema } from "@/lib/schemas/registration";
 import {
   activeEventSeriesOf,
@@ -38,21 +39,30 @@ async function requireActiveEventSeries(): Promise<EventSeries> {
   return active;
 }
 
-async function requireEventOfEventSeries(eventId: string, eventSeriesId: string): Promise<void> {
-  const snapshot = await adminDb.collection(COLLECTIONS.events).doc(eventId).get();
-  if (!snapshot.exists) {
-    throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es nicht.");
-  }
+/**
+ * The event as the series spells it. An assignment holds the name rather than a reference
+ * (US-11, US-21), so a name the series does not offer would write a value nothing can show and
+ * no filter can reach — it is refused instead. Matching is the comparison names are always
+ * given, and the answer is the stored spelling, so a caller working from a stale list writes
+ * what the list says now or nothing at all.
+ */
+function eventOfEventSeries(eventSeries: EventSeries, event: string): string {
+  const wanted = normalizeName(event);
+  const offered = eventSeries.events.find((candidate) => normalizeName(candidate) === wanted);
 
-  const event = eventSchema.parse({ id: eventId, ...snapshot.data() });
-  if (event.eventSeriesId !== eventSeriesId) {
-    throw new ServiceError(ErrorCode.Conflict, "Dieses Event gehört nicht zur aktiven Eventreihe.");
+  if (offered === undefined) {
+    throw new ServiceError(
+      ErrorCode.NotFound,
+      "Dieses Event gibt es in der aktiven Eventreihe nicht.",
+    );
   }
+  return offered;
 }
 
 /**
- * The teacher's half of US-12: `eventId` is theirs to set, which is why the student's own save
- * carries it forward untouched and why no client may write this collection (see firestore.rules).
+ * The teacher's half of US-12: the event assignment is theirs to set, which is why the student's
+ * own save carries it forward untouched and why no client may write this collection (see
+ * firestore.rules).
  *
  * Every record is checked before any of them is written, so a selection containing one student
  * who may not be assigned leaves the others where they were rather than moving half of them.
@@ -62,10 +72,10 @@ async function requireEventOfEventSeries(eventId: string, eventSeriesId: string)
  */
 export async function assignStudents(
   recordIds: readonly string[],
-  eventId: string | null,
+  event: string | null,
 ): Promise<void> {
   const eventSeries = await requireActiveEventSeries();
-  if (eventId !== null) await requireEventOfEventSeries(eventId, eventSeries.id);
+  const assigned = event === null ? null : eventOfEventSeries(eventSeries, event);
 
   const references = recordIds.map((recordId) =>
     adminDb.collection(COLLECTIONS.registrations).doc(recordId),
@@ -87,14 +97,14 @@ export async function assignStudents(
         "Nur Anmeldungen der aktiven Eventreihe können zugeteilt werden.",
       );
     }
-    if (eventId !== null && !record.isAttendingSportsWeek) {
+    if (assigned !== null && !record.isAttendingSportsWeek) {
       throw new ServiceError(
         ErrorCode.Conflict,
         "Wer nicht teilnimmt, kann keinem Event zugeteilt werden.",
       );
     }
 
-    return (batch) => batch.update(references[index], { eventId });
+    return (batch) => batch.update(references[index], { event: assigned });
   });
 
   await commitInChunks(operations);

@@ -962,22 +962,28 @@ renamed on its own account — which is exactly the kind of change that leaves a
 
 ### 2. Master data into the document
 
-Six of the seven lists become ordered arrays on the event series document (US-21). `position` and
-the item ids go, since an array has an order and a name is an identity; the six `useMasterData`
-subscriptions collapse into a single subscription to a single document; and every list write
-becomes one transaction on it, taking the intent rather than the list the client happened to be
-holding.
+The seven lists become ordered arrays on the event series document (US-21). `position` and the
+item ids go, since an array has an order and a name is an identity; the six `useMasterData`
+subscriptions and the `useEvents` one collapse into a single subscription to a single document;
+and every list write becomes one transaction on it, taking the intent rather than the list the
+client happened to be holding.
 
-**Events are the seventh and follow in slice 4**, because an array entry has no id for
-`registration.eventId` to point at — so the moment the collection goes, the event a registration
-is assigned to has to be held by name. That is slice 4's work (US-26), and it takes the filter
-tag and `ReportFieldContext` with it (US-25). Moving events here would drag all of it forward and
-bury the change this slice is about.
+**The events take `eventId` with them**, because an array entry has no id for a registration to
+point at: `registration.eventId` becomes `registration.event`, holding the name like every other
+list value. The event filter tag holds a name too, and `ReportFieldContext` — which existed only
+to translate an id back into the name everything else already spoke — is deleted. That is work
+US-25 and US-26 would otherwise have done later, and it is cheaper here than a slice spent
+keeping a collection alive that nothing else wants.
 
-The pages follow the same reasoning. The header selection that says which series a teacher is
-working in is slice 5, so until then the six lists are the **active** series' lists, and the
-events of any series stay where they already are — on that series' own page, which is the one
-place in the application that already carries an event series id.
+It also removes a cost rather than adding one. Uniqueness within a list is a comparison over an
+array the write already holds, so no query is made and no index range is locked — where a
+transactional sibling query made two teachers editing two _different_ event series wait for one
+another, which is the thing the reservation documents existed to avoid in the first place.
+
+The pages follow the same reasoning as the scope does. The header selection that says which
+series a teacher is working in is slice 5, so until then the six menu lists are the **active**
+series' lists, and the events of any series stay where they already are — on that series' own
+page, which is the one place in the application that already carries an event series id.
 
 What the category definitions own is the base this starts from and is carried through unchanged:
 the menu order that the report fields, the filter categories and the registration form all
@@ -1037,15 +1043,11 @@ either unanswered or one the series currently offers.
 
 ### 4. Self-contained registrations
 
-US-26: the name and e-mail fields, the event held by name, the `users` join deleted, and the
-`users` read rule narrowed to a caller's own record. A registration becomes a document beneath
-the series it belongs to, keyed by the student's UPN, so which series it is in is where it is
-stored rather than a field it carries.
-
-**Events join the document here**, as the seventh list, because holding the event by name is what
-lets them: an array entry has no id, so the collection cannot go until nothing points at one.
-The event filter tag becomes a name in the same slice and `ReportFieldContext` goes with it
-(US-25) — it exists only to translate an id back into the name everything else already speaks.
+US-26: the name and e-mail fields, the `users` join deleted, and the `users` read rule narrowed
+to a caller's own record. A registration becomes a document beneath the series it belongs to,
+keyed by the student's UPN, so which series it is in is where it is stored rather than a field it
+carries. The event it is assigned to is already held by name, which slice 2 had to settle when
+the events lost their ids.
 
 This is the slice where the deploy order matters: the collection group index goes first, and the
 narrowed `users` rule goes last. Deploying that rule early denies the release still running.

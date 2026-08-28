@@ -36,10 +36,13 @@ const SEEDABLE_ENVIRONMENTS = ["development", "staging"] as const;
  * Kulturwoche — so a fresh project holds only what is written here.
  */
 const DEFAULT_EVENT_SERIES_NAME = "2026/2027";
-const DEFAULT_EVENT_NAMES = ["Woche 1", "Woche 2", "Woche 3"] as const;
 
-/** The six maintained lists of that event series, in the order the master data menu shows them. */
+/**
+ * The seven maintained lists of that event series: its events, then the six the master data menu
+ * shows, in the order it shows them.
+ */
 const MASTER_DATA_DEFAULTS = {
+  events: ["Woche 1", "Woche 2", "Woche 3"],
   classOptions: ["2aWI", "2bWI", "2cWI"],
   programs: [
     { name: "Ski", requiredEquipment: ["Ski", "Skischuhe", "Stöcke", "Helm"] },
@@ -52,6 +55,7 @@ const MASTER_DATA_DEFAULTS = {
   foodOptions: ["Alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
 } satisfies Pick<
   EventSeries,
+  | "events"
   | "classOptions"
   | "programs"
   | "skillLevels"
@@ -352,26 +356,6 @@ async function ensureActiveEventSeries(db: Firestore): Promise<EventSeries> {
   return { id: reference.id, ...data };
 }
 
-/** Event names are unique only within their own event series, hence the query by both fields. */
-async function ensureEvents(db: Firestore, eventSeriesId: string): Promise<void> {
-  const existing = await db
-    .collection(COLLECTIONS.events)
-    .where("eventSeriesId", "==", eventSeriesId)
-    .get();
-  if (!existing.empty) return;
-
-  const batch = db.batch();
-  for (const [position, name] of DEFAULT_EVENT_NAMES.entries()) {
-    batch.set(db.collection(COLLECTIONS.events).doc(), {
-      eventSeriesId,
-      name,
-      nameKey: normalizeName(name),
-      position,
-    });
-  }
-  await batch.commit();
-}
-
 async function main(): Promise<void> {
   const [environment] = process.argv.slice(2);
   if (!SEEDABLE_ENVIRONMENTS.some((allowed) => allowed === environment)) {
@@ -391,7 +375,6 @@ async function main(): Promise<void> {
   // The lists are fields of the event series (US-21), so there is nothing to read until it
   // exists — and creating it is what seeds them, since the application no longer does.
   const eventSeries = await ensureActiveEventSeries(db);
-  await ensureEvents(db, eventSeries.id);
 
   const programs = eventSeries.programs;
   const named = PROGRAM_SHARES.map(([name]) => programs.find((program) => program.name === name));
@@ -453,7 +436,7 @@ async function main(): Promise<void> {
         userId: person.upn,
         eventSeriesId: eventSeries.id,
         // Unassigned on purpose: putting students into events is what the board is for (US-12).
-        eventId: null,
+        event: null,
         isIncomplete: isRegistrationIncomplete(registration),
         ...registration,
       });

@@ -355,14 +355,12 @@ describe("deleteEventSeries", () => {
     expect(firestore.count("registrations")).toBe(0);
   });
 
-  it("deletes every event of the event series", async () => {
-    seedEventSeries("s1", { isArchived: true });
-    firestore.seed("events", "e1", { eventSeriesId: "s1", name: "Montafon" });
-    firestore.seed("events", "e2", { eventSeriesId: "s1", name: "Lech" });
+  it("takes the events of the event series with it, since they are fields of its document", async () => {
+    seedEventSeries("s1", { isArchived: true, events: ["Montafon", "Lech"] });
 
     await deleteEventSeries("s1");
 
-    expect(firestore.count("events")).toBe(0);
+    expect(firestore.get("eventSeries", "s1")).toBeUndefined();
   });
 
   it("deletes every registration of the event series", async () => {
@@ -380,55 +378,50 @@ describe("deleteEventSeries", () => {
   });
 
   it("leaves documents of other event series untouched", async () => {
-    seedEventSeries("s1", { isArchived: true });
-    seedEventSeries("s2");
-    firestore.seed("events", "e1", { eventSeriesId: "s1", name: "Montafon" });
-    firestore.seed("events", "keep", { eventSeriesId: "s2", name: "Behalten" });
+    seedEventSeries("s1", { isArchived: true, events: ["Montafon"] });
+    seedEventSeries("s2", { events: ["Behalten"] });
     firestore.seed("registrations", "m1", { eventSeriesId: "s1", studentId: "u1" });
     firestore.seed("registrations", "keep", { eventSeriesId: "s2", studentId: "u2" });
-    firestore.seed("emergencyContacts", "keep", { registrationId: "keep", name: "Papa" });
 
     await deleteEventSeries("s1");
 
-    expect(firestore.get("eventSeries", "s2")).toBeDefined();
-    expect(Object.keys(firestore.docs("events"))).toEqual(["keep"]);
+    expect(firestore.get("eventSeries", "s2")).toMatchObject({ events: ["Behalten"] });
     expect(Object.keys(firestore.docs("registrations"))).toEqual(["keep"]);
-    expect(Object.keys(firestore.docs("emergencyContacts"))).toEqual(["keep"]);
   });
 
   it("chunks the cascade into batches no larger than the Firestore limit", async () => {
     seedEventSeries("s1", { isArchived: true });
     for (let index = 0; index < 1200; index += 1) {
-      firestore.seed("events", `e${index}`, { eventSeriesId: "s1", name: `Event ${index}` });
+      firestore.seed("registrations", `m${index}`, { eventSeriesId: "s1", studentId: `u${index}` });
     }
 
     await deleteEventSeries("s1");
 
-    expect(firestore.count("events")).toBe(0);
+    expect(firestore.count("registrations")).toBe(0);
     expect(Math.max(...firestore.batchSizes)).toBeLessThanOrEqual(500);
     expect(firestore.commitCount).toBeGreaterThan(2);
   });
 
   it("is retry-safe: deleting the leftovers of a half-finished cascade still succeeds", async () => {
     seedEventSeries("s1", { isArchived: true });
-    firestore.seed("events", "orphan", { eventSeriesId: "s1", name: "Übrig" });
+    firestore.seed("registrations", "orphan", { eventSeriesId: "s1", studentId: "u1" });
 
     await deleteEventSeries("s1");
     seedEventSeries("s1", { isArchived: true });
-    firestore.seed("events", "orphan", { eventSeriesId: "s1", name: "Übrig" });
+    firestore.seed("registrations", "orphan", { eventSeriesId: "s1", studentId: "u1" });
 
     await expect(deleteEventSeries("s1")).resolves.toBeUndefined();
-    expect(firestore.count("events")).toBe(0);
+    expect(firestore.count("registrations")).toBe(0);
   });
 
   it("removes the event series only after its dependants are gone", async () => {
     seedEventSeries("s1", { isArchived: true });
-    firestore.seed("events", "e1", { eventSeriesId: "s1", name: "Montafon" });
+    firestore.seed("registrations", "m1", { eventSeriesId: "s1", studentId: "u1" });
 
     await deleteEventSeries("s1");
 
     expect(firestore.get("eventSeries", "s1")).toBeUndefined();
-    expect(firestore.count("events")).toBe(0);
+    expect(firestore.count("registrations")).toBe(0);
   });
 });
 

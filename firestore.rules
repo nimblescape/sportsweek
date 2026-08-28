@@ -66,7 +66,7 @@ service cloud.firestore {
      * Writes are closed for the reason the collections below are: a save carries invariants
      * rules cannot run a query for — it belongs to *the* active event series, answering "no" gives
      * up the event assignment (US-12), and the event series' `hasRegistrations` mirror follows it
-     * (US-4). The teacher's assignment goes the same way, through a handler that owns `eventId`.
+     * (US-4). The teacher's assignment goes the same way, through a handler that owns `event`.
      */
     match /registrations/{recordId} {
       allow read: if isTeacher() || (isSignedIn() && resource.data.userId == upn());
@@ -80,24 +80,26 @@ service cloud.firestore {
     }
 
     /**
-     * The event series and its events: anyone signed in may read, because a registration selects
-     * from the lists the event series document carries (US-21) and the teacher views subscribe to
-     * them live. A rule grants a whole document or none of it, so a student can also read the
-     * saved reports once those move here — accepted deliberately, since a saved report holds a
-     * name, a filter and a set of field keys and nothing about any student.
+     * The event series, and with it every list a teacher maintains — its events among them
+     * (US-21). Anyone signed in may read, because a registration selects from those lists
+     * (US-11) and the teacher views subscribe to them live. A rule grants a whole document or
+     * none of it, so a student can also read the saved reports once those move here — accepted
+     * deliberately, since a saved report holds a name, a filter and a set of field keys and
+     * nothing about any student.
      *
-     * Writes are closed rather than merely restricted to teachers, because the invariants these
-     * documents carry cannot be expressed here at all. Rules can `get()` a known path but cannot
-     * run a query, so "is this name already taken?" (US-4, US-21), "is at most one event series
-     * active?" (US-4) and "is this item still in use?" (US-5 to US-10) are all out of reach. They
-     * are enforced in transactions in the Route Handlers, which use the Admin SDK and bypass
-     * these rules — leaving a second, unchecked way in would make those guarantees worthless.
+     * Writes are closed rather than merely restricted to teachers, because the invariants this
+     * document carries cannot be expressed here at all. Rules can `get()` a known path but cannot
+     * run a query, so "is this name already taken?" (US-4) and "is this item still in use?"
+     * (US-5 to US-10) are out of reach — and a list edit has to be a read-modify-write of one
+     * array, which no rule can hold to being one. They are enforced in transactions in the Route
+     * Handlers, which use the Admin SDK and bypass these rules — leaving a second, unchecked way
+     * in would make those guarantees worthless.
      *
-     * The names below are a copy: this language cannot import application code. They are owned
-     * by COLLECTIONS in src/lib/schemas/collections.ts and have to be kept in step by hand.
+     * The name below is a copy: this language cannot import application code. It is owned by
+     * COLLECTIONS in src/lib/schemas/collections.ts and has to be kept in step by hand.
      */
     match /{collection}/{itemId} {
-      allow read: if isSignedIn() && collection in ['eventSeries', 'events'];
+      allow read: if isSignedIn() && collection in ['eventSeries'];
 
       allow write: if false;
     }

@@ -17,7 +17,7 @@ function record(userId: string, overrides: Partial<Registration> = {}): Registra
     id: `s1__${userId}`,
     userId,
     eventSeriesId: "s1",
-    eventId: null,
+    event: null,
     isIncomplete: false,
     isAttendingSportsWeek: true,
     class: "5AHIF",
@@ -65,7 +65,7 @@ describe("joinRoster", () => {
       program: "Ski",
       skillLevel: "Fortgeschritten",
       isAttending: true,
-      eventId: null,
+      event: null,
     });
   });
 
@@ -76,9 +76,9 @@ describe("joinRoster", () => {
   });
 
   it("carries the event a teacher has assigned", () => {
-    const roster = joinRoster([record(ANNA.id, { eventId: "event1" })], [ANNA]);
+    const roster = joinRoster([record(ANNA.id, { event: "Woche 1" })], [ANNA]);
 
-    expect(roster[0].eventId).toBe("event1");
+    expect(roster[0].event).toBe("Woche 1");
   });
 
   it("carries whether equipment is rented, which the report filters by (US-11, US-13)", () => {

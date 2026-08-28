@@ -14,7 +14,6 @@ const logo = await readFile("public/htl-logo.png");
 const REPORT: ReportExport = {
   students: [rosterStudent({ id: "r1", firstName: "Anna", lastName: "Müller-Groß" })],
   fields: reportFieldsOf(["class", "contact"]),
-  context: { eventNames: new Map() },
   provenance: { reportName: null, filterSummary: null, exportedAt: new Date(2026, 7, 27, 14, 35) },
 };
 

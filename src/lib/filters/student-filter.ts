@@ -82,8 +82,8 @@ export type FilterableStudent = {
   program: string | null;
   skillLevel: string | null;
   isAttending: boolean;
-  /** The event a teacher assigned them to (US-12); null means no week yet. */
-  eventId: string | null;
+  /** The event a teacher assigned them to (US-12), by name; null means no week yet. */
+  event: string | null;
   isIncomplete: boolean;
   /** Null where the question was never put — unanswered, or a programme needing no equipment. */
   equipmentRentalNeeded: boolean | null;
@@ -270,12 +270,6 @@ type MaintainedLists = {
   foodOptions?: readonly string[];
 };
 
-/**
- * An event is the one tag whose value is not the label: a record points at it by id, because
- * unlike the teacher-maintained lists it is a genuine reference (US-11, US-12).
- */
-type EventOption = { id: string; name: string };
-
 type FilterGroupOptions = {
   attendance?: boolean;
   completeness?: boolean;
@@ -284,7 +278,7 @@ type FilterGroupOptions = {
   busPickupPoint?: boolean;
   seasonPassOption?: boolean;
   foodOption?: boolean;
-  events?: readonly EventOption[];
+  events?: readonly string[];
 };
 
 /**
@@ -320,11 +314,7 @@ export function filterGroups(
     groups.push({ category: "attendance", label: "Teilnahme", options: ATTENDANCE_OPTIONS });
   }
   if (events) {
-    groups.push({
-      category: "event",
-      label: "Event",
-      options: events.map((event) => ({ value: event.id, label: event.name })),
-    });
+    pushList("event", "Event", asOptions(events));
   }
 
   pushList("class", ANSWER_LABELS.class, asOptions(lists.classes));
@@ -399,7 +389,7 @@ function valueOf(student: FilterableStudent, category: FilterCategory): string |
     case "attendance":
       return student.isAttending ? ATTENDANCE_VALUES.attending : ATTENDANCE_VALUES.notAttending;
     case "event":
-      return student.eventId;
+      return student.event;
     case "equipmentRental":
       if (student.equipmentRentalNeeded === null) return null;
       return student.equipmentRentalNeeded

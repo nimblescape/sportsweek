@@ -5,19 +5,13 @@
  */
 "use client";
 
-import {
-  NO_ANSWER,
-  NO_STUDENTS_HINT,
-  type ReportField,
-  type ReportFieldContext,
-} from "@/lib/report/report-fields";
+import { NO_ANSWER, NO_STUDENTS_HINT, type ReportField } from "@/lib/report/report-fields";
 import { INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
 
 type ReportListProps = {
   students: readonly RosterStudent[];
   fields: readonly ReportField[];
-  context: ReportFieldContext;
 };
 
 /**
@@ -25,7 +19,7 @@ type ReportListProps = {
  * carrying the name and the e-mail address that are always shown, with the activated fields
  * hanging off it as indented detail lines.
  */
-export function ReportList({ students, fields, context }: ReportListProps) {
+export function ReportList({ students, fields }: ReportListProps) {
   if (students.length === 0) {
     return (
       <p role="status" className="text-muted-foreground text-sm">
@@ -53,7 +47,7 @@ export function ReportList({ students, fields, context }: ReportListProps) {
               {fields.map((field) => (
                 <div key={field.key} className="flex flex-wrap gap-x-2">
                   <dt className="text-muted-foreground">{field.label}:</dt>
-                  <dd>{field.valueOf(student.record, context) ?? NO_ANSWER}</dd>
+                  <dd>{field.valueOf(student.record) ?? NO_ANSWER}</dd>
                 </div>
               ))}
             </dl>

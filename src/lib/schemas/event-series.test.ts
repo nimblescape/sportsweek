@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { eventSchema, eventSeriesSchema } from "@/lib/schemas/event-series";
+import { eventSeriesSchema } from "@/lib/schemas/event-series";
 
 const validEventSeries = {
   id: "event series-1",
@@ -14,19 +14,13 @@ const validEventSeries = {
   isArchived: false,
   hasRegistrations: false,
   position: 0,
+  events: ["Woche 1"],
   classOptions: ["3AHIT"],
   programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
   skillLevels: ["Keine Vorkenntnisse"],
   seasonPassOptions: ["Saisonkarte"],
   busPickupPoints: ["Dornbirn"],
   foodOptions: ["Vegetarisch"],
-};
-const validEvent = {
-  id: "event-1",
-  eventSeriesId: "event series-1",
-  name: "Montafon",
-  nameKey: "montafon",
-  position: 0,
 };
 
 describe("eventSeriesSchema", () => {
@@ -57,6 +51,7 @@ describe("eventSeriesSchema", () => {
         "name",
         "nameKey",
         "position",
+        "events",
         "classOptions",
         "programs",
         "skillLevels",
@@ -71,7 +66,10 @@ describe("eventSeriesSchema", () => {
     expect(eventSeriesSchema.safeParse({ ...validEventSeries, nameKey: "" }).success).toBe(false);
   });
 
+  // The events are one of these lists rather than a collection of their own, so a registration
+  // names the event it is assigned to exactly as it names its class (US-12, US-21).
   it.each([
+    "events",
     "classOptions",
     "programs",
     "skillLevels",
@@ -84,22 +82,10 @@ describe("eventSeriesSchema", () => {
 
     expect(eventSeriesSchema.parse(withoutList)[field]).toEqual([]);
   });
-});
 
-describe("eventSchema", () => {
-  it("parses a valid event", () => {
-    expect(eventSchema.parse(validEvent)).toEqual(validEvent);
-  });
-
-  it("requires the owning event series as a genuine foreign key", () => {
-    expect(eventSchema.safeParse({ ...validEvent, eventSeriesId: "" }).success).toBe(false);
-  });
-
-  it("requires a name", () => {
-    expect(eventSchema.safeParse({ ...validEvent, name: "" }).success).toBe(false);
-  });
-
-  it("requires the derived name key, which the uniqueness query compares on", () => {
-    expect(eventSchema.safeParse({ ...validEvent, nameKey: "" }).success).toBe(false);
+  it("refuses two events of the same name, since a name is what a registration holds", () => {
+    expect(
+      eventSeriesSchema.safeParse({ ...validEventSeries, events: ["Woche 1", "woche 1"] }).success,
+    ).toBe(false);
   });
 });
