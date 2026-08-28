@@ -18,8 +18,14 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => eventSeries() }));
 
-const { EventSeriesTagRows, EVENT_SERIES_ROW_LABEL, TEMPLATE_ROW_LABEL, OPEN_TO_STUDENTS_LABEL } =
-  await import("@/components/layout/event-series-tag-rows");
+const {
+  EventSeriesTagRows,
+  EVENT_SERIES_ROW_LABEL,
+  TEMPLATE_ROW_LABEL,
+  OPEN_TO_STUDENTS_LABEL,
+  CLOSED_TO_STUDENTS_LABEL,
+  TEMPLATE_LABEL,
+} = await import("@/components/layout/event-series-tag-rows");
 
 function seriesNamed(id: string, name: string, overrides = {}) {
   return { id, ...storedEventSeries({ name, ...overrides }) };
@@ -169,6 +175,32 @@ describe("EventSeriesTagRows", () => {
 
     expect(screen.getByLabelText(OPEN_TO_STUDENTS_LABEL)).toBeInTheDocument();
     expect(screen.getAllByLabelText(OPEN_TO_STUDENTS_LABEL)).toHaveLength(1);
+  });
+
+  /** A closed series says so too: silence would read as an icon that failed to load. */
+  it("names the closed state as well, so no tag is left saying nothing", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }),
+      seriesNamed("s2", "Kulturwoche"),
+    );
+
+    render(<EventSeriesTagRows />);
+
+    expect(screen.getAllByLabelText(CLOSED_TO_STUDENTS_LABEL)).toHaveLength(1);
+  });
+
+  /** A template is neither open nor closed — it can never be opened at all (US-22). */
+  it("marks a template as one rather than as a door", () => {
+    pathname.mockReturnValue("/app/s1/master-data/classes");
+    showing(
+      seriesNamed("s1", "Wintersportwoche"),
+      seriesNamed("t1", "Wintersportwochen", { isTemplate: true }),
+    );
+
+    render(<EventSeriesTagRows />);
+
+    expect(screen.getAllByLabelText(TEMPLATE_LABEL)).toHaveLength(1);
+    expect(screen.queryAllByLabelText(OPEN_TO_STUDENTS_LABEL)).toHaveLength(0);
   });
 
   it("re-scopes the page that is open rather than navigating away from it", async () => {

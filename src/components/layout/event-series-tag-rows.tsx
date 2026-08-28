@@ -6,7 +6,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { DoorOpen } from "lucide-react";
+import { DoorClosed, DoorOpen, LayoutTemplate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
@@ -24,6 +24,20 @@ export const TEMPLATE_ROW_LABEL = "Vorlagen";
 
 /** Said on the icon a tag carries while its series is taking registrations (US-19, US-20). */
 export const OPEN_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.open;
+export const CLOSED_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.closed;
+export const TEMPLATE_LABEL = EVENT_SERIES_STATE_LABELS.template;
+
+/** What a tag is, in one icon: a template, or a series with its door open or shut. */
+function StateIcon({ eventSeries }: { eventSeries: EventSeries }) {
+  if (eventSeries.isTemplate) {
+    return <LayoutTemplate aria-label={TEMPLATE_LABEL} className="size-4 shrink-0" />;
+  }
+  return eventSeries.isOpenToStudents ? (
+    <DoorOpen aria-label={OPEN_TO_STUDENTS_LABEL} className="size-4 shrink-0" />
+  ) : (
+    <DoorClosed aria-label={CLOSED_TO_STUDENTS_LABEL} className="size-4 shrink-0" />
+  );
+}
 
 type RowProps = {
   label: string;
@@ -43,7 +57,10 @@ const PRESSED_TEMPLATE =
 
 function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps) {
   return (
-    <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
+    // `contents` rather than a box of its own: two boxes cannot share a line once the first one
+    // fills it, so the templates would drop below the series instead of following them. The
+    // group survives in the accessibility tree, which is where it is doing its work.
+    <div role="group" aria-label={label} className="contents">
       {eventSeries.map((one) => {
         const pressed = one.id === selectedId;
         return (
@@ -56,9 +73,7 @@ function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps)
             aria-pressed={pressed}
             onClick={() => onSelect(one.id)}
           >
-            {one.isOpenToStudents ? (
-              <DoorOpen aria-label={OPEN_TO_STUDENTS_LABEL} className="size-4 shrink-0" />
-            ) : null}
+            <StateIcon eventSeries={one} />
             {one.name}
           </Button>
         );
