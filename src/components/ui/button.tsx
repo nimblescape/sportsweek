@@ -22,8 +22,9 @@ const buttonVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] active:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_10%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         open: "bg-open text-open-foreground hover:bg-[color-mix(in_oklch,var(--open),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--open),var(--foreground)_20%)]",
-        // The same thing said quietly: still green, and wearing the same text as the solid one,
-        // because a tag that changed both its fill and its ink would read as another kind again.
+        // The same green said quietly — brighter, since it is not the chosen one — wearing the
+        // same white, because a tag that changed both its fill and its ink would read as another
+        // kind of tag rather than the same one unpressed.
         "open-soft":
           "bg-open-subtle text-open-foreground border-transparent hover:bg-[color-mix(in_oklch,var(--open-subtle),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--open-subtle),var(--foreground)_20%)]",
         // Greyscale that a white surface can still be told from, which `secondary` at 0.97 cannot.

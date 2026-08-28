@@ -98,13 +98,18 @@ type CardHeadingProps = {
  * Floored at the height of a control, so a title with one beside it sits where a title without
  * one does — otherwise a row carrying a tag stands taller than its neighbours and the headings
  * across a card stop lining up.
+ *
+ * What the line aligns on follows from what is in it. A heading with a fold has an icon on its
+ * line and nothing to sit a baseline on, so it centres; one without is text throughout, and text
+ * is aligned by its baseline. Centring text instead leaves small uppercase sitting high, its
+ * glyphs filling only the part of the line box that has no descenders to make room for.
  */
 function CardHeading({ children, control, fold, className }: CardHeadingProps) {
+  const align = fold ? "items-center" : "items-baseline";
+
   return (
-    <div
-      className={cn("flex min-h-(--control-height) items-center justify-between gap-3", className)}
-    >
-      <span className="flex min-w-0 items-center gap-1.5">
+    <div className={cn("flex min-h-(--control-height) justify-between gap-3", align, className)}>
+      <span className={cn("flex min-w-0 gap-1.5", align)}>
         {fold ? (
           <button
             type="button"
@@ -121,7 +126,7 @@ function CardHeading({ children, control, fold, className }: CardHeadingProps) {
         ) : null}
         {children}
       </span>
-      {control ? <div className="flex shrink-0 items-center gap-1">{control}</div> : null}
+      {control ? <div className={cn("flex shrink-0 gap-1", align)}>{control}</div> : null}
     </div>
   );
 }

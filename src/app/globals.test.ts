@@ -29,10 +29,22 @@ function declarations(block: string): { name: string; value: string }[] {
   }));
 }
 
-/** Chroma of a literal `oklch(L C H)` value, or null when the value isn't a literal colour. */
+/** Families that carry no chroma, whatever step of them is used. */
+const GREYSCALE = ["slate", "gray", "zinc", "neutral", "stone"];
+
+/**
+ * Chroma of a literal `oklch(L C H)` value, or of a reference to the Tailwind palette, or null
+ * when the value is neither. A palette step is taken at its word rather than resolved: what the
+ * check is for is that no third hue appears, not what shade the second one is.
+ */
 function chroma(value: string): number | null {
-  const match = value.match(/^oklch\(\s*[\d.]+%?\s+([\d.]+)/);
-  return match ? Number(match[1]) : null;
+  const literal = value.match(/^oklch\(\s*[\d.]+%?\s+([\d.]+)/);
+  if (literal) return Number(literal[1]);
+
+  const palette = value.match(/^var\(--color-([a-z]+)-\d+\)$/);
+  if (palette) return GREYSCALE.includes(palette[1]) ? 0 : 1;
+
+  return null;
 }
 
 describe.each([
