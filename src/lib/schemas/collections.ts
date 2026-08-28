@@ -18,6 +18,12 @@ export const COLLECTIONS = {
   // The emergency contact and the rented equipment are fields of this record rather than
   // collections of their own: neither exists apart from it, and nothing else refers to them.
   registrations: "registrations",
+  /**
+   * The invitation links (US-23). A token is a secret, and a rule grants a whole document — so a
+   * token kept as a field of the event series would be readable by everyone that document is.
+   * It lives here instead, where no client may read anything, and is resolved server-side.
+   */
+  invitations: "invitations",
   savedReports: "savedReports",
 } as const;
 

@@ -15,12 +15,23 @@ import { envFromApphostingYaml, INJECTED_VARIABLES } from "@/lib/apphosting-env"
 
 type InjectedVariable = (typeof INJECTED_VARIABLES)[number];
 
+/**
+ * The environments a script can be pointed at. Each names an `apphosting.<name>.yaml`, so these
+ * are spellings the file system has to agree with rather than words chosen here.
+ */
+export const DEVELOPMENT = "development";
+export const STAGING = "staging";
+export const PRODUCTION = "production";
+
+export const ENVIRONMENTS = [DEVELOPMENT, STAGING, PRODUCTION] as const;
+export type Environment = (typeof ENVIRONMENTS)[number];
+
 export function fail(...lines: string[]): never {
   for (const line of lines) console.error(line);
   process.exit(1);
 }
 
-export function apphostingValue(environment: string, variable: InjectedVariable): string {
+export function apphostingValue(environment: Environment, variable: InjectedVariable): string {
   const file = `apphosting.${environment}.yaml`;
   const values = envFromApphostingYaml(
     parse(readFileSync(fileURLToPath(new URL(`../${file}`, import.meta.url)), "utf8")),

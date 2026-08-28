@@ -38,20 +38,37 @@ export type MasterDataCategory = {
     /** Shown when the list is empty. */
     empty: string;
     /**
-     * What the answer this list supplies is called wherever a student is asked it, a report
-     * prints it or a filter offers it. Usually the singular, but not always: one adds an option
-     * to a "Verpflegungsoption" list and answers a question about "Verpflegung".
+     * What the value this list supplies is called wherever it is shown — asked of a student,
+     * printed in a report, offered as a filter category. Usually the singular, but not always:
+     * one adds an option to a "Verpflegungsoption" list and answers a question about
+     * "Verpflegung". Not every list is asked of anybody: a teacher assigns the event (US-12).
      */
     answer: string;
   };
 };
 
 /**
- * The six teacher-maintained lists, keyed by the URL segment under /app/master-data, in the order
- * the menu shows them. EventSeries are not here: they carry active/archived state of their own and
- * keep their dedicated view.
+ * The seven teacher-maintained lists, keyed by the URL segment under a series' master data, in
+ * the order the menu shows them. The event series itself is not here: it carries archived and
+ * template state of its own and is maintained on the one page that is not scoped to a selection.
+ *
+ * The events lead because they are the series divided into weeks, and everything else describes
+ * the students within it — the order the report fields and the filter categories already follow.
  */
 export const MASTER_DATA_CATEGORIES = {
+  events: {
+    field: "events",
+    // The one list nobody is asked for: a teacher assigns the event (US-12), so this field is
+    // matched only by the in-use guard, which refuses to remove an event somebody is assigned to.
+    usage: { kind: "masterData", field: "event" },
+    labels: {
+      title: "Events",
+      singular: "Event",
+      add: "Neues Event",
+      empty: "Es gibt noch kein Event.",
+      answer: "Event",
+    },
+  },
   classes: {
     field: "classOptions",
     usage: { kind: "masterData", field: "class" },
@@ -124,7 +141,26 @@ export const MASTER_DATA_CATEGORIES = {
 export type MasterDataCategoryKey = keyof typeof MASTER_DATA_CATEGORIES;
 
 /** The registration fields the maintained lists supply an answer for (US-5 to US-11). */
-type AnswerField = (typeof MASTER_DATA_CATEGORIES)[MasterDataCategoryKey]["usage"]["field"];
+export type AnswerField = (typeof MASTER_DATA_CATEGORIES)[MasterDataCategoryKey]["usage"]["field"];
+
+/**
+ * The answers this event series asks a student for: one per maintained list that has entries.
+ *
+ * An empty list is a question the student is never asked (US-21), which is what lets one
+ * application serve a Kulturwoche as well as a Wintersportwoche without a setting deciding which
+ * questions apply — the lists already say, by being there or not. So it is also what the form
+ * renders, what completeness counts and what the report and the filter offer: a question nobody
+ * was asked cannot be missing, and cannot be reported on.
+ */
+export function questionsAsked(
+  eventSeries: Pick<EventSeries, EventSeriesListField>,
+): ReadonlySet<AnswerField> {
+  return new Set(
+    Object.values(MASTER_DATA_CATEGORIES)
+      .filter((category) => eventSeries[category.field].length > 0)
+      .map((category) => category.usage.field),
+  );
+}
 
 /**
  * What each of those answers is called in German, keyed by the field that stores it. The form
@@ -139,29 +175,43 @@ export const ANSWER_LABELS = Object.fromEntries(
 ) as Record<AnswerField, string>;
 
 /**
- * The master data menu, in the order it is shown (US-4 to US-10). EventSeries lead and are not a
- * category, so they are the one entry named here rather than derived.
+ * The master data menu, in the order it is shown (US-4 to US-10). Every list belongs to one event
+ * series, so the entries are built from the selected one's id (Q8). The event series list leads and
+ * is the exception twice over: it is not a category, and it is the one page not scoped to the
+ * selection — it is where the things the header offers are maintained (US-19).
+ *
+ * With nothing selected it is also the only entry left, since the other six would have no series
+ * to be about.
  */
-export const MASTER_DATA_SECTIONS = [
-  { href: "/app/master-data/event-series", label: "Eventreihen" },
-  ...Object.entries(MASTER_DATA_CATEGORIES).map(([key, category]) => ({
-    href: `/app/master-data/${key}`,
-    label: category.labels.title,
-  })),
-];
+export function masterDataSections(eventSeriesId: string | null) {
+  const eventSeriesList = { href: "/app/event-series", label: "Eventreihen" };
+  if (eventSeriesId === null) return [eventSeriesList];
+
+  return [
+    eventSeriesList,
+    ...Object.entries(MASTER_DATA_CATEGORIES).map(([key, category]) => ({
+      href: `/app/${encodeURIComponent(eventSeriesId)}/master-data/${key}`,
+      label: category.labels.title,
+    })),
+  ];
+}
 
 /**
  * Lives here rather than next to the server-side guard because the list view shows the same
  * sentence on the controls it disables, and must not pull the Admin SDK in to do so.
+ *
+ * It names no way out on purpose. The list belongs to this event series (US-21) and the guard
+ * reads this series' own registrations, so archiving would not free the entry — it would take the
+ * whole series off every screen instead (US-19). What frees it is the registration going.
  */
 export const IN_USE_HINT =
-  "Dieser Eintrag wird in den Anmeldungen einer nicht archivierten Eventreihe noch " +
-  "verwendet. Archiviere diese Eventreihe, um ihn zu bearbeiten oder zu löschen.";
+  "Dieser Eintrag wurde in einer Anmeldung dieser Eventreihe gewählt und kann " +
+  "deshalb nicht umbenannt oder gelöscht werden.";
 
 /** Deleting a program takes its equipment with it, so a rented item holds the program back too. */
 export const CHILD_IN_USE_HINT =
-  "Ausrüstung dieses Programms wird in den Anmeldungen einer nicht archivierten Eventreihe " +
-  "noch verwendet. Archiviere diese Eventreihe, um das Programm zu löschen.";
+  "Ausrüstung dieses Programms wurde in einer Anmeldung dieser Eventreihe ausgeliehen. " +
+  "Das Programm kann deshalb nicht gelöscht werden.";
 
 /**
  * Shown while the answer is still on its way. The controls stay disabled until it arrives, so
@@ -170,18 +220,6 @@ export const CHILD_IN_USE_HINT =
  */
 export const USAGE_PENDING_HINT =
   "Es wird noch geprüft, ob dieser Eintrag in Anmeldungen verwendet wird.";
-
-/**
- * What is left behind when an item is removed or renamed — and it is only ever archived data,
- * because the in-use rule above is what allowed the edit in the first place: an entry a
- * non-archived event series still holds cannot be touched at all.
- */
-export const ARCHIVED_DATA_UNCHANGED_HINT =
-  "Bereits gespeicherte Anmeldungen in archivierten Eventreihen bleiben unverändert.";
-
-/** The records hold the name itself, so an archived one goes on holding the one it was given. */
-export const ARCHIVED_DATA_KEEPS_NAME_HINT =
-  "Bereits gespeicherte Anmeldungen in archivierten Eventreihen behalten den bisherigen Namen.";
 
 /** Labels for the equipment list a program carries, which is a field rather than a category. */
 export const EQUIPMENT_LABELS = {

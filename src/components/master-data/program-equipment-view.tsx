@@ -9,11 +9,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { CrudList, type CrudItem } from "@/components/master-data/crud-list";
 import { apiRequest } from "@/lib/api/client";
-import {
-  ARCHIVED_DATA_KEEPS_NAME_HINT,
-  ARCHIVED_DATA_UNCHANGED_HINT,
-  EQUIPMENT_LABELS,
-} from "@/lib/master-data/categories";
+import { EQUIPMENT_LABELS } from "@/lib/master-data/categories";
 import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
 
 /**
@@ -21,9 +17,15 @@ import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
  * live in a field on the program, so every change rewrites the whole list — which is what makes
  * adding, renaming and removing one atomic, and uniqueness checkable without a query.
  */
-export function ProgramEquipmentView({ program: named }: { program: string }) {
-  const { program, loading, error } = useProgram(named);
-  const report = useUsageReport("programs");
+export function ProgramEquipmentView({
+  program: named,
+  eventSeriesId,
+}: {
+  program: string;
+  eventSeriesId: string;
+}) {
+  const { program, loading, error } = useProgram(named, eventSeriesId);
+  const report = useUsageReport("programs", eventSeriesId);
 
   const equipment = program?.requiredEquipment ?? [];
   // An entry has no id of its own, so its name is what identifies it within the program.
@@ -31,10 +33,13 @@ export function ProgramEquipmentView({ program: named }: { program: string }) {
   const blockedIds = new Set(report.blockedEquipment[named] ?? []);
 
   async function save(names: string[]) {
-    await apiRequest("/api/master-data/programs", {
-      method: "PATCH",
-      body: { item: named, requiredEquipment: names },
-    });
+    await apiRequest(
+      `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/programs`,
+      {
+        method: "PATCH",
+        body: { item: named, requiredEquipment: names },
+      },
+    );
   }
 
   return (
@@ -55,13 +60,12 @@ export function ProgramEquipmentView({ program: named }: { program: string }) {
       onReorder={(order) => save(order)}
       deleteNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.{" "}
-          {ARCHIVED_DATA_UNCHANGED_HINT}
+          <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.
         </>
       )}
       editNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird umbenannt. {ARCHIVED_DATA_KEEPS_NAME_HINT}
+          <strong>{item.name}</strong> wird umbenannt.
         </>
       )}
     >

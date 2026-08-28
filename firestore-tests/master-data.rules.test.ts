@@ -69,7 +69,7 @@ const READABLE_COLLECTIONS: [string, Record<string, unknown>][] = [
     {
       name: "Winter 2026",
       nameKey: "winter 2026",
-      isActive: false,
+      isOpenToStudents: false,
       isArchived: false,
       events: ["Montafon"],
       classOptions: ["5AHIF"],
@@ -166,21 +166,31 @@ describe.each([
 });
 
 describe("invariants that rules cannot express are not left half-guarded", () => {
-  it("stops a teacher marking a second event series active from the client", async () => {
-    await seed("eventSeries", "a", { name: "Winter 2026", isActive: true, isArchived: false });
-    await seed("eventSeries", "b", { name: "Winter 2027", isActive: false, isArchived: false });
+  /** Opening a series is the invitation link's doing, in a handler (US-19, US-23). */
+  it("stops a teacher opening an event series to students from the client", async () => {
+    await seed("eventSeries", "a", {
+      name: "Winter 2026",
+      isOpenToStudents: false,
+      isArchived: false,
+    });
 
-    await assertFails(teacher().collection("eventSeries").doc("b").update({ isActive: true }));
+    await assertFails(
+      teacher().collection("eventSeries").doc("a").update({ isOpenToStudents: true }),
+    );
   });
 
   it("stops a teacher creating a duplicate event series name from the client", async () => {
-    await seed("eventSeries", "a", { name: "Winter 2026", isActive: false, isArchived: false });
+    await seed("eventSeries", "a", {
+      name: "Winter 2026",
+      isOpenToStudents: false,
+      isArchived: false,
+    });
 
     await assertFails(
       teacher()
         .collection("eventSeries")
         .doc("b")
-        .set({ name: "Winter 2026", isActive: false, isArchived: false }),
+        .set({ name: "Winter 2026", isOpenToStudents: false, isArchived: false }),
     );
   });
 
@@ -190,5 +200,48 @@ describe("invariants that rules cannot express are not left half-guarded", () =>
     await assertFails(
       teacher().collection("events").doc("e2").set({ eventSeriesId: "s1", name: "Montafon" }),
     );
+  });
+});
+
+/**
+ * A token is what enrols somebody (US-23), so reading one is enrolling. Nobody may — not a
+ * student, not a teacher, not the person who generated it. The Route Handler behind the link
+ * resolves it with the Admin SDK, which these rules do not govern.
+ */
+describe("/invitations/{token}", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context
+        .firestore()
+        .collection("invitations")
+        .doc("secret-token")
+        .set({ eventSeriesId: "s1", class: "3aWI" });
+    });
+  });
+
+  it.each([
+    ["a teacher", () => teacher()],
+    ["a student", () => student()],
+    ["a signed-out visitor", () => anonymous()],
+  ])("refuses to hand the token to %s", async (_who, as) => {
+    await assertFails(as().collection("invitations").doc("secret-token").get());
+  });
+
+  it("refuses to let anyone list the tokens", async () => {
+    await assertFails(teacher().collection("invitations").get());
+  });
+
+  /** Minting one is a teacher's act, but it goes through the handler, never from a client. */
+  it.each([
+    ["a teacher", () => teacher()],
+    ["a student", () => student()],
+  ])("refuses to let %s mint one", async (_who, as) => {
+    await assertFails(
+      as().collection("invitations").doc("mine").set({ eventSeriesId: "s1", class: "3aWI" }),
+    );
+  });
+
+  it("refuses to let anyone delete one, which would invalidate a class's link", async () => {
+    await assertFails(teacher().collection("invitations").doc("secret-token").delete());
   });
 });

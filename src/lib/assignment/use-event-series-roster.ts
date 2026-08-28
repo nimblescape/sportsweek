@@ -9,18 +9,17 @@ import { useMemo } from "react";
 import { skillColumns, type SkillColumn } from "@/lib/assignment/statistics";
 import { filterGroups, type FilterGroup } from "@/lib/filters/student-filter";
 import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
+import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
 import type { EventSeries } from "@/lib/schemas/event-series";
-import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
-import { useEventSeries } from "@/lib/event-series/use-event-series";
 import type { RosterStudent } from "@/lib/students/roster";
 import { useRoster } from "@/lib/students/use-roster";
 
 export type EventSeriesRoster = {
-  /** Null is a state a teacher creates by deactivating, not a fault — the views lock instead. */
+  /** Null once loaded means the id names nothing selectable — the views lock instead of guessing. */
   eventSeries: EventSeries | null;
   loading: boolean;
   error: string | null;
-  /** Everyone registered for the active event series, taking part or not. */
+  /** Everyone registered for the selected event series, taking part or not. */
   students: RosterStudent[];
   /** The events of that series, by name, in the teacher's order (US-12, US-21). */
   events: string[];
@@ -43,14 +42,20 @@ type EventSeriesRosterOptions = {
 };
 
 /**
- * The active event series and everything the views built on it count: the roster, its events, the
+ * The selected event series and everything the views built on it count: the roster, its events, the
  * maintained lists behind the tables, and the tags to filter by. Held here because the
- * assignment board, the statistics and the report all need exactly this, and copies of it would
+ * assignment board, the overview and the report all need exactly this, and copies of it would
  * drift the moment one gained a list the others did not.
+ *
+ * Which series that is comes from the page (US-20, Q8) rather than being resolved here, so the
+ * header decides once and every view agrees.
  *
  * The options add the tag categories only the report has a use for (US-13).
  */
-export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): EventSeriesRoster {
+export function useEventSeriesRoster(
+  eventSeriesId: string,
+  options: EventSeriesRosterOptions = {},
+): EventSeriesRoster {
   const {
     attendance = false,
     completeness = false,
@@ -59,31 +64,22 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
     answerLists = false,
     events: eventTags = false,
   } = options;
-  const { eventSeries, loading: eventSeriesLoading, error: eventSeriesError } = useEventSeries();
+  const {
+    eventSeries: selected,
+    loading: eventSeriesLoading,
+    error: eventSeriesError,
+  } = useSelectedEventSeries(eventSeriesId);
 
-  // Two active event series is a data defect a teacher cannot act on here, so it is reported rather
-  // than thrown — a throw would take the page down with it.
-  const active = useMemo(() => {
-    try {
-      return { eventSeries: activeEventSeriesOf(eventSeries), error: null };
-    } catch (caught) {
-      return {
-        eventSeries: null,
-        error: caught instanceof Error ? caught.message : String(caught),
-      };
-    }
-  }, [eventSeries]);
-
-  const { students, loading: rosterLoading, error: rosterError } = useRoster(active.eventSeries?.id ?? null); // prettier-ignore
+  const { students, loading: rosterLoading, error: rosterError } = useRoster(selected?.id ?? null);
   // The events are a field of the series, so they arrive with it rather than on their own (US-21).
   // Memoised because the fallback would otherwise be a new array on every render.
-  const events = useMemo(() => active.eventSeries?.events ?? [], [active.eventSeries]);
-  const classes = useMasterData("classes");
-  const skillLevels = useMasterData("skill-levels");
-  const busPickupPoints = useMasterData("bus-pickup-points");
-  const seasonPassOptions = useMasterData("season-pass-options");
-  const foodOptions = useMasterData("food-options");
-  const { programs } = usePrograms();
+  const events = useMemo(() => selected?.events ?? [], [selected]);
+  const classes = useMasterData("classes", eventSeriesId);
+  const skillLevels = useMasterData("skill-levels", eventSeriesId);
+  const busPickupPoints = useMasterData("bus-pickup-points", eventSeriesId);
+  const seasonPassOptions = useMasterData("season-pass-options", eventSeriesId);
+  const foodOptions = useMasterData("food-options", eventSeriesId);
+  const { programs } = usePrograms(eventSeriesId);
 
   const columns = useMemo(
     () => skillColumns(programs, skillLevels.items),
@@ -131,9 +127,9 @@ export function useEventSeriesRoster(options: EventSeriesRosterOptions = {}): Ev
   );
 
   return {
-    eventSeries: active.eventSeries,
+    eventSeries: selected,
     loading: eventSeriesLoading || rosterLoading || classes.loading,
-    error: eventSeriesError ?? active.error ?? rosterError,
+    error: eventSeriesError ?? rosterError,
     students,
     events,
     classes: classes.items,

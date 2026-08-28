@@ -52,7 +52,6 @@ export function FilteredTag({
     <Tag
       label={`${card}: ${FILTERED_LABEL}`}
       text={FILTERED_LABEL}
-      size="sm"
       pressed={pressed}
       onPress={onPress}
     />

@@ -26,10 +26,13 @@ entity "EventSeries" as eventSeries {
                     ' sent by a client. Uniqueness is an equality query on this inside the write's
                     ' own transaction — an equality on name would compare exact strings and lose
                     ' the case- and whitespace-insensitivity the rule asks for (US-4, US-21)
-  isActive : boolean  ' at most one event series may be true at any point in time; activating one
-                      ' clears the flag on the previously active event series in the same
-                      ' transaction, and deactivating leaves none active (US-4)
-  isArchived : boolean  ' archived event series are hidden from the teacher's list (US-4);
+  isTemplate : boolean  ' a template can never be opened to students; it is selected and its
+                        ' lists are maintained like any other series' (US-19, US-22)
+  isOpenToStudents : boolean  ' whether students may join this series and go on amending what
+                              ' they said. Any number may be open at once; an invitation link
+                              ' sets it, archiving clears it, unarchiving does not restore it
+                              ' (US-19, US-23)
+  isArchived : boolean  ' archived event series are hidden from the teacher's list (US-19);
                         ' this is the only persisted archive flag — Registration's
                         ' archived state is computed via its eventSeriesId, never stored redundantly
   hasRegistrations : boolean  ' mirrors "a Registration record exists for this event series", so the

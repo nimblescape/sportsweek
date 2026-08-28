@@ -29,8 +29,8 @@ const { useRegistration } = await import("./use-registration");
 
 const STUDENT = "jane.doe@student.htldornbirn.at";
 
-function eventSeries(id: string, isActive: boolean): EventSeries {
-  return { id, ...storedEventSeries({ name: `Eventreihe ${id}`, isActive }) };
+function eventSeries(id: string): EventSeries {
+  return { id, ...storedEventSeries({ name: `Eventreihe ${id}`, isOpenToStudents: true }) };
 }
 
 /** The subscription waits for Firebase Auth, so tests have to announce a signed-in user first. */
@@ -85,7 +85,7 @@ beforeEach(() => {
   onSnapshot.mockReturnValue(() => {});
   onAuthStateChanged.mockReturnValue(() => {});
   useEventSeries.mockReturnValue({
-    eventSeries: [eventSeries("s1", true)],
+    eventSeries: [eventSeries("s1")],
     loading: false,
     error: null,
   });
@@ -95,32 +95,27 @@ describe("useRegistration", () => {
   it("waits for the event series before deciding there is nothing to register for", () => {
     useEventSeries.mockReturnValue({ eventSeries: [], loading: true, error: null });
 
-    const { result } = renderHook(() => useRegistration(STUDENT));
+    const { result } = renderHook(() => useRegistration("s1", STUDENT));
 
     expect(result.current.loading).toBe(true);
     expect(result.current.eventSeries).toBeNull();
   });
 
-  it("binds to the active event series", async () => {
-    const { result } = renderHook(() => useRegistration(STUDENT));
+  it("binds to the event series the path names", async () => {
+    const { result } = renderHook(() => useRegistration("s1", STUDENT));
 
     await waitFor(() => expect(result.current.eventSeries?.id).toBe("s1"));
   });
 
-  it("reports no event series while none is active, and reads nothing", async () => {
-    useEventSeries.mockReturnValue({
-      eventSeries: [eventSeries("s1", false)],
-      loading: false,
-      error: null,
-    });
+  /** Deleted while the student had it open, or never there: the view says the same either way. */
+  it("reports no event series where the path names one that is gone", async () => {
+    const { result } = renderHook(() => useRegistration("gone", STUDENT));
+    signIn();
 
-    const { result } = renderHook(() => useRegistration(STUDENT));
+    emit(MISSING);
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(onAuthStateChanged).not.toHaveBeenCalled();
-    expect(onSnapshot).not.toHaveBeenCalled();
     expect(result.current.eventSeries).toBeNull();
-    expect(result.current.record).toBeNull();
   });
 
   /**
@@ -128,21 +123,21 @@ describe("useRegistration", () => {
    * the UPN is the document's own name (US-26), which is also what the rule owns it by — so a
    * student may read one that does not exist yet.
    */
-  it("reads its own document beneath the active event series", () => {
-    renderHook(() => useRegistration(STUDENT));
+  it("reads its own document beneath the event series the path names", () => {
+    renderHook(() => useRegistration("s1", STUDENT));
     signIn();
 
     expect(doc).toHaveBeenCalledWith(expect.anything(), "eventSeries/s1/registrations", STUDENT);
   });
 
   it("waits for Firebase Auth before reading, so the session is restored first", () => {
-    renderHook(() => useRegistration(STUDENT));
+    renderHook(() => useRegistration("s1", STUDENT));
 
     expect(onSnapshot).not.toHaveBeenCalled();
   });
 
-  it("returns the record of the active event series", async () => {
-    const { result } = renderHook(() => useRegistration(STUDENT));
+  it("returns the record of that event series", async () => {
+    const { result } = renderHook(() => useRegistration("s1", STUDENT));
     signIn();
 
     emit(storedRecord("3AHME"));
@@ -151,7 +146,7 @@ describe("useRegistration", () => {
   });
 
   it("returns no record for a student who has not registered yet", async () => {
-    const { result } = renderHook(() => useRegistration(STUDENT));
+    const { result } = renderHook(() => useRegistration("s1", STUDENT));
     signIn();
 
     emit(MISSING);
@@ -162,7 +157,7 @@ describe("useRegistration", () => {
 
   it("hides a record that no longer matches its schema instead of showing it half-read", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const { result } = renderHook(() => useRegistration(STUDENT));
+    const { result } = renderHook(() => useRegistration("s1", STUDENT));
     signIn();
 
     emit({ id: STUDENT, data: () => ({ studentUpn: STUDENT, class: 42 }) });
@@ -173,7 +168,7 @@ describe("useRegistration", () => {
 
   it("surfaces a failed read rather than looking like an empty registration", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const { result } = renderHook(() => useRegistration(STUDENT));
+    const { result } = renderHook(() => useRegistration("s1", STUDENT));
     signIn();
 
     fail("Missing or insufficient permissions.");
@@ -184,22 +179,8 @@ describe("useRegistration", () => {
   it("passes a failure to read the event series on", () => {
     useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: "Keine Verbindung" });
 
-    const { result } = renderHook(() => useRegistration(STUDENT));
+    const { result } = renderHook(() => useRegistration("s1", STUDENT));
 
     expect(result.current.error).toBe("Keine Verbindung");
-  });
-
-  /** Two active event series is a data defect, not a state to guess at (see activeEventSeriesOf). */
-  it("says so loudly when more than one event series claims to be active", () => {
-    useEventSeries.mockReturnValue({
-      eventSeries: [eventSeries("s1", true), eventSeries("s2", true)],
-      loading: false,
-      error: null,
-    });
-
-    const { result } = renderHook(() => useRegistration(STUDENT));
-
-    expect(result.current.error).toMatch(/nur eine/i);
-    expect(result.current.eventSeries).toBeNull();
   });
 });

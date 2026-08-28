@@ -5,18 +5,17 @@
  */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { doc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { subscribeToDocument } from "@/lib/firebase/live-query";
 import { registrationSchema, type Registration } from "@/lib/schemas/registration";
 import type { EventSeries } from "@/lib/schemas/event-series";
-import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import { registrationPath } from "./registration";
 
 type RegistrationState = {
-  /** The event series the student registers for, or null while a teacher has activated none (US-4). */
+  /** The series named by the path, or null while it is unknown — deleted, or never existing. */
   eventSeries: EventSeries | null;
   /** Null until the student has saved once — an event series without a record is the normal start. */
   record: Registration | null;
@@ -25,7 +24,10 @@ type RegistrationState = {
 };
 
 /**
- * The student's own registration, read live through the client SDK (see firestore.rules).
+ * The student's own registration in one event series, read live through the client SDK (see
+ * firestore.rules). Which series that is comes from the path rather than from a search: the page
+ * has already decided it, from the link the student joined through or from the one open series
+ * they hold (Q7), and deciding it a second time would be deciding it differently.
  *
  * The document is read by its own id rather than found by a query: it lives beneath the series
  * it belongs to and is named after the student, so both halves of "which one is mine?" are
@@ -33,30 +35,14 @@ type RegistrationState = {
  * yet — where every student starts — since the rule owns them by the document's name rather
  * than by a field only an existing document would have.
  */
-export function useRegistration(studentUpn: string): RegistrationState {
+export function useRegistration(eventSeriesId: string, studentUpn: string): RegistrationState {
   const { eventSeries, loading: eventSeriesLoading, error: eventSeriesError } = useEventSeries();
   // Undefined while the read is still outstanding, which is what null cannot say: null is the
   // answer for a student who has not registered yet.
   const [record, setRecord] = useState<Registration | null | undefined>(undefined);
   const [recordError, setRecordError] = useState<string | null>(null);
 
-  // Two active event series is a data defect the student cannot act on, so it is reported rather
-  // than thrown — a throw here would take the page down with it.
-  const active = useMemo(() => {
-    try {
-      return { eventSeries: activeEventSeriesOf(eventSeries), error: null };
-    } catch (caught) {
-      return {
-        eventSeries: null,
-        error: caught instanceof Error ? caught.message : String(caught),
-      };
-    }
-  }, [eventSeries]);
-
-  const eventSeriesId = active.eventSeries?.id ?? null;
-
   useEffect(() => {
-    if (eventSeriesId === null) return;
     const path = registrationPath(eventSeriesId);
 
     return subscribeToDocument<Registration>({
@@ -76,9 +62,9 @@ export function useRegistration(studentUpn: string): RegistrationState {
   }, [eventSeriesId, studentUpn]);
 
   return {
-    eventSeries: active.eventSeries,
+    eventSeries: eventSeries.find((one) => one.id === eventSeriesId) ?? null,
     record: record ?? null,
-    loading: eventSeriesLoading || (eventSeriesId !== null && record === undefined),
-    error: eventSeriesError ?? active.error ?? recordError,
+    loading: eventSeriesLoading || record === undefined,
+    error: eventSeriesError ?? recordError,
   };
 }

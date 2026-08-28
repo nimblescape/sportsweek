@@ -10,17 +10,17 @@ import { storedEventSeries } from "@/test/event-series";
 import { EventSeriesList } from "@/components/event-series/event-series-list";
 
 const allEventSeries = [
-  { id: "s1", ...storedEventSeries({ name: "Wintersportwoche 2026", isActive: true, hasRegistrations: true }) }, // prettier-ignore
+  { id: "s1", ...storedEventSeries({ name: "Wintersportwoche 2026", isOpenToStudents: true, hasRegistrations: true }) }, // prettier-ignore
   { id: "s2", ...storedEventSeries({ name: "Wintersportwoche 2025", isArchived: true, hasRegistrations: true }) }, // prettier-ignore
   { id: "s3", ...storedEventSeries({ name: "Wintersportwoche 2027", hasRegistrations: true }) },
   { id: "s4", ...storedEventSeries({ name: "Wintersportwoche 2024" }) },
+  { id: "s5", ...storedEventSeries({ name: "Wintersportwochen", isTemplate: true }) },
 ];
 
 function renderList(overrides: Record<string, unknown> = {}) {
   const handlers = {
     onEdit: vi.fn(),
     onDelete: vi.fn(),
-    onActiveChange: vi.fn(),
     onArchivedChange: vi.fn(),
     onReorder: vi.fn(),
   };
@@ -48,9 +48,10 @@ describe("EventSeriesList", () => {
   });
 
   it.each([
-    ["Wintersportwoche 2026", "Aktiv"],
+    ["Wintersportwoche 2026", "Schüler:innen-Anmeldung offen"],
     ["Wintersportwoche 2025", "Archiviert"],
-    ["Wintersportwoche 2027", "Inaktiv"],
+    ["Wintersportwoche 2027", "Schüler:innen-Anmeldung geschlossen"],
+    ["Wintersportwochen", "Vorlage"],
   ])("shows %s with the state %s", (name, state) => {
     renderList();
 
@@ -107,6 +108,29 @@ describe("EventSeriesList — row actions", () => {
     ).toHaveAccessibleDescription(/anmeldungen/i);
   });
 
+  /** Every teacher view is scoped to a selection, so the last one has to stay (US-19, US-22). */
+  it("disables deleting the only unarchived template, and says why", () => {
+    renderList();
+
+    const control = screen.getByRole("button", { name: "Eventreihe Wintersportwochen löschen" });
+
+    expect(control).toBeDisabled();
+    expect(control).toHaveAccessibleDescription(/letzte vorlage/i);
+  });
+
+  it("allows deleting a template while another one remains", () => {
+    renderList({
+      eventSeries: [
+        ...allEventSeries,
+        { id: "s6", ...storedEventSeries({ name: "Sommersportwochen", isTemplate: true }) },
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Eventreihe Wintersportwochen löschen" }),
+    ).not.toBeDisabled();
+  });
+
   it("allows deleting an archived event series, even though it still has registrations", async () => {
     const { onDelete } = renderList();
 
@@ -141,48 +165,11 @@ describe("EventSeriesList — row actions", () => {
     expect(onEdit).toHaveBeenCalledWith(allEventSeries[2]);
   });
 
-  it("offers activation for an inactive event series", async () => {
-    const { onActiveChange } = renderList();
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2027 aktiv setzen" }),
-    );
-
-    expect(onActiveChange).toHaveBeenCalledWith(allEventSeries[2], true);
-  });
-
-  it("offers deactivation for the active event series, so no event series can be active at all", async () => {
-    const { onActiveChange } = renderList();
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2026 deaktivieren" }),
-    );
-
-    expect(onActiveChange).toHaveBeenCalledWith(allEventSeries[0], false);
-  });
-
-  it("does not offer activation for the event series that is already active", () => {
+  /** Opening a series is the invitation link's doing, on the overview page (US-23, US-29). */
+  it("offers no way to open or close a series to students", () => {
     renderList();
 
-    expect(
-      screen.queryByRole("button", { name: "Eventreihe Wintersportwoche 2026 aktiv setzen" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("does not offer deactivation for an event series that is not active", () => {
-    renderList();
-
-    expect(
-      screen.queryByRole("button", { name: "Eventreihe Wintersportwoche 2027 deaktivieren" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("does not offer activation for an archived event series, which cannot be active", () => {
-    renderList();
-
-    expect(
-      screen.queryByRole("button", { name: "Eventreihe Wintersportwoche 2025 aktiv setzen" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /freischalten|aktiv/i })).not.toBeInTheDocument();
   });
 
   it("archives an event series that is not archived yet", async () => {
@@ -216,22 +203,6 @@ describe("EventSeriesList — row actions", () => {
     ).toBeInTheDocument();
   });
 
-  it("disables archiving the active event series, which must be deactivated first", () => {
-    renderList();
-
-    expect(
-      screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2026 archivieren" }),
-    ).toBeDisabled();
-  });
-
-  it("explains why archiving the active event series is unavailable", () => {
-    renderList();
-
-    expect(
-      screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2026 archivieren" }),
-    ).toHaveAccessibleDescription(/zuerst deaktiviert/i);
-  });
-
   it("disables archiving an event series with no registrations", () => {
     renderList();
 
@@ -253,11 +224,11 @@ describe("EventSeriesList — row actions", () => {
       eventSeries: [
         {
           id: "s5",
-          name: "Wintersportwoche 2023",
-          isActive: false,
-          isArchived: true,
-          hasRegistrations: false,
-          position: 0,
+          ...storedEventSeries({
+            name: "Wintersportwoche 2023",
+            isArchived: true,
+            hasRegistrations: false,
+          }),
         },
       ],
     });
@@ -267,12 +238,11 @@ describe("EventSeriesList — row actions", () => {
     ).not.toBeDisabled();
   });
 
-  it("links to the events of the event series", () => {
+  /** The header rows are the only way to choose what is scoped (US-20), so no row links inward. */
+  it("offers no link into a series, which is chosen from the header instead", () => {
     renderList();
 
-    expect(
-      screen.getByRole("link", { name: "Events der Eventreihe Wintersportwoche 2026" }),
-    ).toHaveAttribute("href", "/app/master-data/event-series/s1");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });
 
@@ -282,7 +252,6 @@ describe("EventSeriesList — while a row is busy", () => {
   const busy = { busyEventSeriesId: "s1" };
 
   it.each([
-    ["Eventreihe Wintersportwoche 2026 deaktivieren"],
     ["Eventreihe Wintersportwoche 2026 bearbeiten"],
     ["Eventreihe Wintersportwoche 2026 löschen"],
     ["Eventreihe Wintersportwoche 2026 archivieren"],
@@ -290,17 +259,6 @@ describe("EventSeriesList — while a row is busy", () => {
     renderList(busy);
 
     expect(screen.getByRole("button", { name: accessibleName })).toBeDisabled();
-  });
-
-  it("locks the events link, which a disabled button would not cover", async () => {
-    renderList(busy);
-    const link = screen.getByRole("link", { name: "Events der Eventreihe Wintersportwoche 2026" });
-
-    expect(link).toHaveAttribute("aria-disabled", "true");
-    expect(link).toHaveAttribute("tabindex", "-1");
-
-    await userEvent.click(link);
-    expect(window.location.pathname).not.toBe("/app/master-data/event-series/s1");
   });
 
   it("locks the drag handle, so the row cannot be reordered mid-write", () => {
@@ -317,9 +275,6 @@ describe("EventSeriesList — while a row is busy", () => {
     expect(
       screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2027 bearbeiten" }),
     ).not.toBeDisabled();
-    expect(
-      screen.getByRole("link", { name: "Events der Eventreihe Wintersportwoche 2027" }),
-    ).not.toHaveAttribute("aria-disabled", "true");
   });
 });
 
@@ -327,24 +282,12 @@ describe("EventSeriesList — tooltips", () => {
   it.each([
     ["Eventreihe Wintersportwoche 2027 bearbeiten", "Bearbeiten"],
     ["Eventreihe Wintersportwoche 2027 archivieren", "Archivieren"],
-    ["Eventreihe Wintersportwoche 2027 aktiv setzen", "Aktiv setzen"],
-    ["Eventreihe Wintersportwoche 2026 deaktivieren", "Deaktivieren"],
   ])("explains the %s icon on hover", async (accessibleName, tooltip) => {
     renderList();
 
     await userEvent.hover(screen.getByRole("button", { name: accessibleName }));
 
     expect(await screen.findByText(tooltip)).toBeInTheDocument();
-  });
-
-  it("explains the events icon, which is a link rather than a button", async () => {
-    renderList();
-
-    await userEvent.hover(
-      screen.getByRole("link", { name: "Events der Eventreihe Wintersportwoche 2027" }),
-    );
-
-    expect(await screen.findByText("Events")).toBeInTheDocument();
   });
 
   it("labels the restore icon differently from the archive icon", async () => {
@@ -385,14 +328,13 @@ describe("EventSeriesList — tooltips", () => {
     );
   });
 
-  it("explains on hover why the active event series cannot be archived", async () => {
+  it("explains on hover why the archive icon is unavailable, which the sr-only hint cannot do", async () => {
     renderList();
-    const hint =
-      "Eine aktive Eventreihe muss zuerst deaktiviert werden, damit sie archiviert werden kann.";
+    const hint = "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.";
     const before = screen.getAllByText(hint).length;
 
     await userEvent.hover(
-      screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2026 archivieren" })
+      screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2024 archivieren" })
         .parentElement!,
     );
 

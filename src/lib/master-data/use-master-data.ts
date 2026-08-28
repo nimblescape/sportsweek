@@ -6,35 +6,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { activeEventSeriesOf } from "@/lib/event-series/event-series-state";
-import { useEventSeries } from "@/lib/event-series/use-event-series";
-import type { EventSeries } from "@/lib/schemas/event-series";
+import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
 import type { Program } from "@/lib/schemas/master-data";
 import { categoryOf, type MasterDataCategoryKey } from "./categories";
 
-/**
- * Which event series the teacher views act on. Until the header selection arrives (US-20) there
- * is exactly one candidate — the active series — so no view chooses one and none can disagree
- * with the server about which it meant.
- *
- * One subscription to one document now carries every maintained list (US-21). That is also what
- * lets a view tell an empty list from one that has not arrived: there is a single `loading` for
- * all six, where six subscriptions each looked empty until they answered.
- */
-export function useActiveEventSeries(): {
-  eventSeries: EventSeries | null;
-  loading: boolean;
-  error: string | null;
-} {
-  const { eventSeries, loading, error } = useEventSeries();
-  const active = useMemo(() => activeEventSeriesOf(eventSeries), [eventSeries]);
-
-  return { eventSeries: active, loading, error };
-}
-
 /** The names on one list, in the teacher's order (US-5 to US-10). A name is an item's identity. */
-export function useMasterData(key: MasterDataCategoryKey) {
-  const { eventSeries, loading, error } = useActiveEventSeries();
+export function useMasterData(key: MasterDataCategoryKey, eventSeriesId: string | null) {
+  const { eventSeries, loading, error } = useSelectedEventSeries(eventSeriesId);
 
   const items = useMemo(
     () =>
@@ -52,19 +30,22 @@ export function useMasterData(key: MasterDataCategoryKey) {
  * because that one reduces every category to a name, which drops the list — and the student's
  * rental checkboxes are exactly that list (US-11).
  */
-export function usePrograms() {
-  const { eventSeries, loading, error } = useActiveEventSeries();
+export function usePrograms(eventSeriesId: string | null) {
+  const { eventSeries, loading, error } = useSelectedEventSeries(eventSeriesId);
 
   return { programs: eventSeries?.programs ?? [], loading, error };
 }
 
 /** One program with its equipment list (US-5), named rather than pointed at (US-21). */
-export function useProgram(name: string): {
+export function useProgram(
+  name: string,
+  eventSeriesId: string | null,
+): {
   program: Program | null;
   loading: boolean;
   error: string | null;
 } {
-  const { programs, loading, error } = usePrograms();
+  const { programs, loading, error } = usePrograms(eventSeriesId);
 
   const program = useMemo(
     () => programs.find((candidate) => candidate.name === name) ?? null,
@@ -95,7 +76,7 @@ const NOTHING_BLOCKED: UsageReport = {
  * rather than a subscription. Fetching once is enough: it only moves when a student edits their
  * registration, which cannot happen from this view.
  */
-export function useUsageReport(key: MasterDataCategoryKey): UsageReport {
+export function useUsageReport(key: MasterDataCategoryKey, eventSeriesId: string): UsageReport {
   const [report, setReport] = useState<UsageReport>(CHECKING);
 
   useEffect(() => {
@@ -103,7 +84,9 @@ export function useUsageReport(key: MasterDataCategoryKey): UsageReport {
 
     async function load() {
       try {
-        const response = await fetch(`/api/master-data/${key}`);
+        const response = await fetch(
+          `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/${key}`,
+        );
         const body = response.ok ? await response.json() : null;
         if (!active) return;
 
@@ -127,7 +110,7 @@ export function useUsageReport(key: MasterDataCategoryKey): UsageReport {
     return () => {
       active = false;
     };
-  }, [key]);
+  }, [key, eventSeriesId]);
 
   return report;
 }

@@ -20,7 +20,7 @@ import {
 } from "@/lib/report/report-download";
 import { matchingSavedReport } from "@/lib/report/saved-reports";
 import { useSavedReports } from "@/lib/report/use-saved-reports";
-import { NO_ACTIVE_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
+import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import type { ReportSelection, SavedReport, SavedReportEdit } from "@/lib/schemas/saved-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,15 +48,18 @@ function CardHeading({ children }: { children: string }) {
  * it — including the students who answered "no", which is what sets it apart from the assignment
  * dialog and is why its filter carries categories the board has no use for.
  */
-export function ReportView() {
-  const { eventSeries, loading, error, students, filterGroups } = useEventSeriesRoster({
-    attendance: true,
-    completeness: true,
-    equipmentRental: true,
-    health: true,
-    answerLists: true,
-    events: true,
-  });
+export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
+  const { eventSeries, loading, error, students, filterGroups } = useEventSeriesRoster(
+    eventSeriesId,
+    {
+      attendance: true,
+      completeness: true,
+      equipmentRental: true,
+      health: true,
+      answerLists: true,
+      events: true,
+    },
+  );
   const { reports: savedReports } = useSavedReports();
   const [filter, setFilter] = useState(EMPTY_FILTER);
   const [activeFields, setActiveFields] = useState<string[]>([]);
@@ -144,6 +147,7 @@ export function ReportView() {
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => exportReport(downloadReportPdf)}
               disabled={eventSeries === null || exporting}
             >
@@ -153,6 +157,7 @@ export function ReportView() {
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => exportReport(downloadReportWorkbook)}
               disabled={eventSeries === null || exporting}
             >
@@ -179,7 +184,7 @@ export function ReportView() {
 
       {eventSeries === null ? (
         <p role="status" className="text-muted-foreground text-sm">
-          {NO_ACTIVE_EVENT_SERIES_HINT}
+          {NO_EVENT_SERIES_HINT}
         </p>
       ) : (
         <>

@@ -61,7 +61,7 @@ afterEach(() => {
 });
 
 function renderView(props: Record<string, unknown> = {}) {
-  render(<MasterDataView category="classes" {...props} />);
+  render(<MasterDataView category="classes" eventSeriesId="s1" {...props} />);
 }
 
 describe("MasterDataView — reading the list", () => {
@@ -102,10 +102,10 @@ describe("MasterDataView — reading the list", () => {
     expect(screen.getByText("Es gibt noch keine Klasse.")).toBeInTheDocument();
   });
 
-  it("subscribes to the category it was configured with", () => {
-    render(<MasterDataView category="skill-levels" />);
+  it("subscribes to the category it was configured with, for the series the page names", () => {
+    render(<MasterDataView category="skill-levels" eventSeriesId="s1" />);
 
-    expect(useMasterData).toHaveBeenCalledWith("skill-levels");
+    expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1");
     expect(screen.getByRole("heading", { name: "Leistungsstufen" })).toBeInTheDocument();
   });
 });
@@ -121,7 +121,7 @@ describe("MasterDataView — adding", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("POST");
     expect(JSON.parse(String(init.body))).toEqual({ name: "5CHIT" });
   });
@@ -165,7 +165,7 @@ describe("MasterDataView — editing", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(String(init.body))).toEqual({ item: "3AHIT", name: "3BHIT" });
   });
@@ -179,23 +179,19 @@ describe("MasterDataView — editing", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("3AHIT");
   });
 
-  /** Renaming leaves what was already stored alone, exactly as removing does. */
-  it("says that already saved data keeps the name it was given", async () => {
+  /**
+   * An entry that can be renamed at all is one nobody has chosen — the in-use rule saw to that
+   * — so a sentence about what happens to registrations explains something that cannot happen.
+   */
+  it("says that it is renamed, and nothing further", async () => {
     stubFetch(created);
     renderView();
 
     await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" }));
 
-    expect(screen.getByText(/behalten den bisherigen Namen/, { exact: false })).toBeInTheDocument();
-  });
-
-  it("says nothing of the sort while a new item is being added, which stores nothing yet", async () => {
-    stubFetch(created);
-    renderView();
-
-    await userEvent.click(screen.getByRole("button", { name: "Neue Klasse" }));
-
-    expect(screen.queryByText(/behalten den bisherigen Namen/)).not.toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("wird umbenannt.");
+    expect(dialog).not.toHaveTextContent(/Anmeldungen/);
   });
 });
 
@@ -222,7 +218,7 @@ describe("MasterDataView — deleting", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("DELETE");
     expect(JSON.parse(String(init.body))).toEqual({ item: "3AHIT" });
   });
@@ -340,10 +336,10 @@ describe("MasterDataView — the in-use restriction", () => {
     expect(screen.getByRole("button", { name: "Klasse 4BHIT löschen" })).toBeEnabled();
   });
 
-  it("asks the guard about the category it is showing", () => {
+  it("asks the guard about the category it is showing, for the series the page names", () => {
     renderView();
 
-    expect(useUsageReport).toHaveBeenCalledWith("classes");
+    expect(useUsageReport).toHaveBeenCalledWith("classes", "s1");
   });
 });
 
@@ -481,7 +477,7 @@ describe("MasterDataView — ordering", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(String(init.body))).toEqual({ order: ["4BHIT", "3AHIT"] });
   });

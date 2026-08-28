@@ -3,10 +3,19 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { ANSWER_LABELS } from "@/lib/master-data/categories";
+import {
+  ANSWER_LABELS,
+  MASTER_DATA_CATEGORIES,
+  type AnswerField,
+} from "@/lib/master-data/categories";
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import type { RegistrationInput } from "@/lib/schemas/registration";
 import { EQUIPMENT_RENTAL_LABEL } from "./answer-labels";
+
+/** The answers a list supplies, as against the ones the student owns and is always asked for. */
+const LIST_BACKED = new Set<string>(
+  Object.values(MASTER_DATA_CATEGORIES).map((category) => category.usage.field),
+);
 
 /**
  * The answers a registration needs before a teacher can plan with it, in the order the form
@@ -51,16 +60,24 @@ export type MissingAnswer = { path: string; label: string };
  * What the student has not answered yet.
  *
  * A registration is filled in over time and can be saved at any point, so this is what the
- * student is told rather than what stops them (US-11). The class is asked of everyone; the rest
- * only of a student who is attending, since answering "no" is what takes those questions away.
+ * student is told rather than what stops them (US-11). Only a student who is attending is asked
+ * anything at all, since answering "no" is what takes the questions away — and the class, the
+ * one thing asked of everybody before, is now set by the link rather than answered (US-23).
+ *
+ * `asked` is what the series' own lists supply (US-21). Without it a Kulturwoche with no skill
+ * levels would mark every registration in it incomplete for good, over a question its students
+ * were never shown — and `isIncomplete` is what the report chases them by (US-13).
  */
-export function missingAnswers(input: RegistrationInput): MissingAnswer[] {
+export function missingAnswers(
+  input: RegistrationInput,
+  asked: ReadonlySet<AnswerField>,
+): MissingAnswer[] {
   const missing: MissingAnswer[] = [];
 
-  if (isBlank(input.class)) missing.push({ path: "class", label: ANSWER_LABELS.class });
   if (!input.isAttendingSportsWeek) return missing;
 
   for (const [field, label] of ATTENDING_ANSWERS) {
+    if (LIST_BACKED.has(field) && !asked.has(field as AnswerField)) continue;
     if (isBlank(input[field])) missing.push({ path: field, label });
   }
 
@@ -95,6 +112,9 @@ export function missingAnswers(input: RegistrationInput): MissingAnswer[] {
  * Mirrored onto the record on every save, so the report can tell at a glance whose registration
  * a teacher still has to chase (US-13) without re-deriving it per student.
  */
-export function isRegistrationIncomplete(input: RegistrationInput): boolean {
-  return missingAnswers(input).length > 0;
+export function isRegistrationIncomplete(
+  input: RegistrationInput,
+  asked: ReadonlySet<AnswerField>,
+): boolean {
+  return missingAnswers(input, asked).length > 0;
 }

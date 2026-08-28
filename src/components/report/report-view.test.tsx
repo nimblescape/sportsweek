@@ -38,7 +38,14 @@ vi.mock("@/lib/report/report-download", async (importOriginal) => ({
   downloadReportWorkbook: (report: unknown) => downloadReportWorkbook(report),
 }));
 
-const { ReportView } = await import("./report-view");
+const { ReportView: ScopedReportView } = await import("./report-view");
+const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");
+
+// Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
+// only has to be present.
+function ReportView() {
+  return <ScopedReportView eventSeriesId="s1" />;
+}
 
 function student(
   firstName: string,
@@ -63,7 +70,7 @@ const eventSeries = {
   id: "s1",
   ...storedEventSeries({
     name: "2026",
-    isActive: true,
+    isOpenToStudents: true,
     hasRegistrations: true,
     events: ["Woche 1"],
   }),
@@ -98,12 +105,12 @@ const rowOf = (lastName: string) =>
   rows().find((row) => row.textContent?.includes(lastName)) as HTMLElement;
 
 describe("ReportView", () => {
-  it("says so while no event series is active, since there is nobody to report on", () => {
+  it("points at the event series list when the selection resolves to nothing", () => {
     useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: null });
 
     render(<ReportView />);
 
-    expect(screen.getByText("Es ist keine Eventreihe aktiv.")).toBeInTheDocument();
+    expect(screen.getByText(NO_EVENT_SERIES_HINT)).toBeInTheDocument();
   });
 
   it("lists everyone registered, including the students who stay at home (US-13)", () => {

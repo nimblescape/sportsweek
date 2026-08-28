@@ -273,8 +273,13 @@ actually runs, and so that two of them can be prepared at once.
   morning holds none. Several may exist, one per kind of week the school runs.
 - The server refuses to open a template to students, as it refuses to open an archived series —
   one rule shape, two reasons. It also refuses to write a registration into one.
-- A template can always be deleted, because it can never hold registrations and so can never trip
-  the rule that makes deleting wait for archiving.
+- A template can be deleted like any other series, because it can never hold registrations and so
+  can never trip the rule that makes deleting wait for archiving — **except while it is the last
+  unarchived one**. Every teacher view is scoped to a selection, so a school with no event series
+  at all has a header offering nothing and a navigation bar pointing nowhere. Holding one template
+  back is what puts that state out of reach, and provisioning creates it, so a school starts with
+  one and can never get rid of it. Archiving a template does not count as keeping it, since an
+  archived series is on no screen to be selected from.
 - "Template" and "archived" are independent flags answering different questions, so an archived
   template behaves like any archived series.
 - **Event series names are unique**, compared ignoring surrounding whitespace and letter case, as
@@ -366,7 +371,8 @@ header, so that every page I open is about that series and no page has to ask me
   from it: the teacher asked a different question about the same view, not for a different view.
 - With no event series at all both rows are gone and every teacher view shows an explicit empty
   state pointing at the event series list, in place of the "no active season" states US-12 and
-  US-13 show today.
+  US-13 show today. That state is reachable only before a school has been provisioned: the last
+  unarchived template cannot be deleted, so once there is one there is always one.
 - A series that is archived or deleted by another teacher while it is selected leaves the
   selection empty rather than leaving a stale series on screen, and says so.
 - Students never see either row. They manage no series and reach a registration through an
@@ -390,8 +396,15 @@ its lists with a Wintersportwoche.
   registration stores its answer in. A list's document field is the collection name it had, so
   the definitions gain a field name where they carried a collection name and nothing else about
   them changes.
-- Events join the master data section as the seventh list. Reaching them is no longer a step
-  inside a season's row; they are maintained like any other list, for the selected series.
+- **Events are one of those lists like any other.** They are maintained on the master data menu,
+  for the selected series, on the same CRUD list every category uses — reaching them is no longer
+  a step inside a series' row. They lead the menu, because they are the series divided into weeks
+  and everything after them describes the students within it.
+- **Nobody is asked which event they are in.** A teacher assigns it (US-12), so the events are the
+  one list that supplies no question: the form does not offer it, completeness never counts it as
+  missing, and a student sending one is refused like any server-owned field. What the category
+  still owns is the word the report and the filter show, and the field the in-use guard matches
+  on — which is what refuses to remove an event somebody is assigned to (US-24).
 - An item's identity is its name. There is no id beside it, because the name is already unique
   within its list, and because the values registrations and saved reports hold are names.
 - Which item a request means is therefore the name it carries, compared the one way the
@@ -806,9 +819,9 @@ series up is one place rather than three.
 - It lists **one card per class** of the selected series, as it does today: the students of that
   class, attending and not, and that class's figures.
 - **The title line carries a tag that opens and closes the series to students.** It is the
-  application's one tag component with `aria-pressed`, reading "Anmeldung freigeschaltet" when the
-  series is open and "Anmeldung nicht freigeschaltet" when it is not — Q19's two labels with the
-  noun they are about, since a bare "Freigeschaltet" in a title line does not say what is.
+  application's one tag component with `aria-pressed`, reading "Schüler:innen-Anmeldung offen" when
+  the series is open and "Schüler:innen-Anmeldung geschlossen" when it is not — Q19's two labels
+  with the noun they are about, since a bare "Offen" in a title line does not say what is.
 - Pressing it is the whole of closing registration (US-19). There is no second control anywhere
   else: two controls for one decision would be two answers to the same question.
 - The tag is **absent rather than disabled** where the series can never be opened — a template
@@ -944,7 +957,8 @@ another, which is the thing the reservation documents existed to avoid in the fi
 The pages follow the same reasoning as the scope does. The header selection that says which
 series a teacher is working in is slice 5, so until then the six menu lists are the **active**
 series' lists, and the events of any series stay where they already are — on that series' own
-page, which is the one place in the application that already carries an event series id.
+page, which is the one place in the application that already carries an event series id. They
+join the menu as the seventh list in slice 5, once there is a selection for them to belong to.
 
 What the category definitions own is the base this starts from and is carried through unchanged:
 the menu order that the report fields, the filter categories and the registration form all
@@ -1029,10 +1043,10 @@ Renaming it earlier would rename a page for a reason nobody could see yet.
 US-22's source choice, which needs everything above: the lists have to be in the document to be
 copied, and the invitation link has to exist to be left behind.
 
-The provisioning scripts follow in the same slice, because what production is seeded with is a
-template and templates do not exist until now: `seed-students.mts` becomes `seed-environment.mts`
-with the mapping of Q9, and `purge-environment.mts` trades its closed list of environments for
-the typed-back project id.
+The provisioning script follows in the same slice, because what production is seeded with is a
+template and templates do not exist until now: `seed-students.mts` and `purge-environment.mts`
+become one `seed-environment.mts` with the mapping of Q9, trading their closed lists of
+environments for the typed-back project id.
 
 ### 7. Removing a registration
 
@@ -1308,27 +1322,34 @@ Three things follow:
   in, or the seeding script is asked for it deliberately. Either way it happens once, and every
   series after it names an earlier one as its source.
 
-### Seeding moves to a script, and the environment decides what it gets
+### Seeding and purging become one script, and the environment decides what it gets
 
-`scripts/seed-students.mts` becomes **`scripts/seed-environment.mts`**, pairing it with the
-`purge-environment.mts` it is the inverse of: one empties a project, the other fills it. It stops
+`scripts/seed-students.mts` and `scripts/purge-environment.mts` become a single
+**`scripts/seed-environment.mts`**: they were never two tasks. Seeding on top of whatever a
+project already holds says nothing about whether the application put it there, and the point of a
+seeded environment is that its contents are known — so the delete is half of the write. It stops
 being about students, because nothing else builds a working state any more.
 
-**It takes the environment and nothing else**, exactly as it does today, and what an environment
+**It takes the environment and nothing else**, exactly as both did today, and what an environment
 gets is fixed rather than chosen:
 
-| Environment          | What it seeds                                         | Purges first |
-| -------------------- | ----------------------------------------------------- | ------------ |
-| production           | the "Wintersportwochen" template, and nothing besides | no           |
-| development, staging | the whole test environment, that template included    | yes          |
+| Environment          | What it is left holding                               | Confirms first |
+| -------------------- | ----------------------------------------------------- | -------------- |
+| production           | the "Wintersportwochen" template, and nothing besides | yes            |
+| development, staging | the whole test environment, that template included    | no             |
 
 That is safer than a mode argument, and simpler: **there is no mode to get wrong.** The dangerous
 case was ever seeding test data into production — which would fill it with invented students that
 look like real ones — and it is now unreachable by construction rather than refused by a check,
 because no argument can ask for it.
 
-Purging is a different matter, and is dealt with below: emptying production is a legitimate admin
-task, where filling it with lies is not.
+One argument beyond the environment is allowed, because it runs the other way: `--template-only`
+leaves a test environment as bare as production, which is the state a school's first day is in and
+otherwise impossible to look at. **It can only ever leave a project holding less**, so it cannot
+reach the case the rule above exists for, and production ignores it rather than refusing it —
+there it asks for what production already gets.
+
+Emptying production is a legitimate admin task, dealt with below; filling it with lies is not.
 
 #### Production gets one template, through the ordinary mechanism
 
@@ -1347,14 +1368,12 @@ dated — "Wintersportwoche 2026/2027" — so the two names cannot collide under
   ordinary event series with the template flag set, indistinguishable from one a teacher could
   have made by hand, so production starts from something the application already understands and
   the first real series is created from it through US-22's ordinary copy.
-- It **adds**; it never purges. A project that already holds data keeps it.
-- Running it twice is refused rather than duplicating: the name is already unique (Q14), so the
-  second run fails on the name it would have to reuse.
+- It is a **reset**: the project is emptied first, so what it holds afterwards is the template and
+  nothing else. That is what makes running it twice mean the same thing as running it once.
 
 #### Development and staging get a whole environment
 
-Everything above plus enough to exercise the application by hand, purging first exactly as the
-script does today:
+Everything above plus enough to exercise the application by hand, on the same emptied project:
 
 - the "Wintersportwochen" template, so the copy path of US-22 can be tried;
 - at least one open event series with all seven lists filled, and one archived series beside it,
@@ -1364,25 +1383,24 @@ script does today:
 - the roster it already writes, spread over those classes with the distributions it already uses,
   and assigned to events.
 
-#### Purging is an admin task, and production stops being fenced off from it
+#### Emptying is an admin task, and production stops being fenced off from it
 
-`purge-environment.mts` excludes production by construction today, and **that exclusion is
-withdrawn**. Q18's clean break needs it, standing a project back up needs it, and the list was
-never as protective as it looked: anyone holding credentials the script can use holds credentials
-the Firebase console will accept. **It defended against a typo, not against a person** — and
-fencing off the legitimate path only pushes an admin towards deleting collections by hand, which
-is slower and less complete.
+Purging excluded production by construction, and **that exclusion is withdrawn**. Q18's clean
+break needs it, standing a project back up needs it, and the list was never as protective as it
+looked: anyone holding credentials the script can use holds credentials the Firebase console will
+accept. **It defended against a typo, not against a person** — and fencing off the legitimate path
+only pushes an admin towards deleting collections by hand, which is slower and less complete.
 
 So the closed list is replaced by a guard aimed at the thing that was actually being guarded
-against: **purging production asks for the project id to be typed back** — `htld-sportsweek` — and
-does nothing until it matches. That is the ceremony the application already asks of a teacher
+against: **resetting production asks for the project id to be typed back** — `htld-sportsweek` —
+and does nothing until it matches. That is the ceremony the application already asks of a teacher
 deleting an event series that holds registrations (US-19), reused rather than invented, and it is
 not something a mistyped script name or a tab-completion can produce.
 
-- Development and staging keep their unceremonious `purge:development` and `purge:staging`. There
-  is nothing in either worth a confirmation.
-- **Seeding keeps its mapping regardless.** Emptying production and filling it with invented
-  students are not the same risk: the first is a deliberate reset, the second leaves records that
+- Development and staging reset unceremoniously. There is nothing in either worth a confirmation.
+- **What is written back still follows the environment.** Emptying production and filling it with
+  invented students are not the same risk: the first is a deliberate reset, the second leaves
+  records that
   look real and are not.
 
 #### Rules and indexes reach production through the workflow, never from a laptop

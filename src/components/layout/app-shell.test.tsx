@@ -23,6 +23,20 @@ describe("AppShell", () => {
     expect(screen.getByRole("banner")).toHaveTextContent("Sportsweek");
   });
 
+  it("brands the header with the school's logo, ahead of the title", () => {
+    render(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    const logo = screen.getByRole("img", { name: /htl dornbirn/i });
+
+    expect(logo.compareDocumentPosition(screen.getByText("Sportsweek"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
   it("renders the title above the section heading size in the type hierarchy", () => {
     render(
       <AppShell>

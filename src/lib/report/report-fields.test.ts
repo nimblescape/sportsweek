@@ -49,6 +49,7 @@ describe("REPORT_FIELD_TAGS", () => {
    */
   it("lists the answers a teacher's own lists supply in the menu's order (US-5 to US-10)", () => {
     const categoryOfField: Record<string, string> = {
+      event: "events",
       class: "classes",
       program: "programs",
       skillLevel: "skill-levels",

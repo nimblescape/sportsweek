@@ -6,7 +6,13 @@
 import { describe, expect, it } from "vitest";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { assignmentGroups, classOverview, skillColumns, UNASSIGNED_GROUP } from "./statistics";
+import {
+  assignmentGroups,
+  attendingCounts,
+  classOverview,
+  skillColumns,
+  UNASSIGNED_GROUP,
+} from "./statistics";
 
 let seed = 0;
 
@@ -42,6 +48,39 @@ describe("skillColumns", () => {
 
   it("gives every column a key of its own", () => {
     expect(new Set(COLUMNS.map((column) => column.key)).size).toBe(COLUMNS.length);
+  });
+
+  /**
+   * An empty list is a question nobody was asked (US-21), so the other dimension stands alone
+   * rather than crossing with nothing — which would count every student into no column at all.
+   */
+  it("keeps the programs alone where the series has no skill levels", () => {
+    const columns = skillColumns([{ name: "Ski" }, { name: "Snowboard" }], []);
+
+    expect(columns.map((column) => [column.program, column.skillLevel])).toEqual([
+      ["Ski", null],
+      ["Snowboard", null],
+    ]);
+  });
+
+  it("keeps the skill levels alone where the series has no programs", () => {
+    const columns = skillColumns([], ["Keine Vorkenntnisse", "Fortgeschritten"]);
+
+    expect(columns.map((column) => [column.program, column.skillLevel])).toEqual([
+      [null, "Keine Vorkenntnisse"],
+      [null, "Fortgeschritten"],
+    ]);
+  });
+
+  it("has no columns at all where the series has neither list", () => {
+    expect(skillColumns([], [])).toEqual([]);
+  });
+
+  it("counts a student into the one column left when a dimension is missing", () => {
+    const columns = skillColumns([{ name: "Ski" }], []);
+    const counted = attendingCounts([student({ program: "Ski", skillLevel: null })], columns);
+
+    expect(counted.skillLevels[columns[0].key]).toBe(1);
   });
 });
 

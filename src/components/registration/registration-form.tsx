@@ -30,12 +30,11 @@ import {
 } from "@/lib/registration/registration";
 import { GENDER_LABELS, RELATIONSHIP_LABELS } from "@/lib/registration/answer-labels";
 import { missingAnswers } from "@/lib/registration/completeness";
-import { ANSWER_LABELS } from "@/lib/master-data/categories";
+import { ANSWER_LABELS, type AnswerField } from "@/lib/master-data/categories";
 import { EquipmentChecklist } from "./equipment-checklist";
 import { Field, RadioField, ReadOnlyField, SelectField, YES_NO } from "./fields";
 
 export type MasterDataLists = {
-  classes: readonly string[];
   programs: readonly Program[];
   skillLevels: readonly string[];
   busPickupPoints: readonly string[];
@@ -44,9 +43,14 @@ export type MasterDataLists = {
 };
 
 type RegistrationFormProps = {
+  eventSeriesId: string;
   eventSeriesName: string;
   /** From the user record, shown but not editable as part of this registration (US-11). */
   studentName: string;
+  /** From the invitation link, likewise shown rather than asked (US-23). */
+  studentClass: string;
+  /** The questions this series' lists supply; the rest are never rendered at all (US-21). */
+  asked: ReadonlySet<AnswerField>;
   record: Registration | null;
   lists: MasterDataLists;
 };
@@ -91,16 +95,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /**
- * The student's registration for the active event series (US-11).
+ * The student's registration in one event series (US-11).
  *
- * Answering "no" hides everything but the class rather than clearing it: the fields stay
- * registered, so the values come back untouched if the student changes their mind, and a save
- * carries them along. Every list value is stored as the plain text that was picked, never as a
- * reference, so a teacher renaming an entry later leaves this record exactly as it was.
+ * Answering "no" hides the questions rather than clearing them: the fields stay registered, so
+ * the values come back untouched if the student changes their mind, and a save carries them
+ * along. Every list value is stored as the plain text that was picked, never as a reference, so
+ * a teacher renaming an entry later leaves this record exactly as it was.
  */
 export function RegistrationForm({
+  eventSeriesId,
   eventSeriesName,
   studentName,
+  studentClass,
+  asked,
   record,
   lists,
 }: RegistrationFormProps) {
@@ -155,7 +162,10 @@ export function RegistrationForm({
   const equipment = equipmentOf(programName);
   // Told, not enforced: a registration is filled in over time and saved as often as the student
   // likes, so what is left to answer is a note to them rather than a locked button (US-11).
-  const missing = missingAnswers(scopeRentalToProgram(values as RegistrationInput, equipment));
+  const missing = missingAnswers(
+    scopeRentalToProgram(values as RegistrationInput, equipment),
+    asked,
+  );
   const missingPaths = new Set(missing.map((answer) => answer.path));
 
   /**
@@ -173,7 +183,7 @@ export function RegistrationForm({
     setSaveAttempted(true);
     try {
       // The resolver already scoped these, so what arrives here is what the server is told.
-      await apiRequest("/api/my-registration", { method: "PUT", body: values });
+      await apiRequest(`/api/my-registration/${eventSeriesId}`, { method: "PUT", body: values });
       reset(values);
       setSaved(true);
     } catch (error) {
@@ -187,14 +197,7 @@ export function RegistrationForm({
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
       <Section title="Anmeldung">
         <ReadOnlyField label="Name" value={studentName} />
-        <SelectField
-          control={control}
-          name="class"
-          label={ANSWER_LABELS.class}
-          options={lists.classes}
-          placeholder={`${ANSWER_LABELS.class} wählen`}
-          error={errors.class?.message ?? hint("class")}
-        />
+        <ReadOnlyField label={ANSWER_LABELS.class} value={studentClass} />
         <RadioField
           control={control}
           name="isAttendingSportsWeek"
@@ -299,14 +302,16 @@ export function RegistrationForm({
           </Section>
 
           <Section title={eventSeriesName}>
-            <SelectField
-              control={control}
-              name="program"
-              label="Für welches Programm meldest du dich an?"
-              options={lists.programs.map((entry) => entry.name)}
-              placeholder={`${ANSWER_LABELS.program} wählen`}
-              error={errors.program?.message ?? hint("program")}
-            />
+            {asked.has("program") ? (
+              <SelectField
+                control={control}
+                name="program"
+                label="Für welches Programm meldest du dich an?"
+                options={lists.programs.map((entry) => entry.name)}
+                placeholder={`${ANSWER_LABELS.program} wählen`}
+                error={errors.program?.message ?? hint("program")}
+              />
+            ) : null}
             {equipment.length > 0 ? (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
@@ -369,41 +374,51 @@ export function RegistrationForm({
                 </Field>
               </>
             ) : null}
-            <SelectField
-              control={control}
-              name="skillLevel"
-              label={ANSWER_LABELS.skillLevel}
-              options={lists.skillLevels}
-              placeholder={`${ANSWER_LABELS.skillLevel} wählen`}
-              error={errors.skillLevel?.message ?? hint("skillLevel")}
-            />
-            <SelectField
-              control={control}
-              name="seasonPassOption"
-              label={ANSWER_LABELS.seasonPassOption}
-              options={lists.seasonPassOptions}
-              placeholder={`${ANSWER_LABELS.seasonPassOption} wählen`}
-              error={errors.seasonPassOption?.message ?? hint("seasonPassOption")}
-            />
-            <SelectField
-              control={control}
-              name="busPickupPoint"
-              label={ANSWER_LABELS.busPickupPoint}
-              options={lists.busPickupPoints}
-              placeholder={`${ANSWER_LABELS.busPickupPoint} wählen`}
-              error={errors.busPickupPoint?.message ?? hint("busPickupPoint")}
-            />
-            <SelectField
-              control={control}
-              name="foodOption"
-              label={ANSWER_LABELS.foodOption}
-              options={[...lists.foodOptions, FOOD_OPTION_OTHER]}
-              labelOf={(option) =>
-                option === FOOD_OPTION_OTHER ? FOOD_OPTION_OTHER_LABEL : option
-              }
-              placeholder={`${ANSWER_LABELS.foodOption} wählen`}
-              error={errors.foodOption?.message ?? hint("foodOption")}
-            />
+            {asked.has("skillLevel") ? (
+              <SelectField
+                control={control}
+                name="skillLevel"
+                label={ANSWER_LABELS.skillLevel}
+                options={lists.skillLevels}
+                placeholder={`${ANSWER_LABELS.skillLevel} wählen`}
+                error={errors.skillLevel?.message ?? hint("skillLevel")}
+              />
+            ) : null}
+            {asked.has("seasonPassOption") ? (
+              <SelectField
+                control={control}
+                name="seasonPassOption"
+                label={ANSWER_LABELS.seasonPassOption}
+                options={lists.seasonPassOptions}
+                placeholder={`${ANSWER_LABELS.seasonPassOption} wählen`}
+                error={errors.seasonPassOption?.message ?? hint("seasonPassOption")}
+              />
+            ) : null}
+            {asked.has("busPickupPoint") ? (
+              <SelectField
+                control={control}
+                name="busPickupPoint"
+                label={ANSWER_LABELS.busPickupPoint}
+                options={lists.busPickupPoints}
+                placeholder={`${ANSWER_LABELS.busPickupPoint} wählen`}
+                error={errors.busPickupPoint?.message ?? hint("busPickupPoint")}
+              />
+            ) : null}
+            {/* "Sonstiges" is an answer rather than a list item, so it cannot keep the question
+                alive on its own (Q22). */}
+            {asked.has("foodOption") ? (
+              <SelectField
+                control={control}
+                name="foodOption"
+                label={ANSWER_LABELS.foodOption}
+                options={[...lists.foodOptions, FOOD_OPTION_OTHER]}
+                labelOf={(option) =>
+                  option === FOOD_OPTION_OTHER ? FOOD_OPTION_OTHER_LABEL : option
+                }
+                placeholder={`${ANSWER_LABELS.foodOption} wählen`}
+                error={errors.foodOption?.message ?? hint("foodOption")}
+              />
+            ) : null}
             {foodOption === FOOD_OPTION_OTHER ? (
               <Field
                 label="Welche Unverträglichkeit?"

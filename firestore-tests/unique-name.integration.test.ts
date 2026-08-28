@@ -16,7 +16,14 @@ process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "sportsweek-unique-integration";
 const { adminDb } = await import("@/lib/firebase/admin");
 const { createEventSeries, updateEventSeries, deleteEventSeries } =
   await import("@/lib/event-series/event-series-service");
-const { createEvent, deleteEvent } = await import("@/lib/events/event-service");
+const { createMasterDataItem, deleteMasterDataItem } =
+  await import("@/lib/master-data/master-data-service");
+
+// Events are one of the maintained lists (US-21), so they are created like any other item.
+const createEvent = ({ eventSeriesId, name }: { eventSeriesId: string; name: string }) =>
+  createMasterDataItem(eventSeriesId, "events", { name });
+const deleteEvent = (eventSeriesId: string, event: string) =>
+  deleteMasterDataItem(eventSeriesId, "events", event);
 
 async function wipe(collection: string) {
   const snapshot = await adminDb.collection(collection).get();

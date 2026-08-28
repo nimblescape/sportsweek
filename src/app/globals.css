@@ -60,6 +60,10 @@
 /* Breakpoints follow the Tailwind defaults: base = mobile, md = tablet, lg = desktop. */
 
 :root {
+  /* Fixed, so the columns beside it can be told what is left of the window. Deriving that from
+     the flex layout instead works in Chrome and not in Safari, which will not resolve a stretch
+     through a scroll container whose own height comes from flex-grow. */
+  --header-height: 3rem;
   /* The single accent colour, at the hue of the HTL logo's slate. Nothing else may add chroma. */
   --brand: oklch(0.55 0.17 250);
   --brand-foreground: oklch(0.985 0 0);
@@ -149,5 +153,27 @@
   body[data-dragging],
   body[data-dragging] * {
     cursor: grabbing !important;
+  }
+}
+
+/* The busy indicator. Bars that cycle several times a second, so a wait too short to measure is
+   still visible — and none of it at all where motion is unwelcome. */
+@theme {
+  --animate-busy-bar: busy-bar 0.9s ease-in-out infinite;
+}
+
+@keyframes busy-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-busy-bar {
+    animation: none;
   }
 }

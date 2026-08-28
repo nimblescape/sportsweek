@@ -8,23 +8,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ChartColumn,
-  Database,
-  FileText,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Shuffle,
-} from "lucide-react";
+import { ChartColumn, ChevronLeft, ChevronRight, Database, FileText, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MASTER_DATA_SECTIONS } from "@/lib/master-data/categories";
-import { ROUTES } from "@/lib/routes";
+import { masterDataSections } from "@/lib/master-data/categories";
+import { selectedEventSeriesIdFrom } from "@/lib/event-series/event-series-selection";
+import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
 
-const TOP_LEVEL = [
-  { href: ROUTES.report, label: "Bericht", Icon: FileText },
-  { href: ROUTES.assignment, label: "Zuteilung", Icon: Shuffle },
-  { href: ROUTES.statistics, label: "Statistik", Icon: ChartColumn },
-] as const;
+function topLevel(eventSeriesId: string) {
+  const routes = eventSeriesRoutes(eventSeriesId);
+  return [
+    { href: routes.overview, label: "\u00dcbersicht", Icon: ChartColumn },
+    { href: routes.assignment, label: "Zuteilung", Icon: Shuffle },
+    { href: routes.report, label: "Bericht", Icon: FileText },
+  ];
+}
 
 function itemClasses(active: boolean) {
   return cn(
@@ -35,9 +32,29 @@ function itemClasses(active: boolean) {
   );
 }
 
-export function TeacherNav() {
+/**
+ * Every page but the event series list is about one series (US-20), so the links are built from
+ * the selection. On that one page the URL names none, and the layout above resolves one to fall
+ * back to — without it the whole bar would have nowhere to point (Q8).
+ */
+export function TeacherNav({
+  fallbackEventSeriesId = null,
+}: {
+  fallbackEventSeriesId?: string | null;
+}) {
   const pathname = usePathname();
-  const inMasterData = pathname.startsWith(ROUTES.masterData);
+  const inUrl = selectedEventSeriesIdFrom(pathname);
+  // The fallback is resolved by a layout above the series id, which does not render again while
+  // the teacher moves about below it, so what the bar has seen since is the fresher answer.
+  const [lastSeen, setLastSeen] = useState(fallbackEventSeriesId);
+  if (inUrl !== null && inUrl !== lastSeen) setLastSeen(inUrl);
+
+  const eventSeriesId = inUrl ?? lastSeen;
+  const masterData = eventSeriesId === null ? null : eventSeriesRoutes(eventSeriesId).masterData;
+  const inMasterData =
+    pathname === ROUTES.eventSeries ||
+    pathname.startsWith(`${ROUTES.eventSeries}/`) ||
+    (masterData !== null && pathname.startsWith(masterData));
   const [collapsed, setCollapsed] = useState(false);
 
   // Collapsing is offered where the bar is a column; on a narrow screen it is a strip across the
@@ -49,21 +66,7 @@ export function TeacherNav() {
       aria-label="Hauptnavigation"
       className={cn("flex flex-col gap-1 p-3", collapsed ? "md:w-16" : "md:w-56")}
     >
-      <button
-        type="button"
-        onClick={() => setCollapsed((on) => !on)}
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
-        className={cn(itemClasses(false), "hidden md:flex md:justify-end")}
-      >
-        {collapsed ? (
-          <PanelLeftOpen aria-hidden className="size-4 shrink-0" />
-        ) : (
-          <PanelLeftClose aria-hidden className="size-4 shrink-0" />
-        )}
-      </button>
-
-      {TOP_LEVEL.map(({ href, label, Icon }) => {
+      {(eventSeriesId === null ? [] : topLevel(eventSeriesId)).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
@@ -93,7 +96,7 @@ export function TeacherNav() {
 
       {collapsed ? null : (
         <ul className="flex flex-col gap-1">
-          {MASTER_DATA_SECTIONS.map(({ href, label }) => (
+          {masterDataSections(eventSeriesId).map(({ href, label }) => (
             <li key={href}>
               <Link
                 href={href}
@@ -109,6 +112,21 @@ export function TeacherNav() {
           ))}
         </ul>
       )}
+
+      <button
+        type="button"
+        onClick={() => setCollapsed((on) => !on)}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
+        className={cn(itemClasses(false), "mt-auto hidden justify-end md:flex")}
+      >
+        {/* Points the way the bar is about to move. */}
+        {collapsed ? (
+          <ChevronRight aria-hidden className="size-4 shrink-0" />
+        ) : (
+          <ChevronLeft aria-hidden className="size-4 shrink-0" />
+        )}
+      </button>
     </nav>
   );
 }

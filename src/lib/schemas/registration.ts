@@ -83,6 +83,12 @@ const registrationFields = z.object({
    */
   isIncomplete: z.boolean().default(true),
   isAttendingSportsWeek: z.boolean(),
+  /**
+   * Set from the invitation link the student joined through, never answered (US-23). A student
+   * who picked their own would sometimes pick the wrong one, and the class is the dimension the
+   * per-class cards, the assignment board and every grouped figure are built on (US-12, US-13) —
+   * so one mistyped choice would quietly falsify two classes' numbers with nothing to show it.
+   */
   class: snapshotValueSchema.nullable(),
   program: snapshotValueSchema.nullable(),
   skillLevel: snapshotValueSchema.nullable(),
@@ -122,6 +128,7 @@ const SERVER_OWNED = {
   lastName: true,
   email: true,
   event: true,
+  class: true,
   isIncomplete: true,
 } as const;
 

@@ -87,7 +87,7 @@ const answer = (key: string, label: string, valueOf: ReportField["valueOf"]): Re
  */
 export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
   answer("attendance", "Teilnahme", (record) => yesNo(record.isAttendingSportsWeek)),
-  answer("event", "Event", (record) => record.event),
+  answer("event", ANSWER_LABELS.event, (record) => record.event),
   answer("class", ANSWER_LABELS.class, (record) => record.class),
   answer("gender", "Geschlecht", (record) =>
     record.gender === null ? null : GENDER_LABELS[record.gender],

@@ -13,28 +13,25 @@ import { COLLECTIONS } from "@/lib/schemas/collections";
 import { registrationPath } from "@/lib/registration/registration";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema } from "@/lib/schemas/registration";
-import {
-  activeEventSeriesOf,
-  NO_ACTIVE_EVENT_SERIES_HINT,
-} from "@/lib/event-series/event-series-state";
+import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 
 /** The one answer the assignment turns on, derived so a rename cannot pass this by. */
 const assignableSchema = registrationSchema.pick({ isAttendingSportsWeek: true });
 
-async function requireActiveEventSeries(): Promise<EventSeries> {
-  const snapshot = await adminDb
-    .collection(COLLECTIONS.eventSeries)
-    .where("isActive", "==", true)
-    .get();
+/**
+ * The series the teacher is working in, named by the path (Q8). Archived is refused because
+ * archiving is what makes a series read-only, and there is no screen it could be assigned from.
+ */
+async function requireEventSeries(eventSeriesId: string): Promise<EventSeries> {
+  const stored = await adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId).get();
+  const parsed = stored.exists
+    ? eventSeriesSchema.safeParse({ id: stored.id, ...stored.data() })
+    : null;
 
-  const active = activeEventSeriesOf(
-    snapshot.docs.map((eventSeries) =>
-      eventSeriesSchema.parse({ id: eventSeries.id, ...eventSeries.data() }),
-    ),
-  );
-
-  if (!active) throw new ServiceError(ErrorCode.Conflict, NO_ACTIVE_EVENT_SERIES_HINT);
-  return active;
+  if (!parsed?.success || parsed.data.isArchived) {
+    throw new ServiceError(ErrorCode.Conflict, NO_EVENT_SERIES_HINT);
+  }
+  return parsed.data;
 }
 
 /**
@@ -49,10 +46,7 @@ function eventOfEventSeries(eventSeries: EventSeries, event: string): string {
   const offered = eventSeries.events.find((candidate) => normalizeName(candidate) === wanted);
 
   if (offered === undefined) {
-    throw new ServiceError(
-      ErrorCode.NotFound,
-      "Dieses Event gibt es in der aktiven Eventreihe nicht.",
-    );
+    throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es in dieser Eventreihe nicht.");
   }
   return offered;
 }
@@ -69,14 +63,15 @@ function eventOfEventSeries(eventSeries: EventSeries, event: string): string {
  * cannot get stuck in an event.
  */
 export async function assignStudents(
+  eventSeriesId: string,
   studentUpns: readonly string[],
   event: string | null,
 ): Promise<void> {
-  const eventSeries = await requireActiveEventSeries();
+  const eventSeries = await requireEventSeries(eventSeriesId);
   const assigned = event === null ? null : eventOfEventSeries(eventSeries, event);
 
-  // Beneath the active series by construction, so "is this registration one of ours?" is the
-  // path rather than a field a caller could point elsewhere (US-26).
+  // Beneath that series by construction, so "is this registration one of ours?" is the path
+  // rather than a field a caller could point elsewhere (US-26).
   const references = studentUpns.map((studentUpn) =>
     adminDb.collection(registrationPath(eventSeries.id)).doc(studentUpn),
   );

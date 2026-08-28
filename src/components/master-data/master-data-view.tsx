@@ -9,8 +9,6 @@ import * as React from "react";
 import { CrudList, type CrudItem } from "@/components/master-data/crud-list";
 import { apiRequest } from "@/lib/api/client";
 import {
-  ARCHIVED_DATA_KEEPS_NAME_HINT,
-  ARCHIVED_DATA_UNCHANGED_HINT,
   categoryOf,
   CHILD_IN_USE_HINT,
   type MasterDataCategoryKey,
@@ -19,6 +17,7 @@ import { useMasterData, useUsageReport } from "@/lib/master-data/use-master-data
 
 type MasterDataViewProps = {
   category: MasterDataCategoryKey;
+  eventSeriesId: string;
   /** Options offered to students that the teacher does not maintain, such as "Sonstiges" (US-9). */
   fixedItems?: readonly string[];
   fixedItemsHint?: string;
@@ -28,13 +27,16 @@ type MasterDataViewProps = {
 /** A teacher-maintained collection on the shared CRUD list (US-5 to US-10). */
 export function MasterDataView({
   category: key,
+  eventSeriesId,
   fixedItems,
   fixedItemsHint,
   renderRowAction,
 }: MasterDataViewProps) {
   const category = categoryOf(key);
-  const { items, loading, error } = useMasterData(key);
-  const report = useUsageReport(key);
+  const { items, loading, error } = useMasterData(key, eventSeriesId);
+  const report = useUsageReport(key, eventSeriesId);
+  // Every list belongs to one event series (US-21), so the write names the one it edits.
+  const endpoint = `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/${key}`;
 
   return (
     <CrudList
@@ -51,29 +53,29 @@ export function MasterDataView({
       renderRowAction={renderRowAction}
       onSubmit={(name, item) =>
         item === null
-          ? apiRequest(`/api/master-data/${key}`, { method: "POST", body: { name } }).then(() => {})
-          : apiRequest(`/api/master-data/${key}`, {
+          ? apiRequest(endpoint, { method: "POST", body: { name } }).then(() => {})
+          : apiRequest(endpoint, {
               method: "PATCH",
               body: { item: item.name, name },
             }).then(() => {})
       }
       onDelete={(item) =>
-        apiRequest(`/api/master-data/${key}`, {
+        apiRequest(endpoint, {
           method: "DELETE",
           body: { item: item.name },
         }).then(() => {})
       }
       onReorder={(order) =>
-        apiRequest(`/api/master-data/${key}`, { method: "PATCH", body: { order } }).then(() => {})
+        apiRequest(endpoint, { method: "PATCH", body: { order } }).then(() => {})
       }
       deleteNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird aus der Liste entfernt. {ARCHIVED_DATA_UNCHANGED_HINT}
+          <strong>{item.name}</strong> wird aus der Liste entfernt.
         </>
       )}
       editNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird umbenannt. {ARCHIVED_DATA_KEEPS_NAME_HINT}
+          <strong>{item.name}</strong> wird umbenannt.
         </>
       )}
     />

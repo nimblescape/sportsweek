@@ -17,6 +17,9 @@ describe("COLLECTIONS", () => {
         // Emergency contact and rented equipment are fields of this record, not collections of
         // their own: neither has an identity outside it, and nothing else refers to them (US-11).
         "registrations",
+        // Keyed by the token itself, so following a link is one lookup and nothing has to be
+        // searched for a secret (US-23).
+        "invitations",
         "savedReports",
       ].sort(),
     );

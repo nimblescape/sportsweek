@@ -5,26 +5,19 @@
  */
 "use client";
 
-import Link from "next/link";
-import {
-  Archive,
-  ArchiveRestore,
-  CalendarDays,
-  CircleCheck,
-  CircleSlash,
-  Pencil,
-  Trash2,
-} from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { EventSeries } from "@/lib/schemas/event-series";
-import { EVENT_SERIES_STATE_LABELS, eventSeriesState } from "@/lib/event-series/event-series-state";
+import {
+  EVENT_SERIES_STATE_LABELS,
+  eventSeriesState,
+  LAST_TEMPLATE_HINT,
+} from "@/lib/event-series/event-series-state";
 
-const ARCHIVE_ACTIVE_HINT =
-  "Eine aktive Eventreihe muss zuerst deaktiviert werden, damit sie archiviert werden kann.";
 const ARCHIVE_NO_DATA_HINT = "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.";
 const DELETE_HINT =
   "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.";
@@ -35,7 +28,6 @@ type EventSeriesListProps = {
   error: string | null;
   onEdit: (eventSeries: EventSeries) => void;
   onDelete: (eventSeries: EventSeries) => void;
-  onActiveChange: (eventSeries: EventSeries, isActive: boolean) => void;
   onArchivedChange: (eventSeries: EventSeries, isArchived: boolean) => void;
   /** Receives the ids of the shown event series in their new order (see Ordering). */
   onReorder: (orderedIds: string[]) => void | Promise<void>;
@@ -48,7 +40,6 @@ export function EventSeriesList({
   error,
   onEdit,
   onDelete,
-  onActiveChange,
   onArchivedChange,
   onReorder,
   busyEventSeriesId = null,
@@ -76,6 +67,9 @@ export function EventSeriesList({
     );
   }
 
+  // Counted over the whole list rather than per row, so a row can tell whether it is the last one.
+  const unarchivedTemplates = eventSeries.filter((one) => one.isTemplate && !one.isArchived).length;
+
   return (
     <Card className="[--card-spacing:--spacing(0)]">
       <SortableList
@@ -87,13 +81,17 @@ export function EventSeriesList({
           const state = eventSeriesState(eventSeries);
           const archiveHintId = `${eventSeries.id}-archive-hint`;
           const deleteHintId = `${eventSeries.id}-delete-hint`;
-          // Mirrors event-series-service.ts: archiving needs registrations to sign off on, and an
-          // active event series must be deactivated first; deleting still-unarchived data needs it
-          // gone first (US-4).
-          const archivingDisabled =
-            state === "active" || (!eventSeries.isArchived && !eventSeries.hasRegistrations);
-          const archiveHint = state === "active" ? ARCHIVE_ACTIVE_HINT : ARCHIVE_NO_DATA_HINT;
-          const deletingDisabled = !eventSeries.isArchived && eventSeries.hasRegistrations;
+          // Mirrors event-series-service.ts: archiving needs registrations to sign off on, and
+          // deleting still-unarchived data needs it gone first (US-19).
+          const archivingDisabled = !eventSeries.isArchived && !eventSeries.hasRegistrations;
+          const deleteHint = !eventSeries.isArchived
+            ? eventSeries.hasRegistrations
+              ? DELETE_HINT
+              : eventSeries.isTemplate && unarchivedTemplates === 1
+                ? LAST_TEMPLATE_HINT
+                : null
+            : null;
+          const deletingDisabled = deleteHint !== null;
           const busy = busyEventSeriesId === eventSeries.id;
 
           return (
@@ -103,7 +101,7 @@ export function EventSeriesList({
               <span
                 className={cn(
                   "shrink-0 rounded-full border px-2 py-0.5 text-xs",
-                  state === "active"
+                  state === "open"
                     ? "bg-accent text-accent-foreground border-transparent"
                     : "text-muted-foreground",
                 )}
@@ -112,57 +110,8 @@ export function EventSeriesList({
               </span>
 
               <div className="flex shrink-0 items-center gap-1">
-                <Tooltip label="Events">
-                  <Link
-                    href={`/app/master-data/event-series/${eventSeries.id}`}
-                    aria-label={`Events der Eventreihe ${eventSeries.name}`}
-                    // A link has no disabled state of its own, so being busy has to be spelled
-                    // out for the pointer, the keyboard and assistive technology separately.
-                    aria-disabled={busy || undefined}
-                    tabIndex={busy ? -1 : undefined}
-                    onClick={busy ? (clicked) => clicked.preventDefault() : undefined}
-                    className={cn(
-                      buttonVariants({ variant: "ghost", size: "icon-sm" }),
-                      busy && "pointer-events-none opacity-50",
-                    )}
-                  >
-                    <CalendarDays aria-hidden className="size-3.5" />
-                  </Link>
-                </Tooltip>
-
-                {/* An inactive eventSeries can be activated and the active one stood down again, so
-                    the teacher can leave no eventSeries active at all; an archived one is neither
-                    (US-4). With no active eventSeries, students cannot edit their registration (US-11). */}
-                {state === "inactive" ? (
-                  <Tooltip label="Aktiv setzen">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      disabled={busy}
-                      aria-label={`Eventreihe ${eventSeries.name} aktiv setzen`}
-                      onClick={() => onActiveChange(eventSeries, true)}
-                    >
-                      <CircleCheck aria-hidden />
-                    </Button>
-                  </Tooltip>
-                ) : null}
-
-                {state === "active" ? (
-                  <Tooltip label="Deaktivieren">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      disabled={busy}
-                      aria-label={`Eventreihe ${eventSeries.name} deaktivieren`}
-                      onClick={() => onActiveChange(eventSeries, false)}
-                    >
-                      <CircleSlash aria-hidden />
-                    </Button>
-                  </Tooltip>
-                ) : null}
-
                 {/* An archived eventSeries is finished with: it can be unarchived or removed, but
-                    not rewritten, and neither its name nor its place is up for change (US-4). */}
+                    not rewritten, and neither its name nor its place is up for change (US-19). */}
                 {eventSeries.isArchived ? null : (
                   <Tooltip label="Bearbeiten">
                     <Button
@@ -179,7 +128,7 @@ export function EventSeriesList({
                 <Tooltip
                   label={
                     archivingDisabled
-                      ? archiveHint
+                      ? ARCHIVE_NO_DATA_HINT
                       : eventSeries.isArchived
                         ? "Wiederherstellen"
                         : "Archivieren"
@@ -209,13 +158,13 @@ export function EventSeriesList({
 
                 {archivingDisabled ? (
                   <span id={archiveHintId} className="sr-only">
-                    {archiveHint}
+                    {ARCHIVE_NO_DATA_HINT}
                   </span>
                 ) : null}
 
                 {/* Wrapped in a span because a disabled button emits no pointer events, and the
-                    reason it is disabled is exactly what needs explaining here (US-4). */}
-                <Tooltip label={deletingDisabled ? DELETE_HINT : "Löschen"}>
+                    reason it is disabled is exactly what needs explaining here (US-19). */}
+                <Tooltip label={deleteHint ?? "Löschen"}>
                   <span className="inline-flex">
                     <Button
                       variant="ghost"
@@ -231,11 +180,11 @@ export function EventSeriesList({
                   </span>
                 </Tooltip>
 
-                {deletingDisabled ? (
+                {deleteHint === null ? null : (
                   <span id={deleteHintId} className="sr-only">
-                    {DELETE_HINT}
+                    {deleteHint}
                   </span>
-                ) : null}
+                )}
               </div>
             </div>
           );
