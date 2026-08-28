@@ -8,8 +8,10 @@
 import { usePathname, useRouter } from "next/navigation";
 import { DoorOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import {
+  isMasterDataPath,
   rememberEventSeries,
   rescopedPath,
   selectedEventSeriesIdFrom,
@@ -32,6 +34,13 @@ type RowProps = {
   onSelect: (id: string) => void;
 };
 
+/**
+ * The grey a pressed template is filled with. `secondary` is greyscale but sits at 0.97, which
+ * against a white row leaves pressed and unpressed telling each other apart by nothing.
+ */
+const PRESSED_TEMPLATE =
+  "bg-foreground/75 text-background hover:bg-foreground/65 active:bg-foreground/60";
+
 function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps) {
   return (
     <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
@@ -43,6 +52,7 @@ function TagRow({ label, eventSeries, selectedId, variant, onSelect }: RowProps)
             type="button"
             size="sm"
             variant={pressed ? variant : "outline"}
+            className={cn(pressed && variant === "secondary" && PRESSED_TEMPLATE)}
             aria-pressed={pressed}
             onClick={() => onSelect(one.id)}
           >
@@ -74,7 +84,9 @@ export function EventSeriesTagRows() {
 
   const live = eventSeries.filter((one) => !one.isArchived);
   const series = live.filter((one) => !one.isTemplate);
-  const templates = live.filter((one) => one.isTemplate);
+  // A template holds lists and no registrations, so it has nothing an overview, an assignment or
+  // a report could show. Only where the lists are maintained is it worth offering (US-22).
+  const templates = isMasterDataPath(pathname) ? live.filter((one) => one.isTemplate) : [];
 
   function select(id: string) {
     rememberEventSeries(id);
@@ -84,7 +96,7 @@ export function EventSeriesTagRows() {
   if (live.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-1 flex-col gap-1">
       <TagRow
         label={EVENT_SERIES_ROW_LABEL}
         eventSeries={series}

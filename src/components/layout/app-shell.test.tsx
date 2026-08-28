@@ -23,6 +23,30 @@ describe("AppShell", () => {
     expect(screen.getByRole("banner")).toHaveTextContent("Sportsweek");
   });
 
+  /**
+   * The bar spans both rows so that it runs to the top of the window, which puts the brand
+   * inside it — and leaves the header holding only what is about the page below it.
+   */
+  it("hands the brand to the navigation bar where there is one", () => {
+    render(
+      <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>}>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("banner")).not.toHaveTextContent("Sportsweek");
+  });
+
+  it("keeps the brand in the header for a student, who is given no bar", () => {
+    render(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("banner")).toHaveTextContent("Sportsweek");
+  });
+
   it("brands the header with the school's logo, ahead of the title", () => {
     render(
       <AppShell>

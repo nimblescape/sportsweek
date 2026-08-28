@@ -4,7 +4,34 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { rescopedPath, selectedEventSeriesIdFrom } from "@/lib/event-series/event-series-selection";
+import {
+  isMasterDataPath,
+  rescopedPath,
+  selectedEventSeriesIdFrom,
+} from "@/lib/event-series/event-series-selection";
+
+/**
+ * Where a teacher is maintaining what a series is made of, as against looking at what its
+ * students answered. Only there is a template worth offering: it holds lists and no
+ * registrations, so it has nothing to show an overview, an assignment or a report (US-22).
+ */
+describe("isMasterDataPath", () => {
+  it.each([
+    "/app/event-series",
+    "/app/event-series/s1",
+    "/app/s1/master-data/classes",
+    "/app/s1/master-data/programs",
+  ])("counts %s as maintaining master data", (pathname) => {
+    expect(isMasterDataPath(pathname)).toBe(true);
+  });
+
+  it.each(["/app/s1/overview", "/app/s1/assignment", "/app/s1/report", "/app/my-registration"])(
+    "counts %s as looking at students",
+    (pathname) => {
+      expect(isMasterDataPath(pathname)).toBe(false);
+    },
+  );
+});
 
 describe("selectedEventSeriesIdFrom", () => {
   it.each([

@@ -60,10 +60,6 @@
 /* Breakpoints follow the Tailwind defaults: base = mobile, md = tablet, lg = desktop. */
 
 :root {
-  /* Fixed, so the columns beside it can be told what is left of the window. Deriving that from
-     the flex layout instead works in Chrome and not in Safari, which will not resolve a stretch
-     through a scroll container whose own height comes from flex-grow. */
-  --header-height: 3rem;
   /* The single accent colour, at the hue of the HTL logo's slate. Nothing else may add chroma. */
   --brand: oklch(0.55 0.17 250);
   --brand-foreground: oklch(0.985 0 0);

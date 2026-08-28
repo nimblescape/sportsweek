@@ -47,6 +47,7 @@ describe("EventSeriesTagRows", () => {
   });
 
   it("puts the templates in a row of their own", () => {
+    pathname.mockReturnValue("/app/s1/master-data/classes");
     showing(
       seriesNamed("s1", "Wintersportwoche"),
       seriesNamed("t1", "Wintersportwochen", { isTemplate: true }),
@@ -67,6 +68,7 @@ describe("EventSeriesTagRows", () => {
 
   /** A school that never makes one never sees a space set aside for it (US-20). */
   it("leaves the template row out entirely when there are none", () => {
+    pathname.mockReturnValue("/app/s1/master-data/classes");
     showing(seriesNamed("s1", "Wintersportwoche"));
 
     render(<EventSeriesTagRows />);
@@ -74,8 +76,44 @@ describe("EventSeriesTagRows", () => {
     expect(screen.queryByRole("group", { name: TEMPLATE_ROW_LABEL })).not.toBeInTheDocument();
   });
 
+  /**
+   * A template holds lists and no registrations, so it has nothing an overview, an assignment or
+   * a report could show. Only where the lists themselves are maintained is it worth offering.
+   */
+  it.each(["/app/s1/overview", "/app/s1/assignment", "/app/s1/report"])(
+    "offers no template on %s, leaving the series the whole width",
+    (path) => {
+      pathname.mockReturnValue(path);
+      showing(
+        seriesNamed("s1", "Wintersportwoche"),
+        seriesNamed("t1", "Wintersportwochen", { isTemplate: true }),
+      );
+
+      render(<EventSeriesTagRows />);
+
+      expect(screen.queryByRole("group", { name: TEMPLATE_ROW_LABEL })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Wintersportwochen/ })).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(["/app/event-series", "/app/s1/master-data/programs"])(
+    "offers the templates on %s, where the lists are maintained",
+    (path) => {
+      pathname.mockReturnValue(path);
+      showing(
+        seriesNamed("s1", "Wintersportwoche"),
+        seriesNamed("t1", "Wintersportwochen", { isTemplate: true }),
+      );
+
+      render(<EventSeriesTagRows />);
+
+      expect(screen.getByRole("group", { name: TEMPLATE_ROW_LABEL })).toBeInTheDocument();
+    },
+  );
+
   /** Archived is what takes a series off every screen, the header included (US-19). */
   it("shows an archived series in neither row", () => {
+    pathname.mockReturnValue("/app/s1/master-data/classes");
     showing(
       seriesNamed("s1", "Wintersportwoche"),
       seriesNamed("old", "Letztes Jahr", { isArchived: true }),

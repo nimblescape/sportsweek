@@ -32,6 +32,19 @@ export function selectedEventSeriesIdFrom(pathname: string): string | null {
 }
 
 /**
+ * Whether the page is about what a series is made of rather than what its students answered.
+ * The navigation marks its own section by it, and the header offers the templates only here:
+ * a template holds lists and no registrations, so it has nothing an overview, an assignment or
+ * a report could show (US-22).
+ */
+export function isMasterDataPath(pathname: string): boolean {
+  if (pathname === ROUTES.eventSeries || pathname.startsWith(`${ROUTES.eventSeries}/`)) return true;
+
+  const selected = selectedEventSeriesIdFrom(pathname);
+  return selected !== null && pathname.startsWith(`${eventSeriesRoutes(selected).masterData}`);
+}
+
+/**
  * Where pressing a header tag goes. Selecting another series re-scopes the page that is open
  * rather than navigating away from it (US-20) — the teacher asked a different question about the
  * same view. From a page that is about no series there is no view to keep, so the overview opens:

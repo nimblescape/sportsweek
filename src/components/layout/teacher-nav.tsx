@@ -10,6 +10,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChartColumn, ChevronLeft, ChevronRight, Database, FileText, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Brand } from "@/components/layout/brand";
 import { masterDataSections } from "@/lib/master-data/categories";
 import { selectedEventSeriesIdFrom } from "@/lib/event-series/event-series-selection";
 import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
@@ -64,8 +65,12 @@ export function TeacherNav({
   return (
     <nav
       aria-label="Hauptnavigation"
-      className={cn("flex flex-col gap-1 p-3", collapsed ? "md:w-16" : "md:w-56")}
+      className={cn("flex h-full flex-col gap-1 p-3", collapsed ? "md:w-16" : "md:w-56")}
     >
+      {/* Heads the bar rather than the header, because the bar runs to the top of the window and
+          the column beside it is where a page begins. */}
+      <Brand nameHidden={collapsed} />
+
       {(eventSeriesId === null ? [] : topLevel(eventSeriesId)).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
@@ -76,7 +81,7 @@ export function TeacherNav({
             title={collapsed ? label : undefined}
             className={itemClasses(active)}
           >
-            <Icon aria-hidden className="size-4 shrink-0" />
+            <Icon aria-hidden className="size-6 shrink-0" />
             <span className={labelClasses}>{label}</span>
           </Link>
         );
@@ -90,7 +95,7 @@ export function TeacherNav({
         title={collapsed ? "Stammdaten" : undefined}
         className={cn(itemClasses(inMasterData), "text-left")}
       >
-        <Database aria-hidden className="size-4 shrink-0" />
+        <Database aria-hidden className="size-6 shrink-0" />
         <span className={labelClasses}>Stammdaten</span>
       </button>
 
@@ -105,7 +110,7 @@ export function TeacherNav({
               >
                 {/* Stands in for the icon above it, so the text lines up by being laid out the
                     same way rather than by a padding that has to add up to the same number. */}
-                <span aria-hidden className="size-4 shrink-0" />
+                <span aria-hidden className="size-6 shrink-0" />
                 {label}
               </Link>
             </li>
@@ -122,9 +127,9 @@ export function TeacherNav({
       >
         {/* Points the way the bar is about to move. */}
         {collapsed ? (
-          <ChevronRight aria-hidden className="size-4 shrink-0" />
+          <ChevronRight aria-hidden className="size-6 shrink-0" />
         ) : (
-          <ChevronLeft aria-hidden className="size-4 shrink-0" />
+          <ChevronLeft aria-hidden className="size-6 shrink-0" />
         )}
       </button>
     </nav>
