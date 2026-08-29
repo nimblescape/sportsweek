@@ -93,7 +93,9 @@ As the system, I tell apart what a person _is_ from what they _may do_, so that 
 - A teacher holding no permission can reach no page and perform no write. They are told so rather than redirected.
 - A student holds no permissions, whatever their record may list: they are refused by their account type, ahead of anything else.
 - Permissions are read from the user record rather than from the session token, so a grant or a withdrawal takes effect on the next request rather than the next sign-in.
-- The first teacher to sign in at a school is created holding every permission that can be held at once, there being nobody yet who could grant one. Where two exclude each other that is the stronger of them, so "everything" is never a set the rules would refuse. Every teacher after them is created holding none.
+- Signing in grants nothing. Every teacher is created holding no permissions, however early they arrive.
+- The administrators a school starts with are written by the seeding script, in every environment including production, holding every permission that can be held at once. Where two exclude each other that is the stronger of them, so what is seeded is never a set the rules would refuse.
+- Seeding is therefore part of setting an environment up: without it there is nobody who could grant a permission, and no way to become that person from inside the application.
 
 ### US-3: Account type assigned by Entra ID domain
 

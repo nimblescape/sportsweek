@@ -46,9 +46,10 @@ const { ReportView: ScopedReportView } = await import("./report-view");
 const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");
 
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
-// only has to be present.
-function ReportView() {
-  return <ScopedReportView eventSeriesId="s1" />;
+// only has to be present. The page also decides whether what is set up here may be kept, which
+// these tests take as granted unless they are about the refusal.
+function ReportView({ mayEdit = true }: { mayEdit?: boolean } = {}) {
+  return <ScopedReportView eventSeriesId="s1" mayEdit={mayEdit} />;
 }
 
 function student(

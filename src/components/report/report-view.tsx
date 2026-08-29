@@ -46,7 +46,13 @@ function CardHeading({ children }: { children: string }) {
  * it — including the students who answered "no", which is what sets it apart from the assignment
  * dialog and is why its filter carries categories the board has no use for.
  */
-export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
+export function ReportView({
+  eventSeriesId,
+  mayEdit = false,
+}: {
+  eventSeriesId: string;
+  mayEdit?: boolean;
+}) {
   const { eventSeries, missing, error, students, filterGroups } = useEventSeriesRoster(
     eventSeriesId,
     {
@@ -201,6 +207,7 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
               <SavedReportTagList
                 reports={savedReports}
                 current={selection}
+                mayEdit={mayEdit}
                 onOpen={openReport}
                 onSave={saveReport}
                 onUpdate={editReport}

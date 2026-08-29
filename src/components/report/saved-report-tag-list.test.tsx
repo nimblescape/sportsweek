@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag, type StudentFilter } from "@/lib/filters/student-filter";
 import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
 import { stubTagRowLayout } from "@/test/stub-tag-row-layout";
-import { SavedReportTagList } from "./saved-report-tag-list";
+import { SavedReportTagList, MAY_NOT_EDIT_HINT } from "./saved-report-tag-list";
 
 const selection = toggleTag(EMPTY_FILTER, "class", "5AHIF");
 
@@ -37,10 +37,11 @@ const onRename = vi.fn();
 const onDelete = vi.fn();
 const onReorder = vi.fn();
 
-const row = (reports: readonly SavedReport[], current: ReportSelection) => (
+const row = (reports: readonly SavedReport[], current: ReportSelection, mayEdit = true) => (
   <SavedReportTagList
     reports={reports}
     current={current}
+    mayEdit={mayEdit}
     onOpen={onOpen}
     onSave={onSave}
     onUpdate={onUpdate}
@@ -523,5 +524,47 @@ describe("renaming and deleting from within the tag", () => {
     expect(
       screen.queryByRole("button", { name: "Löschen von Alle Mädchen bestätigen" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Viewing a report and keeping one are two permissions (US-2). Somebody who may only view still
+ * opens any saved report — they are shared — but is offered no way to change what is stored.
+ */
+describe("SavedReportTagList — without the permission to edit", () => {
+  const viewing = () => render(row(REPORTS, CURRENT, false));
+
+  it("disables saving, and says why", async () => {
+    viewing();
+
+    const save = screen.getByRole("button", { name: /Bericht speichern/ });
+
+    expect(save).toBeDisabled();
+    expect(screen.getAllByText(MAY_NOT_EDIT_HINT).length).toBeGreaterThan(0);
+  });
+
+  it("still lets a saved report be opened", async () => {
+    viewing();
+
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: 5AHIF" }));
+
+    expect(onOpen).toHaveBeenCalled();
+  });
+
+  it("offers no controls on the tag that was opened", async () => {
+    viewing();
+
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: 5AHIF" }));
+
+    expect(screen.queryByRole("button", { name: /umbenennen/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /löschen/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /aktualisieren/ })).not.toBeInTheDocument();
+  });
+
+  /** Reordering the row is stored too, so it is not offered either. */
+  it("offers no grip to reorder them by", () => {
+    viewing();
+
+    expect(screen.queryByRole("button", { name: /verschieben/ })).not.toBeInTheDocument();
   });
 });

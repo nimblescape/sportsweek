@@ -33,6 +33,7 @@ import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
+import { FULL_PERMISSIONS } from "@/lib/auth/permissions";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import { questionsAsked } from "@/lib/master-data/categories";
@@ -52,6 +53,21 @@ import {
  * can ask for anything else.
  */
 const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
+
+/**
+ * Who a purged school starts out able to administer it, in every environment including
+ * production. Signing in grants nothing on its own, so without these there would be nobody who
+ * could hand out a permission and no way to become that person from inside the application.
+ *
+ * These are records rather than accounts: they sign in through Entra ID like anybody else, and
+ * provisioning then fills in the name and the photo it finds. What it does not touch is what a
+ * record already holds, which is what makes these survive their first login.
+ */
+const ADMINISTRATORS = [
+  { firstName: "Hannes", lastName: "Stauss", email: "hannes.stauss@htldornbirn.at" },
+  { firstName: "Julia", lastName: "Mathis", email: "julia.mathis@htldornbirn.at" },
+  { firstName: "Norbert", lastName: "Lenz", email: "norbert.lenz@htldornbirn.at" },
+] as const;
 
 /** Asks one of them for the bare state instead, which is what a school's first day is. */
 const BARE = "--bare";
@@ -463,6 +479,25 @@ async function confirmed(projectId: string): Promise<boolean> {
   }
 }
 
+/** Writes the administrator records a purged school starts with, in every environment. */
+async function createAdministrators(db: Firestore): Promise<void> {
+  await Promise.all(
+    ADMINISTRATORS.map((person) => {
+      const { id, ...fields } = userSchema.parse({
+        id: person.email,
+        firstName: person.firstName,
+        lastName: person.lastName,
+        email: person.email,
+        accountType: accountTypeSchema.enum.teacher,
+        permissions: [...FULL_PERMISSIONS],
+        photo: null,
+      });
+
+      return db.collection(COLLECTIONS.users).doc(id).set(fields);
+    }),
+  );
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const environment = ENVIRONMENTS.find((allowed) => args.includes(allowed));
@@ -503,6 +538,9 @@ async function main(): Promise<void> {
     seedsStudents,
   );
   console.log(`Created the event series "${eventSeries.name}".`);
+
+  await createAdministrators(db);
+  console.log(`Granted every permission to ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
   if (!seedsStudents) return;

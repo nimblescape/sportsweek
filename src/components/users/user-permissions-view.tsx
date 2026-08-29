@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api/client";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { PageHeading } from "@/components/layout/page-heading";
+import { FilterNameField } from "@/components/filters/filter-name-field";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tag, TagName } from "@/components/ui/tag";
 import {
@@ -18,9 +19,20 @@ import {
   toggledPermissions,
   type Permission,
 } from "@/lib/auth/permissions";
+import {
+  EMPTY_TEACHER_FILTER,
+  clearPermissionTags,
+  filterTeachers,
+  hasNoFilter,
+  togglePermissionTag,
+} from "@/lib/users/teacher-filter";
 import { useTeachers, type Teacher } from "@/lib/users/use-teachers";
 
 export const NO_PERMISSIONS_LABEL = "Keine Rechte";
+
+export const FILTER_LABEL = "Benutzerrechte";
+
+export const NONE_MATCHING_HINT = "Zu diesem Filter passt keine Lehrperson.";
 
 export const OWN_GRANT_HINT =
   "Das Recht, Benutzerrechte zu vergeben, kannst du dir nicht selbst entziehen.";
@@ -45,6 +57,9 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
   const [failure, setFailure] = useState<string | null>(null);
   const { busyId, run } = useRowAction();
   const router = useRouter();
+  const [filter, setFilter] = useState(EMPTY_TEACHER_FILTER);
+
+  const shown = filterTeachers(teachers, filter);
 
   async function grant(teacher: Teacher, permission: Permission) {
     const permissions = toggledPermissions(teacher.permissions, permission);
@@ -85,8 +100,48 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
         <p className="text-muted-foreground text-sm">{NO_TEACHERS_HINT}</p>
       ) : null}
 
+      {/* The row the report is filtered by (US-13), over the staff instead of the students. */}
+      {teachers.length === 0 ? null : (
+        <Card size="sm">
+          <CardContent className="space-y-2">
+            <FilterNameField
+              label={FILTER_LABEL}
+              value={filter.name}
+              onChange={(name) => setFilter({ ...filter, name })}
+            />
+
+            <div
+              role="group"
+              aria-label={`${FILTER_LABEL}: Filter`}
+              className="flex flex-wrap gap-1.5"
+            >
+              <Tag pressed={hasNoFilter(filter)}>
+                <TagName
+                  label={`${FILTER_LABEL}: Alle`}
+                  text="Alle"
+                  onPress={() => setFilter(clearPermissionTags(filter))}
+                />
+              </Tag>
+              {PERMISSIONS.map((permission) => (
+                <Tag key={permission} pressed={filter.permissions.includes(permission)}>
+                  <TagName
+                    label={`${FILTER_LABEL}: ${PERMISSION_LABELS[permission]}`}
+                    text={PERMISSION_LABELS[permission]}
+                    onPress={() => setFilter(togglePermissionTag(filter, permission))}
+                  />
+                </Tag>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && teachers.length > 0 && shown.length === 0 ? (
+        <p className="text-muted-foreground text-sm">{NONE_MATCHING_HINT}</p>
+      ) : null}
+
       <ul className="flex flex-col gap-3">
-        {teachers.map((teacher) => (
+        {shown.map((teacher) => (
           <li key={teacher.upn}>
             <Card size="sm">
               <CardContent className="flex flex-col gap-2">

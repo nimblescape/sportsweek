@@ -17,8 +17,13 @@ vi.mock("@/lib/api/client", () => ({ apiRequest: (...args: unknown[]) => apiRequ
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
-const { UserPermissionsView, OWN_GRANT_HINT, NO_PERMISSIONS_LABEL } =
-  await import("@/components/users/user-permissions-view");
+const {
+  UserPermissionsView,
+  OWN_GRANT_HINT,
+  NO_PERMISSIONS_LABEL,
+  FILTER_LABEL,
+  NONE_MATCHING_HINT,
+} = await import("@/components/users/user-permissions-view");
 
 const ADA = { upn: "ada@htldornbirn.at", firstName: "Ada", lastName: "Auer" };
 const BOB = { upn: "bob@htldornbirn.at", firstName: "Bob", lastName: "Berger" };
@@ -211,5 +216,72 @@ describe("UserPermissionsView", () => {
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+/** The same row the report is filtered by (US-13), over the staff instead of the students. */
+describe("UserPermissionsView — filtering", () => {
+  const nameField = () => screen.getByRole("textbox", { name: `${FILTER_LABEL}: Name` });
+  const filterTag = (label: string) =>
+    screen.getByRole("button", { name: `${FILTER_LABEL}: ${label}` });
+  const shown = () =>
+    screen
+      .getAllByRole("listitem")
+      .map((item) => item.querySelector("[data-slot='card'] span")?.textContent);
+
+  beforeEach(() => {
+    teachers(
+      { ...ADA, permissions: ["editUsers"] },
+      { ...BOB, permissions: ["editMasterData"] },
+      { upn: "cla@htldornbirn.at", firstName: "Clara", lastName: "Cerny" },
+    );
+  });
+
+  it("shows everybody before anything is filtered", () => {
+    show();
+
+    expect(shown()).toEqual(["Auer Ada", "Berger Bob", "Cerny Clara"]);
+  });
+
+  it("narrows to the name that was typed", async () => {
+    show();
+
+    await userEvent.type(nameField(), "berg");
+
+    expect(shown()).toEqual(["Berger Bob"]);
+  });
+
+  it("narrows to whoever holds a pressed permission", async () => {
+    show();
+
+    await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
+
+    expect(shown()).toEqual(["Auer Ada"]);
+  });
+
+  it("shows everybody again when Alle is pressed", async () => {
+    show();
+    await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
+
+    await userEvent.click(screen.getByRole("button", { name: `${FILTER_LABEL}: Alle` }));
+
+    expect(shown()).toHaveLength(3);
+  });
+
+  it("says so when the filter matches nobody", async () => {
+    show();
+
+    await userEvent.type(nameField(), "zzz");
+
+    expect(screen.getByText(NONE_MATCHING_HINT)).toBeInTheDocument();
+  });
+
+  /** A tag on a row is what a teacher holds; a tag in the filter is what to narrow by. */
+  it("keeps the filter tags apart from the tags that grant", async () => {
+    show();
+
+    await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
+
+    expect(apiRequest).not.toHaveBeenCalled();
   });
 });
