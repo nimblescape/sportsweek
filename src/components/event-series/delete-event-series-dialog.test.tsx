@@ -184,3 +184,55 @@ describe("DeleteEventSeriesDialog", () => {
     expect(onDeleted).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Typing the name out is what a series with registrations earns; being asked at all is what
+ * every deletion earns. Without registrations there is nothing to lose but the setup, so the
+ * dialog states what goes and takes yes for an answer (US-4).
+ */
+describe("DeleteEventSeriesDialog — with nothing registered", () => {
+  const empty = { id: "s2", ...storedEventSeries({ name: "Winter 2027" }) };
+
+  function renderEmpty() {
+    const onDeleted = vi.fn();
+    render(
+      <DeleteEventSeriesDialog open eventSeries={empty} onClose={vi.fn()} onDeleted={onDeleted} />,
+    );
+    return { onDeleted };
+  }
+
+  it("asks for no typed confirmation", () => {
+    stubFetch(noContent);
+    renderEmpty();
+
+    expect(screen.queryByLabelText(/Name der Eventreihe/)).not.toBeInTheDocument();
+  });
+
+  it("offers the deletion straight away", () => {
+    stubFetch(noContent);
+    renderEmpty();
+
+    expect(deleteButton()).toBeEnabled();
+  });
+
+  it("deletes on the press", async () => {
+    const fetchMock = stubFetch(noContent);
+    const { onDeleted } = renderEmpty();
+
+    await userEvent.click(deleteButton());
+
+    await waitFor(() => expect(onDeleted).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/event-series/s2",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
+  it("still says what is being deleted, and that it cannot be undone", () => {
+    stubFetch(noContent);
+    renderEmpty();
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("Winter 2027");
+    expect(screen.getByRole("dialog")).toHaveTextContent(/nicht rückgängig/i);
+  });
+});

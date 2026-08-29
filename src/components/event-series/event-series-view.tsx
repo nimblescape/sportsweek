@@ -52,13 +52,10 @@ export function EventSeriesView() {
     }
   }
 
-  // Typing the name out only earns its keep when there are registrations to lose (US-4).
+  // Irreversible either way, so it is always asked; the dialog decides whether the name has to
+  // be typed out as well (US-4).
   function handleDelete(eventSeries: EventSeries) {
-    if (eventSeries.hasRegistrations) {
-      setDialog({ kind: "delete", eventSeries });
-    } else {
-      void writeEventSeries(eventSeries, { method: "DELETE" });
-    }
+    setDialog({ kind: "delete", eventSeries });
   }
 
   return (
