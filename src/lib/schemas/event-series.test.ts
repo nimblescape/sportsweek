@@ -10,7 +10,6 @@ const validEventSeries = {
   id: "event series-1",
   name: "Wintersportwoche 2026",
   nameKey: "wintersportwoche 2026",
-  isTemplate: false,
   isArchived: false,
   isOpenToStudents: false,
   hasRegistrations: false,
@@ -33,7 +32,7 @@ describe("eventSeriesSchema", () => {
     expect(eventSeriesSchema.safeParse({ ...validEventSeries, name: "" }).success).toBe(false);
   });
 
-  it.each(["isTemplate", "isArchived", "isOpenToStudents", "hasRegistrations"])(
+  it.each(["isArchived", "isOpenToStudents", "hasRegistrations"])(
     "requires %s to be a boolean",
     (field) => {
       expect(eventSeriesSchema.safeParse({ ...validEventSeries, [field]: "yes" }).success).toBe(
@@ -42,21 +41,20 @@ describe("eventSeriesSchema", () => {
     },
   );
 
-  // A series stored before either flag existed is neither a template nor open, which is what a
-  // teacher would expect of one they have not touched since (US-19, US-22).
-  it.each(["isTemplate", "isOpenToStudents"])("defaults %s to false", (field) => {
+  // A series stored before the flag existed is not open, which is what a teacher would expect of
+  // one they have not touched since (US-19).
+  it("defaults isOpenToStudents to false", () => {
     const without = Object.fromEntries(
-      Object.entries(validEventSeries).filter(([key]) => key !== field),
+      Object.entries(validEventSeries).filter(([key]) => key !== "isOpenToStudents"),
     );
 
-    expect(eventSeriesSchema.parse(without)).toMatchObject({ [field]: false });
+    expect(eventSeriesSchema.parse(without)).toMatchObject({ isOpenToStudents: false });
   });
 
   it("carries no state field of its own, since what the list shows is derived", () => {
     expect(Object.keys(eventSeriesSchema.shape).sort()).toEqual(
       [
         "id",
-        "isTemplate",
         "isArchived",
         "isOpenToStudents",
         "hasRegistrations",

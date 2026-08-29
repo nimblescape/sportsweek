@@ -26,8 +26,6 @@ entity "EventSeries" as eventSeries {
                     ' sent by a client. Uniqueness is an equality query on this inside the write's
                     ' own transaction — an equality on name would compare exact strings and lose
                     ' the case- and whitespace-insensitivity the rule asks for (US-4, US-21)
-  isTemplate : boolean  ' a template can never be opened to students; it is selected and its
-                        ' lists are maintained like any other series' (US-19, US-22)
   isOpenToStudents : boolean  ' whether students may join this series and go on amending what
                               ' they said. Any number may be open at once; an invitation link
                               ' sets it, archiving clears it, unarchiving does not restore it

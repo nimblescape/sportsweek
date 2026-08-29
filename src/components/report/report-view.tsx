@@ -47,7 +47,7 @@ function CardHeading({ children }: { children: string }) {
  * dialog and is why its filter carries categories the board has no use for.
  */
 export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, loading, error, students, filterGroups } = useEventSeriesRoster(
+  const { eventSeries, missing, error, students, filterGroups } = useEventSeriesRoster(
     eventSeriesId,
     {
       attendance: true,
@@ -64,8 +64,9 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
   const [outputError, setOutputError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading || exporting);
+  // Answered by the one spinner in the header, so this view places none of its own. The read is
+  // not reported: a teacher moving between the pages of a series has started nothing to wait for.
+  useBusyWhile(exporting);
 
   const shown = useMemo(() => filterStudents(students, filter), [students, filter]);
   const fields = useMemo(() => reportFieldsOf(activeFields), [activeFields]);
@@ -188,9 +189,11 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
       )}
 
       {eventSeries === null ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          {NO_EVENT_SERIES_HINT}
-        </p>
+        missing ? (
+          <p role="status" className="text-muted-foreground text-sm">
+            {NO_EVENT_SERIES_HINT}
+          </p>
+        ) : null
       ) : (
         <>
           <Card>

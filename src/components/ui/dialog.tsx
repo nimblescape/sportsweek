@@ -7,7 +7,6 @@
 
 import * as React from "react";
 import { X } from "lucide-react";
-import { BusyBar } from "@/components/layout/busy-bar";
 import { cn } from "@/lib/utils";
 
 type DialogProps = {
@@ -53,7 +52,14 @@ export function Dialog({
   React.useEffect(() => {
     if (!element) return;
 
-    if (open && !element.open) element.showModal();
+    if (open && !element.open) {
+      element.showModal();
+      // `showModal()` focuses whatever it reaches first, which is the close cross in the corner.
+      // A dialog that opens asking for a name should be ready to be typed into.
+      element
+        .querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled])")
+        ?.focus();
+    }
     if (!open && element.open) element.close();
   }, [open, element]);
 
@@ -99,12 +105,7 @@ export function Dialog({
       </div>
 
       {footer ? (
-        <div className="bg-muted/50 flex items-center justify-end gap-2 border-t p-4">
-          {/* The one in the header is behind the backdrop while this is open, and a dialog is
-              where the slowest writes are started. At the near end, away from the controls. */}
-          <BusyBar className="mr-auto" />
-          {footer}
-        </div>
+        <div className="bg-muted/50 flex items-center justify-end gap-2 border-t p-4">{footer}</div>
       ) : null}
     </dialog>
   );

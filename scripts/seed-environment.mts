@@ -7,17 +7,17 @@
  * Resets a project to its defaults: everything is deleted, and what this script writes is then
  * all it holds.
  *
- * | production           | the "Wintersportwochen" template, and nothing besides        |
- * | development, staging | that template, then a series, a roster and its registrations |
+ * | production, development | one event series with the lists that are the same every year |
+ * | staging                 | that series, filled in, plus a roster and its registrations  |
  *
  * Seeding on top of what a project already holds says nothing about whether the application put
  * it there, so the point of a seeded environment — that its contents are known — needs the delete
  * as much as the write.
  *
- * `--template-only` asks a test environment for the bare state production gets, which is what a
- * school's first day looks like. It can only ever leave a project holding less, so production
- * still receives no invented person whatever is passed — that stays true by construction rather
- * than by a check, because no argument adds anything anywhere.
+ * `--bare` asks staging for the same bare state, which is what a school's first day looks like.
+ * It can only ever leave a project holding less, so nowhere else receives an invented person
+ * whatever is passed — that stays true by construction rather than by a check, because no
+ * argument adds anything anywhere.
  *
  * Emptying production is a legitimate admin task and is not fenced off, but it is the one thing
  * here that cannot be undone, so it asks for the project id to be typed back first.
@@ -47,13 +47,20 @@ import {
 } from "./environment.mjs";
 
 /**
- * Where inventing people is allowed. Production is absent by construction, not by a check: it
- * gets the defaults and stops, because no argument can ask for anything else.
+ * Where a purge needs no ceremony, because there is nothing in them that anyone would miss.
+ * Production is absent by construction rather than by a check.
  */
 const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
 
-/** Leaves a test environment as bare as production, which is what a school's first day is. */
-const TEMPLATE_ONLY = "--template-only";
+/**
+ * Where inventing people is allowed. Development is not: what it is for is working on the
+ * application, and a school's own first day is a roster of nobody — so a made-up one hides every
+ * empty state behind data that only exists here.
+ */
+const POPULATED_ENVIRONMENTS: readonly Environment[] = [STAGING];
+
+/** Leaves a populated environment as bare as the rest, which is what a school's first day is. */
+const BARE = "--bare";
 
 /** Both listUsers and deleteUsers cap a single call at this many accounts. */
 const USER_PAGE_SIZE = 1000;
@@ -84,13 +91,6 @@ const CATEGORY_DEFAULTS = {
 >;
 
 /**
- * Plural on purpose: a template is the pattern behind every Wintersportwoche the school runs,
- * not one of them. What a teacher makes from it is singular and dated, so the two cannot collide
- * under the uniqueness rule (Q14).
- */
-const TEMPLATE_NAME = "Wintersportwochen";
-
-/**
  * What a purged environment gets so there is somewhere to put students. The application seeds
  * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
  * Kulturwoche — so a fresh project holds only what is written here.
@@ -98,9 +98,16 @@ const TEMPLATE_NAME = "Wintersportwochen";
 const DEFAULT_EVENT_SERIES_NAME = "Wintersportwochen 2026/2027";
 
 /**
- * The seven maintained lists of that event series: its own two, then the five the template hands
- * on, taken from the same place production takes them.
+ * What production gets: the five lists that are the same every year, and nothing for the two that
+ * are not. Which weeks there are and which classes go on them is what a teacher fills in.
  */
+const BARE_LISTS = {
+  events: [],
+  classOptions: [],
+  ...CATEGORY_DEFAULTS,
+} satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
+
+/** The seven maintained lists as a test environment wants them, filled in far enough to use. */
 const MASTER_DATA_DEFAULTS = {
   events: ["Woche 1", "Woche 2", "Woche 3"],
   classOptions: ["2aWI", "2bWI", "2cWI"],
@@ -380,40 +387,25 @@ async function purgeAuth(auth: Auth): Promise<number> {
 /**
  * The one event series a school cannot be without: every teacher view is scoped to a selection,
  * so with none at all the header offers nothing and the navigation bar points nowhere. Deleting
- * the last unarchived template is refused, so once this has run that state is out of reach.
+ * the last unarchived one is refused, so once this has run that state is out of reach.
  *
- * An ordinary event series with the template flag set, indistinguishable from one a teacher could
- * have made by hand — so the first real series is created from it through US-22's ordinary copy.
+ * Open only where the students are invented too: seeding stands in for the invitation link a
+ * teacher would hand out (US-23), and production has nobody to let in yet.
  */
-async function createTemplate(db: Firestore): Promise<void> {
-  await db.collection(COLLECTIONS.eventSeries).add({
-    name: TEMPLATE_NAME,
-    nameKey: normalizeName(TEMPLATE_NAME),
-    isTemplate: true,
-    isArchived: false,
-    isOpenToStudents: false,
-    hasRegistrations: false,
-    position: 0,
-    // What differs every year, and what a teacher fills in for the series they make from this.
-    events: [],
-    classOptions: [],
-    ...CATEGORY_DEFAULTS,
-  });
-}
-
-/** Open from the start: seeding stands in for the invitation link a teacher would hand out (US-23). */
-async function createOpenEventSeries(db: Firestore): Promise<EventSeries> {
+async function createEventSeries(
+  db: Firestore,
+  lists: typeof BARE_LISTS | typeof MASTER_DATA_DEFAULTS,
+  isOpenToStudents: boolean,
+): Promise<EventSeries> {
   // The lists live in this document (US-21), so seeding them is part of creating it.
   const data = {
     name: DEFAULT_EVENT_SERIES_NAME,
     nameKey: normalizeName(DEFAULT_EVENT_SERIES_NAME),
-    isTemplate: false,
     isArchived: false,
-    isOpenToStudents: true,
+    isOpenToStudents,
     hasRegistrations: false,
-    // After the template, which took the first place.
-    position: 1,
-    ...MASTER_DATA_DEFAULTS,
+    position: 0,
+    ...lists,
   };
   const reference = db.collection(COLLECTIONS.eventSeries).doc();
   await reference.set(data);
@@ -442,19 +434,19 @@ async function confirmed(projectId: string): Promise<boolean> {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const environment = ENVIRONMENTS.find((allowed) => args.includes(allowed));
-  const unknown = args.filter((arg) => arg !== environment && arg !== TEMPLATE_ONLY);
+  const unknown = args.filter((arg) => arg !== environment && arg !== BARE);
   if (environment === undefined || unknown.length > 0) {
     fail(
-      `Usage: npm run seed:<environment> [-- ${TEMPLATE_ONLY}],`,
+      `Usage: npm run seed:<environment> [-- ${BARE}],`,
       `where <environment> is ${ENVIRONMENTS.join(", ")}.`,
-      `${TEMPLATE_ONLY} leaves a test environment as bare as production.`,
+      `${BARE} leaves ${POPULATED_ENVIRONMENTS.join(", ")} as bare as the rest.`,
     );
   }
 
   const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
   const isTest = TEST_ENVIRONMENTS.includes(environment);
-  // Production is bare whatever is asked, so the flag changes nothing there and is not refused.
-  const seedsStudents = isTest && !args.includes(TEMPLATE_ONLY);
+  // Only staging invents people, so the flag changes nothing anywhere else and is not refused.
+  const seedsStudents = POPULATED_ENVIRONMENTS.includes(environment) && !args.includes(BARE);
 
   if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
 
@@ -471,16 +463,17 @@ async function main(): Promise<void> {
   if (collections.length === 0) console.log("  no collections");
   console.log(`  ${accounts} account(s)`);
 
-  // First, both because a school starts from one and because it takes position 0 in the order.
-  await createTemplate(db);
-  console.log(`Created the template "${TEMPLATE_NAME}".`);
+  // The lists are fields of the event series (US-21), so there is nothing to read until it
+  // exists — and creating it is what seeds them, since the application no longer does.
+  const eventSeries = await createEventSeries(
+    db,
+    seedsStudents ? MASTER_DATA_DEFAULTS : BARE_LISTS,
+    seedsStudents,
+  );
+  console.log(`Created the event series "${eventSeries.name}".`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
   if (!seedsStudents) return;
-
-  // The lists are fields of the event series (US-21), so there is nothing to read until it
-  // exists — and creating it is what seeds them, since the application no longer does.
-  const eventSeries = await createOpenEventSeries(db);
 
   const programs = eventSeries.programs;
   const named = PROGRAM_SHARES.map(([name]) => programs.find((program) => program.name === name));

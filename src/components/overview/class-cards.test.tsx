@@ -619,7 +619,7 @@ describe("ClassCards — removing a registration", () => {
     expect(dialog.getByText(nameOf(jane))).toBeInTheDocument();
   });
 
-  /** An archived series is read-only, and a template has no registrations to remove (US-19). */
+  /** An archived series is read-only, so nothing on it can be removed (US-19). */
   it("offers nothing at all where the series cannot be written to", async () => {
     setup([jane], null);
 

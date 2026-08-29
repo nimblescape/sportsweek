@@ -19,7 +19,6 @@ export function storedEventSeries(
 ): Omit<EventSeries, "id"> {
   const eventSeries = {
     name: "Wintersportwoche 2026",
-    isTemplate: false,
     isArchived: false,
     isOpenToStudents: false,
     hasRegistrations: false,

@@ -7,7 +7,6 @@
 
 import { classOverview } from "@/lib/assignment/statistics";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
-import { useBusyWhile } from "@/lib/api/busy";
 import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { PageHeading } from "@/components/layout/page-heading";
 import { useInvitations } from "@/lib/invitations/use-invitations";
@@ -19,14 +18,11 @@ import { ClassCards } from "./class-cards";
  * its tag in the header, which names the series it concerns and is on screen from every page.
  */
 export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, loading, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
+  const { eventSeries, missing, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
   const invitations = useInvitations(eventSeriesId);
 
-  // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading);
-
-  // Neither can ever be open, so neither has anyone to invite (US-19, US-22).
-  const openable = eventSeries !== null && !eventSeries.isTemplate && !eventSeries.isArchived;
+  // An archived series is read-only, so it has nobody left to invite (US-19).
+  const openable = eventSeries !== null && !eventSeries.isArchived;
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
@@ -39,9 +35,11 @@ export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
       )}
 
       {eventSeries === null ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          {NO_EVENT_SERIES_HINT}
-        </p>
+        missing ? (
+          <p role="status" className="text-muted-foreground text-sm">
+            {NO_EVENT_SERIES_HINT}
+          </p>
+        ) : null
       ) : (
         <ClassCards
           rows={classOverview(students, classes, columns)}

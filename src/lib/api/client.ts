@@ -8,6 +8,9 @@ import { holdRequest } from "@/lib/api/requests";
 
 const GENERIC_MESSAGE = "Das hat leider nicht geklappt.";
 
+/** What a read takes instead of a hold, so the release in the `finally` needs no condition. */
+const NOT_REPORTED = () => {};
+
 /** Carries the server's German message, which is written to be shown to the user unchanged. */
 export class ApiRequestError extends Error {
   constructor(
@@ -39,15 +42,16 @@ async function readError(response: Response): Promise<ApiRequestError> {
 /**
  * Every request the browser makes to this application's own API, and the only place one is made.
  *
- * It reports itself busy for as long as it is out, so the spinner speaks for every write without
- * a caller having to remember to say so — which is what keeps a control that forgot from being
- * possible at all.
+ * A write reports itself busy for as long as it is out, so the spinner speaks for every one of
+ * them without a caller having to remember to say so — which is what keeps a control that forgot
+ * from being possible at all. A read reports nothing: the indicator answers for what the teacher
+ * started, and the pages of a series fetch as they are opened.
  */
 export async function apiRequest<T = unknown>(
   url: string,
   { method, body }: RequestOptions,
 ): Promise<T | null> {
-  const release = holdRequest();
+  const release = method === "GET" ? NOT_REPORTED : holdRequest();
   try {
     let response: Response;
     try {

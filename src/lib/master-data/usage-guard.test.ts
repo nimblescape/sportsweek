@@ -225,6 +225,29 @@ describe("usageReport", () => {
     ).resolves.toEqual({ blockedNames: [], blockedEquipment: {} });
   });
 
+  /**
+   * The event is the one value a teacher sets rather than a student (US-12), so it is easy to
+   * think of the list as theirs to change. A registration points at it by name all the same.
+   */
+  it("blocks an event a student is assigned to", async () => {
+    seedRegistration("r1", SERIES, { event: "Woche 1" });
+
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES.events, [
+        { name: "Woche 1" },
+        { name: "Woche 2" },
+      ]),
+    ).resolves.toEqual({ blockedNames: ["Woche 1"], blockedEquipment: {} });
+  });
+
+  it("leaves an event nobody is assigned to alone", async () => {
+    seedRegistration("r1", SERIES, { event: null });
+
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES.events, [{ name: "Woche 1" }]),
+    ).resolves.toEqual({ blockedNames: [], blockedEquipment: {} });
+  });
+
   it("leaves the registrations of another event series out of it", async () => {
     seedRegistration("r1", "s2", { class: "3AHIT" });
 

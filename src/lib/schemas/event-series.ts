@@ -18,12 +18,6 @@ export const eventSeriesSchema = z.object({
    * exact strings and lose the case- and whitespace-insensitivity the rule asks for (US-4).
    */
   nameKey: z.string().min(1),
-  /**
-   * A template is an event series that can never be opened to students (US-22, Q21). That is the
-   * whole of it: it is selected from the header row and its lists are maintained like any other's,
-   * and it holds no registrations to copy — which is why it is the thing a new series starts from.
-   */
-  isTemplate: z.boolean().default(false),
   isArchived: z.boolean(),
   /**
    * Whether students may write to this series — join it, and go on amending what they said

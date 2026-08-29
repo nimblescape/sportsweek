@@ -403,6 +403,31 @@ describe("deleteMasterDataItem", () => {
     expect(storedList("classOptions")).toEqual(["3AHIT"]);
   });
 
+  /**
+   * An event is assigned by a teacher rather than chosen by a student (US-12), but a registration
+   * points at it by name all the same — so deleting one somebody is on strands the assignment
+   * exactly as deleting a class would. It is a list like any other in this respect.
+   */
+  it("refuses to delete an event a student is assigned to", async () => {
+    seedActiveEventSeries({ events: ["Woche 1", "Woche 2"] });
+    seedRegistration("r1", { event: "Woche 1" });
+
+    await expect(deleteMasterDataItem("events", "Woche 1")).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: IN_USE_HINT,
+    });
+    expect(storedList("events")).toEqual(["Woche 1", "Woche 2"]);
+  });
+
+  it("deletes an event nobody is assigned to", async () => {
+    seedActiveEventSeries({ events: ["Woche 1", "Woche 2"] });
+    seedRegistration("r1", { event: "Woche 1" });
+
+    await deleteMasterDataItem("events", "Woche 2");
+
+    expect(storedList("events")).toEqual(["Woche 1"]);
+  });
+
   /** Deleting a program would take its equipment along, so a rented entry holds it back too. */
   it("refuses to delete a program whose equipment a student still rents", async () => {
     seedActiveEventSeries({ programs: [{ name: "Ski", requiredEquipment: ["Helm"] }] });

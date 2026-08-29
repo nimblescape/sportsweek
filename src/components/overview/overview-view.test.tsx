@@ -115,6 +115,18 @@ describe("OverviewView", () => {
     expect(screen.queryByRole("group", { name: "5AHIF" })).not.toBeInTheDocument();
   });
 
+  /**
+   * The subscription arrives a moment after the page does, and an empty list until then is not
+   * an answer yet. Saying so and taking it back is what made moving between the pages flicker.
+   */
+  it("says nothing about the selection while the list is still arriving", () => {
+    useEventSeries.mockReturnValue({ eventSeries: [], loading: true, error: null });
+
+    render(<OverviewView />);
+
+    expect(screen.queryByText(NO_EVENT_SERIES_HINT)).not.toBeInTheDocument();
+  });
+
   /** The header decides which series a page is about, so several on offer is the normal case. */
   it("counts the event series the page names, not whichever came first", () => {
     useEventSeries.mockReturnValue({
@@ -134,7 +146,7 @@ describe("OverviewView", () => {
  * This page offers no control for it: two controls for one decision would be two answers to it.
  */
 describe("OverviewView — no second registration control", () => {
-  it.each([{}, { isOpenToStudents: false }, { isTemplate: true }, { isArchived: true }])(
+  it.each([{}, { isOpenToStudents: false }, { isArchived: true }])(
     "offers nothing that opens or closes the series, whatever state %o it is in",
     (state) => {
       useEventSeries.mockReturnValue({
@@ -162,10 +174,10 @@ describe("OverviewView — handing out links", () => {
     ).toBeInTheDocument();
   });
 
-  /** A series that can never be opened has no link to hand out either (US-19, US-22). */
-  it("offers no links for a template", () => {
+  /** A series that can never be opened has no link to hand out either (US-19). */
+  it("offers no links for an archived series", () => {
     useEventSeries.mockReturnValue({
-      eventSeries: [{ ...eventSeries, isTemplate: true, isOpenToStudents: false }],
+      eventSeries: [{ ...eventSeries, isArchived: true, isOpenToStudents: false }],
       loading: false,
       error: null,
     });

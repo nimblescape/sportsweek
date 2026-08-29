@@ -50,18 +50,15 @@ describe("POST /api/event-series", () => {
     });
     expect(createEventSeries).toHaveBeenCalledWith({
       name: "Winter 2026",
-      isTemplate: false,
       sourceId: null,
     });
   });
 
-  /** Both are answered at creation and neither has a bearing on the other (US-22). */
-  it("carries the kind and the source through as they were asked for", async () => {
-    await POST(postRequest({ name: "Vorlage", isTemplate: true, sourceId: "s9" }));
+  it("carries the source through as it was asked for (US-22)", async () => {
+    await POST(postRequest({ name: "Winter 2027", sourceId: "s9" }));
 
     expect(createEventSeries).toHaveBeenCalledWith({
-      name: "Vorlage",
-      isTemplate: true,
+      name: "Winter 2027",
       sourceId: "s9",
     });
   });

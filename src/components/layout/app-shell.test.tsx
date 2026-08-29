@@ -140,6 +140,27 @@ describe("AppShell — where the busy indicator sits", () => {
 
     const indicator = await screen.findByRole("status", { name: "Wird gespeichert" });
     expect(screen.getByRole("banner")).toContainElement(indicator);
-    expect(screen.getByRole("banner").lastElementChild).toBe(indicator);
+    expect(screen.getByRole("banner").lastElementChild).toContainElement(indicator);
+  });
+
+  /**
+   * A school with no event series yet leaves the rest of the header empty, and space-between
+   * puts a lone child at the near end — which is how the indicator came to report from the left.
+   * The row holds its far end open whether or not there is anything to its left.
+   */
+  it("keeps it at the far end when there is no event series to fill the row", async () => {
+    stubFetch();
+    render(
+      <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>} scope={null}>
+        <Writer />
+      </AppShell>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+    const indicator = await screen.findByRole("status", { name: "Wird gespeichert" });
+    const region = screen.getByRole("banner").lastElementChild!;
+    expect(region).toContainElement(indicator);
+    expect(region.previousElementSibling?.className).toContain("flex-1");
   });
 });

@@ -109,6 +109,9 @@ export function ImpersonationDialog({
   });
   const derived = buildUpn(firstName, lastName, role);
   const upn = derived && isSchoolUpn(derived) ? derived : null;
+  // Whether the name yields a school address is a separate question, and one the dialog answers
+  // in words on the press — a control that refuses without saying why explains nothing.
+  const named = firstName?.trim() !== "" && lastName?.trim() !== "";
 
   function pickKnown(pickedUpn: string) {
     const picked = known.find((entry) => entry.upn === pickedUpn);
@@ -213,12 +216,14 @@ export function ImpersonationDialog({
           </p>
         ) : null}
 
+        {/* Continuing as yourself asks for nothing, so it leads. Standing in for somebody else
+            needs somebody to stand in for, typed out or taken from the list. */}
         <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Als ich selbst fortfahren
+          <Button type="submit" variant="outline" disabled={!named || isSubmitting}>
+            Als andere Person anmelden
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            Anmelden
+          <Button type="button" onClick={onCancel}>
+            Mich selbst anmelden
           </Button>
         </div>
       </form>

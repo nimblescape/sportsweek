@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const useEventSeries = vi.fn();
@@ -212,11 +212,29 @@ describe("EventSeriesView — deleting", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
-  it("deletes directly, without a confirmation dialog, an event series that has no registrations", async () => {
+  /**
+   * Deleting an event series is irreversible whether or not anybody has registered, and every
+   * other list in the application asks first. Typing the name out is the extra ceremony that a
+   * series with registrations earns; being asked at all is not (US-4).
+   */
+  it("asks before deleting an event series that has no registrations", async () => {
     const fetchMock = stubFetch(noContent);
     renderView([active, archived, inactive, noStudentData]);
 
     await userEvent.click(screen.getByRole("button", { name: "Eventreihe Winter 2024 löschen" }));
+
+    expect(screen.getByRole("dialog")).toHaveAccessibleName("Eventreihe löschen");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("deletes it once the asking is answered, without making the name be typed", async () => {
+    const fetchMock = stubFetch(noContent);
+    renderView([active, archived, inactive, noStudentData]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Eventreihe Winter 2024 löschen" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Löschen" }),
+    );
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -224,10 +242,9 @@ describe("EventSeriesView — deleting", () => {
         expect.objectContaining({ method: "DELETE" }),
       ),
     );
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("surfaces a refused direct deletion instead of failing silently", async () => {
+  it("surfaces a refused deletion instead of failing silently", async () => {
     stubFetch(() =>
       Promise.resolve(
         new Response(
@@ -239,6 +256,9 @@ describe("EventSeriesView — deleting", () => {
     renderView([active, archived, inactive, noStudentData]);
 
     await userEvent.click(screen.getByRole("button", { name: "Eventreihe Winter 2024 löschen" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Löschen" }),
+    );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Hat noch Anmeldungen.");
   });
@@ -249,11 +269,13 @@ describe("EventSeriesView — while a write is in flight", () => {
     stubFetch(() => new Promise(() => {}));
     renderView([active, archived, inactive, noStudentData]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Eventreihe Winter 2024 löschen" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Eventreihe Winter 2027 archivieren" }),
+    );
 
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Eventreihe Winter 2024 bearbeiten" }),
+        screen.getByRole("button", { name: "Eventreihe Winter 2027 bearbeiten" }),
       ).toBeDisabled(),
     );
   });
@@ -262,11 +284,13 @@ describe("EventSeriesView — while a write is in flight", () => {
     stubFetch(noContent);
     renderView([active, archived, inactive, noStudentData]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Eventreihe Winter 2024 löschen" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Eventreihe Winter 2027 archivieren" }),
+    );
 
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Eventreihe Winter 2024 bearbeiten" }),
+        screen.getByRole("button", { name: "Eventreihe Winter 2027 bearbeiten" }),
       ).not.toBeDisabled(),
     );
   });

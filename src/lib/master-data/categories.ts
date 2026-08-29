@@ -50,8 +50,8 @@ export type MasterDataCategory = {
 
 /**
  * The seven teacher-maintained lists, keyed by the URL segment under a series' master data, in
- * the order the menu shows them. The event series itself is not here: it carries archived and
- * template state of its own and is maintained on the one page that is not scoped to a selection.
+ * the order the menu shows them. The event series itself is not here: it carries archive state of
+ * its own and is maintained on the one page that is not scoped to a selection.
  *
  * The events lead because they are the series divided into weeks, and everything else describes
  * the students within it — the order the report fields and the filter categories already follow.

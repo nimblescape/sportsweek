@@ -10,6 +10,7 @@ import { Controller, useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeading } from "@/components/layout/page-heading";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
@@ -195,13 +196,17 @@ export function RegistrationForm({
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+      {/* The whole form is about this one event series, so it heads the form rather than a card
+          inside it — where it read as the title of the answers underneath it. */}
+      <PageHeading>{eventSeriesName}</PageHeading>
+
       <Section title="Anmeldung">
         <ReadOnlyField label="Name" value={studentName} />
         <ReadOnlyField label={ANSWER_LABELS.class} value={studentClass} />
         <RadioField
           control={control}
           name="isAttendingSportsWeek"
-          label="Nimmst du an der Sportwoche teil?"
+          label="Nimmst du an der Veranstaltung teil?"
           options={YES_NO}
         />
       </Section>
@@ -301,7 +306,7 @@ export function RegistrationForm({
             </Field>
           </Section>
 
-          <Section title={eventSeriesName}>
+          <Section title="Veranstaltung">
             {asked.has("program") ? (
               <SelectField
                 control={control}

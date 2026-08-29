@@ -4,7 +4,6 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
-import { firstMasterDataPath } from "@/lib/master-data/categories";
 
 /**
  * Which event series a teacher is working in lives in the URL (Q8), so a report can be linked to
@@ -34,9 +33,7 @@ export function selectedEventSeriesIdFrom(pathname: string): string | null {
 
 /**
  * Whether the page is about what a series is made of rather than what its students answered.
- * The navigation marks its own section by it, and the header offers the templates only here:
- * a template holds lists and no registrations, so it has nothing an overview, an assignment or
- * a report could show (US-22).
+ * The navigation marks its own section by it.
  */
 export function isMasterDataPath(pathname: string): boolean {
   if (pathname === ROUTES.eventSeries || pathname.startsWith(`${ROUTES.eventSeries}/`)) return true;
@@ -45,31 +42,23 @@ export function isMasterDataPath(pathname: string): boolean {
   return selected !== null && pathname.startsWith(`${eventSeriesRoutes(selected).masterData}`);
 }
 
-/** What choosing a section needs to know about a series, and no more. */
-type Selectable = { id: string; isTemplate: boolean; isArchived: boolean };
+/** What choosing a series needs to know about one, and no more. */
+type Selectable = { id: string; isArchived: boolean };
 
 /**
- * Which series a section opens on when the teacher moves into it. The selection is kept wherever
- * the section can be about it — master data can be about a template, an overview, an assignment
- * and a report cannot (US-22) — and otherwise the section takes the first it can show, in the
- * teacher's own order.
+ * Which series a page opens on. The selection is kept if it is still one a teacher can work in,
+ * and otherwise the first that is, in the teacher's own order. Archiving is what takes a series
+ * off every screen, so it is the only thing that can make a remembered id unusable.
  *
- * Null means the section has nothing to be about, which the caller answers with the series list.
+ * Null means there is nothing to be about, which the caller answers with the series list.
  */
-export function sectionSelection(
+export function liveSelection(
   eventSeries: readonly Selectable[],
   wanted: string | null,
-  section: "masterData" | "series",
 ): string | null {
   const live = eventSeries.filter((one) => !one.isArchived);
-  const current = live.find((one) => one.id === wanted) ?? null;
 
-  if (section === "masterData") {
-    return (current ?? live.find((one) => one.isTemplate) ?? live[0])?.id ?? null;
-  }
-
-  if (current !== null && !current.isTemplate) return current.id;
-  return live.find((one) => !one.isTemplate)?.id ?? null;
+  return (live.find((one) => one.id === wanted) ?? live[0])?.id ?? null;
 }
 
 /**
@@ -77,17 +66,14 @@ export function sectionSelection(
  * rather than navigating away from it (US-20) — the teacher asked a different question about the
  * same view. From a page that is about no series there is no view to keep, so the overview opens:
  * it is where a series is run from (US-29).
- *
- * A template is the exception: it holds lists and no registrations (US-22), so it is only ever
- * scoped to the master data, which is also the only place its tag is offered.
  */
-export function rescopedPath(pathname: string, eventSeriesId: string, isTemplate = false): string {
+export function rescopedPath(pathname: string, eventSeriesId: string): string {
   const scope = `${ROUTES.appRoot}/${encodeURIComponent(eventSeriesId)}`;
   const rest = selectedEventSeriesIdFrom(pathname) === null ? [] : pathname.split("/").slice(3);
-  const kept =
-    rest.length === 0 ? eventSeriesRoutes(eventSeriesId).overview : `${scope}/${rest.join("/")}`;
 
-  return isTemplate && !isMasterDataPath(kept) ? firstMasterDataPath(eventSeriesId) : kept;
+  return rest.length === 0
+    ? eventSeriesRoutes(eventSeriesId).overview
+    : `${scope}/${rest.join("/")}`;
 }
 
 /**

@@ -111,6 +111,15 @@ describe("AssignmentView", () => {
     expect(screen.getByText(NO_EVENT_SERIES_HINT)).toBeInTheDocument();
   });
 
+  /** An empty list that has not arrived yet is not an answer; saying so made the pages flicker. */
+  it("says nothing about the selection while the list is still arriving", () => {
+    useEventSeries.mockReturnValue({ eventSeries: [], loading: true, error: null });
+
+    render(<AssignmentView />);
+
+    expect(screen.queryByText(NO_EVENT_SERIES_HINT)).not.toBeInTheDocument();
+  });
+
   /** How the classes stand is a page of its own now; this one is the board and nothing else. */
   it("shows no class cards, which live under Statistik", () => {
     render(<AssignmentView />);
@@ -173,6 +182,19 @@ describe("AssignmentView", () => {
 
     await waitFor(() => expect(useBusyWhile).toHaveBeenCalledWith(true));
     settle();
+  });
+
+  /**
+   * The indicator answers for writes. A teacher moving between the pages of a series is reading,
+   * and an indicator that fired on every page would be reporting the app working rather than
+   * anything the teacher started.
+   */
+  it("reports nothing while it is only reading", () => {
+    useRoster.mockReturnValue({ students: [], loading: true, error: null });
+
+    render(<AssignmentView />);
+
+    expect(useBusyWhile).not.toHaveBeenCalledWith(true);
   });
 
   it("tells the teacher when an event series has no events to assign to yet", () => {

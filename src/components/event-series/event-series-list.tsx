@@ -13,12 +13,13 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import {
+  ARCHIVE_NO_DATA_HINT,
+  ARCHIVE_OPEN_HINT,
   EVENT_SERIES_STATE_LABELS,
   eventSeriesState,
-  LAST_TEMPLATE_HINT,
+  LAST_EVENT_SERIES_HINT,
 } from "@/lib/event-series/event-series-state";
 
-const ARCHIVE_NO_DATA_HINT = "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.";
 const DELETE_HINT =
   "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.";
 
@@ -68,7 +69,7 @@ export function EventSeriesList({
   }
 
   // Counted over the whole list rather than per row, so a row can tell whether it is the last one.
-  const unarchivedTemplates = eventSeries.filter((one) => one.isTemplate && !one.isArchived).length;
+  const unarchived = eventSeries.filter((one) => !one.isArchived).length;
 
   return (
     <Card className="[--card-spacing:--spacing(0)]">
@@ -81,14 +82,22 @@ export function EventSeriesList({
           const state = eventSeriesState(eventSeries);
           const archiveHintId = `${eventSeries.id}-archive-hint`;
           const deleteHintId = `${eventSeries.id}-delete-hint`;
-          // Mirrors event-series-service.ts: archiving needs registrations to sign off on, and
-          // deleting still-unarchived data needs it gone first (US-19).
-          const archivingDisabled = !eventSeries.isArchived && !eventSeries.hasRegistrations;
+          // Mirrors event-series-service.ts: archiving needs registrations to sign off on and a
+          // series nobody can still register in, and deleting unarchived data needs it gone first
+          // (US-19). Null means the action is offered.
+          const archiveHint = eventSeries.isArchived
+            ? null
+            : eventSeries.isOpenToStudents
+              ? ARCHIVE_OPEN_HINT
+              : !eventSeries.hasRegistrations
+                ? ARCHIVE_NO_DATA_HINT
+                : null;
+          const archivingDisabled = archiveHint !== null;
           const deleteHint = !eventSeries.isArchived
             ? eventSeries.hasRegistrations
               ? DELETE_HINT
-              : eventSeries.isTemplate && unarchivedTemplates === 1
-                ? LAST_TEMPLATE_HINT
+              : unarchived === 1
+                ? LAST_EVENT_SERIES_HINT
                 : null
             : null;
           const deletingDisabled = deleteHint !== null;
@@ -127,11 +136,7 @@ export function EventSeriesList({
                 )}
                 <Tooltip
                   label={
-                    archivingDisabled
-                      ? ARCHIVE_NO_DATA_HINT
-                      : eventSeries.isArchived
-                        ? "Wiederherstellen"
-                        : "Archivieren"
+                    archiveHint ?? (eventSeries.isArchived ? "Wiederherstellen" : "Archivieren")
                   }
                 >
                   <span className="inline-flex">
@@ -156,11 +161,11 @@ export function EventSeriesList({
                   </span>
                 </Tooltip>
 
-                {archivingDisabled ? (
+                {archiveHint === null ? null : (
                   <span id={archiveHintId} className="sr-only">
-                    {ARCHIVE_NO_DATA_HINT}
+                    {archiveHint}
                   </span>
-                ) : null}
+                )}
 
                 {/* Wrapped in a span because a disabled button emits no pointer events, and the
                     reason it is disabled is exactly what needs explaining here (US-19). */}

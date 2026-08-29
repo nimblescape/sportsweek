@@ -99,7 +99,7 @@ const answer = (question: string, option: string) =>
     within(screen.getByRole("group", { name: question })).getByRole("radio", { name: option }),
   );
 
-const ATTENDING = "Nimmst du an der Sportwoche teil?";
+const ATTENDING = "Nimmst du an der Veranstaltung teil?";
 const RENTING = "Musst du etwas ausleihen?";
 
 async function pick(field: string, option: string) {
@@ -122,7 +122,7 @@ const cardTitles = () =>
   );
 
 const eventSeriesCard = () =>
-  screen.getByText("Winter 2026").closest('[data-slot="card"]') as HTMLElement;
+  screen.getByText("Veranstaltung").closest('[data-slot="card"]') as HTMLElement;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -130,10 +130,20 @@ beforeEach(() => {
 });
 
 describe("RegistrationForm", () => {
-  it("shows the event series and the name from the user record as text, not as fields (US-11)", () => {
+  /**
+   * The name of the event series is what the whole form is about, so it heads the form rather
+   * than one card within it — where it read as the title of the answers underneath it.
+   */
+  it("heads the form with the event series it is about", () => {
     renderForm();
 
-    expect(cardTitles()).toContain("Winter 2026");
+    expect(screen.getByRole("heading", { name: "Winter 2026" })).toBeInTheDocument();
+    expect(cardTitles()).not.toContain("Winter 2026");
+  });
+
+  it("shows the name from the user record as text, not as a field (US-11)", () => {
+    renderForm();
+
     expect(screen.getByLabelText("Name")).toHaveTextContent("Jane Doe");
     expect(screen.queryByRole("textbox", { name: "Name" })).not.toBeInTheDocument();
   });
@@ -147,14 +157,14 @@ describe("RegistrationForm", () => {
   });
 
   /** One card for the event series rather than three, so the answers about it are read together. */
-  it("gathers the answers about the event series into one card, titled with its name", () => {
+  it("gathers the answers about the event series into one card", () => {
     renderForm();
 
     expect(cardTitles()).toEqual([
       "Anmeldung",
       "Persönliches",
       "Notfallkontakt",
-      "Winter 2026",
+      "Veranstaltung",
       "Gesundheit",
     ]);
   });

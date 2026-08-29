@@ -16,6 +16,7 @@ import {
 } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useInert } from "@/lib/api/busy";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +27,7 @@ import { cn } from "@/lib/utils";
  *
  * Three parts, in this order, and a tag may leave any of them out. The plainest has only a name:
  *
- *   <Tag pressed variant="open">
+ *   <Tag pressed>
  *     <DoorOpen aria-label="offen" />          the lead: what it is, or a grip to move it by
  *     <TagName label="Wintersportwoche" … />   the name, and the button the tag is pressed by
  *     <TagAction label="schließen">…</…>       what it offers, once it is the pressed one
@@ -46,23 +47,14 @@ type TagState = { pressed: boolean; disabled: boolean };
 const TagContext = createContext<TagState>({ pressed: false, disabled: false });
 
 /**
- * How a tag is filled. Green is the one state worth spotting across the room, blue is simply
- * the chosen one, grey is chosen but standing apart from the rest — a template among series, a
- * report edited since it was opened. Each is filled when the tag is pressed and outlined when it
- * is not, which is what makes five states out of three: an open series stays green either way,
- * because whether students can register is worth seeing whether or not you are working in it.
+ * How a pressed tag is filled: the accent for the chosen one, grey for a chosen one standing
+ * apart from the rest — a report edited since it was opened.
+ *
+ * An unpressed tag is outlined, whatever it would have been filled with. A row then answers one
+ * question — which of these am I working in — and anything else a tag has to say, such as whether
+ * a series is taking registrations, is said by the icon it carries rather than by a second colour.
  */
-export type TagVariant = "default" | "series" | "open" | "neutral" | "template";
-
-/**
- * The event series colours survive being unpressed — which series exist, and which of them is
- * taking registrations, is worth seeing whether or not you are working in one. Every other tag
- * has nothing to say once it is not the chosen one, and goes back to the outline.
- */
-const SOFT = { series: "series-soft", open: "open-soft", template: "template-soft" } as const;
-
-const unpressed = (variant: TagVariant) =>
-  variant in SOFT ? SOFT[variant as keyof typeof SOFT] : ("outline" as const);
+export type TagVariant = "default" | "neutral";
 
 type TagProps = {
   pressed?: boolean;
@@ -91,10 +83,11 @@ export function Tag({
     <TagContext value={{ pressed, disabled }}>
       <div
         ref={ref}
+        data-slot="tag"
         style={style}
         onPointerDown={onPointerDown}
         className={cn(
-          buttonVariants({ variant: pressed ? variant : unpressed(variant) }),
+          buttonVariants({ variant: pressed ? variant : "outline" }),
           "gap-1 px-1.5",
           className,
         )}
@@ -170,21 +163,27 @@ type TagActionProps = {
 /**
  * One of the things the tag offers. The tag owns the surface and the colour on it, so the
  * control takes neither — a second fill inside the first would read as a tag within a tag.
+ *
+ * It is an icon and nothing else, so it says on hover what it already says to a screen reader.
+ * Here rather than at each call site: the label is required either way, so no tag action can be
+ * added without one, and none can be added that stays silent to sight.
  */
 export function TagAction({ label, type = "button", onClick, children }: TagActionProps) {
   const { disabled } = use(TagContext);
 
   return (
-    <Button
-      type={type}
-      variant="ghost"
-      size="icon"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="hover:bg-transparent hover:text-inherit hover:opacity-70"
-    >
-      {children}
-    </Button>
+    <Tooltip label={label}>
+      <Button
+        type={type}
+        variant="ghost"
+        size="icon"
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+        className="hover:bg-transparent hover:text-inherit hover:opacity-70"
+      >
+        {children}
+      </Button>
+    </Tooltip>
   );
 }

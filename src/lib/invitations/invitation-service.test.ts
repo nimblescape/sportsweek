@@ -98,12 +98,9 @@ describe("createInvitation", () => {
     await expect(createInvitation("gone", "3aWI")).rejects.toBeInstanceOf(ServiceError);
   });
 
-  /** A template can never be opened to students, and an archived series is read-only (US-19). */
-  it.each([
-    ["a template", { isTemplate: true }],
-    ["an archived series", { isArchived: true }],
-  ])("refuses to hand out a link for %s", async (_name, overrides) => {
-    seedSeries(overrides);
+  /** An archived series is read-only, so it has nobody left to invite (US-19). */
+  it("refuses to hand out a link for an archived series", async () => {
+    seedSeries({ isArchived: true });
 
     await expect(createInvitation(SERIES, "3aWI")).rejects.toMatchObject({ code: "CONFLICT" });
     expect(firestore.get("eventSeries", SERIES)?.isOpenToStudents).not.toBe(true);

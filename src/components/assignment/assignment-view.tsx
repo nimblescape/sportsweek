@@ -23,11 +23,12 @@ import { AssignmentBoard } from "./assignment-board";
  * shows up as soon as the subscription brings the record back.
  */
 export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, loading, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
+  const { eventSeries, missing, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
   const [saving, setSaving] = useState(false);
 
-  // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading || saving);
+  // Answered by the one spinner in the header, so this view places none of its own. The read is
+  // not reported: a teacher moving between the pages of a series has started nothing to wait for.
+  useBusyWhile(saving);
 
   /**
    * The write and the refresh are separate paths, so the whole view is held until the answer
@@ -57,9 +58,11 @@ export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
       )}
 
       {eventSeries === null ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          {NO_EVENT_SERIES_HINT}
-        </p>
+        missing ? (
+          <p role="status" className="text-muted-foreground text-sm">
+            {NO_EVENT_SERIES_HINT}
+          </p>
+        ) : null
       ) : (
         <BusyRegion busy={saving}>
           <div className="flex flex-col gap-4">

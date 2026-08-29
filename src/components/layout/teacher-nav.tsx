@@ -15,7 +15,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { masterDataSections, firstMasterDataPath } from "@/lib/master-data/categories";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import {
-  sectionSelection,
+  liveSelection,
   selectedEventSeriesIdFrom,
 } from "@/lib/event-series/event-series-selection";
 import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
@@ -64,12 +64,9 @@ export function TeacherNav({
     pathname.startsWith(`${ROUTES.eventSeries}/`) ||
     (masterData !== null && pathname.startsWith(masterData));
 
-  // Each section keeps the selection where it can be about it, and takes the first it can show
-  // where it cannot: master data can be about a template, the pages of registrations cannot.
   const { eventSeries } = useEventSeries();
-  const seriesId = sectionSelection(eventSeries, eventSeriesId, "series");
-  const masterDataId = sectionSelection(eventSeries, eventSeriesId, "masterData");
-  const sections = masterDataSections(masterDataId);
+  const selectedId = liveSelection(eventSeries, eventSeriesId);
+  const sections = masterDataSections(selectedId);
 
   return (
     <nav aria-label="Hauptnavigation" className="flex h-full flex-col gap-1 p-2 md:w-56">
@@ -77,7 +74,7 @@ export function TeacherNav({
           the column beside it is where a page begins. */}
       <Brand />
 
-      {(seriesId === null ? [] : topLevel(seriesId)).map(({ href, label, Icon }) => {
+      {(selectedId === null ? [] : topLevel(selectedId)).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
@@ -94,7 +91,7 @@ export function TeacherNav({
 
       {/* The section has no view of its own, so it opens on the first list beneath it. */}
       <Link
-        href={masterDataId === null ? ROUTES.eventSeries : firstMasterDataPath(masterDataId)}
+        href={selectedId === null ? ROUTES.eventSeries : firstMasterDataPath(selectedId)}
         className={itemClasses(inMasterData)}
       >
         <Database aria-hidden className="size-6 shrink-0" />
