@@ -353,7 +353,7 @@ function Cloud({
           const marked = student.id === markedId;
           return (
             <li key={student.id}>
-              <Tag pressed={marked} variant="neutral">
+              <Tag pressed={marked}>
                 <TagName label={name} onPress={() => onMark(marked ? null : student.id)} />
                 {/* On the marked tag only, as a saved report's controls are (US-13, US-28). */}
                 {marked && onRemove ? (
