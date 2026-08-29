@@ -40,11 +40,15 @@ export const COMPLETENESS_LABELS = {
 } as const;
 
 /**
- * How the report marks a registration that still has answers outstanding — on the master line,
- * on the printed copy, and as the tag that narrows the report to exactly those (US-13). One
- * wording, because three ways of saying it would be three things to keep in step.
+ * How a registration with answers still outstanding is named wherever it is named: to the
+ * student who owes them, on the report's master line and printed copy, and as the tag that
+ * narrows the report to exactly those (US-11, US-13). One wording, because four ways of saying
+ * it would be four things to keep in step.
  */
 export const INCOMPLETE_REGISTRATION_HINT = "Registrierung unvollständig";
+
+/** Its counterpart, which only the student is shown -- the report has a field for it instead. */
+export const COMPLETE_REGISTRATION_HINT = "Registrierung vollständig";
 
 /**
  * What renting is called wherever it is named: the detail line listing what a student rents, the

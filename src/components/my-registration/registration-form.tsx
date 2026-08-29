@@ -29,7 +29,12 @@ import {
   scopeRentalToProgram,
   toRegistrationInput,
 } from "@/lib/registration/registration";
-import { GENDER_LABELS, RELATIONSHIP_LABELS } from "@/lib/registration/answer-labels";
+import {
+  COMPLETE_REGISTRATION_HINT,
+  GENDER_LABELS,
+  INCOMPLETE_REGISTRATION_HINT,
+  RELATIONSHIP_LABELS,
+} from "@/lib/registration/answer-labels";
 import { missingAnswers } from "@/lib/registration/completeness";
 import { ANSWER_LABELS, type AnswerField } from "@/lib/master-data/categories";
 import { EquipmentChecklist } from "./equipment-checklist";
@@ -465,8 +470,8 @@ export function RegistrationForm({
             <p className="text-sm font-medium">Deine Daten wurden gespeichert.</p>
             <p className="text-muted-foreground text-sm">
               {missing.length === 0
-                ? "Deine Registrierung ist vollständig."
-                : `Deine Registrierung ist noch nicht vollständig. Es fehlen noch: ${missing
+                ? COMPLETE_REGISTRATION_HINT
+                : `${INCOMPLETE_REGISTRATION_HINT}. Es fehlen noch: ${missing
                     .map((answer) => answer.label)
                     .join(", ")}.`}
             </p>
