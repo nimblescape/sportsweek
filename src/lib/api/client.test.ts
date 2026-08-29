@@ -5,6 +5,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest, ApiRequestError } from "./client";
+import { requestsInFlight } from "./requests";
 
 /**
  * Each test installs its own fetch stub. Sharing one `vi.fn()` across the file and clearing
@@ -120,5 +121,61 @@ describe("apiRequest — reading", () => {
     await expect(
       apiRequest("/api/event-series/s1/invitations", { method: "GET" }),
     ).rejects.toMatchObject({ message: "Nicht erlaubt." });
+  });
+});
+
+/**
+ * Reporting a write is not the caller's to remember. It is taken here, inside the one function
+ * every write goes through, which is what makes a control that forgot impossible rather than
+ * unlikely.
+ */
+describe("apiRequest — reporting itself busy", () => {
+  const answered = () => new Response(null, { status: 204 });
+
+  it("is out while the request is out, and answered when it is", async () => {
+    let resolve: (value: Response) => void = () => {};
+    stubFetch(() => new Promise<Response>((keep) => (resolve = keep)));
+
+    const pending = apiRequest("/api/anything", { method: "POST", body: {} });
+    expect(requestsInFlight()).toBe(1);
+
+    resolve(answered());
+    await pending;
+
+    expect(requestsInFlight()).toBe(0);
+  });
+
+  it("is answered when the server refuses", async () => {
+    stubFetch(() => new Response(JSON.stringify({ error: { message: "Nein." } }), { status: 409 }));
+
+    await expect(apiRequest("/api/anything", { method: "DELETE" })).rejects.toThrow();
+
+    expect(requestsInFlight()).toBe(0);
+  });
+
+  it("is answered when the connection fails outright", async () => {
+    stubFetch(() => Promise.reject(new Error("offline")));
+
+    await expect(apiRequest("/api/anything", { method: "POST" })).rejects.toThrow();
+
+    expect(requestsInFlight()).toBe(0);
+  });
+
+  /** Two writes may overlap, and the first answered must not declare the app idle. */
+  it("counts overlapping requests rather than flagging one", async () => {
+    const keep: ((value: Response) => void)[] = [];
+    stubFetch(() => new Promise<Response>((resolve) => keep.push(resolve)));
+
+    const one = apiRequest("/api/one", { method: "POST" });
+    const two = apiRequest("/api/two", { method: "POST" });
+    expect(requestsInFlight()).toBe(2);
+
+    keep[0](answered());
+    await one;
+    expect(requestsInFlight()).toBe(1);
+
+    keep[1](answered());
+    await two;
+    expect(requestsInFlight()).toBe(0);
   });
 });
