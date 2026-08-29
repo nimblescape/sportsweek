@@ -31,8 +31,8 @@ function topLevel(eventSeriesId: string, reachable: readonly PageKey[]) {
       label: "Registrierungen",
       Icon: ClipboardList,
     },
-    { key: "assignment", href: routes.assignment, label: "Zuteilung", Icon: Shuffle },
-    { key: "report", href: routes.report, label: "Bericht", Icon: FileText },
+    { key: "assignment", href: routes.assignment, label: "Zuteilungen", Icon: Shuffle },
+    { key: "report", href: routes.report, label: "Berichte", Icon: FileText },
   ].filter((item) => reachable.includes(item.key as PageKey));
 }
 

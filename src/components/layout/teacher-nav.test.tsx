@@ -57,17 +57,17 @@ describe("TeacherNav", () => {
       .map((element) => element.textContent);
 
     expect(labels).toEqual(
-      expect.arrayContaining(["Registrierungen", "Zuteilung", "Bericht", "Stammdaten"]),
+      expect.arrayContaining(["Registrierungen", "Zuteilungen", "Berichte", "Stammdaten"]),
     );
-    expect(labels.indexOf("Registrierungen")).toBeLessThan(labels.indexOf("Zuteilung"));
-    expect(labels.indexOf("Zuteilung")).toBeLessThan(labels.indexOf("Bericht"));
-    expect(labels.indexOf("Bericht")).toBeLessThan(labels.indexOf("Stammdaten"));
+    expect(labels.indexOf("Registrierungen")).toBeLessThan(labels.indexOf("Zuteilungen"));
+    expect(labels.indexOf("Zuteilungen")).toBeLessThan(labels.indexOf("Berichte"));
+    expect(labels.indexOf("Berichte")).toBeLessThan(labels.indexOf("Stammdaten"));
   });
 
   it("gives every top-level item an icon to be recognised by once the labels are gone", () => {
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    for (const label of ["Bericht", "Zuteilung", "Registrierungen"]) {
+    for (const label of ["Berichte", "Zuteilungen", "Registrierungen"]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: label }).querySelector("svg")).toBeInTheDocument();
     }
@@ -105,7 +105,10 @@ describe("TeacherNav", () => {
 
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s2/report");
+    expect(screen.getByRole("link", { name: "Berichte" })).toHaveAttribute(
+      "href",
+      "/app/s2/report",
+    );
   });
 
   /**
@@ -119,7 +122,7 @@ describe("TeacherNav", () => {
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     expect(screen.getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
-    for (const label of ["Bericht", "Zuteilung", "Registrierungen", "Klassen"]) {
+    for (const label of ["Berichte", "Zuteilungen", "Registrierungen", "Klassen"]) {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
   });
@@ -130,7 +133,10 @@ describe("TeacherNav", () => {
 
     render(<TeacherNav fallbackEventSeriesId="s7" permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s7/report");
+    expect(screen.getByRole("link", { name: "Berichte" })).toHaveAttribute(
+      "href",
+      "/app/s7/report",
+    );
   });
 
   /**
@@ -144,7 +150,10 @@ describe("TeacherNav", () => {
     pathname.mockReturnValue("/app/event-series");
     rerender(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s1/report");
+    expect(screen.getByRole("link", { name: "Berichte" })).toHaveAttribute(
+      "href",
+      "/app/s1/report",
+    );
   });
 
   it("shows the master data sub-items whatever the route is, since they never fold away", () => {
@@ -179,8 +188,11 @@ describe("TeacherNav", () => {
 
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Zuteilung" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Bericht" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Zuteilungen" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Berichte" })).not.toHaveAttribute("aria-current");
   });
 
   it("marks the active sub-item", () => {
@@ -211,7 +223,7 @@ describe("TeacherNav — always open", () => {
     expect(screen.queryByRole("button", { name: /navigation/i })).not.toBeInTheDocument();
   });
 
-  it.each(["Bericht", "Registrierungen", "Stammdaten"])(
+  it.each(["Berichte", "Registrierungen", "Stammdaten"])(
     "stays open when %s is pressed, whether it is where you already are or not",
     async (label) => {
       render(<TeacherNav permissions={[...PERMISSIONS]} />);
@@ -245,20 +257,20 @@ describe("TeacherNav — what the permissions reach", () => {
   it("shows only the assignment to somebody who may only plan", () => {
     render(<TeacherNav permissions={["editAssignments"]} />);
 
-    expect(linkNames()).toEqual(["Zuteilung"]);
+    expect(linkNames()).toEqual(["Zuteilungen"]);
   });
 
   /** Either of the two that exclude each other opens the report page, and nothing else. */
   it("shows only the report to somebody who may view reports", () => {
     render(<TeacherNav permissions={["viewReports"]} />);
 
-    expect(linkNames()).toEqual(["Bericht"]);
+    expect(linkNames()).toEqual(["Berichte"]);
   });
 
   it("shows the same to somebody who may edit them", () => {
     render(<TeacherNav permissions={["editReports"]} />);
 
-    expect(linkNames()).toEqual(["Bericht"]);
+    expect(linkNames()).toEqual(["Berichte"]);
   });
 
   it("shows the overview to whoever may edit registrations", () => {

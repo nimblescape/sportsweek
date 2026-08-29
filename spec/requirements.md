@@ -85,7 +85,7 @@ As the system, I tell apart what a person _is_ from what they _may do_, so that 
 - User records can be stored in the database, 1:1 with a logged-in user.
 - Each record stores exactly one account type, either teacher or student. It says which population somebody belongs to, is derived once at creation (US-3) and is granted by nobody.
 - Each record stores a set of permissions, which says what that person may do.
-- The permissions are `editRegistrations`, `editAssignments`, `viewReports`, `editReports`, `editMasterData` and `editUsers`. Labels shown are "Registrierungen", "Zuteilung", "Berichte ansehen", "Berichte bearbeiten", "Stammdaten" and "Benutzerrechte". Each names the page it opens; only the two report ones carry a verb, there being two ways into that one page.
+- The permissions are `editRegistrations`, `editAssignments`, `viewReports`, `editReports`, `editMasterData` and `editUsers`. Labels shown are "Registrierungen", "Zuteilungen", "Berichte ansehen", "Berichte bearbeiten", "Stammdaten" and "Benutzerrechte". Each names the page it opens; only the two report ones carry a verb, there being two ways into that one page.
 - A permission is asked for by name and none stands in for another: the set is not a rank, and holding one grants nothing else. Only `editUsers` grants the management of permissions.
 - `viewReports` and `editReports` exclude each other, both being ways into the same report page. Pressing either clears the other, and a record naming both is refused rather than quietly reduced.
 - `editRegistrations` covers the registrations page: handing out invitation links, removing a registration, and opening or closing the event series to students. Opening it is what lets registrations arrive, so it goes with the permission that edits them rather than with the one that maintains the series.
@@ -406,7 +406,7 @@ As a teacher, I see a dashboard when I log in so that I can navigate to the diff
 
 - A header row is shown at the top of the dashboard: the application title "Sportsweek" on the left, and a logout button on the right.
 - Below the header, the remaining area is split into a left-side navigation zone and a content area on the right.
-- The left-side navigation contains, from top to bottom: Registrierungen (see US-12, US-23), Zuteilung (see US-12), Bericht (see US-13), and Stammdaten.
+- The left-side navigation contains, from top to bottom: Registrierungen (see US-12, US-23), Zuteilungen (see US-12), Berichte (see US-13), and Stammdaten.
 - The bar shows only what the teacher's permissions reach (see US-2), so it never offers a page that would refuse them. A teacher holding none sees no destinations at all and is told why on the landing route rather than redirected to a page that would send them back.
 - Stammdaten heads whatever sits beneath it, and two permissions can each put something there: `editMasterData` contributes the event series list and the seven categories, `editUsers` contributes Benutzerrechte, last. It is shown when either does and hidden when neither does.
 - The Master data navigation item has a sub-item for each teacher-maintained category (see US-4 through US-10), in this order: event series, classes, programs, skill levels, season passes, bus pickup points, food/diet options. Classes come first because a class is asked of every student whether they attend or not (see US-11), so it is the list a teacher fills in before any other. The order is stated here rather than left to follow the story numbers, which are stable identifiers and not a running order.
