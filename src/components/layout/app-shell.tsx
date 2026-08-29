@@ -6,6 +6,7 @@
 import type { ReactNode } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Brand } from "@/components/layout/brand";
+import { BuildInfo } from "@/components/layout/build-info";
 import { BusyProvider } from "@/lib/api/busy";
 import { BusyBar } from "@/components/layout/busy-bar";
 
@@ -43,7 +44,13 @@ export function AppShell({
         ) : null}
 
         <header className="border-border bg-background col-start-2 row-start-1 flex items-center gap-4 border-b px-4 py-2 md:px-6">
-          {nav ? null : <Brand />}
+          {/* The build line travels with the brand, so it is here for exactly the person whose
+              bar is not carrying it — and the header does not scroll, which is the point. */}
+          {nav ? null : (
+            <Brand>
+              <BuildInfo />
+            </Brand>
+          )}
           {/* The scope leads the header, because it says what every page below it is about. Its
               slot grows whether or not it has anything in it: a school with no event series yet
               would otherwise leave the row empty, and the indicator would report from the near

@@ -265,7 +265,7 @@ describe("RegistrationForm", () => {
 
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("gespeichert");
-    expect(status).toHaveTextContent("Deine Registrierung ist vollständig.");
+    expect(status).toHaveTextContent("Registrierung vollständig");
   });
 
   it("names what is still missing in the same breath as the confirmation", async () => {
@@ -279,6 +279,7 @@ describe("RegistrationForm", () => {
 
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("gespeichert");
+    expect(status).toHaveTextContent("Registrierung unvollständig");
     expect(status).toHaveTextContent("Vorname des Notfallkontakts");
   });
 

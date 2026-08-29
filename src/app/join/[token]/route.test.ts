@@ -21,8 +21,8 @@ const { GET } = await import("./route");
 
 const TOKEN = "a-very-long-unguessable-token";
 
-function follow(token = TOKEN) {
-  return GET(new Request(`https://example.com/join/${token}`), {
+function follow(token = TOKEN, origin = "https://example.com") {
+  return GET(new Request(`${origin}/join/${token}`), {
     params: Promise.resolve({ token }),
   });
 }
@@ -52,7 +52,19 @@ describe("GET /join/[token]", () => {
   it("takes the student to the registration the link named", async () => {
     const response = await follow();
 
-    expect(response.headers.get("location")).toBe("https://example.com/app/my-registration/s1");
+    expect(response.headers.get("location")).toBe("/app/my-registration/s1");
+  });
+
+  /**
+   * The regression this exists for. A Route Handler sees the address the server was reached on,
+   * which behind a proxy is the container's own -- so a Location built from it sends the browser
+   * to a host only the server can reach. Every redirect here is relative, which the browser
+   * resolves against the address it asked for and which no header can be made to lie about.
+   */
+  it("never names a host, so the container's own address cannot become one", async () => {
+    const response = await follow(TOKEN, "http://0.0.0.0:8080");
+
+    expect(response.headers.get("location")).toBe("/app/my-registration/s1");
   });
 
   /**
@@ -64,9 +76,7 @@ describe("GET /join/[token]", () => {
 
     const response = await follow();
 
-    expect(response.headers.get("location")).toBe(
-      `https://example.com/sign-in?next=%2Fjoin%2F${TOKEN}`,
-    );
+    expect(response.headers.get("location")).toBe(`/sign-in?next=%2Fjoin%2F${TOKEN}`);
     expect(joinEventSeries).not.toHaveBeenCalled();
   });
 
@@ -80,7 +90,7 @@ describe("GET /join/[token]", () => {
 
     const response = await follow();
 
-    expect(response.headers.get("location")).toBe("https://example.com/app/s1/registrations");
+    expect(response.headers.get("location")).toBe("/app/s1/registrations");
     expect(joinEventSeries).not.toHaveBeenCalled();
   });
 
@@ -94,7 +104,7 @@ describe("GET /join/[token]", () => {
 
     const response = await follow();
 
-    expect(response.headers.get("location")).toBe("https://example.com/app");
+    expect(response.headers.get("location")).toBe("/app");
   });
 
   /**
@@ -107,7 +117,7 @@ describe("GET /join/[token]", () => {
     const response = await follow("mistyped");
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://example.com/app/my-registration");
+    expect(response.headers.get("location")).toBe("/app/my-registration");
     expect(joinEventSeries).not.toHaveBeenCalled();
   });
 
@@ -117,6 +127,6 @@ describe("GET /join/[token]", () => {
 
     const response = await follow();
 
-    expect(response.headers.get("location")).toBe("https://example.com/app/my-registration");
+    expect(response.headers.get("location")).toBe("/app/my-registration");
   });
 });

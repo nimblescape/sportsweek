@@ -5,7 +5,7 @@
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "@/lib/api/client";
 
 /** A request that never answers, so the indicator is still there to be found. */
@@ -23,6 +23,10 @@ vi.mock("@/components/auth/sign-out-button", () => ({
 const { AppShell } = await import("@/components/layout/app-shell");
 
 describe("AppShell", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("shows the application title on the left of the header", () => {
     render(
       <AppShell>
@@ -90,6 +94,44 @@ describe("AppShell", () => {
     );
 
     expect(screen.getByRole("button", { name: /abmelden/i, hidden: true })).toBeInTheDocument();
+  });
+
+  /**
+   * The header does not scroll, so what it says is in a screenshot of the window however far
+   * down the page the person taking it had got.
+   */
+  it("says which build it is after the brand, for a student who has no bar", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_VERSION", "1.2.3");
+    vi.stubEnv("NEXT_PUBLIC_COMMIT_HASH", "a1b2c3d");
+
+    render(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    const header = screen.getByRole("banner");
+    const stamp = screen.getByText("v1.2.3 · a1b2c3d");
+
+    expect(header).toContainElement(stamp);
+    expect(
+      screen.getByText("Sportsweek").compareDocumentPosition(stamp) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  // It travels with the brand, and the brand belongs to the bar wherever there is one.
+  it("leaves it out of the header where there is a bar to carry it", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_VERSION", "1.2.3");
+    vi.stubEnv("NEXT_PUBLIC_COMMIT_HASH", "a1b2c3d");
+
+    render(
+      <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>}>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    expect(screen.queryByText("v1.2.3 · a1b2c3d")).not.toBeInTheDocument();
   });
 
   it("renders the role-specific content below the header", () => {
