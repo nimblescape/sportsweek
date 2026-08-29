@@ -76,18 +76,17 @@ describe("TeacherNav", () => {
     ).toBeInTheDocument();
   });
 
-  /** Moving into the section is not a change of series, so it opens on the one already selected. */
-  it("opens Stammdaten on the selected series, at its first list", () => {
+  /** The heading has no view of its own, so it opens on the first entry beneath it. */
+  it("opens Stammdaten on the event series list, which heads its sub-items", () => {
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
       "href",
-      "/app/s1/master-data/events",
+      "/app/event-series",
     );
   });
 
-  /** Every page can be about every series, so one selection answers for the whole bar. */
-  it("opens Stammdaten on the first series when nothing is selected", () => {
+  it("opens there whether or not a series is selected", () => {
     pathname.mockReturnValue("/app/event-series");
     showing(series("s1"), series("s2"));
 
@@ -95,7 +94,7 @@ describe("TeacherNav", () => {
 
     expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
       "href",
-      "/app/s1/master-data/events",
+      "/app/event-series",
     );
   });
 

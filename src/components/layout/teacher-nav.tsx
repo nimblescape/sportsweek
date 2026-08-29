@@ -12,7 +12,7 @@ import { ClipboardList, Database, FileText, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Brand } from "@/components/layout/brand";
 import { SignOutButton } from "@/components/auth/sign-out-button";
-import { masterDataSections, firstMasterDataPath } from "@/lib/master-data/categories";
+import { masterDataSections } from "@/lib/master-data/categories";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import {
   liveSelection,
@@ -89,13 +89,9 @@ export function TeacherNav({
       : []),
   ];
 
-  // The section has no view of its own, so it opens on the first list beneath it — or, for
-  // somebody who maintains none, on the one page they do have there.
-  const sectionHref = reachable.includes("masterData")
-    ? selectedId === null
-      ? ROUTES.eventSeries
-      : firstMasterDataPath(selectedId)
-    : subItems[0]?.href;
+  // The heading has no view of its own, so it opens on the first entry beneath it — the event
+  // series list where the lists are maintained, or the rights page for somebody who maintains none.
+  const sectionHref = subItems[0]?.href;
 
   return (
     <nav aria-label="Hauptnavigation" className="flex h-full flex-col gap-1 p-2 md:w-56">
