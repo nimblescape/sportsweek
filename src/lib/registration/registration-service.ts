@@ -26,23 +26,19 @@ import {
 import { isRegistrationIncomplete } from "./completeness";
 import {
   ANSWER_NO_LONGER_OFFERED_HINT,
-  classFrom,
   EMPTY_REGISTRATION,
   registrationPath,
   REGISTRATION_NOT_OPEN_HINT,
 } from "./registration";
 
 /**
- * The series the student is writing into, and where its class comes from. The series is named
- * rather than searched for, because a student may hold registrations in several (Q7) and only
- * they know which form they are looking at; what they cannot do is name one they were never
- * invited to, since a save with no class to give it is refused below.
+ * The series the student is writing into. It is named rather than searched for, because a student
+ * may hold registrations in several (Q7) and only they know which form they are looking at; what
+ * they cannot do is name one they never joined, since a save with no stored class is refused.
  */
 export type RegistrationTarget = {
   studentUpn: string;
   eventSeriesId: string;
-  /** From the link the student joined through, or null where they are simply coming back. */
-  invitedClass: string | null;
 };
 
 /**
@@ -163,9 +159,9 @@ export async function saveRegistration(
     const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUpn);
     const stored = await transaction.get(reference);
 
-    // Nothing to enrol them into and nothing already enrolling them: the link is how a student
-    // joins (US-23), so without one this is somebody who has simply arrived at the wrong series.
-    const studentClass = classFrom(target.invitedClass, (stored.data()?.class as string) ?? null);
+    // Nothing already enrolling them: following the link is what joins a student and writes the
+    // registration (US-23), so without one this is somebody who has arrived at the wrong series.
+    const studentClass = (stored.data()?.class as string) ?? null;
     if (studentClass === null) {
       throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
     }

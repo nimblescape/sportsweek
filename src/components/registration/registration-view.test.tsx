@@ -48,18 +48,24 @@ function listOf(names: string[]) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useRegistration.mockReturnValue({ eventSeries, record: null, loading: false, error: null });
+  // A record with a class is the ordinary case: following the link writes one before the student
+  // ever reaches this form (US-23).
+  useRegistration.mockReturnValue({
+    eventSeries,
+    record: { class: "3AHME" },
+    loading: false,
+    error: null,
+  });
   useMasterData.mockImplementation(() => listOf(["Etwas"]));
   usePrograms.mockReturnValue({ programs: [], loading: false, error: null });
 });
 
-function renderView(invitedClass: string | null = "3AHME") {
+function renderView() {
   render(
     <RegistrationView
       eventSeriesId="s1"
       studentUpn="jane@student.htldornbirn.at"
       studentName="Jane Doe"
-      invitedClass={invitedClass}
     />,
   );
 }
@@ -100,15 +106,17 @@ describe("RegistrationView", () => {
     expect(screen.queryByTestId("form")).not.toBeInTheDocument();
   });
 
-  /** The link is how a student joins, so without one and without a record there is no class. */
-  it("says the same to a student holding neither a link nor a registration", () => {
-    renderView(null);
+  /** Following the link is what writes the registration (US-23), so no record means no joining. */
+  it("says the same to a student who has not joined this series", () => {
+    useRegistration.mockReturnValue({ eventSeries, record: null, loading: false, error: null });
+
+    renderView();
 
     expect(screen.getByText(REGISTRATION_NOT_OPEN_HINT)).toBeInTheDocument();
     expect(screen.queryByTestId("form")).not.toBeInTheDocument();
   });
 
-  it("shows the form to a student who has already joined and holds no link", () => {
+  it("takes the class from the record the joining wrote", () => {
     useRegistration.mockReturnValue({
       eventSeries,
       record: { class: "4AHME" },
@@ -116,23 +124,9 @@ describe("RegistrationView", () => {
       error: null,
     });
 
-    renderView(null);
+    renderView();
 
     expect(form).toHaveBeenCalledWith(expect.objectContaining({ studentClass: "4AHME" }));
-  });
-
-  /** Q20: following another link is the one way a class changes after registration. */
-  it("prefers the class a link names over the one already stored", () => {
-    useRegistration.mockReturnValue({
-      eventSeries,
-      record: { class: "4AHME" },
-      loading: false,
-      error: null,
-    });
-
-    renderView("3AHME");
-
-    expect(form).toHaveBeenCalledWith(expect.objectContaining({ studentClass: "3AHME" }));
   });
 
   it("waits for the read before deciding there is nothing to show", () => {

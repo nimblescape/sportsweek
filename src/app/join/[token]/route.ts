@@ -5,11 +5,8 @@
  */
 import { NextResponse } from "next/server";
 import { getUserWithRole } from "@/lib/auth/guards";
-import {
-  INVITATION_COOKIE_MAX_AGE_SECONDS,
-  INVITATION_COOKIE_NAME,
-} from "@/lib/invitations/invitation-cookie";
 import { resolveInvitation } from "@/lib/invitations/invitation-service";
+import { joinEventSeries } from "@/lib/registration/registration-service";
 import { ROUTES, eventSeriesRoutes } from "@/lib/routes";
 
 /**
@@ -17,34 +14,47 @@ import { ROUTES, eventSeriesRoutes } from "@/lib/routes";
  * in and grants no identity, so a student following it still signs in through Entra ID and still
  * has the role their UPN domain gives them (US-1, US-3).
  *
- * The token is put in a cookie before anything is decided about the caller, because a signed-out
- * visitor is the ordinary case: they are sent to sign in, come back to `/app`, and the cookie is
- * what carries the link across that round trip. It refuses nothing and says nothing — every
- * reason a link can lead nowhere is answered by the one sentence on the landing page, so that
- * none of them can be told apart.
+ * Following it is what joins a student, so this writes the registration rather than noting the
+ * token down to be redeemed later. That needs to know who is joining, and a signed-out visitor
+ * is the ordinary case — the link is followed before signing in — so they are sent to sign in
+ * and back here, and the joining happens on the second pass. Nothing crosses that round trip but
+ * the address itself.
  *
  * A teacher who follows one is taken to the dashboard scoped to the series it names (Q12): the
  * commonest teacher to follow a link is the one who made it, checking it before sending it out,
  * and a refusal would be a message for somebody who has done nothing wrong.
+ *
+ * It refuses nothing and says nothing. Every reason a link can lead nowhere — mistyped,
+ * superseded, naming a series since closed — is answered by the one sentence on the landing
+ * page, so that none of them can be told apart, and a joining the server declines reads the same.
  */
 export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
   const user = await getUserWithRole();
 
-  const destination = user?.role === "teacher" ? await dashboardFor(token) : ROUTES.myRegistration;
+  const to = (destination: string) => NextResponse.redirect(new URL(destination, request.url));
 
-  const response = NextResponse.redirect(new URL(destination, request.url));
-  response.cookies.set(INVITATION_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: INVITATION_COOKIE_MAX_AGE_SECONDS,
-    path: "/",
-  });
-  return response;
-}
+  if (user === null) {
+    const signIn = new URL(ROUTES.signIn, request.url);
+    signIn.searchParams.set("next", `/join/${token}`);
+    return NextResponse.redirect(signIn);
+  }
 
-async function dashboardFor(token: string): Promise<string> {
   const invitation = await resolveInvitation(token);
-  return invitation ? eventSeriesRoutes(invitation.eventSeriesId).overview : ROUTES.appRoot;
+
+  if (user.role === "teacher") {
+    return to(invitation ? eventSeriesRoutes(invitation.eventSeriesId).overview : ROUTES.appRoot);
+  }
+
+  if (invitation === null) return to(ROUTES.myRegistration);
+
+  try {
+    // Lower-cased because a UPN is the registration's id, and the directory does not agree with
+    // itself about case; every other read of it is lower-cased for the same reason.
+    await joinEventSeries(invitation.eventSeriesId, (user.email ?? "").toLowerCase(), invitation.class); // prettier-ignore
+  } catch {
+    return to(ROUTES.myRegistration);
+  }
+
+  return to(`${ROUTES.myRegistration}/${invitation.eventSeriesId}`);
 }

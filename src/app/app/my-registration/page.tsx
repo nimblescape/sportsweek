@@ -7,31 +7,27 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireStudent } from "@/lib/auth/guards";
 import { Card, CardContent } from "@/components/ui/card";
-import { invitationTokenFromCookie } from "@/lib/invitations/invitation-cookie";
-import { resolveInvitation } from "@/lib/invitations/invitation-service";
 import { REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
 import { openSeriesOfStudent } from "@/lib/registration/student-series";
 import { ROUTES } from "@/lib/routes";
 
-export const CHOOSE_EVENT_SERIES_LABEL = "Für welche Veranstaltung möchtest du dich anmelden?";
+export const CHOOSE_EVENT_SERIES_LABEL = "Welche Anmeldung möchtest du bearbeiten?";
 
 /**
  * Where a student goes when they sign in, and the only place that decides it (Q7).
  *
- * A link always wins, because the link _is_ the choice and so must never lead to a chooser.
- * Otherwise it is whichever open series they have already joined — one, in the ordinary case,
- * because the years before it are closed and so are history rather than in the way. Only where a
- * Wintersportwoche and a Kulturwoche are taking registrations at once is there anything to ask.
+ * Read from what they hold rather than from anything they are carrying: following the link is
+ * what joined them (US-23), so the registration is already there to be found. One, in the
+ * ordinary case, because the years before it are closed and so are history rather than in the
+ * way. Where a Wintersportwoche and a Kulturwoche are taking registrations at once there is a
+ * real question, and it is asked: a form is reached only after saying which of them was meant.
  */
 export default async function MyRegistrationPage() {
   const user = await requireStudent();
   const studentUpn = (user.email ?? "").toLowerCase();
 
-  const token = await invitationTokenFromCookie();
-  const invitation = token === null ? null : await resolveInvitation(token);
-  if (invitation) redirect(`${ROUTES.myRegistration}/${invitation.eventSeriesId}`);
-
   const joined = await openSeriesOfStudent(studentUpn);
+  // One is not a choice, so it is not put as one.
   if (joined.length === 1) redirect(`${ROUTES.myRegistration}/${joined[0].id}`);
 
   return (

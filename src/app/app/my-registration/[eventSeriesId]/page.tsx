@@ -8,8 +8,6 @@ import { requireStudent } from "@/lib/auth/guards";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { userSchema } from "@/lib/schemas/user";
 import { RegistrationView } from "@/components/registration/registration-view";
-import { invitationTokenFromCookie } from "@/lib/invitations/invitation-cookie";
-import { invitedClassFor } from "@/lib/invitations/invitation-service";
 
 /**
  * Only the shared header sits above this page — no left-side navigation (US-15). The name comes
@@ -35,8 +33,6 @@ export default async function RegistrationPage({
     ? `${stored.data.firstName} ${stored.data.lastName}`
     : (user.email ?? "");
 
-  const invitedClass = await invitedClassFor(eventSeriesId, await invitationTokenFromCookie());
-
   return (
     // Capped rather than stretched: the form is one column of short fields, and a line of
     // inputs the full width of a desktop screen is a long way from its own label.
@@ -45,7 +41,6 @@ export default async function RegistrationPage({
         eventSeriesId={eventSeriesId}
         studentUpn={studentUpn}
         studentName={studentName}
-        invitedClass={invitedClass}
       />
     </div>
   );

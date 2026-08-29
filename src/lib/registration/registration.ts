@@ -29,15 +29,6 @@ export function registrationPath(eventSeriesId: string): string {
 export const REGISTRATION_NOT_OPEN_HINT = "Derzeit ist keine Veranstaltung freigeschaltet.";
 
 /**
- * The class a registration carries. It is never an answer: it comes from the link the student
- * joined through (US-23), and the one way it changes afterwards is another link (Q20) — so an
- * invitation in hand wins over what is stored rather than being ignored as already settled.
- */
-export function classFrom(invitedClass: string | null, storedClass: string | null): string | null {
-  return invitedClass ?? storedClass;
-}
-
-/**
  * Shown when an answer names something the event series stopped offering while the form was
  * open — a teacher removed it between the page being loaded and the save being sent. It asks for
  * the one thing that helps, since the form the student is looking at is out of date.
