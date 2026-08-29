@@ -192,7 +192,8 @@ describe("EventSeriesTagRows — colour", () => {
     document.cookie = "sportsweek_event_series=; max-age=0; path=/";
   });
 
-  const tagFor = (name: string) => screen.getByRole("button", { name }).parentElement!.className;
+  const tagFor = (name: string) =>
+    screen.getByRole("button", { name }).closest('[data-slot="tag"]')!.className;
 
   it("fills the selected series with the accent", () => {
     showing(seriesNamed("s1", "Wintersportwoche"));
@@ -341,5 +342,51 @@ describe("EventSeriesTagRows — opening and closing", () => {
     );
 
     expect(await screen.findByText(closeActionLabel("Wintersportwoche"))).toBeInTheDocument();
+  });
+});
+
+/**
+ * The door says whether students can register, and the name is truncated where it is long. Both
+ * say on hover what they already say to a screen reader (US-19, US-20).
+ */
+describe("EventSeriesTagRows — what a tag says on hover", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    pathname.mockReturnValue("/app/s1/report");
+    document.cookie = "sportsweek_event_series=; max-age=0; path=/";
+  });
+
+  it("says a series is open", async () => {
+    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+
+    render(<EventSeriesTagRows />);
+    await userEvent.hover(screen.getByLabelText(OPEN_TO_STUDENTS_LABEL));
+
+    expect(await screen.findByText(OPEN_TO_STUDENTS_LABEL)).toBeInTheDocument();
+  });
+
+  it("says a series is closed", async () => {
+    showing(seriesNamed("s1", "Wintersportwoche"));
+
+    render(<EventSeriesTagRows />);
+    await userEvent.hover(screen.getByLabelText(CLOSED_TO_STUDENTS_LABEL));
+
+    expect(await screen.findByText(CLOSED_TO_STUDENTS_LABEL)).toBeInTheDocument();
+  });
+
+  /** A long name is truncated to keep the row on one line, so hovering is how it is read whole. */
+  it("says the whole name of the series", async () => {
+    showing(seriesNamed("s1", "Wintersportwoche 2026/2027 der dritten Jahrgänge"));
+
+    render(<EventSeriesTagRows />);
+    await userEvent.hover(
+      screen.getByRole("button", { name: "Wintersportwoche 2026/2027 der dritten Jahrgänge" }),
+    );
+
+    expect(
+      await screen.findByText("Wintersportwoche 2026/2027 der dritten Jahrgänge", {
+        selector: "[data-slot='tooltip-popup']",
+      }),
+    ).toBeInTheDocument();
   });
 });

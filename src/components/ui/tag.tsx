@@ -83,6 +83,7 @@ export function Tag({
     <TagContext value={{ pressed, disabled }}>
       <div
         ref={ref}
+        data-slot="tag"
         style={style}
         onPointerDown={onPointerDown}
         className={cn(

@@ -9,6 +9,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { DoorClosed, DoorOpen, LogIn, LogOut } from "lucide-react";
 import { Tag, TagAction, TagName } from "@/components/ui/tag";
+import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError, apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
@@ -28,10 +29,13 @@ export const CLOSED_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.closed;
 
 /** What a tag is, in one icon: a series with its door open or shut. */
 function StateIcon({ eventSeries }: { eventSeries: EventSeries }) {
-  return eventSeries.isOpenToStudents ? (
-    <DoorOpen aria-label={OPEN_TO_STUDENTS_LABEL} className="size-4 shrink-0" />
-  ) : (
-    <DoorClosed aria-label={CLOSED_TO_STUDENTS_LABEL} className="size-4 shrink-0" />
+  const label = eventSeries.isOpenToStudents ? OPEN_TO_STUDENTS_LABEL : CLOSED_TO_STUDENTS_LABEL;
+  const Door = eventSeries.isOpenToStudents ? DoorOpen : DoorClosed;
+
+  return (
+    <Tooltip label={label}>
+      <Door aria-label={label} className="size-4 shrink-0" />
+    </Tooltip>
   );
 }
 
@@ -55,7 +59,13 @@ function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }
         return (
           <Tag key={one.id} pressed={pressed} disabled={pending}>
             <StateIcon eventSeries={one} />
-            <TagName label={one.name} onPress={() => onSelect(one)} />
+            {/* A span because the name is truncated where it is long, and the tooltip is how it
+                is read whole; TagName draws the button rather than forwarding what wraps it. */}
+            <Tooltip label={one.name}>
+              <span className="inline-flex min-w-0">
+                <TagName label={one.name} onPress={() => onSelect(one)} />
+              </span>
+            </Tooltip>
             {/* Only on the tag that is selected, so a press cannot land on another series. */}
             {pressed ? (
               <TagAction
