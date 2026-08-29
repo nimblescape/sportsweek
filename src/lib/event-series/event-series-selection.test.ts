@@ -26,19 +26,21 @@ describe("isMasterDataPath", () => {
     expect(isMasterDataPath(pathname)).toBe(true);
   });
 
-  it.each(["/app/s1/overview", "/app/s1/assignment", "/app/s1/report", "/app/my-registration"])(
-    "counts %s as looking at students",
-    (pathname) => {
-      expect(isMasterDataPath(pathname)).toBe(false);
-    },
-  );
+  it.each([
+    "/app/s1/registrations",
+    "/app/s1/assignment",
+    "/app/s1/report",
+    "/app/my-registration",
+  ])("counts %s as looking at students", (pathname) => {
+    expect(isMasterDataPath(pathname)).toBe(false);
+  });
 });
 
 describe("selectedEventSeriesIdFrom", () => {
   it.each([
     ["/app/s1/report", "s1"],
     ["/app/s1/assignment", "s1"],
-    ["/app/s1/overview", "s1"],
+    ["/app/s1/registrations", "s1"],
     ["/app/s1/master-data/classes", "s1"],
     ["/app/s1", "s1"],
   ])("reads the id out of %s", (pathname, expected) => {
@@ -71,7 +73,7 @@ describe("rescopedPath", () => {
   it.each([
     ["/app/s1/report", "/app/s2/report"],
     ["/app/s1/assignment", "/app/s2/assignment"],
-    ["/app/s1/overview", "/app/s2/overview"],
+    ["/app/s1/registrations", "/app/s2/registrations"],
     ["/app/s1/master-data/classes", "/app/s2/master-data/classes"],
   ])("keeps the page open when re-scoping %s", (pathname, expected) => {
     expect(rescopedPath(pathname, "s2")).toBe(expected);
@@ -81,7 +83,7 @@ describe("rescopedPath", () => {
   it.each(["/app/event-series", "/app/event-series/s1", "/app"])(
     "opens the overview when leaving %s",
     (pathname) => {
-      expect(rescopedPath(pathname, "s2")).toBe("/app/s2/overview");
+      expect(rescopedPath(pathname, "s2")).toBe("/app/s2/registrations");
     },
   );
 

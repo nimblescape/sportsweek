@@ -21,7 +21,7 @@ import {
 } from "@/lib/event-series/event-series-state";
 
 const DELETE_HINT =
-  "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.";
+  "Eine Eventreihe mit Registrierungen kann nur gelöscht werden, wenn sie archiviert ist.";
 
 type EventSeriesListProps = {
   eventSeries: EventSeries[];

@@ -11,7 +11,7 @@ import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tag, TagAction, TagName } from "@/components/ui/tag";
-import { DeleteRegistrationDialog } from "@/components/overview/delete-registration-dialog";
+import { DeleteRegistrationDialog } from "@/components/registrations/delete-registration-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
@@ -237,7 +237,7 @@ function ClassCard({
           >
             <p className="text-sm">
               {`Der bisherige Link für ${row.class} funktioniert danach nicht mehr. ` +
-                "Bereits angemeldete Schüler:innen bleiben angemeldet."}
+                "Bereits registrierte Schüler:innen bleiben registriert."}
             </p>
           </Dialog>
         )}
@@ -374,7 +374,7 @@ function Cloud({
                 {/* On the marked tag only, as a saved report's controls are (US-13, US-28). */}
                 {marked && onRemove ? (
                   <TagAction
-                    label={`Anmeldung von ${name} löschen`}
+                    label={`Registrierung von ${name} löschen`}
                     onClick={() => onRemove(student)}
                   >
                     <Trash2 aria-hidden />

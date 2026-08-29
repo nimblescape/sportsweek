@@ -44,13 +44,22 @@ type RowProps = {
   selectedId: string | null;
   onSelect: (eventSeries: EventSeries) => void;
   onSetOpen: (eventSeries: EventSeries, isOpenToStudents: boolean) => void;
+  mayOpen: boolean;
   pending: boolean;
 };
 
 export const openActionLabel = (name: string) => `${name} für Schüler:innen öffnen`;
 export const closeActionLabel = (name: string) => `${name} für Schüler:innen schließen`;
 
-function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }: RowProps) {
+function TagRow({
+  label,
+  eventSeries,
+  selectedId,
+  onSelect,
+  onSetOpen,
+  mayOpen,
+  pending,
+}: RowProps) {
   return (
     <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
       {eventSeries.map((one) => {
@@ -65,8 +74,10 @@ function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }
                 <TagName label={one.name} onPress={() => onSelect(one)} />
               </span>
             </Tooltip>
-            {/* Only on the tag that is selected, so a press cannot land on another series. */}
-            {pressed ? (
+            {/* Only on the tag that is selected, so a press cannot land on another series, and
+                only for somebody who may act on it — opening one is what lets registrations
+                arrive, so it goes with the permission that edits them. */}
+            {pressed && mayOpen ? (
               <TagAction
                 label={(one.isOpenToStudents ? closeActionLabel : openActionLabel)(one.name)}
                 onClick={() => onSetOpen(one, !one.isOpenToStudents)}
@@ -92,7 +103,7 @@ function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }
  *
  * It wraps rather than scrolling sideways, so a school with many can still see them all.
  */
-export function EventSeriesTagRows() {
+export function EventSeriesTagRows({ mayOpen = false }: { mayOpen?: boolean }) {
   const { eventSeries } = useEventSeries();
   const pathname = usePathname();
   const router = useRouter();
@@ -136,6 +147,7 @@ export function EventSeriesTagRows() {
         selectedId={selectedId}
         onSelect={select}
         onSetOpen={setOpenToStudents}
+        mayOpen={mayOpen}
         pending={saving}
       />
 

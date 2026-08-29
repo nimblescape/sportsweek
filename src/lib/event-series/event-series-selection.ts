@@ -72,7 +72,7 @@ export function rescopedPath(pathname: string, eventSeriesId: string): string {
   const rest = selectedEventSeriesIdFrom(pathname) === null ? [] : pathname.split("/").slice(3);
 
   return rest.length === 0
-    ? eventSeriesRoutes(eventSeriesId).overview
+    ? eventSeriesRoutes(eventSeriesId).registrations
     : `${scope}/${rest.join("/")}`;
 }
 

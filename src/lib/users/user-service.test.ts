@@ -107,11 +107,11 @@ describe("grantPermissions", () => {
     ).rejects.toMatchObject({ code: ErrorCode.NotFound });
   });
 
-  /** A caller cannot name a permission that does not exist, nor one twice. */
+  /** A caller cannot name a permission that does not exist, nor two that exclude each other. */
   it("refuses a set the schema will not have", async () => {
-    await expect(grantPermissions(OTHER, ["editReports"], ADMIN)).rejects.toMatchObject({
-      code: ErrorCode.ValidationError,
-    });
+    await expect(
+      grantPermissions(OTHER, ["viewReports", "editReports"], ADMIN),
+    ).rejects.toMatchObject({ code: ErrorCode.ValidationError });
 
     expect(firestore.get(USERS, OTHER)?.permissions).toEqual([]);
   });

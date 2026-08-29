@@ -60,17 +60,72 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
     expect(updateEventSeries).toHaveBeenCalledWith("s1", { name: "Neuer Name" });
   });
 
-  /** Pressing the overview page's tag is the whole of opening and closing registration (US-29). */
-  it("opens the event series to students", async () => {
-    await PATCH(patchRequest({ isOpenToStudents: true }), context);
+  /**
+   * Opening and closing registration is what the registrations page is for, so it is that
+   * permission rather than the one that maintains the series itself (US-2).
+   */
+  it("lets somebody who may only edit registrations open it", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u2",
+      email: "t2@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["editRegistrations"],
+    });
 
+    const response = await PATCH(patchRequest({ isOpenToStudents: true }), context);
+
+    expect(response.status).toBe(200);
     expect(updateEventSeries).toHaveBeenCalledWith("s1", { isOpenToStudents: true });
   });
 
-  it("closes it again", async () => {
-    await PATCH(patchRequest({ isOpenToStudents: false }), context);
+  it("refuses them the rest of the record", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u2",
+      email: "t2@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["editRegistrations"],
+    });
 
-    expect(updateEventSeries).toHaveBeenCalledWith("s1", { isOpenToStudents: false });
+    const response = await PATCH(patchRequest({ name: "Neuer Name" }), context);
+
+    expect(response.status).toBe(403);
+    expect(updateEventSeries).not.toHaveBeenCalled();
+  });
+
+  it("refuses a change that smuggles a rename in beside the opening", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u2",
+      email: "t2@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["editRegistrations"],
+    });
+
+    const response = await PATCH(
+      patchRequest({ isOpenToStudents: true, name: "Neuer Name" }),
+      context,
+    );
+
+    expect(response.status).toBe(403);
+    expect(updateEventSeries).not.toHaveBeenCalled();
+  });
+
+  it("refuses somebody who may only maintain master data the opening", async () => {
+    const response = await PATCH(patchRequest({ isOpenToStudents: true }), context);
+
+    expect(response.status).toBe(403);
+    expect(updateEventSeries).not.toHaveBeenCalled();
+  });
+
+  it("lets somebody holding both do either", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u3",
+      email: "t3@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["editRegistrations", "editMasterData"],
+    });
+
+    expect((await PATCH(patchRequest({ isOpenToStudents: true }), context)).status).toBe(200);
+    expect((await PATCH(patchRequest({ name: "X" }), context)).status).toBe(200);
   });
 
   it("archives the event series", async () => {
@@ -135,13 +190,13 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
   });
 
   it("maps archiving a series with no registrations onto 409", async () => {
-    updateEventSeries.mockRejectedValue(new ServiceError("CONFLICT", "Keine Anmeldungen."));
+    updateEventSeries.mockRejectedValue(new ServiceError("CONFLICT", "Keine Registrierungen."));
 
     const response = await PATCH(patchRequest({ isArchived: true }), context);
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
-      error: { code: "CONFLICT", message: "Keine Anmeldungen." },
+      error: { code: "CONFLICT", message: "Keine Registrierungen." },
     });
   });
 });
@@ -167,7 +222,7 @@ describe("DELETE /api/event-series/[eventSeriesId]", () => {
     deleteEventSeries.mockRejectedValue(
       new ServiceError(
         "CONFLICT",
-        "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.",
+        "Eine Eventreihe mit Registrierungen kann nur gelöscht werden, wenn sie archiviert ist.",
       ),
     );
 
@@ -178,7 +233,7 @@ describe("DELETE /api/event-series/[eventSeriesId]", () => {
       error: {
         code: "CONFLICT",
         message:
-          "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.",
+          "Eine Eventreihe mit Registrierungen kann nur gelöscht werden, wenn sie archiviert ist.",
       },
     });
   });

@@ -10,7 +10,7 @@ import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Registration } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema, type User } from "@/lib/schemas/user";
-import { PERMISSIONS, permissionsSchema, type Permission } from "./permissions";
+import { FULL_PERMISSIONS, permissionsSchema, type Permission } from "./permissions";
 import { fetchEntraName, fetchEntraPhoto } from "./graph";
 import { refuseSignIn } from "./sign-in-policy";
 import { accountTypeFromUpn } from "./upn";
@@ -172,7 +172,7 @@ export async function provisionUser(
   } else {
     permissions =
       accountType === accountTypeSchema.enum.teacher && (await isFirstTeacher())
-        ? [...PERMISSIONS]
+        ? [...FULL_PERMISSIONS]
         : [];
     await ref.set({ firstName, lastName, email: upn, accountType, photo, permissions });
   }

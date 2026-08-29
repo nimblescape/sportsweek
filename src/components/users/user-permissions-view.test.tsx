@@ -107,9 +107,9 @@ describe("UserPermissionsView", () => {
     );
   });
 
-  /** The row sends what the dependency rule makes of a press, not the press itself. */
-  it("presses viewReports along with editReports", async () => {
-    teachers(BOB);
+  /** The row sends what the exclusivity rule makes of a press, not the press itself. */
+  it("clears viewReports when editReports is pressed", async () => {
+    teachers({ ...BOB, permissions: ["viewReports"] });
     show();
 
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editReports));
@@ -117,13 +117,13 @@ describe("UserPermissionsView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
         method: "PATCH",
-        body: { permissions: ["viewReports", "editReports"] },
+        body: { permissions: ["editReports"] },
       }),
     );
   });
 
-  it("withdraws editReports along with viewReports", async () => {
-    teachers({ ...BOB, permissions: ["viewReports", "editReports"] });
+  it("clears editReports when viewReports is pressed", async () => {
+    teachers({ ...BOB, permissions: ["editReports"] });
     show();
 
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.viewReports));
@@ -131,7 +131,7 @@ describe("UserPermissionsView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
         method: "PATCH",
-        body: { permissions: [] },
+        body: { permissions: ["viewReports"] },
       }),
     );
   });

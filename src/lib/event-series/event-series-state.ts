@@ -24,7 +24,7 @@ export const ARCHIVED_IS_READ_ONLY_HINT =
 
 /** Archiving signs a series off, and there is nothing to sign off on until somebody registers. */
 export const ARCHIVE_NO_DATA_HINT =
-  "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.";
+  "Eine Eventreihe ohne Registrierungen kann nicht archiviert werden.";
 
 /**
  * Closing is a decision a teacher makes on the tag of the series it concerns (US-19). Archiving
@@ -60,8 +60,8 @@ export function eventSeriesState(
 
 export const EVENT_SERIES_STATE_LABELS: Record<EventSeriesState, string> = {
   archived: "Archiviert",
-  open: "Schüler:innen-Anmeldung offen",
-  closed: "Schüler:innen-Anmeldung geschlossen",
+  open: "Registrierung für Schüler:innen offen",
+  closed: "Registrierung für Schüler:innen geschlossen",
 };
 
 /** Archived event series are hidden by default; the list offers a toggle to bring them back (US-19). */

@@ -14,7 +14,7 @@ type Context = { params: Promise<{ eventSeriesId: string; studentUpn: string }> 
  * not coming answers "no" (US-11), and this endpoint is closed to them by the guard.
  */
 export async function DELETE(_request: Request, { params }: Context) {
-  const denied = await requirePermissionOrResponse("editAssignments");
+  const denied = await requirePermissionOrResponse("editRegistrations");
   if (denied) return denied;
 
   const { eventSeriesId, studentUpn } = await params;

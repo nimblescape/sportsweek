@@ -4,24 +4,29 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
-import { may, type Permission } from "@/lib/auth/permissions";
+import { mayAny, type Permission } from "@/lib/auth/permissions";
 
 /** The pages a teacher can be sent to, in the order the navigation shows them. */
-export type PageKey = "overview" | "assignment" | "report" | "masterData" | "users";
+export type PageKey = "registrations" | "assignment" | "report" | "masterData" | "users";
 
-export const PAGE_PERMISSION: Record<PageKey, Permission> = {
-  overview: "viewReports",
-  assignment: "editAssignments",
-  report: "viewReports",
-  masterData: "editMasterData",
-  users: "editUsers",
+/**
+ * What opens each page. A list rather than one name because the report page is opened by either
+ * of the two permissions that exclude each other: whoever may only look at it, and whoever may
+ * also save what they have set up.
+ */
+export const PAGE_PERMISSIONS: Record<PageKey, readonly Permission[]> = {
+  registrations: ["editRegistrations"],
+  assignment: ["editAssignments"],
+  report: ["viewReports", "editReports"],
+  masterData: ["editMasterData"],
+  users: ["editUsers"],
 };
 
-const PAGE_ORDER = Object.keys(PAGE_PERMISSION) as PageKey[];
+const PAGE_ORDER = Object.keys(PAGE_PERMISSIONS) as PageKey[];
 
 export function reachablePages(permissions: readonly Permission[]): PageKey[] {
   const holder = { accountType: "teacher", permissions } as const;
-  return PAGE_ORDER.filter((page) => may(holder, PAGE_PERMISSION[page]));
+  return PAGE_ORDER.filter((page) => mayAny(holder, PAGE_PERMISSIONS[page]));
 }
 
 /**
@@ -46,7 +51,7 @@ export function firstReachableHref(
 
   const scoped = eventSeriesRoutes(eventSeriesId);
   const hrefs: Record<PageKey, string> = {
-    overview: scoped.overview,
+    registrations: scoped.registrations,
     assignment: scoped.assignment,
     report: scoped.report,
     masterData: ROUTES.eventSeries,

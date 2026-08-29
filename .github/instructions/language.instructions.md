@@ -50,11 +50,11 @@ everybody. Every such noun the interface shows names all of them.
 
 Prefer a word that has no gender to begin with — it reads better than any punctuation:
 
-| Instead of        | Write                  |
-| ----------------- | ---------------------- |
-| Neuer Benutzer    | Neue Person            |
-| Der Lehrer        | Die Lehrperson         |
-| Anzahl der Nutzer | Anzahl der Anmeldungen |
+| Instead of        | Write                      |
+| ----------------- | -------------------------- |
+| Neuer Benutzer    | Neue Person                |
+| Der Lehrer        | Die Lehrperson             |
+| Anzahl der Nutzer | Anzahl der Registrierungen |
 
 Where the role has no neutral word, use the colon form — one word, screen readers pause at it,
 and it is what the school itself writes:

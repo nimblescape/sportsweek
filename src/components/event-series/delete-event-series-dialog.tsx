@@ -71,7 +71,9 @@ export function DeleteEventSeriesDialog({
           <span>
             Die Eventreihe <strong className="text-foreground">{eventSeries.name}</strong> wird mit
             allen Events
-            {eventSeries.hasRegistrations ? " und allen Anmeldungen der Schüler:innen" : ""}{" "}
+            {eventSeries.hasRegistrations
+              ? " und allen Registrierungen der Schüler:innen"
+              : ""}{" "}
             gelöscht. Das kann nicht rückgängig gemacht werden.
           </span>
         </span>

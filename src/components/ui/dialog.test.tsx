@@ -105,7 +105,7 @@ describe("Dialog", () => {
         <BusyProvider>
           <Dialog
             open
-            title="Anmeldung löschen"
+            title="Registrierung löschen"
             onClose={vi.fn()}
             footer={<button>Löschen</button>}
           >

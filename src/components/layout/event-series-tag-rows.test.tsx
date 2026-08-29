@@ -57,7 +57,7 @@ describe("EventSeriesTagRows", () => {
   it("puts every live series in one named row", () => {
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     const row = screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL });
     expect(within(row).getByRole("button", { name: "Wintersportwoche" })).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe("EventSeriesTagRows", () => {
 
   /** Every page can be about every series, so the row is the same wherever the teacher is. */
   it.each([
-    "/app/s1/overview",
+    "/app/s1/registrations",
     "/app/s1/assignment",
     "/app/s1/report",
     "/app/s1/master-data/programs",
@@ -75,7 +75,7 @@ describe("EventSeriesTagRows", () => {
     pathname.mockReturnValue(path);
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     const row = screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL });
     expect(within(row).getByRole("button", { name: "Wintersportwoche" })).toBeInTheDocument();
@@ -89,7 +89,7 @@ describe("EventSeriesTagRows", () => {
       seriesNamed("old", "Letztes Jahr", { isArchived: true }),
     );
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     expect(screen.queryByRole("button", { name: "Letztes Jahr" })).not.toBeInTheDocument();
   });
@@ -101,7 +101,7 @@ describe("EventSeriesTagRows", () => {
       seriesNamed("s3", "Projektwoche"),
     );
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     const pressed = screen
       .getAllByRole("button")
@@ -114,7 +114,7 @@ describe("EventSeriesTagRows", () => {
     pathname.mockReturnValue("/app/s2/master-data/classes");
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     expect(screen.getByRole("button", { name: "Kulturwoche" })).toHaveAttribute(
       "aria-pressed",
@@ -133,7 +133,7 @@ describe("EventSeriesTagRows", () => {
       seriesNamed("s2", "Kulturwoche"),
     );
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     expect(screen.getByLabelText(OPEN_TO_STUDENTS_LABEL)).toBeInTheDocument();
     expect(screen.getAllByLabelText(OPEN_TO_STUDENTS_LABEL)).toHaveLength(1);
@@ -146,7 +146,7 @@ describe("EventSeriesTagRows", () => {
       seriesNamed("s2", "Kulturwoche"),
     );
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     expect(screen.getAllByLabelText(CLOSED_TO_STUDENTS_LABEL)).toHaveLength(1);
   });
@@ -155,7 +155,7 @@ describe("EventSeriesTagRows", () => {
     pathname.mockReturnValue("/app/s1/master-data/classes");
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.click(screen.getByRole("button", { name: "Kulturwoche" }));
 
     expect(push).toHaveBeenCalledWith("/app/s2/master-data/classes");
@@ -164,7 +164,7 @@ describe("EventSeriesTagRows", () => {
   it("remembers the selection, so the landing route can restore it", async () => {
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.click(screen.getByRole("button", { name: "Kulturwoche" }));
 
     expect(document.cookie).toContain("sportsweek_event_series=s2");
@@ -174,7 +174,7 @@ describe("EventSeriesTagRows", () => {
   it("renders nothing when there is no event series to select", () => {
     showing();
 
-    const { container } = render(<EventSeriesTagRows />);
+    const { container } = render(<EventSeriesTagRows mayOpen />);
 
     expect(container).toBeEmptyDOMElement();
   });
@@ -198,7 +198,7 @@ describe("EventSeriesTagRows — colour", () => {
   it("fills the selected series with the accent", () => {
     showing(seriesNamed("s1", "Wintersportwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     expect(tagFor("Wintersportwoche")).toContain("bg-primary");
   });
@@ -206,7 +206,7 @@ describe("EventSeriesTagRows — colour", () => {
   it("leaves an unselected tag with the plain outline", () => {
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     expect(tagFor("Kulturwoche")).toContain("bg-background");
   });
@@ -219,7 +219,7 @@ describe("EventSeriesTagRows — colour", () => {
       seriesNamed("s3", "Projektwoche"),
     );
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     expect(tagFor("Kulturwoche")).toBe(tagFor("Projektwoche"));
   });
@@ -242,7 +242,7 @@ describe("EventSeriesTagRows — opening and closing", () => {
   it("offers the action on the selected tag and on no other", () => {
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     expect(
       screen.getByRole("button", { name: openActionLabel("Wintersportwoche") }),
@@ -255,7 +255,7 @@ describe("EventSeriesTagRows — opening and closing", () => {
   it("offers closing instead while the series is open", () => {
     showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
 
     expect(
       screen.getByRole("button", { name: closeActionLabel("Wintersportwoche") }),
@@ -268,7 +268,7 @@ describe("EventSeriesTagRows — opening and closing", () => {
   it("opens the series when the action is pressed", async () => {
     showing(seriesNamed("s1", "Wintersportwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.click(
       screen.getByRole("button", { name: openActionLabel("Wintersportwoche") }),
     );
@@ -282,7 +282,7 @@ describe("EventSeriesTagRows — opening and closing", () => {
   it("closes it again when pressed while open", async () => {
     showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.click(
       screen.getByRole("button", { name: closeActionLabel("Wintersportwoche") }),
     );
@@ -293,11 +293,34 @@ describe("EventSeriesTagRows — opening and closing", () => {
     });
   });
 
+  /**
+   * Opening a series is what lets registrations arrive, so it goes with the permission that
+   * edits them. Without it the control is absent rather than offered and refused (US-2).
+   */
+  it("offers no way to open or close it without the permission", () => {
+    showing(seriesNamed("s1", "Wintersportwoche"));
+
+    render(<EventSeriesTagRows />);
+
+    expect(
+      screen.queryByRole("button", { name: openActionLabel("Wintersportwoche") }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("still names which series is selected, and whether it is open", () => {
+    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+
+    render(<EventSeriesTagRows />);
+
+    expect(screen.getByRole("button", { name: "Wintersportwoche" })).toBeInTheDocument();
+    expect(screen.getAllByLabelText(OPEN_TO_STUDENTS_LABEL).length).toBeGreaterThan(0);
+  });
+
   /** The tag is already the selected one, so the action has no series to move to. */
   it("does not navigate when the action rather than the name is pressed", async () => {
     showing(seriesNamed("s1", "Wintersportwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.click(
       screen.getByRole("button", { name: openActionLabel("Wintersportwoche") }),
     );
@@ -313,7 +336,7 @@ describe("EventSeriesTagRows — opening and closing", () => {
     apiRequest.mockRejectedValue(new ApiRequestError("Ohne Klasse geht das nicht."));
     showing(seriesNamed("s1", "Wintersportwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.click(
       screen.getByRole("button", { name: openActionLabel("Wintersportwoche") }),
     );
@@ -325,7 +348,7 @@ describe("EventSeriesTagRows — opening and closing", () => {
   it("says on hover what the icon would do", async () => {
     showing(seriesNamed("s1", "Wintersportwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(
       screen.getByRole("button", { name: openActionLabel("Wintersportwoche") }),
     );
@@ -336,7 +359,7 @@ describe("EventSeriesTagRows — opening and closing", () => {
   it("says closing instead once the series is open", async () => {
     showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(
       screen.getByRole("button", { name: closeActionLabel("Wintersportwoche") }),
     );
@@ -359,7 +382,7 @@ describe("EventSeriesTagRows — what a tag says on hover", () => {
   it("says a series is open", async () => {
     showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(screen.getByLabelText(OPEN_TO_STUDENTS_LABEL));
 
     expect(await screen.findByText(OPEN_TO_STUDENTS_LABEL)).toBeInTheDocument();
@@ -368,7 +391,7 @@ describe("EventSeriesTagRows — what a tag says on hover", () => {
   it("says a series is closed", async () => {
     showing(seriesNamed("s1", "Wintersportwoche"));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(screen.getByLabelText(CLOSED_TO_STUDENTS_LABEL));
 
     expect(await screen.findByText(CLOSED_TO_STUDENTS_LABEL)).toBeInTheDocument();
@@ -382,7 +405,7 @@ describe("EventSeriesTagRows — what a tag says on hover", () => {
   ])("says the state on the name too when open is %s", async (isOpenToStudents, label) => {
     showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents }));
 
-    render(<EventSeriesTagRows />);
+    render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(screen.getByRole("button", { name: "Wintersportwoche" }));
 
     expect(

@@ -48,7 +48,7 @@ vi.mock("@/lib/auth/sign-in-policy", () => ({ refuseSignIn }));
 
 const { provisionUser } = await import("@/lib/auth/provision-user");
 const { registrationPath } = await import("@/lib/registration/registration");
-const { PERMISSIONS } = await import("@/lib/auth/permissions");
+const { FULL_PERMISSIONS, permissionsSchema } = await import("@/lib/auth/permissions");
 
 const teacherClaims = {
   uid: "firebase-uid-1",
@@ -350,13 +350,25 @@ describe("the roles a new teacher is provisioned with", () => {
     teachersGet.mockResolvedValue({ empty: false });
   });
 
-  it("gives the first teacher every role", async () => {
+  it("gives the first teacher every permission that can be held at once", async () => {
     teachersGet.mockResolvedValue({ empty: true });
 
     const result = await provisionUser(teacherClaims);
 
-    expect(result).toMatchObject({ ok: true, user: { permissions: [...PERMISSIONS] } });
-    expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ permissions: [...PERMISSIONS] }));
+    expect(result).toMatchObject({ ok: true, user: { permissions: [...FULL_PERMISSIONS] } });
+    expect(docSet).toHaveBeenCalledWith(
+      expect.objectContaining({ permissions: [...FULL_PERMISSIONS] }),
+    );
+  });
+
+  /** Two of them exclude each other, so "everything" cannot be the list itself. */
+  it("gives them a set the schema accepts", async () => {
+    teachersGet.mockResolvedValue({ empty: true });
+
+    await provisionUser(teacherClaims);
+
+    const written = docSet.mock.calls[0][0] as { permissions: unknown };
+    expect(permissionsSchema.safeParse(written.permissions).success).toBe(true);
   });
 
   it("asks only whether a teacher exists, not for the whole staff room", async () => {

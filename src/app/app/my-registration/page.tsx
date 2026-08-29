@@ -11,7 +11,7 @@ import { REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
 import { openSeriesOfStudent } from "@/lib/registration/student-series";
 import { ROUTES } from "@/lib/routes";
 
-export const CHOOSE_EVENT_SERIES_LABEL = "Welche Anmeldung möchtest du bearbeiten?";
+export const CHOOSE_EVENT_SERIES_LABEL = "Welche Registrierung möchtest du bearbeiten?";
 
 /**
  * Where a student goes when they sign in, and the only place that decides it (Q7).

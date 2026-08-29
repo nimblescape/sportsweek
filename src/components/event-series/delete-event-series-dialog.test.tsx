@@ -61,7 +61,7 @@ describe("DeleteEventSeriesDialog", () => {
     stubFetch(noContent);
     renderDialog();
 
-    expect(screen.getByRole("dialog")).toHaveTextContent(/Anmeldungen/);
+    expect(screen.getByRole("dialog")).toHaveTextContent(/Registrierungen/);
   });
 
   it("warns that the deletion cannot be undone", () => {
@@ -166,7 +166,7 @@ describe("DeleteEventSeriesDialog", () => {
             error: {
               code: "CONFLICT",
               message:
-                "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.",
+                "Eine Eventreihe mit Registrierungen kann nur gelöscht werden, wenn sie archiviert ist.",
             },
           }),
           { status: 409, headers: { "content-type": "application/json" } },
@@ -179,7 +179,7 @@ describe("DeleteEventSeriesDialog", () => {
     await userEvent.click(deleteButton());
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.",
+      "Eine Eventreihe mit Registrierungen kann nur gelöscht werden, wenn sie archiviert ist.",
     );
     expect(onDeleted).not.toHaveBeenCalled();
   });

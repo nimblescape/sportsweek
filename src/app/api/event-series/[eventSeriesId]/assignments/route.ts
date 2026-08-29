@@ -23,7 +23,7 @@ const assignSchema = z.strictObject({
   recordIds: z
     .array(documentIdSchema)
     .min(1, "Es ist niemand ausgewählt.")
-    .max(MAX_WRITES_PER_BATCH, `Höchstens ${MAX_WRITES_PER_BATCH} Anmeldungen auf einmal.`),
+    .max(MAX_WRITES_PER_BATCH, `Höchstens ${MAX_WRITES_PER_BATCH} Registrierungen auf einmal.`),
   // Null unassigns: moving between events is unassign, then assign, and nothing else (US-12).
   event: registrationSchema.shape.event,
 });
