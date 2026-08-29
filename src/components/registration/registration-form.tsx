@@ -465,8 +465,8 @@ export function RegistrationForm({
             <p className="text-sm font-medium">Deine Daten wurden gespeichert.</p>
             <p className="text-muted-foreground text-sm">
               {missing.length === 0
-                ? "Deine Anmeldung ist vollständig."
-                : `Deine Anmeldung ist noch nicht vollständig. Es fehlen noch: ${missing
+                ? "Deine Registrierung ist vollständig."
+                : `Deine Registrierung ist noch nicht vollständig. Es fehlen noch: ${missing
                     .map((answer) => answer.label)
                     .join(", ")}.`}
             </p>
