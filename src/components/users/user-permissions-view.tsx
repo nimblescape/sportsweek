@@ -6,6 +6,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api/client";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { PageHeading } from "@/components/layout/page-heading";
@@ -43,6 +44,7 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
   const { teachers, loading, error } = useTeachers();
   const [failure, setFailure] = useState<string | null>(null);
   const { busyId, run } = useRowAction();
+  const router = useRouter();
 
   async function grant(teacher: Teacher, permission: Permission) {
     const permissions = toggledPermissions(teacher.permissions, permission);
@@ -54,6 +56,9 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
           method: "PATCH",
           body: { permissions },
         });
+        // The navigation bar comes from a server layout above this page, which does not run
+        // again on its own — so what you may reach would go on saying what it said before.
+        if (teacher.upn === signedInAs) router.refresh();
       } catch (thrown) {
         setFailure(thrown instanceof Error ? thrown.message : "Das hat leider nicht geklappt.");
       }
@@ -61,7 +66,7 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 p-4 md:p-6">
       <PageHeading>Benutzerrechte</PageHeading>
 
       {error ? (

@@ -14,6 +14,9 @@ vi.mock("@/lib/users/use-teachers", () => ({ useTeachers: () => useTeachers() })
 const apiRequest = vi.fn();
 vi.mock("@/lib/api/client", () => ({ apiRequest: (...args: unknown[]) => apiRequest(...args) }));
 
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
 const { UserPermissionsView, OWN_GRANT_HINT, NO_PERMISSIONS_LABEL } =
   await import("@/components/users/user-permissions-view");
 
@@ -176,5 +179,37 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Dafür fehlen dir die Rechte.");
+  });
+
+  /**
+   * The navigation bar is rendered by a server layout above this page, which does not run again
+   * on its own — so withdrawing something from yourself would leave the bar offering a page you
+   * may no longer open until the next navigation.
+   */
+  it("re-runs the server tree after changing your own permissions", async () => {
+    show();
+
+    await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("leaves it alone when the change was to somebody else", async () => {
+    show();
+
+    await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editMasterData));
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalled());
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("does not re-run it when the change was refused", async () => {
+    apiRequest.mockRejectedValue(new Error("Nein."));
+    show();
+
+    await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
   });
 });
