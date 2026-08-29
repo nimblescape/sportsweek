@@ -16,6 +16,7 @@ import {
 } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useInert } from "@/lib/api/busy";
 import { cn } from "@/lib/utils";
 
 /**
@@ -128,7 +129,7 @@ export function TagName({
       aria-label={label}
       aria-pressed={pressed}
       aria-describedby={describedBy}
-      disabled={disabled}
+      disabled={useInert(disabled)}
       onPointerDown={onPointerDown}
       onClick={onPress}
       className="focus-visible:ring-ring/50 max-w-60 truncate rounded-md px-0.5 outline-none focus-visible:ring-3 disabled:opacity-50"

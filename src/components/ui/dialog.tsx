@@ -7,6 +7,7 @@
 
 import * as React from "react";
 import { X } from "lucide-react";
+import { BusyBar } from "@/components/layout/busy-bar";
 import { cn } from "@/lib/utils";
 
 type DialogProps = {
@@ -65,7 +66,7 @@ export function Dialog({
       onClose={onClose}
       onCancel={onClose}
       className={cn(
-        "bg-card text-card-foreground ring-foreground/10 shadow-card m-auto w-[calc(100vw-(--spacing(8)))] max-w-md rounded-xl p-0 ring-1 backdrop:bg-black/40",
+        "bg-card text-card-foreground ring-foreground/10 shadow-card relative m-auto w-[calc(100vw-(--spacing(8)))] max-w-md rounded-xl p-0 ring-1 backdrop:bg-black/40",
         className,
       )}
     >
@@ -98,7 +99,12 @@ export function Dialog({
       </div>
 
       {footer ? (
-        <div className="bg-muted/50 flex items-center justify-end gap-2 border-t p-4">{footer}</div>
+        <div className="bg-muted/50 flex items-center justify-end gap-2 border-t p-4">
+          {/* The one in the header is behind the backdrop while this is open, and a dialog is
+              where the slowest writes are started. At the near end, away from the controls. */}
+          <BusyBar className="mr-auto" />
+          {footer}
+        </div>
       ) : null}
     </dialog>
   );

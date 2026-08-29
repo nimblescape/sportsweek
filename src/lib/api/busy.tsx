@@ -6,6 +6,7 @@
 "use client";
 
 import * as React from "react";
+import { requestsInFlight, subscribeToRequests } from "@/lib/api/requests";
 
 type BusyValue = { busy: boolean; hold: () => () => void };
 
@@ -18,9 +19,15 @@ const NO_HOLD = () => () => {};
  * One place that knows whether anything is being written, so one spinner can speak for all of
  * it. A count rather than a flag: two writes may overlap, and the first to finish must not
  * declare the app idle while the second is still out.
+ *
+ * Two sources, added together. Every request reports itself from inside `apiRequest`, which is
+ * what makes the spinner structural rather than something each control has to remember; the
+ * holds below are for a wait nobody is making a request for, such as a list still arriving from
+ * its subscription.
  */
 export function BusyProvider({ children }: { children: React.ReactNode }) {
   const [holds, setHolds] = React.useState(0);
+  const requests = React.useSyncExternalStore(subscribeToRequests, requestsInFlight, () => 0);
 
   const hold = React.useCallback(() => {
     setHolds((count) => count + 1);
@@ -32,13 +39,28 @@ export function BusyProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const value = React.useMemo(() => ({ busy: holds > 0, hold }), [holds, hold]);
+  const value = React.useMemo(
+    () => ({ busy: holds > 0 || requests > 0, hold }),
+    [holds, requests, hold],
+  );
 
   return <BusyContext.Provider value={value}>{children}</BusyContext.Provider>;
 }
 
 export function useBusy(): boolean {
   return React.useContext(BusyContext)?.busy ?? false;
+}
+
+/**
+ * Whether a control is inert: because it was told to be, or because something is in flight.
+ *
+ * Asked by the controls themselves rather than by the views that place them, so a control cannot
+ * be left live over data that is still arriving or already being written. A read counts as much
+ * as a write — a list still loading is a list whose rows are not there to act on — and both
+ * report themselves without a caller saying so.
+ */
+export function useInert(disabled?: boolean): boolean {
+  return useBusy() || disabled === true;
 }
 
 /** Taken for the length of a write and released when it is answered, however it ends. */

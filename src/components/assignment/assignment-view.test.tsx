@@ -28,7 +28,10 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
   apiRequest: (...args: unknown[]) => apiRequest(...args),
 }));
-vi.mock("@/lib/api/busy", () => ({ useBusyWhile: (busy: boolean) => useBusyWhile(busy) }));
+vi.mock("@/lib/api/busy", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useBusyWhile: (busy: boolean) => useBusyWhile(busy),
+}));
 
 const { AssignmentView: ScopedAssignmentView } = await import("./assignment-view");
 const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");

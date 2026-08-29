@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assignmentGroups, skillColumns } from "@/lib/assignment/statistics";
@@ -344,5 +344,47 @@ describe("AssignmentBoard — what the figures count", () => {
     await userEvent.click(toggleIn("Nicht zugeteilt"));
 
     expect(toggleIn("Montafon")).not.toBeChecked();
+  });
+});
+
+/**
+ * Four pixels of movement is enough for the sensor to call a press a drag, and it then swallows
+ * the click that would have followed. Picking happens on the way down and un-picking on the way
+ * up, so neither depends on a click arriving.
+ */
+describe("AssignmentBoard — picking a student without a click", () => {
+  const rowFor = (name: string) => card("Nicht zugeteilt").getByRole("button", { name });
+
+  it("picks a student on the press, before any click", () => {
+    setup();
+    const row = rowFor("Muster Anna");
+
+    fireEvent.pointerDown(row);
+
+    expect(row).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("un-picks on the release, which arrives even where the click does not", () => {
+    setup();
+    const row = rowFor("Muster Anna");
+
+    fireEvent.pointerDown(row);
+    fireEvent.pointerUp(row);
+    expect(row).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.pointerDown(row);
+    fireEvent.pointerUp(row);
+
+    expect(row).toHaveAttribute("aria-pressed", "false");
+  });
+
+  /** A keyboard activation has no press and no release, so the click is all it has. */
+  it("toggles on a keyboard activation", () => {
+    setup();
+    const row = rowFor("Muster Anna");
+
+    fireEvent.click(row, { detail: 0 });
+
+    expect(row).toHaveAttribute("aria-pressed", "true");
   });
 });

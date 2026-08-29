@@ -49,7 +49,8 @@ export function AppShell({
           {/* Where there is a bar, signing out sits at the foot of it, under the person's own
               mark. A student has no bar, so it stays here. */}
           {nav ? null : <SignOutButton photo={photo} />}
-          {/* Last, and positioned against the header, whose bottom border it sits on. */}
+          {/* Last, so the row's own space-between puts it at the far end — the one part of the
+              header nothing else occupies, whatever the tags do. */}
           <BusyBar />
         </header>
 

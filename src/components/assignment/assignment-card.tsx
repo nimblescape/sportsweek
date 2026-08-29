@@ -246,15 +246,27 @@ function Row({
 
   function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
     wasPicked.current = picked;
-    // Picked on the way down rather than on the way up, so a press that turns into a drag is
+    // Picked on the way down rather than on the way up, so a press that turns its into a drag is
     // already carrying what it picked.
     if (!picked) onToggle();
     startPointerDrag?.(event);
   }
 
+  /**
+   * Releasing is what un-picks, rather than the click that would follow it. Four pixels of
+   * movement is enough for the sensor to call a press a drag, and it then swallows the click —
+   * so a press that wandered on its way down left a picked row picked and looked like nothing
+   * had happened at all.
+   *
+   * A drag that really goes somewhere is released over another card, where this never runs.
+   */
+  function handlePointerUp() {
+    if (wasPicked.current) onToggle();
+  }
+
   function handleClick(event: MouseEvent<HTMLButtonElement>) {
-    // A keyboard activation has no press before it, so it toggles on its own.
-    if (event.detail === 0 || wasPicked.current) onToggle();
+    // A keyboard activation has no press before it, and so no release either.
+    if (event.detail === 0) onToggle();
   }
 
   return (
@@ -284,6 +296,7 @@ function Row({
           aria-label={label}
           aria-pressed={picked}
           onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
           onClick={handleClick}
           className={cn(
             TAG_TEXT,
