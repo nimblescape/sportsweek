@@ -163,6 +163,14 @@ describe("/eventSeries/{id}/registrations", () => {
       teacher().collection(REGISTRATIONS).doc(STUDENT_UPN).update({ class: "5BHIF" }),
     );
   });
+
+  /**
+   * A teacher may remove one (US-28), but through the handler: the mirror `hasRegistrations` is
+   * recomputed in the same transaction, which a rule cannot do.
+   */
+  it("denies a teacher deleting a record directly", async () => {
+    await assertFails(teacher().collection(REGISTRATIONS).doc(STUDENT_UPN).delete());
+  });
 });
 
 /**

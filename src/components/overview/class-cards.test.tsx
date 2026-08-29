@@ -41,7 +41,7 @@ function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): Roster
 
 const nameOf = (person: RosterStudent) => `${person.lastName} ${person.firstName}`;
 
-function setup(students: RosterStudent[] = []) {
+function setup(students: RosterStudent[] = [], removableEventSeriesId: string | null = null) {
   render(
     <ClassCards
       rows={classOverview(students, CLASSES, COLUMNS)}
@@ -50,6 +50,7 @@ function setup(students: RosterStudent[] = []) {
       columns={COLUMNS}
       filterGroups={FILTERS}
       invitations={null}
+      removableEventSeriesId={removableEventSeriesId}
       eventSeriesName="Wintersportwoche 2026"
     />,
   );
@@ -262,6 +263,7 @@ describe("ClassCards — a dimension with no list", () => {
         columns={columns}
         filterGroups={FILTERS}
         invitations={null}
+        removableEventSeriesId={null}
         eventSeriesName="Wintersportwoche 2026"
       />,
     );
@@ -333,6 +335,7 @@ describe("ClassCards — the invitation controls", () => {
         columns={COLUMNS}
         filterGroups={FILTERS}
         invitations={controls as never}
+        removableEventSeriesId={null}
         eventSeriesName="Wintersportwoche 2026"
       />,
     );
@@ -430,6 +433,7 @@ describe("ClassCards — showing a link as a QR code", () => {
         columns={COLUMNS}
         filterGroups={FILTERS}
         invitations={controls as never}
+        removableEventSeriesId={null}
         eventSeriesName="Wintersportwoche 2026"
       />,
     );
@@ -515,6 +519,7 @@ describe("ClassCards — regenerating asks first", () => {
         columns={COLUMNS}
         filterGroups={FILTERS}
         invitations={invitations as never}
+        removableEventSeriesId={null}
         eventSeriesName="Wintersportwoche 2026"
       />,
     );
@@ -562,5 +567,64 @@ describe("ClassCards — regenerating asks first", () => {
 
     expect(invitations.regenerate).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * A link names a class rather than a student (US-23), so one can reach somebody it was never
+ * meant for. The control follows the saved report tags (US-13): press a tag to mark it, and the
+ * controls appear on the marked one only, permanently rather than on a hover to be discovered.
+ */
+describe("ClassCards — removing a registration", () => {
+  const jane = student({ class: "5AHIF", firstName: "Jane", lastName: "Doe" });
+  const max = student({ class: "5AHIF", firstName: "Max", lastName: "Mustermann" });
+
+  const removeOn = (person: RosterStudent) =>
+    screen.queryByRole("button", { name: `Anmeldung von ${nameOf(person)} löschen` });
+
+  it("offers nothing until a student is marked", () => {
+    setup([jane, max], "s1");
+
+    expect(removeOn(jane)).not.toBeInTheDocument();
+    expect(removeOn(max)).not.toBeInTheDocument();
+  });
+
+  it("offers it on the marked student, and on no other", async () => {
+    setup([jane, max], "s1");
+
+    await userEvent.click(screen.getByRole("button", { name: nameOf(jane) }));
+
+    expect(removeOn(jane)).toBeInTheDocument();
+    expect(removeOn(max)).not.toBeInTheDocument();
+  });
+
+  it("marks one student at a time, since one is being acted on", async () => {
+    setup([jane, max], "s1");
+
+    await userEvent.click(screen.getByRole("button", { name: nameOf(jane) }));
+    await userEvent.click(screen.getByRole("button", { name: nameOf(max) }));
+
+    expect(removeOn(jane)).not.toBeInTheDocument();
+    expect(removeOn(max)).toBeInTheDocument();
+  });
+
+  /** Somebody else's work, so it is a dialog rather than the inline confirmation a report gets. */
+  it("asks in a dialog naming the student before anything is destroyed", async () => {
+    setup([jane], "s1");
+
+    await userEvent.click(screen.getByRole("button", { name: nameOf(jane) }));
+    await userEvent.click(removeOn(jane)!);
+
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(nameOf(jane))).toBeInTheDocument();
+  });
+
+  /** An archived series is read-only, and a template has no registrations to remove (US-19). */
+  it("offers nothing at all where the series cannot be written to", async () => {
+    setup([jane], null);
+
+    await userEvent.click(screen.getByRole("button", { name: nameOf(jane) }));
+
+    expect(removeOn(jane)).not.toBeInTheDocument();
   });
 });

@@ -10,7 +10,8 @@ import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { NO_SUCH_EVENT_SERIES } from "@/lib/event-series/event-series-state";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { savedReportPath } from "@/lib/report/saved-reports";
+import { eventSeriesSchema } from "@/lib/schemas/event-series";
+import { prunedSelection, savedReportPath } from "@/lib/report/saved-reports";
 import {
   savedReportEditSchema,
   savedReportInputSchema,
@@ -19,6 +20,13 @@ import {
   type SavedReportEdit,
   type SavedReportInput,
 } from "@/lib/schemas/saved-report";
+
+import type { DocumentSnapshot } from "firebase-admin/firestore";
+
+/** The lists a report is pruned against, parsed so a series stored before a field existed reads. */
+function listsOf(series: DocumentSnapshot) {
+  return eventSeriesSchema.parse({ id: series.id, ...series.data() });
+}
 
 function reportDoc(eventSeriesId: string, id: string) {
   return adminDb.collection(savedReportPath(eventSeriesId)).doc(id);
@@ -74,7 +82,11 @@ export async function createSavedReport(
     const existing = await transaction.get(row);
 
     const reference = row.doc();
-    const data = { ...parsed.data, createdByUserId, position: existing.size };
+    const data = {
+      ...prunedSelection(parsed.data, listsOf(series)),
+      createdByUserId,
+      position: existing.size,
+    };
     transaction.set(reference, data);
 
     return { id: reference.id, ...data };
@@ -85,6 +97,11 @@ export async function createSavedReport(
  * An edit replaces everything a teacher may change. Renaming and bringing up to date are one
  * write rather than two: the tag a teacher renames is the report they are looking at, and
  * storing the name without the selection is what left it reading as changed afterwards (US-13).
+ *
+ * The selection is pruned to the series as it now stands (US-21). A list emptied since the report
+ * was saved leaves a tag nothing can show and a field that would print "keine Angabe" for every
+ * student, and this is where that is cleared out: on the next write of the report, rather than by
+ * a cascade over every report each time a teacher edits a list.
  */
 export async function updateSavedReport(
   eventSeriesId: string,
@@ -97,9 +114,13 @@ export async function updateSavedReport(
   }
 
   const current = await readReport(eventSeriesId, id);
+  const series = await adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId).get();
+  if (!series.exists) throw new ServiceError(ErrorCode.NotFound, NO_SUCH_EVENT_SERIES);
 
-  await reportDoc(eventSeriesId, id).update(parsed.data);
-  return { ...current, ...parsed.data };
+  const edit = prunedSelection(parsed.data, listsOf(series));
+
+  await reportDoc(eventSeriesId, id).update(edit);
+  return { ...current, ...edit };
 }
 
 export async function deleteSavedReport(eventSeriesId: string, id: string): Promise<void> {

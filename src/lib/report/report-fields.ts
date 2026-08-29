@@ -4,8 +4,15 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 
-import { ANSWER_LABELS } from "@/lib/master-data/categories";
+import {
+  ANSWER_LABELS,
+  questionsAsked,
+  rentsEquipment,
+  type AnswerField,
+  type EventSeriesListField,
+} from "@/lib/master-data/categories";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
+import type { EventSeries } from "@/lib/schemas/event-series";
 import type { Registration } from "@/lib/schemas/registration";
 import {
   COMPLETENESS_LABELS,
@@ -37,7 +44,19 @@ export type ReportFieldTag = {
   key: string;
   label: string;
   fields: readonly ReportField[];
+  /**
+   * Whether the series asks what this reports on. Absent where nothing has to be maintained for
+   * the question to be put — a gender, a date of birth, a phone number — which is always.
+   */
+  offered?: (eventSeries: OfferedTo) => boolean;
 };
+
+/** What deciding which tags a series offers needs of it: its lists, and nothing else. */
+type OfferedTo = Pick<EventSeries, EventSeriesListField>;
+
+/** Offered where the list behind the answer has entries, which is the whole of US-21's rule. */
+const asksFor = (answerField: AnswerField) => (eventSeries: OfferedTo) =>
+  questionsAsked(eventSeries).has(answerField);
 
 /** Reformatted rather than passed through `Date`, whose ISO parsing is UTC and shifts the day. */
 function germanDate(iso: string): string {
@@ -74,9 +93,15 @@ const field = (key: string, label: string, valueOf: ReportField["valueOf"]): Rep
 });
 
 /** A tag standing for a single field, which is what all but the three groups below are. */
-const answer = (key: string, label: string, valueOf: ReportField["valueOf"]): ReportFieldTag => ({
+const answer = (
+  key: string,
+  label: string,
+  valueOf: ReportField["valueOf"],
+  offered?: ReportFieldTag["offered"],
+): ReportFieldTag => ({
   key,
   label,
+  offered,
   fields: [field(key, label, valueOf)],
 });
 
@@ -87,8 +112,8 @@ const answer = (key: string, label: string, valueOf: ReportField["valueOf"]): Re
  */
 export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
   answer("attendance", "Teilnahme", (record) => yesNo(record.isAttendingSportsWeek)),
-  answer("event", ANSWER_LABELS.event, (record) => record.event),
-  answer("class", ANSWER_LABELS.class, (record) => record.class),
+  answer("event", ANSWER_LABELS.event, (record) => record.event, asksFor("event")),
+  answer("class", ANSWER_LABELS.class, (record) => record.class, asksFor("class")),
   answer("gender", "Geschlecht", (record) =>
     record.gender === null ? null : GENDER_LABELS[record.gender],
   ),
@@ -109,10 +134,14 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
       ),
     ],
   },
-  answer("program", ANSWER_LABELS.program, (record) => record.program),
-  answer("rentedEquipment", EQUIPMENT_RENTAL_LABEL, (record) =>
-    // Nothing rented is an answer in itself, not a gap: the student was asked and said no.
-    record.rentedEquipment.length > 0 ? record.rentedEquipment.join(", ") : yesNo(false),
+  answer("program", ANSWER_LABELS.program, (record) => record.program, asksFor("program")),
+  answer(
+    "rentedEquipment",
+    EQUIPMENT_RENTAL_LABEL,
+    (record) =>
+      // Nothing rented is an answer in itself, not a gap: the student was asked and said no.
+      record.rentedEquipment.length > 0 ? record.rentedEquipment.join(", ") : yesNo(false),
+    rentsEquipment,
   ),
   // Next to the rental, which is what the shoe size and the height are asked for.
   {
@@ -124,10 +153,25 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
       field("shoeSize", "Schuhgröße", (record) => record.shoeSize),
     ],
   },
-  answer("skillLevel", ANSWER_LABELS.skillLevel, (record) => record.skillLevel),
-  answer("seasonPassOption", ANSWER_LABELS.seasonPassOption, (record) => record.seasonPassOption),
-  answer("busPickupPoint", ANSWER_LABELS.busPickupPoint, (record) => record.busPickupPoint),
-  answer("food", ANSWER_LABELS.foodOption, foodOf),
+  answer(
+    "skillLevel",
+    ANSWER_LABELS.skillLevel,
+    (record) => record.skillLevel,
+    asksFor("skillLevel"),
+  ),
+  answer(
+    "seasonPassOption",
+    ANSWER_LABELS.seasonPassOption,
+    (record) => record.seasonPassOption,
+    asksFor("seasonPassOption"),
+  ),
+  answer(
+    "busPickupPoint",
+    ANSWER_LABELS.busPickupPoint,
+    (record) => record.busPickupPoint,
+    asksFor("busPickupPoint"),
+  ),
+  answer("food", ANSWER_LABELS.foodOption, foodOf, asksFor("foodOption")),
   {
     key: "health",
     label: "Gesundheit",
@@ -157,8 +201,23 @@ export function reportFieldsOf(selected: readonly string[]): ReportField[] {
 /**
  * The same selection with the keys nothing offers any more taken out — in tags, not in the fields
  * a tag expands into, which is what the row is pressed by and what a saved report holds (US-13).
+ *
+ * What is on offer defaults to every tag there is, and is narrowed to one series' where a report
+ * is being applied to it: a list emptied since the report was saved takes its tag with it.
  */
-export function offeredFieldTags(selected: readonly string[]): string[] {
-  const offered = new Set(REPORT_FIELD_TAGS.map((tag) => tag.key));
+export function offeredFieldTags(
+  selected: readonly string[],
+  tags: readonly ReportFieldTag[] = REPORT_FIELD_TAGS,
+): string[] {
+  const offered = new Set(tags.map((tag) => tag.key));
   return selected.filter((key) => offered.has(key));
+}
+
+/**
+ * The tags this series offers: every one whose question it actually asks (US-21). A tag for a
+ * question nobody was asked would add a detail line reading "keine Angabe" for every student,
+ * which is noise wearing the shape of data.
+ */
+export function fieldTagsFor(eventSeries: OfferedTo): readonly ReportFieldTag[] {
+  return REPORT_FIELD_TAGS.filter((tag) => tag.offered === undefined || tag.offered(eventSeries));
 }

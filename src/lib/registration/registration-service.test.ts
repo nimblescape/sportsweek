@@ -14,7 +14,7 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const { saveRegistration } = await import("./registration-service");
+const { saveRegistration, deleteRegistration } = await import("./registration-service");
 const { ANSWER_NO_LONGER_OFFERED_HINT, REGISTRATION_NOT_OPEN_HINT, registrationPath } =
   await import("./registration");
 const { FOOD_OPTION_OTHER } = await import("@/lib/schemas/master-data");
@@ -467,5 +467,102 @@ describe("saveRegistration", () => {
     expect(writes.mock.calls.map(([write]) => write.ref.path)).toEqual([
       `${REGISTRATIONS}/${STUDENT}`,
     ]);
+  });
+});
+
+/**
+ * A link names a class rather than a student (US-23), so it can reach somebody it was never meant
+ * for — and without this, one stray registration would stay in the series for good (US-28).
+ */
+describe("deleteRegistration", () => {
+  const OTHER = "max.mustermann@student.htldornbirn.at";
+
+  function seedRegistration(upn: string, eventSeriesId = "s1") {
+    firestore.seed(registrationPath(eventSeriesId), upn, {
+      firstName: "Jane",
+      lastName: "Doe",
+      email: upn,
+      class: "3AHME",
+      isAttendingSportsWeek: true,
+      isIncomplete: false,
+    });
+  }
+
+  it("removes the registration", async () => {
+    seedEventSeries("s1", { hasRegistrations: true });
+    seedRegistration(STUDENT);
+
+    await deleteRegistration("s1", STUDENT);
+
+    expect(firestore.get(REGISTRATIONS, STUDENT)).toBeUndefined();
+  });
+
+  /** The id is derived from the series and the student, so removing one frees it again (US-26). */
+  it("lets the same student register again afterwards", async () => {
+    seedEventSeries("s1", { hasRegistrations: true });
+    seedRegistration(STUDENT);
+
+    await deleteRegistration("s1", STUDENT);
+    await saveRegistration(target(), attending);
+
+    expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({ class: "3AHME" });
+  });
+
+  /** The first time the mirror has ever had to go down (Q5); it is what US-19's controls read. */
+  it("puts the mirror back to false when the last registration goes", async () => {
+    seedEventSeries("s1", { hasRegistrations: true });
+    seedRegistration(STUDENT);
+
+    await deleteRegistration("s1", STUDENT);
+
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ hasRegistrations: false });
+  });
+
+  it("leaves the mirror true while another registration remains", async () => {
+    seedEventSeries("s1", { hasRegistrations: true });
+    seedRegistration(STUDENT);
+    seedRegistration(OTHER);
+
+    await deleteRegistration("s1", STUDENT);
+
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ hasRegistrations: true });
+  });
+
+  /** One transaction, or the mirror could be recomputed from a count that has since changed. */
+  it("deletes and recomputes the mirror together", async () => {
+    seedEventSeries("s1", { hasRegistrations: true });
+    seedRegistration(STUDENT);
+
+    await deleteRegistration("s1", STUDENT);
+
+    expect(firestore.transactionCount).toBe(1);
+  });
+
+  /** Closing governs students only, so a teacher may still remove one from a closed series. */
+  it("removes one from a closed series", async () => {
+    seedEventSeries("s1", { hasRegistrations: true, isOpenToStudents: false });
+    seedRegistration(STUDENT);
+
+    await deleteRegistration("s1", STUDENT);
+
+    expect(firestore.get(REGISTRATIONS, STUDENT)).toBeUndefined();
+  });
+
+  it("refuses one in an archived series, which is read-only", async () => {
+    seedEventSeries("s1", { hasRegistrations: true, isArchived: true, isOpenToStudents: false });
+    seedRegistration(STUDENT);
+
+    await expect(deleteRegistration("s1", STUDENT)).rejects.toBeInstanceOf(ServiceError);
+    expect(firestore.get(REGISTRATIONS, STUDENT)).toBeDefined();
+  });
+
+  it("refuses one in a series that does not exist", async () => {
+    await expect(deleteRegistration("gone", STUDENT)).rejects.toBeInstanceOf(ServiceError);
+  });
+
+  it("refuses one that is not there, rather than reporting a deletion it did not make", async () => {
+    seedEventSeries("s1", { hasRegistrations: true });
+
+    await expect(deleteRegistration("s1", STUDENT)).rejects.toBeInstanceOf(ServiceError);
   });
 });

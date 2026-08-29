@@ -32,8 +32,14 @@ const stored = {
 
 beforeEach(() => {
   firestore.reset();
-  firestore.seed("eventSeries", SERIES, storedEventSeries());
-  firestore.seed("eventSeries", "s2", storedEventSeries({ name: "Wintersportwoche 2027" }));
+  // A report is pruned to the lists its series maintains (US-21), so the series has to ask the
+  // question this one filters on.
+  firestore.seed("eventSeries", SERIES, storedEventSeries({ classOptions: ["5AHIF"] }));
+  firestore.seed(
+    "eventSeries",
+    "s2",
+    storedEventSeries({ name: "Wintersportwoche 2027", classOptions: ["5AHIF"] }),
+  );
 });
 
 describe("createSavedReport", () => {
@@ -220,5 +226,54 @@ describe("reorderSavedReports", () => {
 
   it("reports a report that is not there rather than renumbering around it", async () => {
     await expect(reorderSavedReports(SERIES, ["r1", "gone"])).rejects.toBeInstanceOf(ServiceError);
+  });
+});
+
+/**
+ * A report holds only what its series asks for (US-21). Emptying a list leaves the reports that
+ * filtered on it holding a tag nothing can show and a field that would print "keine Angabe" for
+ * every student — cleared out on the report's next write rather than by a cascade over every
+ * report of the series each time a teacher edits a list.
+ */
+describe("pruning a report to what its series asks for", () => {
+  const withoutClasses = { classOptions: [], programs: [] };
+
+  it("drops a tag for a list the series does not maintain", async () => {
+    firestore.seed("eventSeries", "bare", storedEventSeries({ name: "Kultur", ...withoutClasses }));
+
+    const saved = await createSavedReport(
+      "bare",
+      { name: "5AHIF", filter: selection, fields: FIELDS },
+      TEACHER,
+    );
+
+    expect(saved.filter.tags.class).toEqual([]);
+    expect(saved.fields).toEqual(["contact"]);
+  });
+
+  it("keeps what the series does maintain", async () => {
+    const saved = await createSavedReport(
+      SERIES,
+      { name: "5AHIF", filter: selection, fields: FIELDS },
+      TEACHER,
+    );
+
+    expect(saved.filter.tags.class).toEqual(["5AHIF"]);
+    expect(saved.fields).toEqual(FIELDS);
+  });
+
+  it("prunes on the next edit, which is where a report already holding one is repaired", async () => {
+    firestore.seed("eventSeries", "bare", storedEventSeries({ name: "Kultur", ...withoutClasses }));
+    firestore.seed(savedReportPath("bare"), "r1", { ...stored, position: 0 });
+
+    const edited = await updateSavedReport("bare", "r1", {
+      name: "5AHIF",
+      filter: selection,
+      fields: FIELDS,
+    });
+
+    expect(edited.filter.tags.class).toEqual([]);
+    expect(edited.fields).toEqual(["contact"]);
+    expect(firestore.get(savedReportPath("bare"), "r1")).toMatchObject({ fields: ["contact"] });
   });
 });

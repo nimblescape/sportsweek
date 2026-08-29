@@ -164,6 +164,15 @@ export function questionsAsked(
 }
 
 /**
+ * Whether renting is asked at all. It is put to a student whose chosen program requires
+ * something, so a series where no program requires anything never puts the question — which
+ * makes it US-21's rule again, with the list one step further off than the other six.
+ */
+export function rentsEquipment(eventSeries: Pick<EventSeries, "programs">): boolean {
+  return eventSeries.programs.some((program) => program.requiredEquipment.length > 0);
+}
+
+/**
  * What each of those answers is called in German, keyed by the field that stores it. The form
  * asks for it, the report prints it, the filter offers it as a category and the completeness
  * check names it as still owed — one word rather than four that drift apart at the next rename.

@@ -9,7 +9,7 @@ import { EQUIPMENT_RENTAL_LABEL } from "@/lib/registration/answer-labels";
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import type { Registration } from "@/lib/schemas/registration";
 import { studentRecord } from "@/test/roster-student";
-import { NO_ANSWER, REPORT_FIELD_TAGS, reportFieldsOf } from "./report-fields";
+import { fieldTagsFor, NO_ANSWER, REPORT_FIELD_TAGS, reportFieldsOf } from "./report-fields";
 
 const keys = REPORT_FIELD_TAGS.map((tag) => tag.key);
 
@@ -189,5 +189,70 @@ describe("a field's value", () => {
 
   it("leaves the event unanswered while nobody has assigned them a week yet", () => {
     expect(lineFor("Event", studentRecord({ event: null }))).toBeNull();
+  });
+});
+
+/**
+ * An empty list is a question the student was never asked (US-21), so a tag for it would add a
+ * detail line reading "keine Angabe" for every student — noise wearing the shape of data.
+ */
+describe("fieldTagsFor", () => {
+  const lists = {
+    events: ["Woche 1"],
+    classOptions: ["5AHIF"],
+    programs: [{ name: "Ski", requiredEquipment: ["Ski"] }],
+    skillLevels: ["Profi"],
+    seasonPassOptions: ["Keine"],
+    busPickupPoints: ["HTL"],
+    foodOptions: ["Vegetarisch"],
+  };
+
+  const keysFor = (overrides: Partial<typeof lists> = {}) =>
+    fieldTagsFor({ ...lists, ...overrides }).map((tag) => tag.key);
+
+  it("offers every tag to a series that maintains every list", () => {
+    expect(keysFor()).toEqual(REPORT_FIELD_TAGS.map((tag) => tag.key));
+  });
+
+  it.each([
+    ["events", "event"],
+    ["classOptions", "class"],
+    ["programs", "program"],
+    ["skillLevels", "skillLevel"],
+    ["seasonPassOptions", "seasonPassOption"],
+    ["busPickupPoints", "busPickupPoint"],
+    ["foodOptions", "food"],
+  ])("drops the tag for %s once the list is empty", (list, key) => {
+    expect(keysFor({ [list]: [] })).not.toContain(key);
+  });
+
+  /** Renting is asked of a student whose program requires something; here none does. */
+  it("drops the rental tag where no program requires anything", () => {
+    expect(keysFor({ programs: [{ name: "Wandern", requiredEquipment: [] }] })).not.toContain(
+      "rentedEquipment",
+    );
+  });
+
+  /** Nothing has to be maintained for these to be put to a student, so nothing can take them away. */
+  it("keeps the tags no list backs, whatever the series maintains", () => {
+    const bare = keysFor({
+      events: [],
+      classOptions: [],
+      programs: [],
+      skillLevels: [],
+      seasonPassOptions: [],
+      busPickupPoints: [],
+      foodOptions: [],
+    });
+
+    expect(bare).toEqual([
+      "attendance",
+      "gender",
+      "dateOfBirth",
+      "contact",
+      "measurements",
+      "health",
+      "completeness",
+    ]);
   });
 });
