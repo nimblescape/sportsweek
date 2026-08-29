@@ -115,6 +115,18 @@ describe("OverviewView", () => {
     expect(screen.queryByRole("group", { name: "5AHIF" })).not.toBeInTheDocument();
   });
 
+  /**
+   * The subscription arrives a moment after the page does, and an empty list until then is not
+   * an answer yet. Saying so and taking it back is what made moving between the pages flicker.
+   */
+  it("says nothing about the selection while the list is still arriving", () => {
+    useEventSeries.mockReturnValue({ eventSeries: [], loading: true, error: null });
+
+    render(<OverviewView />);
+
+    expect(screen.queryByText(NO_EVENT_SERIES_HINT)).not.toBeInTheDocument();
+  });
+
   /** The header decides which series a page is about, so several on offer is the normal case. */
   it("counts the event series the page names, not whichever came first", () => {
     useEventSeries.mockReturnValue({

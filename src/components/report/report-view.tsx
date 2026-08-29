@@ -47,14 +47,17 @@ function CardHeading({ children }: { children: string }) {
  * dialog and is why its filter carries categories the board has no use for.
  */
 export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, error, students, filterGroups } = useEventSeriesRoster(eventSeriesId, {
-    attendance: true,
-    completeness: true,
-    equipmentRental: true,
-    health: true,
-    answerLists: true,
-    events: true,
-  });
+  const { eventSeries, missing, error, students, filterGroups } = useEventSeriesRoster(
+    eventSeriesId,
+    {
+      attendance: true,
+      completeness: true,
+      equipmentRental: true,
+      health: true,
+      answerLists: true,
+      events: true,
+    },
+  );
   const { reports: savedReports } = useSavedReports(eventSeriesId, eventSeries);
   const [filter, setFilter] = useState(EMPTY_FILTER);
   const [activeFields, setActiveFields] = useState<string[]>([]);
@@ -186,9 +189,11 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
       )}
 
       {eventSeries === null ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          {NO_EVENT_SERIES_HINT}
-        </p>
+        missing ? (
+          <p role="status" className="text-muted-foreground text-sm">
+            {NO_EVENT_SERIES_HINT}
+          </p>
+        ) : null
       ) : (
         <>
           <Card>

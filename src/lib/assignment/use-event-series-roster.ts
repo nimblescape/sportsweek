@@ -17,6 +17,12 @@ import { useRoster } from "@/lib/students/use-roster";
 export type EventSeriesRoster = {
   /** Null once loaded means the id names nothing selectable — the views lock instead of guessing. */
   eventSeries: EventSeries | null;
+  /**
+   * The id names nothing reachable, and the list has arrived to say so. Asked here rather than in
+   * each view: an empty list on its way is indistinguishable from an empty one that answered, and
+   * a view reading the null alone announced a missing series on every navigation and took it back.
+   */
+  missing: boolean;
   loading: boolean;
   error: string | null;
   /** Everyone registered for the selected event series, taking part or not. */
@@ -130,6 +136,7 @@ export function useEventSeriesRoster(
 
   return {
     eventSeries: selected,
+    missing: !eventSeriesLoading && selected === null,
     loading: eventSeriesLoading || rosterLoading || classes.loading,
     error: eventSeriesError ?? rosterError,
     students,

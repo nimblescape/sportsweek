@@ -52,7 +52,14 @@ export function Dialog({
   React.useEffect(() => {
     if (!element) return;
 
-    if (open && !element.open) element.showModal();
+    if (open && !element.open) {
+      element.showModal();
+      // `showModal()` focuses whatever it reaches first, which is the close cross in the corner.
+      // A dialog that opens asking for a name should be ready to be typed into.
+      element
+        .querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled])")
+        ?.focus();
+    }
     if (!open && element.open) element.close();
   }, [open, element]);
 

@@ -23,7 +23,7 @@ import { AssignmentBoard } from "./assignment-board";
  * shows up as soon as the subscription brings the record back.
  */
 export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
+  const { eventSeries, missing, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
   const [saving, setSaving] = useState(false);
 
   // Answered by the one spinner in the header, so this view places none of its own. The read is
@@ -58,9 +58,11 @@ export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
       )}
 
       {eventSeries === null ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          {NO_EVENT_SERIES_HINT}
-        </p>
+        missing ? (
+          <p role="status" className="text-muted-foreground text-sm">
+            {NO_EVENT_SERIES_HINT}
+          </p>
+        ) : null
       ) : (
         <BusyRegion busy={saving}>
           <div className="flex flex-col gap-4">

@@ -27,6 +27,36 @@ describe("Dialog", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
+  /**
+   * `showModal()` focuses the first thing it can, which is the close cross in the corner. A
+   * dialog that opens asking for a name should be ready to be typed into.
+   */
+  it("puts the cursor in the first field a dialog asks for", () => {
+    render(
+      <Dialog open title="Klasse umbenennen" onClose={vi.fn()}>
+        <input aria-label="Name" defaultValue="5AHIF" />
+      </Dialog>,
+    );
+
+    expect(screen.getByLabelText("Name")).toHaveFocus();
+  });
+
+  /** A dialog that only asks whether to go ahead should not open with the answer under the hand. */
+  it("moves focus to nothing when there is no field to fill in", () => {
+    render(
+      <Dialog
+        open
+        title="Klasse löschen"
+        onClose={vi.fn()}
+        footer={<button type="button">Löschen</button>}
+      >
+        <p>Wirklich?</p>
+      </Dialog>,
+    );
+
+    expect(screen.getByRole("button", { name: "Löschen" })).not.toHaveFocus();
+  });
+
   it("opens as a modal, so the browser traps focus and handles Escape", () => {
     const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
 

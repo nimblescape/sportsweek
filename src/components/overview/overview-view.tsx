@@ -18,7 +18,7 @@ import { ClassCards } from "./class-cards";
  * its tag in the header, which names the series it concerns and is on screen from every page.
  */
 export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
+  const { eventSeries, missing, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
   const invitations = useInvitations(eventSeriesId);
 
   // Neither can ever be open, so neither has anyone to invite (US-19, US-22).
@@ -35,9 +35,11 @@ export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
       )}
 
       {eventSeries === null ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          {NO_EVENT_SERIES_HINT}
-        </p>
+        missing ? (
+          <p role="status" className="text-muted-foreground text-sm">
+            {NO_EVENT_SERIES_HINT}
+          </p>
+        ) : null
       ) : (
         <ClassCards
           rows={classOverview(students, classes, columns)}
