@@ -10,7 +10,14 @@ import { storedEventSeries } from "@/test/event-series";
 const docGet = vi.fn();
 const docSet = vi.fn();
 const docUpdate = vi.fn();
-const doc = vi.fn(() => ({ get: docGet, set: docSet, update: docUpdate }));
+const loginAdd = vi.fn();
+const logins = vi.fn(() => ({ add: loginAdd }));
+const doc = vi.fn(() => ({
+  get: docGet,
+  set: docSet,
+  update: docUpdate,
+  collection: logins,
+}));
 // Whether anybody already teaches here, which is what decides the first teacher's roles (US-2).
 const teachersGet = vi.fn();
 const limit = vi.fn(() => ({ get: teachersGet }));
@@ -95,6 +102,15 @@ describe("the deployment's own sign-in policy", () => {
     expect(docSet).not.toHaveBeenCalled();
   });
 
+  // A sign-in that was turned away is not a sign-in, so the record of one would be untrue.
+  it("records no sign-in for somebody the policy turned away", async () => {
+    refuseSignIn.mockReturnValue({ reason: "students-excluded", message: "Nur Lehrpersonen." });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(loginAdd).not.toHaveBeenCalled();
+  });
+
   // The role has been derived by then, so the policy never has to parse a UPN itself.
   it("asks with the derived role and the provider Firebase reported", async () => {
     await provisionUser({ ...studentClaims, ...ENTRA });
@@ -124,6 +140,32 @@ describe("provisionUser", () => {
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
+  });
+
+  /**
+   * Beneath the person rather than in their record: the record is read by whoever hands out
+   * the permissions, and a history of every sign-in is not what they came for. A subcollection
+   * has a rule of its own, and this one's grants nobody anything.
+   */
+  it("records each sign-in beneath the person who made it, on the school's clock", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-29T15:04:05Z"));
+
+    await provisionUser(teacherClaims);
+
+    expect(logins).toHaveBeenCalledWith("logins");
+    expect(loginAdd).toHaveBeenCalledWith({ at: "2026-08-29T17:04:05+02:00" });
+
+    vi.useRealTimers();
+  });
+
+  it("records one for somebody signing in again, rather than replacing the last", async () => {
+    existingRecord({ accountType: "teacher", permissions: [] });
+
+    await provisionUser(teacherClaims);
+
+    expect(loginAdd).toHaveBeenCalledTimes(1);
+    expect(docSet).not.toHaveBeenCalled();
   });
 
   it("creates the record on first login using the UPN as the document id", async () => {

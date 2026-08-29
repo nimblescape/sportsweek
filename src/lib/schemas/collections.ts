@@ -32,6 +32,13 @@ export const COLLECTIONS = {
    * has to name these as well.
    */
   savedReports: "savedReports",
+  /**
+   * One document per sign-in, beneath the person who made it. Beneath rather than a field on
+   * their record, which is read by whoever hands out the permissions: a rule grants a whole
+   * document, and a history of every sign-in is not what that reader came for. Nobody reads
+   * this one at all -- it is written by the Admin SDK and closed to every client.
+   */
+  logins: "logins",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

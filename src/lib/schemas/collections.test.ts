@@ -21,6 +21,8 @@ describe("COLLECTIONS", () => {
         // searched for a secret (US-23).
         "invitations",
         "savedReports",
+        // Beneath the person who signed in, and closed to every client (US-1).
+        "logins",
       ].sort(),
     );
   });

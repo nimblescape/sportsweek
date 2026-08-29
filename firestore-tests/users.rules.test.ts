@@ -227,6 +227,60 @@ describe("/users/{uid} create and delete", () => {
   });
 });
 
+/**
+ * When somebody signed in is nobody's to read (US-1). It is written server-side with the Admin
+ * SDK, and no client has a use for it -- so the rule grants none, and these say so.
+ */
+describe("/users/{uid}/logins", () => {
+  async function seedLogin(upn: string) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context
+        .firestore()
+        .collection(`users/${upn}/logins`)
+        .doc("login1")
+        .set({ at: "2026-08-29T17:04:05+02:00" });
+    });
+  }
+
+  it("denies somebody reading their own sign-ins, which their record does not carry", async () => {
+    await seedUser(ALICE, student());
+    await seedLogin(ALICE);
+    const db = signInAs(ALICE);
+
+    await assertFails(db.collection(`users/${ALICE}/logins`).doc("login1").get());
+  });
+
+  // Reading every user record is what editUsers grants, and it stops at the record.
+  it("denies whoever hands out the permissions reading somebody's sign-ins", async () => {
+    await seedUser(CAROL, admin());
+    await seedUser(ALICE, student());
+    await seedLogin(ALICE);
+    const db = signInAs(CAROL);
+
+    await assertFails(db.collection(`users/${ALICE}/logins`).get());
+  });
+
+  it("denies somebody writing a sign-in of their own", async () => {
+    await seedUser(ALICE, student());
+    const db = signInAs(ALICE);
+
+    await assertFails(
+      db
+        .collection(`users/${ALICE}/logins`)
+        .doc("invented")
+        .set({ at: "2026-08-29T17:04:05+02:00" }),
+    );
+  });
+
+  it("denies somebody deleting one, so a record of a sign-in outlives whoever made it", async () => {
+    await seedUser(ALICE, student());
+    await seedLogin(ALICE);
+    const db = signInAs(ALICE);
+
+    await assertFails(db.collection(`users/${ALICE}/logins`).doc("login1").delete());
+  });
+});
+
 describe("/users/{uid} has no admin role", () => {
   it("grants a document claiming role 'admin' no privileges at all", async () => {
     await seedUser(MALLORY, { accountType: "admin" });
