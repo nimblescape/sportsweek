@@ -33,7 +33,7 @@ export function BusyBar({ className }: { className?: string } = {}) {
       role="status"
       aria-label="Wird gespeichert"
       className={cn(
-        "pointer-events-none flex h-(--control-height) shrink-0 items-center gap-0.5",
+        "pointer-events-none flex h-(--control-height) shrink-0 items-center gap-1",
         className,
       )}
     >
@@ -42,8 +42,9 @@ export function BusyBar({ className }: { className?: string } = {}) {
           key={delay}
           data-busy-bar
           style={{ animationDelay: `${delay}s` }}
-          // Taller than they are wide, so four of them read as an indicator rather than as text.
-          className="bg-muted-foreground animate-busy-bar block h-3 w-0.5 rounded-full"
+          // Wide enough to be seen from across the header: four hairlines in the corner of the
+          // window read as nothing at all, which is the same as having no indicator.
+          className="bg-muted-foreground animate-busy-bar block h-4 w-1 rounded-full"
         />
       ))}
     </div>

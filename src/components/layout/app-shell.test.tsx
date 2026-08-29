@@ -4,7 +4,17 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { apiRequest } from "@/lib/api/client";
+
+/** A request that never answers, so the indicator is still there to be found. */
+function stubFetch() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => new Promise<Response>(() => {})),
+  );
+}
 
 vi.mock("@/components/auth/sign-out-button", () => ({
   SignOutButton: () => <button type="button">Abmelden</button>,
@@ -105,5 +115,31 @@ describe("AppShell", () => {
     );
 
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  });
+});
+
+/** The one indicator answers for the whole app, so it has to be in the frame the whole app shares. */
+describe("AppShell — where the busy indicator sits", () => {
+  function Writer() {
+    return (
+      <button type="button" onClick={() => void apiRequest("/api/anything", { method: "POST" })}>
+        Speichern
+      </button>
+    );
+  }
+
+  it("shows it in the header while a request is out, at the end of the row", async () => {
+    stubFetch();
+    render(
+      <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>}>
+        <Writer />
+      </AppShell>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+    const indicator = await screen.findByRole("status", { name: "Wird gespeichert" });
+    expect(screen.getByRole("banner")).toContainElement(indicator);
+    expect(screen.getByRole("banner").lastElementChild).toBe(indicator);
   });
 });
