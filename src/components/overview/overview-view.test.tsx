@@ -35,7 +35,7 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
   apiRequest: (...args: unknown[]) => apiRequest(...args),
 }));
 
-const { OverviewView: ScopedOverviewView } = await import("./overview-view");
+const { OverviewView: ScopedOverviewView, NO_CLASSES_HINT } = await import("./overview-view");
 const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");
 
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
@@ -215,5 +215,28 @@ describe("OverviewView — handing out links", () => {
     render(<OverviewView />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Nicht erlaubt.");
+  });
+});
+
+/**
+ * A series whose classes have not been maintained yet has nothing to draw a card from, and an
+ * empty page says only that something is broken. It says which list is still empty instead,
+ * exactly as the assignment board does for its events (US-21, US-29).
+ */
+describe("OverviewView — before any class is maintained", () => {
+  it("says the event series has no classes yet", () => {
+    useMasterData.mockImplementation((key: string) =>
+      key === "classes" ? listOf() : listOf("Profi"),
+    );
+
+    render(<OverviewView />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(NO_CLASSES_HINT);
+  });
+
+  it("says nothing of the sort once there is a class", () => {
+    render(<OverviewView />);
+
+    expect(screen.queryByText(NO_CLASSES_HINT)).not.toBeInTheDocument();
   });
 });

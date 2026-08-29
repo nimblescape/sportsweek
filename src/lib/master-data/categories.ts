@@ -237,6 +237,14 @@ export const CHILD_IN_USE_HINT =
 export const USAGE_PENDING_HINT =
   "Es wird noch geprüft, ob dieser Eintrag in Anmeldungen verwendet wird.";
 
+/**
+ * What a page built on one of these lists says before the list has been maintained (US-21). The
+ * noun comes from the category itself, so a page cannot come to call a list something the menu
+ * that leads to it does not.
+ */
+export const noneMaintainedHint = (category: MasterDataCategory) =>
+  `Für diese Eventreihe sind keine ${category.labels.title} angelegt.`;
+
 /** Labels for the equipment list a program carries, which is a field rather than a category. */
 export const EQUIPMENT_LABELS = {
   title: "Benötigte Ausrüstung",

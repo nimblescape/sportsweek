@@ -9,8 +9,15 @@ import { classOverview } from "@/lib/assignment/statistics";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { PageHeading } from "@/components/layout/page-heading";
+import { MASTER_DATA_CATEGORIES, noneMaintainedHint } from "@/lib/master-data/categories";
 import { useInvitations } from "@/lib/invitations/use-invitations";
 import { ClassCards } from "./class-cards";
+
+/**
+ * A series whose classes have not been maintained yet has nothing to draw a card from, and a
+ * page that simply stays empty reads as broken rather than as unfinished (US-21, US-29).
+ */
+export const NO_CLASSES_HINT = noneMaintainedHint(MASTER_DATA_CATEGORIES.classes);
 
 /**
  * Where an event series is run from (US-29): one card per class of the selected series, the
@@ -40,6 +47,10 @@ export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
             {NO_EVENT_SERIES_HINT}
           </p>
         ) : null
+      ) : classes.length === 0 ? (
+        <p role="status" className="text-muted-foreground text-sm">
+          {NO_CLASSES_HINT}
+        </p>
       ) : (
         <ClassCards
           rows={classOverview(students, classes, columns)}

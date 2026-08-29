@@ -7,17 +7,17 @@
  * Resets a project to its defaults: everything is deleted, and what this script writes is then
  * all it holds.
  *
- * | production, development | one event series with the lists that are the same every year |
- * | staging                 | that series, filled in, plus a roster and its registrations  |
+ * | production              | one event series with the lists that are the same every year |
+ * | development, staging    | that series, filled in, plus a roster and its registrations  |
  *
  * Seeding on top of what a project already holds says nothing about whether the application put
  * it there, so the point of a seeded environment — that its contents are known — needs the delete
  * as much as the write.
  *
- * `--bare` asks staging for the same bare state, which is what a school's first day looks like.
- * It can only ever leave a project holding less, so nowhere else receives an invented person
- * whatever is passed — that stays true by construction rather than by a check, because no
- * argument adds anything anywhere.
+ * `--bare` asks a test environment for what production gets, which is what a school's first day
+ * looks like and the only way to see the empty states behind seeded data. It can only ever leave
+ * a project holding less, so production receives no invented person whatever is passed — that
+ * stays true by construction rather than by a check, because no argument adds anything anywhere.
  *
  * Emptying production is a legitimate admin task and is not fenced off, but it is the one thing
  * here that cannot be undone, so it asks for the project id to be typed back first.
@@ -47,19 +47,13 @@ import {
 } from "./environment.mjs";
 
 /**
- * Where a purge needs no ceremony, because there is nothing in them that anyone would miss.
- * Production is absent by construction rather than by a check.
+ * Where inventing people is allowed, and where a purge needs no ceremony. Production is absent
+ * by construction rather than by a check: it gets the defaults and stops, because no argument
+ * can ask for anything else.
  */
 const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
 
-/**
- * Where inventing people is allowed. Development is not: what it is for is working on the
- * application, and a school's own first day is a roster of nobody — so a made-up one hides every
- * empty state behind data that only exists here.
- */
-const POPULATED_ENVIRONMENTS: readonly Environment[] = [STAGING];
-
-/** Leaves a populated environment as bare as the rest, which is what a school's first day is. */
+/** Asks one of them for the bare state instead, which is what a school's first day is. */
 const BARE = "--bare";
 
 /** Both listUsers and deleteUsers cap a single call at this many accounts. */
@@ -117,6 +111,25 @@ const MASTER_DATA_DEFAULTS = {
 /** The shape of the sports week as it is wanted in a test environment. */
 const STUDENTS_PER_CLASS = { min: 20, max: 25 };
 const ATTENDING_SHARE = { min: 0.7, max: 0.8 };
+/**
+ * How many registrations per class are left unfinished, so the report has both shapes of them to
+ * show: some who followed the link and answered nothing, some who took part and left a field
+ * blank. A count rather than a share — on a class of twenty a couple of per cent rounds to none.
+ */
+const INCOMPLETE_PER_CLASS = { min: 3, max: 6 };
+
+/**
+ * What a half-finished registration is missing. Never the program: the summary tallies by it,
+ * and a student with no program is not taking part rather than being half-way through.
+ */
+const UNFINISHED_ANSWERS = [
+  "skillLevel",
+  "busPickupPoint",
+  "seasonPassOption",
+  "foodOption",
+  "phoneNumber",
+  "hasMedication",
+] as const satisfies readonly (keyof RegistrationInput)[];
 const FEMALE_SHARE = 1 / 3;
 const AGE_RANGE = { min: 15, max: 16 };
 
@@ -293,12 +306,25 @@ type Lists = {
   seasonPassOptions: string[];
 };
 
-function registrationOf(person: Person, program: Program | null, lists: Lists): RegistrationInput {
+/** How far a seeded registration got: answered whole, left half-done, or never opened. */
+type Progress = "answered" | "unfinished" | "unanswered";
+
+function registrationOf(
+  person: Person,
+  program: Program | null,
+  lists: Lists,
+  progress: Progress,
+): RegistrationInput {
+  // Followed the link and never came back to it. Attendance stays null, which is what makes the
+  // record incomplete — the exception a teacher is left chasing (US-13, US-23).
+  if (progress === "unanswered") return { ...EMPTY_REGISTRATION };
+
   // Gender belongs to the person rather than to the sports week, so it is answered either way;
   // everything the form hides behind "Nimmst du teil?" stays unanswered for the rest.
   if (program === null) {
     return {
       ...EMPTY_REGISTRATION,
+      isAttendingSportsWeek: false,
       gender: person.gender,
       dateOfBirth: dateOfBirth(),
     };
@@ -307,7 +333,7 @@ function registrationOf(person: Person, program: Program | null, lists: Lists): 
   const rents = program.requiredEquipment.length > 0 && chance(RENTAL_SHARE);
   const wantsOtherFood = chance(OTHER_FOOD_SHARE);
 
-  return {
+  const answers: RegistrationInput = {
     isAttendingSportsWeek: true,
     program: program.name,
     skillLevel: pick(lists.skillLevels),
@@ -327,6 +353,12 @@ function registrationOf(person: Person, program: Program | null, lists: Lists): 
     heightCm: rents ? intBetween(155, 192) : null,
     weightKg: rents ? intBetween(45, 92) : null,
   };
+
+  if (progress === "answered") return answers;
+
+  // One blank is enough to be chased for, and leaves the rest of the row worth reading.
+  const blank = pick([...UNFINISHED_ANSWERS]);
+  return { ...answers, [blank]: null, ...(blank === "foodOption" ? { foodOtherText: null } : {}) };
 }
 
 async function inBatches(
@@ -439,14 +471,14 @@ async function main(): Promise<void> {
     fail(
       `Usage: npm run seed:<environment> [-- ${BARE}],`,
       `where <environment> is ${ENVIRONMENTS.join(", ")}.`,
-      `${BARE} leaves ${POPULATED_ENVIRONMENTS.join(", ")} as bare as the rest.`,
+      `${BARE} leaves a test environment as bare as production.`,
     );
   }
 
   const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
   const isTest = TEST_ENVIRONMENTS.includes(environment);
-  // Only staging invents people, so the flag changes nothing anywhere else and is not refused.
-  const seedsStudents = POPULATED_ENVIRONMENTS.includes(environment) && !args.includes(BARE);
+  // Production is bare whatever is asked, so the flag changes nothing there and is not refused.
+  const seedsStudents = isTest && !args.includes(BARE);
 
   if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
 
@@ -514,6 +546,20 @@ async function main(): Promise<void> {
     const size = intBetween(STUDENTS_PER_CLASS.min, STUDENTS_PER_CLASS.max);
     const [attending, absent] = split(size, [between(ATTENDING_SHARE.min, ATTENDING_SHARE.max)]);
     const genders = deal(["female", "male"] as const, split(size, [FEMALE_SHARE]));
+    // Alternated rather than rolled, so a class always gets both kinds rather than three of one.
+    const unfinished = Math.min(
+      intBetween(INCOMPLETE_PER_CLASS.min, INCOMPLETE_PER_CLASS.max),
+      size,
+    );
+    const progress = shuffle<Progress>([
+      ...Array.from({ length: unfinished }, (_, at) =>
+        at % 2 === 0 ? "unanswered" : ("unfinished" as Progress),
+      ),
+      ...Array<Progress>(size - unfinished).fill("answered"),
+    ]);
+    // Counted from what was written rather than from `attending`: a student the plan meant to
+    // take part may have been left unanswered instead, and a summary that says otherwise lies.
+    const written = { attending: 0, incomplete: 0 };
     // Null is the absentee's "no program", which is why it is dealt alongside the real ones.
     const chosen = shuffle([
       ...deal<Program | null>(ordered, split(attending, programShares)),
@@ -522,7 +568,8 @@ async function main(): Promise<void> {
 
     for (let index = 0; index < size; index += 1) {
       const person = createPerson(genders[index], taken);
-      const registration = registrationOf(person, chosen[index], lists);
+      const registration = registrationOf(person, chosen[index], lists, progress[index]);
+      if (registration.isAttendingSportsWeek === true) written.attending += 1;
 
       const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, role: "student" }); // prettier-ignore
       const record = registrationSchema.parse({
@@ -539,6 +586,7 @@ async function main(): Promise<void> {
         isIncomplete: isRegistrationIncomplete(registration, questionsAsked(eventSeries)),
         ...registration,
       });
+      if (record.isIncomplete) written.incomplete += 1;
 
       const { id: userId, ...userFields } = user;
       const { id: recordId, ...recordFields } = record;
@@ -553,7 +601,8 @@ async function main(): Promise<void> {
       .map((program) => `${program.name} ${chosen.filter((c) => c === program).length}`)
       .join(", ");
     summary.push(
-      `  ${className}: ${size} students, ${attending} attending, ` +
+      `  ${className}: ${size} students, ${written.attending} attending, ` +
+        `${written.incomplete} incomplete, ` +
         `${size - female} male / ${female} female, ${perProgram}`,
     );
   }

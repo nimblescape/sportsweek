@@ -126,20 +126,3 @@ export async function invitationsOf(eventSeriesId: string): Promise<Invitation[]
     .filter((parsed) => parsed.success)
     .map((parsed) => parsed.data);
 }
-
-/**
- * The class a link enrols into, where the link leads somewhere and names this series.
- *
- * A token for another series is treated as no token at all rather than as an error: a student
- * looking at one registration while holding a link to a different one has done nothing wrong,
- * and the link still takes them there from the landing page.
- */
-export async function invitedClassFor(
-  eventSeriesId: string,
-  token: string | null,
-): Promise<string | null> {
-  if (token === null) return null;
-
-  const invitation = await resolveInvitation(token);
-  return invitation?.eventSeriesId === eventSeriesId ? invitation.class : null;
-}

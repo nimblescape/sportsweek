@@ -7,8 +7,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getUserWithRole = vi.fn();
 const saveRegistration = vi.fn();
-const invitedClassFor = vi.fn();
-const invitationTokenFromCookie = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
   getUserWithRole: () => getUserWithRole(),
@@ -16,14 +14,6 @@ vi.mock("@/lib/auth/guards", () => ({
 
 vi.mock("@/lib/registration/registration-service", () => ({
   saveRegistration: (...args: unknown[]) => saveRegistration(...args),
-}));
-
-vi.mock("@/lib/invitations/invitation-cookie", () => ({
-  invitationTokenFromCookie: () => invitationTokenFromCookie(),
-}));
-
-vi.mock("@/lib/invitations/invitation-service", () => ({
-  invitedClassFor: (...args: unknown[]) => invitedClassFor(...args),
 }));
 
 const { PUT } = await import("./route");
@@ -73,8 +63,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   getUserWithRole.mockResolvedValue({ uid: "u1", email: STUDENT, role: "student" });
   saveRegistration.mockResolvedValue({ id: STUDENT, class: "3AHME", ...body });
-  invitationTokenFromCookie.mockResolvedValue("a-token");
-  invitedClassFor.mockResolvedValue("3AHME");
 });
 
 describe("PUT /api/my-registration/[eventSeriesId]", () => {
@@ -90,27 +78,8 @@ describe("PUT /api/my-registration/[eventSeriesId]", () => {
     await PUT(putRequest(body), context);
 
     expect(saveRegistration).toHaveBeenCalledWith(
-      { studentUpn: STUDENT, eventSeriesId: SERIES, invitedClass: "3AHME" },
+      { studentUpn: STUDENT, eventSeriesId: SERIES },
       expect.objectContaining(body),
-    );
-  });
-
-  /** The class comes from the link, and only from one naming this series (US-23, Q20). */
-  it("takes the class from the invitation the student is holding", async () => {
-    await PUT(putRequest(body), context);
-
-    expect(invitedClassFor).toHaveBeenCalledWith(SERIES, "a-token");
-  });
-
-  it("saves without an invitation for a student who is simply coming back", async () => {
-    invitationTokenFromCookie.mockResolvedValue(null);
-    invitedClassFor.mockResolvedValue(null);
-
-    await PUT(putRequest(body), context);
-
-    expect(saveRegistration).toHaveBeenCalledWith(
-      expect.objectContaining({ invitedClass: null }),
-      expect.anything(),
     );
   });
 

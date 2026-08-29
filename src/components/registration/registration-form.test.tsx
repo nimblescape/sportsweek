@@ -228,7 +228,9 @@ describe("RegistrationForm", () => {
   it("starts a student who has not registered yet on an unanswered form", () => {
     renderForm(null);
 
-    expect(within(screen.getByRole("group", { name: ATTENDING })).getByRole("radio", { name: "Nein" })).toBeChecked(); // prettier-ignore
+    const asked = within(screen.getByRole("group", { name: ATTENDING }));
+    expect(asked.getByRole("radio", { name: "Nein" })).not.toBeChecked();
+    expect(asked.getByRole("radio", { name: "Ja" })).not.toBeChecked();
     expect(screen.queryByLabelText(ANSWER_LABELS.skillLevel)).not.toBeInTheDocument();
   });
 
@@ -263,7 +265,7 @@ describe("RegistrationForm", () => {
 
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("gespeichert");
-    expect(status).toHaveTextContent("Deine Anmeldung ist vollständig.");
+    expect(status).toHaveTextContent("Deine Registrierung ist vollständig.");
   });
 
   it("names what is still missing in the same breath as the confirmation", async () => {

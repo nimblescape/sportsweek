@@ -13,6 +13,7 @@ import { useBusyWhile } from "@/lib/api/busy";
 import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { PageHeading } from "@/components/layout/page-heading";
+import { MASTER_DATA_CATEGORIES, noneMaintainedHint } from "@/lib/master-data/categories";
 import { AssignmentBoard } from "./assignment-board";
 
 /**
@@ -68,7 +69,7 @@ export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
           <div className="flex flex-col gap-4">
             {events.length === 0 ? (
               <p role="status" className="text-muted-foreground text-sm">
-                Für diese Eventreihe gibt es noch keine Events.
+                {noneMaintainedHint(MASTER_DATA_CATEGORIES.events)}
               </p>
             ) : (
               <AssignmentBoard

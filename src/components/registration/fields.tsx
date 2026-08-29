@@ -194,8 +194,8 @@ export function RadioField<TValues extends FieldValues, TOption extends string |
   );
 }
 
-/** "Nein" first, because that is where an unanswered registration starts (US-11). */
+/** "Ja" first, as the pair reads aloud. Neither is preselected, so neither is the starting point. */
 export const YES_NO = [
-  { value: false, label: YES_NO_LABELS.false },
   { value: true, label: YES_NO_LABELS.true },
+  { value: false, label: YES_NO_LABELS.false },
 ] as const;

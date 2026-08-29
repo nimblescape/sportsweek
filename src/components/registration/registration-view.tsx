@@ -8,7 +8,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
 import { questionsAsked } from "@/lib/master-data/categories";
-import { classFrom, REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
+import { REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
 import { useRegistration } from "@/lib/registration/use-registration";
 import { RegistrationForm } from "./registration-form";
 
@@ -16,8 +16,6 @@ type RegistrationViewProps = {
   eventSeriesId: string;
   studentUpn: string;
   studentName: string;
-  /** The class the link enrols into, where the student is arriving through one (US-23). */
-  invitedClass: string | null;
 };
 
 /**
@@ -29,7 +27,6 @@ export function RegistrationView({
   eventSeriesId,
   studentUpn,
   studentName,
-  invitedClass,
 }: RegistrationViewProps) {
   const { eventSeries, record, loading, error } = useRegistration(eventSeriesId, studentUpn);
   const skillLevels = useMasterData("skill-levels", eventSeriesId);
@@ -48,7 +45,7 @@ export function RegistrationView({
     );
   }
 
-  const studentClass = classFrom(invitedClass, record?.class ?? null);
+  const studentClass = record?.class ?? null;
 
   if (eventSeries === null || !eventSeries.isOpenToStudents || studentClass === null) {
     return (

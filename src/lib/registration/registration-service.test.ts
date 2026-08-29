@@ -24,27 +24,33 @@ const { ServiceError } = await import("@/lib/service-error");
 const STUDENT = "jane.doe@student.htldornbirn.at";
 const REGISTRATIONS = registrationPath("s1");
 
-/** Where the save is aimed and what the link enrols into — the two things the body cannot say. */
-function target(
-  overrides: { studentUpn?: string; eventSeriesId?: string; invitedClass?: string } = {},
-) {
+/** Where the save is aimed — the one thing the body cannot say. */
+function target(overrides: { studentUpn?: string; eventSeriesId?: string } = {}) {
   return {
     studentUpn: STUDENT,
     eventSeriesId: "s1",
-    invitedClass: "3AHME",
     ...overrides,
   };
 }
 
-/** A student coming back to amend what they said: signed in, holding no link (US-23, Q7). */
-function returning(overrides: { studentUpn?: string; eventSeriesId?: string } = {}) {
-  return { ...target(overrides), invitedClass: null };
-}
+/** A student coming back to amend what they said (US-23, Q7). */
+const returning = target;
 
 beforeEach(() => {
   firestore.reset();
   seedStudent(STUDENT, { firstName: "Jane", lastName: "Doe" });
 });
+
+/** Whether the joining is still exactly as the link left it, nothing having been saved into it. */
+const unanswered = () => firestore.get(REGISTRATIONS, STUDENT)?.isAttendingSportsWeek === undefined;
+
+/** What following the invitation link leaves behind, which is what a save then amends. */
+function seedJoined(className = "3AHME", eventSeriesId = "s1") {
+  firestore.seed(registrationPath(eventSeriesId), STUDENT, {
+    studentUpn: STUDENT,
+    class: className,
+  });
+}
 afterEach(() => vi.restoreAllMocks());
 
 /**
@@ -106,6 +112,10 @@ const attending: RegistrationInput = {
 };
 
 describe("saveRegistration", () => {
+  // Following the link joins a student and writes the record (US-23), so a save is always an
+  // amendment to one that is already there.
+  beforeEach(() => seedJoined());
+
   it("stores the record beneath the named event series, owned by the student who sent it", async () => {
     seedEventSeries("s1");
 
@@ -138,7 +148,7 @@ describe("saveRegistration", () => {
     await expect(
       saveRegistration(target({ studentUpn: "ghost@student.htldornbirn.at" }), attending),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
-    expect(firestore.count(REGISTRATIONS)).toBe(0);
+    expect(unanswered()).toBe(true);
   });
 
   it("returns the stored record, id and all", async () => {
@@ -153,6 +163,7 @@ describe("saveRegistration", () => {
   it("stores the record only beneath the series it was aimed at", async () => {
     seedEventSeries("old");
     seedEventSeries("current");
+    seedJoined("3AHME", "current");
 
     await saveRegistration(target({ eventSeriesId: "current" }), attending);
 
@@ -173,6 +184,10 @@ describe("saveRegistration", () => {
   it("keeps one record per student per event series", async () => {
     seedEventSeries("s1");
     seedStudent("john@student.htldornbirn.at", { firstName: "John", lastName: "Doe" });
+    firestore.seed(REGISTRATIONS, "john@student.htldornbirn.at", {
+      studentUpn: "john@student.htldornbirn.at",
+      class: "3AHME",
+    });
 
     await saveRegistration(target(), attending);
     await saveRegistration(target({ studentUpn: "john@student.htldornbirn.at" }), attending);
@@ -188,7 +203,7 @@ describe("saveRegistration", () => {
       code: "CONFLICT",
       message: REGISTRATION_NOT_OPEN_HINT,
     });
-    expect(firestore.count(REGISTRATIONS)).toBe(0);
+    expect(unanswered()).toBe(true);
   });
 
   it("refuses to save into a series that does not exist, saying no more than that", async () => {
@@ -201,18 +216,21 @@ describe("saveRegistration", () => {
    * The link is how a student joins (US-23), so naming an open series is not enough to get into
    * one: without a link there is no class to give the record, and a class is never an answer.
    */
-  it("refuses a first save by a student holding no link for that series", async () => {
-    seedEventSeries("s1");
+  it("refuses a save into a series the student never joined", async () => {
+    seedEventSeries("s2");
 
-    await expect(saveRegistration(returning(), attending)).rejects.toMatchObject({
+    await expect(
+      saveRegistration(returning({ eventSeriesId: "s2" }), attending),
+    ).rejects.toMatchObject({
       code: "CONFLICT",
       message: REGISTRATION_NOT_OPEN_HINT,
     });
-    expect(firestore.count(REGISTRATIONS)).toBe(0);
+    expect(unanswered()).toBe(true);
   });
 
   it("lets a student who has already joined go on amending without their link", async () => {
     seedEventSeries("s1");
+    seedJoined();
     await saveRegistration(target(), attending);
 
     const record = await saveRegistration(returning(), { ...attending, gender: "male" });
@@ -221,15 +239,6 @@ describe("saveRegistration", () => {
   });
 
   /** Q20: another link is the one way a class changes after registration. */
-  it("moves the student to the class a newer link names", async () => {
-    seedEventSeries("s1");
-    await saveRegistration(target(), attending);
-
-    const record = await saveRegistration(target({ invitedClass: "4AHME" }), attending);
-
-    expect(record.class).toBe("4AHME");
-  });
-
   /**
    * The other half of closing the in-use race (US-27): the series is read inside this save's own
    * transaction, so a teacher removing an option makes the save conflict, retry, and be refused
@@ -242,7 +251,7 @@ describe("saveRegistration", () => {
       code: "CONFLICT",
       message: ANSWER_NO_LONGER_OFFERED_HINT,
     });
-    expect(firestore.count(REGISTRATIONS)).toBe(0);
+    expect(unanswered()).toBe(true);
   });
 
   it("asks the student to reload rather than storing an answer nothing offers", async () => {
@@ -303,7 +312,7 @@ describe("saveRegistration", () => {
         foodOtherText: "Laktosefrei",
       }),
     ).rejects.toMatchObject({ code: "CONFLICT", message: ANSWER_NO_LONGER_OFFERED_HINT });
-    expect(firestore.count(REGISTRATIONS)).toBe(0);
+    expect(unanswered()).toBe(true);
   });
 
   it("stores nothing when an answer is malformed", async () => {
@@ -312,7 +321,7 @@ describe("saveRegistration", () => {
     await expect(
       saveRegistration(target(), { ...attending, phoneNumber: "06601234567" }),
     ).rejects.toBeInstanceOf(ServiceError);
-    expect(firestore.count(REGISTRATIONS)).toBe(0);
+    expect(unanswered()).toBe(true);
   });
 
   /** A registration is filled in over time, so an unanswered question is not a failed save. */
@@ -400,6 +409,7 @@ describe("saveRegistration", () => {
 
   it("leaves an existing event assignment alone while the student is attending", async () => {
     seedEventSeries("s1");
+    seedJoined();
     await saveRegistration(target(), attending);
     firestore.seed(REGISTRATIONS, STUDENT, {
       ...firestore.get(REGISTRATIONS, STUDENT),
@@ -413,6 +423,7 @@ describe("saveRegistration", () => {
 
   it("gives up the event assignment when the student answers 'no' (US-11)", async () => {
     seedEventSeries("s1");
+    seedJoined();
     await saveRegistration(target(), attending);
     firestore.seed(REGISTRATIONS, STUDENT, {
       ...firestore.get(REGISTRATIONS, STUDENT),
@@ -504,6 +515,7 @@ describe("deleteRegistration", () => {
     seedRegistration(STUDENT);
 
     await deleteRegistration("s1", STUDENT);
+    seedJoined();
     await saveRegistration(target(), attending);
 
     expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({ class: "3AHME" });
@@ -585,7 +597,9 @@ describe("joinEventSeries", () => {
       lastName: "Doe",
       class: "3AHME",
       event: null,
-      isAttendingSportsWeek: false,
+      // Neither yes nor no: joining is not answering, and calling it "no" would file every
+      // invited student as having declined.
+      isAttendingSportsWeek: null,
       isIncomplete: true,
     });
   });
@@ -593,6 +607,7 @@ describe("joinEventSeries", () => {
   /** Following the same link twice is one joining, so the second one takes nothing back. */
   it("leaves an answered registration exactly as it was", async () => {
     seedEventSeries("s1");
+    seedJoined();
     await saveRegistration(target(), attending);
 
     await joinEventSeries("s1", STUDENT, "3AHME");
@@ -607,6 +622,7 @@ describe("joinEventSeries", () => {
   /** Another link, for another class, is how a student's class changes (Q20). */
   it("moves an existing registration to the class the newer link names", async () => {
     seedEventSeries("s1");
+    seedJoined();
     await saveRegistration(target(), attending);
 
     await joinEventSeries("s1", STUDENT, "4AHME");

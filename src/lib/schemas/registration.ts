@@ -82,7 +82,12 @@ const registrationFields = z.object({
    * per row; the student's own view never shows it. Defaulted for records written before it.
    */
   isIncomplete: z.boolean().default(true),
-  isAttendingSportsWeek: z.boolean(),
+  /**
+   * Null until the student answers. Following the link is what joins them (US-23), so a
+   * registration exists before anything has been said in it — and a boolean would have to call
+   * that silence a refusal, which would file every invited student as having declined.
+   */
+  isAttendingSportsWeek: z.boolean().nullable(),
   /**
    * Set from the invitation link the student joined through, never answered (US-23). A student
    * who picked their own would sometimes pick the wrong one, and the class is the dimension the
