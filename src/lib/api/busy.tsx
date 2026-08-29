@@ -51,6 +51,18 @@ export function useBusy(): boolean {
   return React.useContext(BusyContext)?.busy ?? false;
 }
 
+/**
+ * Whether a control is inert: because it was told to be, or because something is in flight.
+ *
+ * Asked by the controls themselves rather than by the views that place them, so a control cannot
+ * be left live over data that is still arriving or already being written. A read counts as much
+ * as a write — a list still loading is a list whose rows are not there to act on — and both
+ * report themselves without a caller saying so.
+ */
+export function useInert(disabled?: boolean): boolean {
+  return useBusy() || disabled === true;
+}
+
 /** Taken for the length of a write and released when it is answered, however it ends. */
 export function useHold(): () => () => void {
   return React.useContext(BusyContext)?.hold ?? NO_HOLD;

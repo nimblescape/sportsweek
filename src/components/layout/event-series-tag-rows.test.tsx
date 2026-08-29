@@ -18,7 +18,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => eventSeries() }));
-vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
+vi.mock("@/lib/api/busy", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useBusyWhile: () => {},
+}));
 vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   apiRequest: (...args: unknown[]) => apiRequest(...args),

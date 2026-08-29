@@ -6,14 +6,18 @@
  * Adapted from shadcn/ui (https://ui.shadcn.com), MIT licensed.
  * See LICENSE and THIRD-PARTY-NOTICES.md in the repository root for details.
  */
+"use client";
+
 import * as React from "react";
 import { Input as InputPrimitive } from "@base-ui/react/input";
 
+import { useInert } from "@/lib/api/busy";
 import { cn } from "@/lib/utils";
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, disabled, ...props }: React.ComponentProps<"input">) {
   return (
     <InputPrimitive
+      disabled={useInert(disabled)}
       type={type}
       data-slot="input"
       className={cn(

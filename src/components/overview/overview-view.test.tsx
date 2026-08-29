@@ -26,7 +26,10 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (key: string) => useMasterData(key),
   usePrograms: () => usePrograms(),
 }));
-vi.mock("@/lib/api/busy", () => ({ useBusyWhile: () => {} }));
+vi.mock("@/lib/api/busy", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useBusyWhile: () => {},
+}));
 vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
   apiRequest: (...args: unknown[]) => apiRequest(...args),

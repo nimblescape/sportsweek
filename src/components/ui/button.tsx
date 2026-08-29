@@ -6,9 +6,12 @@
  * Adapted from shadcn/ui (https://ui.shadcn.com), MIT licensed.
  * See LICENSE and THIRD-PARTY-NOTICES.md in the repository root for details.
  */
+"use client";
+
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 
+import { useInert } from "@/lib/api/busy";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -65,11 +68,13 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  disabled,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
       data-slot="button"
+      disabled={useInert(disabled)}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
