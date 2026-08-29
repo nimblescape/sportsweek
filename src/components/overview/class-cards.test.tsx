@@ -11,7 +11,8 @@ import { filterGroups } from "@/lib/filters/student-filter";
 import { INVITATION_LINK_LABEL, INVITATION_QR_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { ClassCards } from "./class-cards";
+import { ATTENDANCE_LABELS } from "@/lib/registration/answer-labels";
+import { ClassCards, NO_ANSWER_LABEL } from "./class-cards";
 
 const PROGRAMS = ["Ski", "Snowboard"];
 const SKILL_LEVELS = ["Anfänger", "Profi"];
@@ -626,5 +627,31 @@ describe("ClassCards — removing a registration", () => {
     await userEvent.click(screen.getByRole("button", { name: nameOf(jane) }));
 
     expect(removeOn(jane)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * A student who has followed the link and answered nothing has not declined (US-23). Putting
+ * them under "nimmt nicht teil" would be the card deciding for them.
+ */
+describe("ClassCards — a student who has not answered", () => {
+  it("puts them under neither of the two answers", () => {
+    setup([student({ isAttending: null })]);
+
+    const group = screen.getByRole("group", { name: "5AHIF" });
+    expect(
+      within(group).queryByRole("list", { name: `5AHIF: ${ATTENDANCE_LABELS.notAttending}` }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(group).queryByRole("list", { name: `5AHIF: ${ATTENDANCE_LABELS.attending}` }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("still shows them, under what is outstanding rather than under an answer", () => {
+    setup([student({ isAttending: null, firstName: "Anna", lastName: "Muster" })]);
+
+    const group = screen.getByRole("group", { name: "5AHIF" });
+    expect(within(group).getByText(NO_ANSWER_LABEL)).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Muster Anna" })).toBeInTheDocument();
   });
 });

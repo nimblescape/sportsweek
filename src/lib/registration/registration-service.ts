@@ -173,8 +173,10 @@ export async function saveRegistration(
     assertAnswersAreOffered(eventSeries, { ...fields, class: studentClass });
 
     // The teacher owns the assignment, so a save carries the stored one forward — unless the
-    // student has just said they are not coming, which unassigns them (US-11).
-    const event = fields.isAttendingSportsWeek ? ((stored.data()?.event as string) ?? null) : null;
+    // student has just said they are not coming, which unassigns them (US-11). Saying nothing
+    // is not saying no, so an unanswered form leaves the assignment where it is.
+    const event =
+      fields.isAttendingSportsWeek === false ? null : ((stored.data()?.event as string) ?? null);
 
     const data = {
       ...identity,
@@ -229,9 +231,7 @@ export async function joinEventSeries(
         ...identity,
         class: className,
         event: null,
-        // Not computed: an empty registration says "not attending", and a student who has
-        // answered nothing has not said that. Incomplete is what they are until they answer.
-        isIncomplete: true,
+        isIncomplete: isRegistrationIncomplete(EMPTY_REGISTRATION, questionsAsked(eventSeries)),
         ...EMPTY_REGISTRATION,
       });
     }

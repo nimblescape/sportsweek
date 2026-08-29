@@ -48,9 +48,9 @@ export const ANSWER_NO_LONGER_OFFERED_HINT =
 
 /** What an unsaved registration looks like, before the student has answered anything. */
 export const EMPTY_REGISTRATION: RegistrationInput = {
-  // Taking part and borrowing equipment are answers the student gives, not ones the form
-  // assumes on their behalf — so both start on "no".
-  isAttendingSportsWeek: false,
+  // Taking part is the student's to answer, and an unanswered form has not answered it. Borrowing
+  // equipment is only asked of somebody taking part, so it starts on "no".
+  isAttendingSportsWeek: null,
   program: null,
   skillLevel: null,
   busPickupPoint: null,

@@ -585,7 +585,9 @@ describe("joinEventSeries", () => {
       lastName: "Doe",
       class: "3AHME",
       event: null,
-      isAttendingSportsWeek: false,
+      // Neither yes nor no: joining is not answering, and calling it "no" would file every
+      // invited student as having declined.
+      isAttendingSportsWeek: null,
       isIncomplete: true,
     });
   });

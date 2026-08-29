@@ -111,7 +111,9 @@ const answer = (
  * and the e-mail address are not here, because the master line always carries them.
  */
 export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
-  answer("attendance", "Teilnahme", (record) => yesNo(record.isAttendingSportsWeek)),
+  answer("attendance", "Teilnahme", (record) =>
+    record.isAttendingSportsWeek === null ? "" : yesNo(record.isAttendingSportsWeek),
+  ),
   answer("event", ANSWER_LABELS.event, (record) => record.event, asksFor("event")),
   answer("class", ANSWER_LABELS.class, (record) => record.class, asksFor("class")),
   answer("gender", "Geschlecht", (record) =>

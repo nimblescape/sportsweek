@@ -87,7 +87,8 @@ export type FilterableStudent = {
   gender: Gender | null;
   program: string | null;
   skillLevel: string | null;
-  isAttending: boolean;
+  /** Null until the student answers: joining and declining are not the same thing (US-11, US-23). */
+  isAttending: boolean | null;
   /** The event a teacher assigned them to (US-12), by name; null means no week yet. */
   event: string | null;
   isIncomplete: boolean;
@@ -425,6 +426,9 @@ function valueOf(student: FilterableStudent, category: FilterCategory): string |
     case "skillLevel":
       return student.skillLevel;
     case "attendance":
+      // Null matches neither tag: joining is not answering, and a student who has said nothing
+      // has not declined. The completeness tag is what finds them (US-13, US-23).
+      if (student.isAttending === null) return null;
       return student.isAttending ? ATTENDANCE_VALUES.attending : ATTENDANCE_VALUES.notAttending;
     case "event":
       return student.event;

@@ -37,6 +37,12 @@ import { SkillMatrix } from "@/components/assignment/skill-matrix";
 const ATTENDING_LABEL = ATTENDANCE_LABELS.attending;
 const NOT_ATTENDING_LABEL = ATTENDANCE_LABELS.notAttending;
 
+/**
+ * The third state of the attendance question, which the two answers cannot cover: a student who
+ * followed the link and has said nothing yet (US-23). Exported so a test names it once.
+ */
+export const NO_ANSWER_LABEL = "Noch keine Antwort";
+
 /** What a card may do with its class's link; null where the series can never be opened (US-19). */
 export type InvitationControls = {
   tokenFor: (className: string) => string | null;
@@ -264,7 +270,7 @@ function ClassCard({
                 <Cloud
                   className={row.class}
                   label={ATTENDING_LABEL}
-                  students={shown.filter((student) => student.isAttending)}
+                  students={shown.filter((student) => student.isAttending === true)}
                   markedId={markedId}
                   onMark={setMarkedId}
                   onRemove={removableEventSeriesId === null ? null : setRemoving}
@@ -272,7 +278,17 @@ function ClassCard({
                 <Cloud
                   className={row.class}
                   label={NOT_ATTENDING_LABEL}
-                  students={shown.filter((student) => !student.isAttending)}
+                  students={shown.filter((student) => student.isAttending === false)}
+                  markedId={markedId}
+                  onMark={setMarkedId}
+                  onRemove={removableEventSeriesId === null ? null : setRemoving}
+                />
+                {/* Empty clouds hide themselves, so a class where everybody has answered shows
+                    no heading for what is outstanding. */}
+                <Cloud
+                  className={row.class}
+                  label={NO_ANSWER_LABEL}
+                  students={shown.filter((student) => student.isAttending === null)}
                   markedId={markedId}
                   onMark={setMarkedId}
                   onRemove={removableEventSeriesId === null ? null : setRemoving}

@@ -228,7 +228,9 @@ describe("RegistrationForm", () => {
   it("starts a student who has not registered yet on an unanswered form", () => {
     renderForm(null);
 
-    expect(within(screen.getByRole("group", { name: ATTENDING })).getByRole("radio", { name: "Nein" })).toBeChecked(); // prettier-ignore
+    const asked = within(screen.getByRole("group", { name: ATTENDING }));
+    expect(asked.getByRole("radio", { name: "Nein" })).not.toBeChecked();
+    expect(asked.getByRole("radio", { name: "Ja" })).not.toBeChecked();
     expect(screen.queryByLabelText(ANSWER_LABELS.skillLevel)).not.toBeInTheDocument();
   });
 
