@@ -375,18 +375,18 @@ describe("EventSeriesTagRows — what a tag says on hover", () => {
   });
 
   /** A long name is truncated to keep the row on one line, so hovering is how it is read whole. */
-  it("says the whole name of the series", async () => {
-    showing(seriesNamed("s1", "Wintersportwoche 2026/2027 der dritten Jahrgänge"));
+  /** The state is what the tag reports, so hovering anywhere on it gives the same answer. */
+  it.each([
+    [true, OPEN_TO_STUDENTS_LABEL],
+    [false, CLOSED_TO_STUDENTS_LABEL],
+  ])("says the state on the name too when open is %s", async (isOpenToStudents, label) => {
+    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents }));
 
     render(<EventSeriesTagRows />);
-    await userEvent.hover(
-      screen.getByRole("button", { name: "Wintersportwoche 2026/2027 der dritten Jahrgänge" }),
-    );
+    await userEvent.hover(screen.getByRole("button", { name: "Wintersportwoche" }));
 
     expect(
-      await screen.findByText("Wintersportwoche 2026/2027 der dritten Jahrgänge", {
-        selector: "[data-slot='tooltip-popup']",
-      }),
+      await screen.findByText(label, { selector: "[data-slot='tooltip-popup']" }),
     ).toBeInTheDocument();
   });
 });

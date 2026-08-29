@@ -27,16 +27,15 @@ export const EVENT_SERIES_ROW_LABEL = "Eventreihen";
 export const OPEN_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.open;
 export const CLOSED_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.closed;
 
+/** What the tag reports about its series, said by the door and repeated wherever the tag is hovered. */
+const stateLabel = (one: EventSeries) =>
+  one.isOpenToStudents ? OPEN_TO_STUDENTS_LABEL : CLOSED_TO_STUDENTS_LABEL;
+
 /** What a tag is, in one icon: a series with its door open or shut. */
 function StateIcon({ eventSeries }: { eventSeries: EventSeries }) {
-  const label = eventSeries.isOpenToStudents ? OPEN_TO_STUDENTS_LABEL : CLOSED_TO_STUDENTS_LABEL;
   const Door = eventSeries.isOpenToStudents ? DoorOpen : DoorClosed;
 
-  return (
-    <Tooltip label={label}>
-      <Door aria-label={label} className="size-4 shrink-0" />
-    </Tooltip>
-  );
+  return <Door aria-label={stateLabel(eventSeries)} className="size-4 shrink-0" />;
 }
 
 type RowProps = {
@@ -58,11 +57,11 @@ function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }
         const pressed = one.id === selectedId;
         return (
           <Tag key={one.id} pressed={pressed} disabled={pending}>
-            <StateIcon eventSeries={one} />
-            {/* A span because the name is truncated where it is long, and the tooltip is how it
-                is read whole; TagName draws the button rather than forwarding what wraps it. */}
-            <Tooltip label={one.name}>
-              <span className="inline-flex min-w-0">
+            {/* One tooltip over the door and the name together: whichever of them the pointer
+                finds, the question it answers is the same one. */}
+            <Tooltip label={stateLabel(one)}>
+              <span className="flex min-w-0 items-center gap-1">
+                <StateIcon eventSeries={one} />
                 <TagName label={one.name} onPress={() => onSelect(one)} />
               </span>
             </Tooltip>
