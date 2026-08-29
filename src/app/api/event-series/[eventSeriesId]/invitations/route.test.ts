@@ -22,7 +22,7 @@ const TEACHER = {
   uid: "u1",
   email: "t@htldornbirn.at",
   accountType: "teacher",
-  permissions: ["editAssignments"],
+  permissions: ["editRegistrations"],
 };
 const STUDENT = { uid: "u2", email: "s@student.htldornbirn.at", accountType: "student" };
 
@@ -64,10 +64,10 @@ describe("POST /api/event-series/[eventSeriesId]/invitations", () => {
   });
 
   /** Inviting a class is planning who takes part, which is not the same as reporting on them. */
-  it("refuses a teacher who may not edit assignments", async () => {
+  it("refuses a teacher who may not edit registrations", async () => {
     getAuthenticatedUser.mockResolvedValue({
       ...TEACHER,
-      permissions: ["viewReports", "editReports", "editMasterData"],
+      permissions: ["viewReports", "editAssignments", "editMasterData"],
     });
 
     const response = await POST(request({ class: "3aWI" }), context);

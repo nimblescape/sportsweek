@@ -42,14 +42,18 @@ service cloud.firestore {
      * minted before the change would go on admitting what an admin has just taken away.
      *
      * A record carrying none reaches nothing, and a student is refused by isTeacher() ahead of
-     * whatever their own record happens to list. The names below are a copy of PERMISSIONS in
-     * src/lib/auth/permissions.ts, which this language cannot import.
+     * whatever their own record happens to list. The names used below are a copy of PERMISSIONS
+     * in src/lib/auth/permissions.ts, which this language cannot import.
      */
-    function may(permission) {
+    function mayAny(permissions) {
       return isTeacher()
         && exists(/databases/$(database)/documents/users/$(upn()))
         && get(/databases/$(database)/documents/users/$(upn())).data
-             .get('permissions', []).hasAny([permission]);
+             .get('permissions', []).hasAny(permissions);
+    }
+
+    function may(permission) {
+      return mayAny([permission]);
     }
 
     function isSelf(uid) {
@@ -104,7 +108,8 @@ service cloud.firestore {
      * through a handler that owns `event`.
      */
     match /eventSeries/{eventSeriesId}/registrations/{studentUpn} {
-      allow read: if may('viewReports') || may('editAssignments') || isSelf(studentUpn);
+      allow read: if mayAny(['editRegistrations', 'editAssignments', 'viewReports', 'editReports'])
+        || isSelf(studentUpn);
       allow write: if false;
     }
 
@@ -123,7 +128,7 @@ service cloud.firestore {
      * offer (US-22). Both are done in transactions by the Route Handlers.
      */
     match /eventSeries/{eventSeriesId}/savedReports/{reportId} {
-      allow read: if may('viewReports');
+      allow read: if mayAny(['viewReports', 'editReports']);
       allow write: if false;
     }
 

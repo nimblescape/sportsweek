@@ -48,10 +48,10 @@ describe("EventSeriesList", () => {
   });
 
   it.each([
-    ["Wintersportwoche 2026", "Schüler:innen-Anmeldung offen"],
+    ["Wintersportwoche 2026", "Registrierung für Schüler:innen offen"],
     ["Wintersportwoche 2025", "Archiviert"],
-    ["Wintersportwoche 2027", "Schüler:innen-Anmeldung geschlossen"],
-    ["Wintersportwochen", "Schüler:innen-Anmeldung geschlossen"],
+    ["Wintersportwoche 2027", "Registrierung für Schüler:innen geschlossen"],
+    ["Wintersportwochen", "Registrierung für Schüler:innen geschlossen"],
   ])("shows %s with the state %s", (name, state) => {
     renderList();
 
@@ -105,7 +105,7 @@ describe("EventSeriesList — row actions", () => {
 
     expect(
       screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2026 löschen" }),
-    ).toHaveAccessibleDescription(/anmeldungen/i);
+    ).toHaveAccessibleDescription(/registrierungen/i);
   });
 
   /** Every teacher view is scoped to a selection, so the last one has to stay (US-19, US-22). */
@@ -215,7 +215,7 @@ describe("EventSeriesList — row actions", () => {
 
     expect(
       screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2024 archivieren" }),
-    ).toHaveAccessibleDescription(/anmeldungen/i);
+    ).toHaveAccessibleDescription(/registrierungen/i);
   });
 
   /**
@@ -333,7 +333,7 @@ describe("EventSeriesList — tooltips", () => {
   it("explains on hover why deleting is unavailable, which the sr-only hint cannot do", async () => {
     renderList();
     const hint =
-      "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.";
+      "Eine Eventreihe mit Registrierungen kann nur gelöscht werden, wenn sie archiviert ist.";
     // One sr-only copy already exists per disabled row; hovering adds the visible one.
     const before = screen.getAllByText(hint).length;
 
@@ -350,7 +350,7 @@ describe("EventSeriesList — tooltips", () => {
 
   it("explains on hover why the archive icon is unavailable, which the sr-only hint cannot do", async () => {
     renderList();
-    const hint = "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.";
+    const hint = "Eine Eventreihe ohne Registrierungen kann nicht archiviert werden.";
     const before = screen.getAllByText(hint).length;
 
     await userEvent.hover(
@@ -366,7 +366,7 @@ describe("EventSeriesList — tooltips", () => {
 
   it("explains on hover why an event series without registrations cannot be archived", async () => {
     renderList();
-    const hint = "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.";
+    const hint = "Eine Eventreihe ohne Registrierungen kann nicht archiviert werden.";
     const before = screen.getAllByText(hint).length;
 
     await userEvent.hover(

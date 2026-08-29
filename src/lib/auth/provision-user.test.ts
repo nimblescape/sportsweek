@@ -48,7 +48,6 @@ vi.mock("@/lib/auth/sign-in-policy", () => ({ refuseSignIn }));
 
 const { provisionUser } = await import("@/lib/auth/provision-user");
 const { registrationPath } = await import("@/lib/registration/registration");
-const { PERMISSIONS } = await import("@/lib/auth/permissions");
 
 const teacherClaims = {
   uid: "firebase-uid-1",
@@ -337,48 +336,35 @@ describe("provisionUser", () => {
 });
 
 /**
- * Somebody has to be able to hand out the first roles, and nobody can be granted one before a
- * teacher exists to grant it — so the school's first teacher is provisioned holding all of them
- * (US-2). Everyone after that starts with none and is granted what they need deliberately.
+ * Signing in grants nothing. The administrators a school starts with are written by the seeding
+ * script, so there is no race to be the first through the door — and every teacher after them is
+ * granted what they need deliberately (US-2).
  */
-describe("the roles a new teacher is provisioned with", () => {
+describe("the permissions a new teacher is provisioned with", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
-    teachersGet.mockResolvedValue({ empty: false });
   });
 
-  it("gives the first teacher every role", async () => {
-    teachersGet.mockResolvedValue({ empty: true });
-
-    const result = await provisionUser(teacherClaims);
-
-    expect(result).toMatchObject({ ok: true, user: { permissions: [...PERMISSIONS] } });
-    expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ permissions: [...PERMISSIONS] }));
-  });
-
-  it("asks only whether a teacher exists, not for the whole staff room", async () => {
-    teachersGet.mockResolvedValue({ empty: true });
-
-    await provisionUser(teacherClaims);
-
-    expect(where).toHaveBeenCalledWith("accountType", "==", "teacher");
-    expect(limit).toHaveBeenCalledWith(1);
-  });
-
-  it("gives a later teacher none", async () => {
+  it("gives a new teacher none", async () => {
     const result = await provisionUser(teacherClaims);
 
     expect(result).toMatchObject({ ok: true, user: { permissions: [] } });
     expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ permissions: [] }));
   });
 
-  /** A role says what a teacher may do; a student is not one, whoever signs in first (US-3). */
-  it("gives a student none even when nobody has signed in before", async () => {
-    teachersGet.mockResolvedValue({ empty: true });
+  /** Not even the very first: there is nothing about arriving early that earns anything. */
+  it("gives the same to a teacher when no other exists yet", async () => {
+    const result = await provisionUser(teacherClaims);
 
+    expect(result).toMatchObject({ ok: true, user: { permissions: [] } });
+    expect(where).not.toHaveBeenCalled();
+  });
+
+  /** A permission says what a teacher may do; a student is not one (US-3). */
+  it("gives a student none", async () => {
     const result = await provisionUser(studentClaims);
 
     expect(result).toMatchObject({ ok: true, user: { accountType: "student", permissions: [] } });

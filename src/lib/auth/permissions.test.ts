@@ -7,18 +7,22 @@ import { describe, expect, it } from "vitest";
 import {
   PERMISSIONS,
   PERMISSION_LABELS,
+  FULL_PERMISSIONS,
   permissionSchema,
   permissionsSchema,
   may,
+  mayAny,
   toggledPermissions,
 } from "./permissions";
 
 describe("PERMISSIONS", () => {
-  it("runs from the least a teacher may do to the most, which is the order the tags are shown in", () => {
+  /** The navigation's order, which is the one source of order everything else follows. */
+  it("runs in the order the pages are shown in", () => {
     expect(PERMISSIONS).toEqual([
+      "editRegistrations",
+      "editAssignments",
       "viewReports",
       "editReports",
-      "editAssignments",
       "editMasterData",
       "editUsers",
     ]);
@@ -31,16 +35,32 @@ describe("PERMISSIONS", () => {
   });
 });
 
+/**
+ * What the school's first teacher is provisioned with. Not the list itself: two of those cannot
+ * be held at once, so "everything" is everything the rules allow together — the stronger of the
+ * exclusive pair, never both.
+ */
+describe("FULL_PERMISSIONS", () => {
+  it("is a set the schema accepts", () => {
+    expect(permissionsSchema.safeParse([...FULL_PERMISSIONS]).success).toBe(true);
+  });
+
+  it("takes the stronger of two that exclude each other", () => {
+    expect(FULL_PERMISSIONS).toContain("editReports");
+    expect(FULL_PERMISSIONS).not.toContain("viewReports");
+  });
+
+  it("leaves out nothing else", () => {
+    expect(PERMISSIONS.filter((one) => !FULL_PERMISSIONS.includes(one))).toEqual(["viewReports"]);
+  });
+});
+
 describe("may", () => {
   it("admits a permission the teacher holds", () => {
     expect(may({ accountType: "teacher", permissions: ["editReports"] }, "editReports")).toBe(true);
   });
 
-  /**
-   * There is no rank: the order above is the tag row's, so holding the permission that happens
-   * to sit highest grants nothing but itself, and each is asked for by name.
-   */
-  it("refuses a permission the teacher does not hold, whichever others they do", () => {
+  it("refuses one they do not hold, whichever others they do", () => {
     expect(may({ accountType: "teacher", permissions: ["editUsers"] }, "editMasterData")).toBe(
       false,
     );
@@ -54,8 +74,7 @@ describe("may", () => {
 
   /**
    * An account type is which population somebody belongs to, derived once from the UPN domain
-   * and granted by nobody (US-3). A student is therefore refused ahead of anything their record
-   * happens to carry, so a set written there by mistake grants nothing.
+   * and granted by nobody (US-3). A student is refused ahead of anything their record lists.
    */
   it("refuses a student everything, even what their record lists", () => {
     for (const permission of PERMISSIONS) {
@@ -63,6 +82,27 @@ describe("may", () => {
         false,
       );
     }
+  });
+});
+
+/** The report page is reached by either of two permissions, so some questions take a list. */
+describe("mayAny", () => {
+  it("admits somebody holding any one of them", () => {
+    const holder = { accountType: "teacher", permissions: ["viewReports"] } as const;
+
+    expect(mayAny(holder, ["viewReports", "editReports"])).toBe(true);
+  });
+
+  it("refuses somebody holding none of them", () => {
+    const holder = { accountType: "teacher", permissions: ["editMasterData"] } as const;
+
+    expect(mayAny(holder, ["viewReports", "editReports"])).toBe(false);
+  });
+
+  it("refuses a student holding all of them", () => {
+    const holder = { accountType: "student", permissions: ["viewReports", "editReports"] } as const;
+
+    expect(mayAny(holder, ["viewReports", "editReports"])).toBe(false);
   });
 });
 
@@ -78,27 +118,34 @@ describe("toggledPermissions", () => {
   });
 
   it("returns them in the order the tags are shown, however they arrived", () => {
-    expect(toggledPermissions(["editUsers", "viewReports"], "editAssignments")).toEqual([
-      "viewReports",
+    expect(toggledPermissions(["editUsers", "editRegistrations"], "editAssignments")).toEqual([
+      "editRegistrations",
       "editAssignments",
       "editUsers",
     ]);
   });
 
-  /** Saving a report you may not see is not a state worth being able to describe. */
-  it("presses viewReports along with editReports", () => {
-    expect(toggledPermissions([], "editReports")).toEqual(["viewReports", "editReports"]);
+  /**
+   * Both open the report page, so holding both says nothing the stronger does not say already.
+   * Pressing either clears the other rather than adding to it.
+   */
+  it("clears viewReports when editReports is pressed", () => {
+    expect(toggledPermissions(["viewReports"], "editReports")).toEqual(["editReports"]);
   });
 
-  it("releases editReports along with viewReports", () => {
-    expect(toggledPermissions(["viewReports", "editReports"], "viewReports")).toEqual([]);
+  it("clears editReports when viewReports is pressed", () => {
+    expect(toggledPermissions(["editReports"], "viewReports")).toEqual(["viewReports"]);
   });
 
-  it("leaves editReports alone when something it does not depend on is released", () => {
-    expect(toggledPermissions(["viewReports", "editReports", "editUsers"], "editUsers")).toEqual([
-      "viewReports",
-      "editReports",
-    ]);
+  it("leaves the rest alone while swapping the two", () => {
+    expect(
+      toggledPermissions(["editAssignments", "viewReports", "editUsers"], "editReports"),
+    ).toEqual(["editAssignments", "editReports", "editUsers"]);
+  });
+
+  it("releases the one that was pressed, leaving neither", () => {
+    expect(toggledPermissions(["editReports"], "editReports")).toEqual([]);
+    expect(toggledPermissions(["viewReports"], "viewReports")).toEqual([]);
   });
 });
 
@@ -124,16 +171,14 @@ describe("permissionsSchema", () => {
     expect(permissionsSchema.parse(undefined)).toEqual([]);
   });
 
-  it("accepts a list that satisfies what its permissions depend on", () => {
-    expect(permissionsSchema.parse(["viewReports", "editReports"])).toEqual([
-      "viewReports",
-      "editReports",
-    ]);
+  it("accepts either of the two on its own", () => {
+    expect(permissionsSchema.safeParse(["viewReports"]).success).toBe(true);
+    expect(permissionsSchema.safeParse(["editReports"]).success).toBe(true);
   });
 
-  /** Refused rather than repaired: a caller asking for this has misunderstood something. */
-  it("refuses editReports without viewReports", () => {
-    expect(permissionsSchema.safeParse(["editReports"]).success).toBe(false);
+  /** Refused rather than repaired: a caller asking for both has misunderstood something. */
+  it("refuses holding both of two that exclude each other", () => {
+    expect(permissionsSchema.safeParse(["viewReports", "editReports"]).success).toBe(false);
   });
 
   it("refuses a repeated permission, which would let one tag be stored twice", () => {

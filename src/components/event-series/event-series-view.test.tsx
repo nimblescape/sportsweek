@@ -157,7 +157,7 @@ describe("EventSeriesView — flags", () => {
     stubFetch(() =>
       Promise.resolve(
         new Response(
-          JSON.stringify({ error: { code: "CONFLICT", message: "Keine Anmeldungen." } }),
+          JSON.stringify({ error: { code: "CONFLICT", message: "Keine Registrierungen." } }),
           { status: 409, headers: { "content-type": "application/json" } },
         ),
       ),
@@ -168,7 +168,7 @@ describe("EventSeriesView — flags", () => {
       screen.getByRole("button", { name: "Eventreihe Winter 2027 archivieren" }),
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Keine Anmeldungen.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Keine Registrierungen.");
   });
 });
 
@@ -248,7 +248,7 @@ describe("EventSeriesView — deleting", () => {
     stubFetch(() =>
       Promise.resolve(
         new Response(
-          JSON.stringify({ error: { code: "CONFLICT", message: "Hat noch Anmeldungen." } }),
+          JSON.stringify({ error: { code: "CONFLICT", message: "Hat noch Registrierungen." } }),
           { status: 409, headers: { "content-type": "application/json" } },
         ),
       ),
@@ -260,7 +260,7 @@ describe("EventSeriesView — deleting", () => {
       within(screen.getByRole("dialog")).getByRole("button", { name: "Löschen" }),
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Hat noch Anmeldungen.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Hat noch Registrierungen.");
   });
 });
 

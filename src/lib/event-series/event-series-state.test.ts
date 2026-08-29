@@ -39,8 +39,8 @@ describe("EVENT_SERIES_STATE_LABELS", () => {
   it("labels every state in German", () => {
     expect(EVENT_SERIES_STATE_LABELS).toEqual({
       archived: "Archiviert",
-      open: "Schüler:innen-Anmeldung offen",
-      closed: "Schüler:innen-Anmeldung geschlossen",
+      open: "Registrierung für Schüler:innen offen",
+      closed: "Registrierung für Schüler:innen geschlossen",
     });
   });
 });

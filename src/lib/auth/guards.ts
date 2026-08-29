@@ -9,7 +9,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { getSessionUser, type SessionUser } from "@/lib/session";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { accountTypeSchema, userSchema, type AccountType } from "@/lib/schemas/user";
-import { may, permissionsSchema, type Permission } from "@/lib/auth/permissions";
+import { may, mayAny, permissionsSchema, type Permission } from "@/lib/auth/permissions";
 import { ROUTES } from "@/lib/routes";
 
 export type AuthenticatedUser = SessionUser & {
@@ -85,6 +85,15 @@ export async function requireTeacher(): Promise<AuthenticatedUser> {
 export async function requirePermission(permission: Permission): Promise<AuthenticatedUser> {
   const user = await requireUser();
   if (!may(user, permission)) redirect(ROUTES.appRoot);
+  return user;
+}
+
+/** For a page either of two permissions opens, such as the report one. */
+export async function requireAnyPermission(
+  permissions: readonly Permission[],
+): Promise<AuthenticatedUser> {
+  const user = await requireUser();
+  if (!mayAny(user, permissions)) redirect(ROUTES.appRoot);
   return user;
 }
 

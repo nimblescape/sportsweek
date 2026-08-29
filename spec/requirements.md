@@ -12,6 +12,15 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 - Every tag in a tag list starts with a capital letter, so that a wrapping row of them reads as a row of labels rather than as one sentence broken across several.
 - All UI must be responsive, supporting desktop, tablet, and mobile screen sizes.
 
+### Two words that would otherwise collide
+
+German has one obvious word for two different things here, so the split is stated rather than left to whoever writes the next string:
+
+- **"Anmeldung"** is signing in — the identity provider, the session, the fake login. "Anmelden", "angemeldet" and "Test-Anmeldung" all belong to this sense.
+- **"Registrierung"** is a student's answers for one event series — the thing US-11 fills in, US-13 reports on and a teacher deletes. Plural "Registrierungen" names the page that lists them.
+
+Nothing says "Anmeldung" when it means a registration. The two were mixed before, so a teacher could read "Anmeldung löschen" and wonder whose session was about to end.
+
 ## Design Guidelines
 
 - The UI follows a clean, modern, minimal design that is not overloaded with color.
@@ -76,13 +85,17 @@ As the system, I tell apart what a person _is_ from what they _may do_, so that 
 - User records can be stored in the database, 1:1 with a logged-in user.
 - Each record stores exactly one account type, either teacher or student. It says which population somebody belongs to, is derived once at creation (US-3) and is granted by nobody.
 - Each record stores a set of permissions, which says what that person may do.
-- The permissions are `viewReports`, `editReports`, `editAssignments`, `editMasterData` and `editUsers`. Labels shown are "Berichte ansehen", "Berichte bearbeiten", "Zuteilung", "Stammdaten" and "Benutzerrechte".
+- The permissions are `editRegistrations`, `editAssignments`, `viewReports`, `editReports`, `editMasterData` and `editUsers`. Labels shown are "Registrierungen", "Zuteilungen", "Berichte ansehen", "Berichte bearbeiten", "Stammdaten" and "Benutzerrechte". Each names the page it opens; only the two report ones carry a verb, there being two ways into that one page.
 - A permission is asked for by name and none stands in for another: the set is not a rank, and holding one grants nothing else. Only `editUsers` grants the management of permissions.
-- `editReports` cannot be held without `viewReports`. Granting the first grants the second; withdrawing the second withdraws the first.
+- `viewReports` and `editReports` exclude each other, both being ways into the same report page. Pressing either clears the other, and a record naming both is refused rather than quietly reduced.
+- `editRegistrations` covers the registrations page: handing out invitation links, removing a registration, and opening or closing the event series to students. Opening it is what lets registrations arrive, so it goes with the permission that edits them rather than with the one that maintains the series.
+- Every other field of an event series belongs to `editMasterData`. A request touching both needs both, so an opening cannot carry a rename with it.
 - A teacher holding no permission can reach no page and perform no write. They are told so rather than redirected.
 - A student holds no permissions, whatever their record may list: they are refused by their account type, ahead of anything else.
 - Permissions are read from the user record rather than from the session token, so a grant or a withdrawal takes effect on the next request rather than the next sign-in.
-- The first teacher to sign in at a school is created holding every permission, there being nobody yet who could grant one. Every teacher after them is created holding none.
+- Signing in grants nothing. Every teacher is created holding no permissions, however early they arrive.
+- The administrators a school starts with are written by the seeding script, in every environment including production, holding every permission that can be held at once. Where two exclude each other that is the stronger of them, so what is seeded is never a set the rules would refuse.
+- Seeding is therefore part of setting an environment up: without it there is nobody who could grant a permission, and no way to become that person from inside the application.
 
 ### US-3: Account type assigned by Entra ID domain
 
@@ -101,10 +114,10 @@ As a teacher holding `editUsers`, I grant and withdraw what my colleagues may do
 
 **Acceptance criteria:**
 
-- The page is reached from the last item of the navigation bar, labelled "Benutzerrechte", and is offered only to a holder of `editUsers`.
+- The page is reached from the last item beneath Stammdaten, labelled "Benutzerrechte", and is offered only to a holder of `editUsers`.
 - It lists every teacher, surname first, with their UPN. Students are not listed: a permission is a teacher's.
 - Each teacher's permissions are shown as a row of tags, one per permission, pressed for what they hold. A teacher holding none says so.
-- Pressing a tag grants that permission; pressing a pressed one withdraws it. What travels with it is US-2's dependency rule, so pressing "Berichte bearbeiten" presses "Berichte ansehen" and releasing the latter releases the former.
+- Pressing a tag grants that permission; pressing a pressed one withdraws it. What travels with it is US-2's exclusivity rule, so pressing "Berichte bearbeiten" clears "Berichte ansehen" and pressing either clears the other.
 - The list updates live, so two admins working at once see each other's changes.
 - A holder of `editUsers` cannot withdraw that permission from themselves. Their own tag for it is shown pressed but carries no button, and the server refuses the change regardless. Every other permission of their own remains theirs to change.
 - This is what keeps at least one holder without counting them: only the last holder could be the last one, since anybody else withdrawing it would have to hold it themselves.
@@ -395,9 +408,9 @@ As a teacher, I see a dashboard when I log in so that I can navigate to the diff
 
 - A header row is shown at the top of the dashboard: the application title "Sportsweek" on the left, and a logout button on the right.
 - Below the header, the remaining area is split into a left-side navigation zone and a content area on the right.
-- The left-side navigation contains, from top to bottom: Report (see US-13), Assignment (see US-12), Master data, and last, Benutzerrechte (see US-30).
-- The bar shows only what the teacher's permissions reach (see US-2), so it never offers a page that would refuse them. A teacher holding none sees no destinations and is told why on the landing route rather than redirected to a page that would send them back.
-- Benutzerrechte is not a sub-item of Master data: permissions belong to the school rather than to one event series.
+- The left-side navigation contains, from top to bottom: Registrierungen (see US-12, US-23), Zuteilungen (see US-12), Berichte (see US-13), and Stammdaten.
+- The bar shows only what the teacher's permissions reach (see US-2), so it never offers a page that would refuse them. A teacher holding none sees no destinations at all and is told why on the landing route rather than redirected to a page that would send them back.
+- Stammdaten heads whatever sits beneath it, and two permissions can each put something there: `editMasterData` contributes the event series list and the seven categories, `editUsers` contributes Benutzerrechte, last. It is shown when either does and hidden when neither does.
 - The Master data navigation item has a sub-item for each teacher-maintained category (see US-4 through US-10), in this order: event series, classes, programs, skill levels, season passes, bus pickup points, food/diet options. Classes come first because a class is asked of every student whether they attend or not (see US-11), so it is the list a teacher fills in before any other. The order is stated here rather than left to follow the story numbers, which are stable identifiers and not a running order.
 - That order is the one every other list of the same answers follows: the fields a teacher activates on the report and the categories the filter offers (see US-13), and the questions a student is asked about the event series (see US-11). One decision, so a teacher moving between the three finds an answer in the same place in each.
 - Selecting the Master data navigation item expands its sub-items; deselecting it collapses them again.

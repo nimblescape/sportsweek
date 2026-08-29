@@ -12,7 +12,7 @@ import { REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
 import { useRegistration } from "@/lib/registration/use-registration";
 import { RegistrationForm } from "./registration-form";
 
-type RegistrationViewProps = {
+type MyRegistrationViewProps = {
   eventSeriesId: string;
   studentUpn: string;
   studentName: string;
@@ -23,11 +23,11 @@ type RegistrationViewProps = {
  * (US-19, US-23). The series being closed and the series being gone read alike here, because to
  * a student they are the same situation: there is nothing to fill in.
  */
-export function RegistrationView({
+export function MyRegistrationView({
   eventSeriesId,
   studentUpn,
   studentName,
-}: RegistrationViewProps) {
+}: MyRegistrationViewProps) {
   const { eventSeries, record, loading, error } = useRegistration(eventSeriesId, studentUpn);
   const skillLevels = useMasterData("skill-levels", eventSeriesId);
   const busPickupPoints = useMasterData("bus-pickup-points", eventSeriesId);

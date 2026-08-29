@@ -57,17 +57,17 @@ describe("TeacherNav", () => {
       .map((element) => element.textContent);
 
     expect(labels).toEqual(
-      expect.arrayContaining(["\u00dcbersicht", "Zuteilung", "Bericht", "Stammdaten"]),
+      expect.arrayContaining(["Registrierungen", "Zuteilungen", "Berichte", "Stammdaten"]),
     );
-    expect(labels.indexOf("\u00dcbersicht")).toBeLessThan(labels.indexOf("Zuteilung"));
-    expect(labels.indexOf("Zuteilung")).toBeLessThan(labels.indexOf("Bericht"));
-    expect(labels.indexOf("Bericht")).toBeLessThan(labels.indexOf("Stammdaten"));
+    expect(labels.indexOf("Registrierungen")).toBeLessThan(labels.indexOf("Zuteilungen"));
+    expect(labels.indexOf("Zuteilungen")).toBeLessThan(labels.indexOf("Berichte"));
+    expect(labels.indexOf("Berichte")).toBeLessThan(labels.indexOf("Stammdaten"));
   });
 
   it("gives every top-level item an icon to be recognised by once the labels are gone", () => {
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht"]) {
+    for (const label of ["Berichte", "Zuteilungen", "Registrierungen"]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: label }).querySelector("svg")).toBeInTheDocument();
     }
@@ -76,18 +76,17 @@ describe("TeacherNav", () => {
     ).toBeInTheDocument();
   });
 
-  /** Moving into the section is not a change of series, so it opens on the one already selected. */
-  it("opens Stammdaten on the selected series, at its first list", () => {
+  /** The heading has no view of its own, so it opens on the first entry beneath it. */
+  it("opens Stammdaten on the event series list, which heads its sub-items", () => {
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
       "href",
-      "/app/s1/master-data/events",
+      "/app/event-series",
     );
   });
 
-  /** Every page can be about every series, so one selection answers for the whole bar. */
-  it("opens Stammdaten on the first series when nothing is selected", () => {
+  it("opens there whether or not a series is selected", () => {
     pathname.mockReturnValue("/app/event-series");
     showing(series("s1"), series("s2"));
 
@@ -95,7 +94,7 @@ describe("TeacherNav", () => {
 
     expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
       "href",
-      "/app/s1/master-data/events",
+      "/app/event-series",
     );
   });
 
@@ -105,7 +104,10 @@ describe("TeacherNav", () => {
 
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s2/report");
+    expect(screen.getByRole("link", { name: "Berichte" })).toHaveAttribute(
+      "href",
+      "/app/s2/report",
+    );
   });
 
   /**
@@ -119,7 +121,7 @@ describe("TeacherNav", () => {
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     expect(screen.getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
-    for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht", "Klassen"]) {
+    for (const label of ["Berichte", "Zuteilungen", "Registrierungen", "Klassen"]) {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
   });
@@ -130,7 +132,10 @@ describe("TeacherNav", () => {
 
     render(<TeacherNav fallbackEventSeriesId="s7" permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s7/report");
+    expect(screen.getByRole("link", { name: "Berichte" })).toHaveAttribute(
+      "href",
+      "/app/s7/report",
+    );
   });
 
   /**
@@ -144,7 +149,10 @@ describe("TeacherNav", () => {
     pathname.mockReturnValue("/app/event-series");
     rerender(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s1/report");
+    expect(screen.getByRole("link", { name: "Berichte" })).toHaveAttribute(
+      "href",
+      "/app/s1/report",
+    );
   });
 
   it("shows the master data sub-items whatever the route is, since they never fold away", () => {
@@ -179,8 +187,11 @@ describe("TeacherNav", () => {
 
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Zuteilung" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Bericht" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Zuteilungen" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Berichte" })).not.toHaveAttribute("aria-current");
   });
 
   it("marks the active sub-item", () => {
@@ -211,7 +222,7 @@ describe("TeacherNav — always open", () => {
     expect(screen.queryByRole("button", { name: /navigation/i })).not.toBeInTheDocument();
   });
 
-  it.each(["Bericht", "\u00dcbersicht", "Stammdaten"])(
+  it.each(["Berichte", "Registrierungen", "Stammdaten"])(
     "stays open when %s is pressed, whether it is where you already are or not",
     async (label) => {
       render(<TeacherNav permissions={[...PERMISSIONS]} />);
@@ -245,14 +256,26 @@ describe("TeacherNav — what the permissions reach", () => {
   it("shows only the assignment to somebody who may only plan", () => {
     render(<TeacherNav permissions={["editAssignments"]} />);
 
-    expect(linkNames()).toEqual(["Zuteilung"]);
+    expect(linkNames()).toEqual(["Zuteilungen"]);
   });
 
-  /** One permission carries both report pages, and neither appears without it. */
-  it("shows both report pages to somebody who may view them", () => {
+  /** Either of the two that exclude each other opens the report page, and nothing else. */
+  it("shows only the report to somebody who may view reports", () => {
     render(<TeacherNav permissions={["viewReports"]} />);
 
-    expect(linkNames()).toEqual(["\u00dcbersicht", "Bericht"]);
+    expect(linkNames()).toEqual(["Berichte"]);
+  });
+
+  it("shows the same to somebody who may edit them", () => {
+    render(<TeacherNav permissions={["editReports"]} />);
+
+    expect(linkNames()).toEqual(["Berichte"]);
+  });
+
+  it("shows the overview to whoever may edit registrations", () => {
+    render(<TeacherNav permissions={["editRegistrations"]} />);
+
+    expect(linkNames()).toEqual(["Registrierungen"]);
   });
 
   it("hides the master data section and its sub-items without the permission", () => {
@@ -262,18 +285,47 @@ describe("TeacherNav — what the permissions reach", () => {
     expect(screen.queryByRole("link", { name: "Klassen" })).not.toBeInTheDocument();
   });
 
-  it("offers the rights page only to somebody who may edit users", () => {
+  /**
+   * Stammdaten heads whatever sits beneath it, and two permissions can each put something
+   * there. It is shown when either does, and opens on the first of them.
+   */
+  it("keeps Stammdaten for somebody who may only edit users, holding just the rights page", () => {
     render(<TeacherNav permissions={["editUsers"]} />);
 
+    expect(screen.getByRole("link", { name: "Stammdaten" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Benutzerrechte" })).toHaveAttribute(
       "href",
       "/app/users",
     );
+    expect(screen.queryByRole("link", { name: "Klassen" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Eventreihen" })).not.toBeInTheDocument();
   });
 
-  it("does not offer it to anybody else", () => {
+  it("keeps the lists for somebody who may only edit master data, without the rights page", () => {
     render(<TeacherNav permissions={["editMasterData"]} />);
 
+    expect(screen.getByRole("link", { name: "Stammdaten" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Benutzerrechte" })).not.toBeInTheDocument();
+  });
+
+  it("puts the rights page last, after the lists", () => {
+    render(<TeacherNav permissions={["editMasterData", "editUsers"]} />);
+
+    const names = linkNames();
+    expect(names[names.length - 1]).toBe("Benutzerrechte");
+  });
+
+  it("opens Stammdaten on the rights page when that is all there is beneath it", () => {
+    render(<TeacherNav permissions={["editUsers"]} />);
+
+    expect(screen.getByRole("link", { name: "Stammdaten" })).toHaveAttribute("href", "/app/users");
+  });
+
+  it("shows nothing at all to a teacher holding no permission", () => {
+    render(<TeacherNav permissions={[]} />);
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });

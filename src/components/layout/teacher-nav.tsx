@@ -8,11 +8,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, Database, FileText, Shuffle, Users } from "lucide-react";
+import { ClipboardList, Database, FileText, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Brand } from "@/components/layout/brand";
 import { SignOutButton } from "@/components/auth/sign-out-button";
-import { masterDataSections, firstMasterDataPath } from "@/lib/master-data/categories";
+import { masterDataSections } from "@/lib/master-data/categories";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import {
   liveSelection,
@@ -25,9 +25,14 @@ import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
 function topLevel(eventSeriesId: string, reachable: readonly PageKey[]) {
   const routes = eventSeriesRoutes(eventSeriesId);
   return [
-    { key: "overview", href: routes.overview, label: "\u00dcbersicht", Icon: ChartColumn },
-    { key: "assignment", href: routes.assignment, label: "Zuteilung", Icon: Shuffle },
-    { key: "report", href: routes.report, label: "Bericht", Icon: FileText },
+    {
+      key: "registrations",
+      href: routes.registrations,
+      label: "Registrierungen",
+      Icon: ClipboardList,
+    },
+    { key: "assignment", href: routes.assignment, label: "Zuteilungen", Icon: Shuffle },
+    { key: "report", href: routes.report, label: "Berichte", Icon: FileText },
   ].filter((item) => reachable.includes(item.key as PageKey));
 }
 
@@ -70,8 +75,23 @@ export function TeacherNav({
 
   const { eventSeries } = useEventSeries();
   const selectedId = liveSelection(eventSeries, eventSeriesId);
-  const sections = masterDataSections(selectedId);
   const reachable = reachablePages(permissions);
+
+  /**
+   * What sits under Stammdaten. The lists are one teacher's to maintain and the rights page is
+   * the school's, so either permission can put something here and neither implies the other —
+   * the heading is shown when something is beneath it.
+   */
+  const subItems = [
+    ...(reachable.includes("masterData") ? masterDataSections(selectedId) : []),
+    ...(reachable.includes("users")
+      ? [{ href: `${ROUTES.appRoot}/users`, label: "Benutzerrechte" }]
+      : []),
+  ];
+
+  // The heading has no view of its own, so it opens on the first entry beneath it — the event
+  // series list where the lists are maintained, or the rights page for somebody who maintains none.
+  const sectionHref = subItems[0]?.href;
 
   return (
     <nav aria-label="Hauptnavigation" className="flex h-full flex-col gap-1 p-2 md:w-56">
@@ -94,19 +114,16 @@ export function TeacherNav({
         );
       })}
 
-      {/* The section has no view of its own, so it opens on the first list beneath it. */}
-      {reachable.includes("masterData") ? (
+      {/* The section has no view of its own, so it opens on the first thing beneath it. */}
+      {sectionHref === undefined ? null : (
         <>
-          <Link
-            href={selectedId === null ? ROUTES.eventSeries : firstMasterDataPath(selectedId)}
-            className={itemClasses(inMasterData)}
-          >
+          <Link href={sectionHref} className={itemClasses(inMasterData)}>
             <Database aria-hidden className="size-6 shrink-0" />
             <span>Stammdaten</span>
           </Link>
 
           <ul className="flex flex-col gap-1">
-            {sections.map(({ href, label }) => (
+            {subItems.map(({ href, label }) => (
               <li key={href}>
                 <Link
                   href={href}
@@ -122,19 +139,7 @@ export function TeacherNav({
             ))}
           </ul>
         </>
-      ) : null}
-
-      {/* Not part of the section above it: rights are the school's, not one event series'. */}
-      {reachable.includes("users") ? (
-        <Link
-          href={`${ROUTES.appRoot}/users`}
-          aria-current={pathname === `${ROUTES.appRoot}/users` ? "page" : undefined}
-          className={itemClasses(pathname === `${ROUTES.appRoot}/users`)}
-        >
-          <Users aria-hidden className="size-6 shrink-0" />
-          <span>Benutzerrechte</span>
-        </Link>
-      ) : null}
+      )}
 
       {/* The foot of the bar: who is signed in. */}
       <div className="mt-auto">

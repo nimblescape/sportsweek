@@ -29,7 +29,7 @@ beforeEach(() => {
     uid: "u1",
     email: TEACHER,
     accountType: "teacher",
-    permissions: ["editAssignments"],
+    permissions: ["editRegistrations"],
   });
   deleteRegistration.mockResolvedValue(undefined);
 });
@@ -60,12 +60,12 @@ describe("DELETE /api/event-series/[eventSeriesId]/registrations/[studentUpn]", 
   });
 
   /** Removing somebody from the series is planning, not reporting on what was planned. */
-  it("refuses a teacher who may not edit assignments", async () => {
+  it("refuses a teacher who may not edit registrations", async () => {
     getAuthenticatedUser.mockResolvedValue({
       uid: "u3",
       email: "t2@htldornbirn.at",
       accountType: "teacher",
-      permissions: ["viewReports", "editReports", "editMasterData"],
+      permissions: ["viewReports", "editAssignments", "editMasterData"],
     });
 
     const response = await DELETE(request, { params: paramsFor(STUDENT) });

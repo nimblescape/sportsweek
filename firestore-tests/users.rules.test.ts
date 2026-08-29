@@ -275,7 +275,7 @@ describe("identity resolution with a realistic uid", () => {
   });
 
   it("recognises a teacher whose record is keyed by UPN", async () => {
-    await seedUser(UPN, teacher({ email: UPN, permissions: ["viewReports"] }));
+    await seedUser(UPN, teacher({ email: UPN, permissions: ["editRegistrations"] }));
     await seedRegistration("pupil@student.htldornbirn.at");
 
     await assertSucceeds(
@@ -292,7 +292,7 @@ describe("identity resolution with a realistic uid", () => {
     await seedRegistration("pupil@student.htldornbirn.at");
 
     await assertFails(
-      signedIn({ accountType: "teacher", permissions: ["viewReports"] })
+      signedIn({ accountType: "teacher", permissions: ["editRegistrations"] })
         .collection(REGISTRATIONS)
         .doc("pupil@student.htldornbirn.at")
         .get(),

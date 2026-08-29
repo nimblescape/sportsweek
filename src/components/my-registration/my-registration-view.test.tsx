@@ -29,7 +29,7 @@ vi.mock("./registration-form", () => ({
   },
 }));
 
-const { RegistrationView } = await import("./registration-view");
+const { MyRegistrationView } = await import("./my-registration-view");
 const { REGISTRATION_NOT_OPEN_HINT } = await import("@/lib/registration/registration");
 
 const eventSeries = {
@@ -62,7 +62,7 @@ beforeEach(() => {
 
 function renderView() {
   render(
-    <RegistrationView
+    <MyRegistrationView
       eventSeriesId="s1"
       studentUpn="jane@student.htldornbirn.at"
       studentName="Jane Doe"
@@ -70,7 +70,7 @@ function renderView() {
   );
 }
 
-describe("RegistrationView", () => {
+describe("MyRegistrationView", () => {
   it("shows the form for the series the path names", () => {
     renderView();
 

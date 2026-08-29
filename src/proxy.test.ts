@@ -51,7 +51,7 @@ describe("proxy", () => {
   it.each([
     "/app/s1/report",
     "/app/s1/assignment",
-    "/app/s1/overview",
+    "/app/s1/registrations",
     "/app/s1/master-data/classes",
     "/app/event-series",
   ])("lets a teacher reach %s", (pathname) => {
@@ -62,7 +62,7 @@ describe("proxy", () => {
   it.each([
     "/app/s1/report",
     "/app/s1/assignment",
-    "/app/s1/overview",
+    "/app/s1/registrations",
     "/app/s1/master-data/classes",
     "/app/event-series",
   ])("redirects a student away from %s", (pathname) => {

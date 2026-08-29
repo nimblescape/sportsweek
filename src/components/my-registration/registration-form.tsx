@@ -200,7 +200,7 @@ export function RegistrationForm({
           inside it — where it read as the title of the answers underneath it. */}
       <PageHeading>{eventSeriesName}</PageHeading>
 
-      <Section title="Anmeldung">
+      <Section title="Registrierung">
         <ReadOnlyField label="Name" value={studentName} />
         <ReadOnlyField label={ANSWER_LABELS.class} value={studentClass} />
         <RadioField

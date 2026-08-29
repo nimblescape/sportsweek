@@ -14,8 +14,16 @@ vi.mock("@/lib/users/use-teachers", () => ({ useTeachers: () => useTeachers() })
 const apiRequest = vi.fn();
 vi.mock("@/lib/api/client", () => ({ apiRequest: (...args: unknown[]) => apiRequest(...args) }));
 
-const { UserPermissionsView, OWN_GRANT_HINT, NO_PERMISSIONS_LABEL } =
-  await import("@/components/users/user-permissions-view");
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
+const {
+  UserPermissionsView,
+  OWN_GRANT_HINT,
+  NO_PERMISSIONS_LABEL,
+  FILTER_LABEL,
+  NONE_MATCHING_HINT,
+} = await import("@/components/users/user-permissions-view");
 
 const ADA = { upn: "ada@htldornbirn.at", firstName: "Ada", lastName: "Auer" };
 const BOB = { upn: "bob@htldornbirn.at", firstName: "Bob", lastName: "Berger" };
@@ -107,9 +115,9 @@ describe("UserPermissionsView", () => {
     );
   });
 
-  /** The row sends what the dependency rule makes of a press, not the press itself. */
-  it("presses viewReports along with editReports", async () => {
-    teachers(BOB);
+  /** The row sends what the exclusivity rule makes of a press, not the press itself. */
+  it("clears viewReports when editReports is pressed", async () => {
+    teachers({ ...BOB, permissions: ["viewReports"] });
     show();
 
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editReports));
@@ -117,13 +125,13 @@ describe("UserPermissionsView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
         method: "PATCH",
-        body: { permissions: ["viewReports", "editReports"] },
+        body: { permissions: ["editReports"] },
       }),
     );
   });
 
-  it("withdraws editReports along with viewReports", async () => {
-    teachers({ ...BOB, permissions: ["viewReports", "editReports"] });
+  it("clears editReports when viewReports is pressed", async () => {
+    teachers({ ...BOB, permissions: ["editReports"] });
     show();
 
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.viewReports));
@@ -131,7 +139,7 @@ describe("UserPermissionsView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
         method: "PATCH",
-        body: { permissions: [] },
+        body: { permissions: ["viewReports"] },
       }),
     );
   });
@@ -176,5 +184,104 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Dafür fehlen dir die Rechte.");
+  });
+
+  /**
+   * The navigation bar is rendered by a server layout above this page, which does not run again
+   * on its own — so withdrawing something from yourself would leave the bar offering a page you
+   * may no longer open until the next navigation.
+   */
+  it("re-runs the server tree after changing your own permissions", async () => {
+    show();
+
+    await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("leaves it alone when the change was to somebody else", async () => {
+    show();
+
+    await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editMasterData));
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalled());
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("does not re-run it when the change was refused", async () => {
+    apiRequest.mockRejectedValue(new Error("Nein."));
+    show();
+
+    await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+/** The same row the report is filtered by (US-13), over the staff instead of the students. */
+describe("UserPermissionsView — filtering", () => {
+  const nameField = () => screen.getByRole("textbox", { name: `${FILTER_LABEL}: Name` });
+  const filterTag = (label: string) =>
+    screen.getByRole("button", { name: `${FILTER_LABEL}: ${label}` });
+  const shown = () =>
+    screen
+      .getAllByRole("listitem")
+      .map((item) => item.querySelector("[data-slot='card'] span")?.textContent);
+
+  beforeEach(() => {
+    teachers(
+      { ...ADA, permissions: ["editUsers"] },
+      { ...BOB, permissions: ["editMasterData"] },
+      { upn: "cla@htldornbirn.at", firstName: "Clara", lastName: "Cerny" },
+    );
+  });
+
+  it("shows everybody before anything is filtered", () => {
+    show();
+
+    expect(shown()).toEqual(["Auer Ada", "Berger Bob", "Cerny Clara"]);
+  });
+
+  it("narrows to the name that was typed", async () => {
+    show();
+
+    await userEvent.type(nameField(), "berg");
+
+    expect(shown()).toEqual(["Berger Bob"]);
+  });
+
+  it("narrows to whoever holds a pressed permission", async () => {
+    show();
+
+    await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
+
+    expect(shown()).toEqual(["Auer Ada"]);
+  });
+
+  it("shows everybody again when Alle is pressed", async () => {
+    show();
+    await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
+
+    await userEvent.click(screen.getByRole("button", { name: `${FILTER_LABEL}: Alle` }));
+
+    expect(shown()).toHaveLength(3);
+  });
+
+  it("says so when the filter matches nobody", async () => {
+    show();
+
+    await userEvent.type(nameField(), "zzz");
+
+    expect(screen.getByText(NONE_MATCHING_HINT)).toBeInTheDocument();
+  });
+
+  /** A tag on a row is what a teacher holds; a tag in the filter is what to narrow by. */
+  it("keeps the filter tags apart from the tags that grant", async () => {
+    show();
+
+    await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
+
+    expect(apiRequest).not.toHaveBeenCalled();
   });
 });

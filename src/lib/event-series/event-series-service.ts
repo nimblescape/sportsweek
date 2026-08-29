@@ -335,7 +335,7 @@ export async function deleteEventSeries(id: string): Promise<void> {
   if (!eventSeries.isArchived && !registrationsSnapshot.empty) {
     throw new ServiceError(
       ErrorCode.Conflict,
-      "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.",
+      "Eine Eventreihe mit Registrierungen kann nur gelöscht werden, wenn sie archiviert ist.",
     );
   }
 

@@ -7,17 +7,20 @@ import { z } from "zod";
 import type { AccountType } from "@/lib/schemas/user";
 
 /**
- * What a teacher may do, as against what they are (US-2). A set rather than a rank: the order is
- * the tag row's, running from the least a teacher may do to the most, and nothing reads it as
- * seniority — each permission is asked for by name, and none stands in for another.
+ * What a teacher may do, as against what they are (US-2). A set rather than a rank: nothing reads
+ * the order as seniority, each permission is asked for by name, and none stands in for another.
+ *
+ * The order is the navigation's — the overview, the assignment, the report, the master data, the
+ * rights page — which is the one source of order the tag row and the bar both follow.
  *
  * There is no bundling layer, so what is granted is what is checked. Should these outgrow a
  * single row, the word "role" is still free for a bundle of them.
  */
 export const PERMISSIONS = [
+  "editRegistrations",
+  "editAssignments",
   "viewReports",
   "editReports",
-  "editAssignments",
   "editMasterData",
   "editUsers",
 ] as const;
@@ -25,27 +28,38 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
+  editRegistrations: "Registrierungen",
+  editAssignments: "Zuteilungen",
   viewReports: "Berichte ansehen",
   editReports: "Berichte bearbeiten",
-  editAssignments: "Zuteilung",
   editMasterData: "Stammdaten",
   editUsers: "Benutzerrechte",
 };
 
 /**
- * A permission that cannot be held without another. Saving a report you may not see is not a
- * state worth being able to describe, so the pair travels together in both directions.
+ * Two permissions that cannot be held together, weaker first. Both open the report page, so
+ * holding both would say nothing the stronger does not say already — pressing either clears the
+ * other, and a record naming both is refused rather than quietly reduced.
  */
-const REQUIRES = [["editReports", "viewReports"]] as const satisfies readonly (readonly [
+const EXCLUSIVE = [["viewReports", "editReports"]] as const satisfies readonly (readonly [
   Permission,
   Permission,
 ])[];
 
+/**
+ * Everything one person can hold at once, which is not the list itself: where two exclude each
+ * other only the stronger is here. It is what the school's first teacher is provisioned with, so
+ * a permission added above reaches them without anybody remembering to add it twice.
+ */
+export const FULL_PERMISSIONS: readonly Permission[] = PERMISSIONS.filter(
+  (permission) => !EXCLUSIVE.some(([weaker]) => weaker === permission),
+);
+
 export const permissionSchema = z.enum(PERMISSIONS);
 
 /**
- * What a caller has to say out loud. Granting is a replacement rather than a patch, so an
- * absent list is a request that means nothing and is refused rather than read as "none".
+ * What a caller has to say out loud. Granting is a replacement rather than a patch, so an absent
+ * list is a request that means nothing and is refused rather than read as "none".
  */
 export const permissionsInputSchema = z
   .array(permissionSchema)
@@ -55,11 +69,10 @@ export const permissionsInputSchema = z
   })
   .refine(
     (permissions) =>
-      REQUIRES.every(
-        ([permission, required]) =>
-          !permissions.includes(permission) || permissions.includes(required),
+      EXCLUSIVE.every(
+        ([weaker, stronger]) => !(permissions.includes(weaker) && permissions.includes(stronger)),
       ),
-    { message: "Berichte bearbeiten setzt Berichte ansehen voraus." },
+    { message: "Berichte ansehen und Berichte bearbeiten schließen einander aus." },
   );
 
 /** The same, as a record carries it: one written before permissions existed holds none. */
@@ -77,9 +90,14 @@ export function may(user: Principal, required: Permission): boolean {
   return user.accountType === "teacher" && user.permissions.includes(required);
 }
 
+/** The same question of several at once, for a page that either of two permissions opens. */
+export function mayAny(user: Principal, required: readonly Permission[]): boolean {
+  return required.some((permission) => may(user, permission));
+}
+
 /**
  * The tag row's rule, kept here so the page and the handler cannot disagree about what a press
- * means: a permission arrives with whatever it depends on, and leaves with whatever depends on it.
+ * means: pressing one of an exclusive pair takes the place of the other rather than joining it.
  */
 export function toggledPermissions(
   held: readonly Permission[],
@@ -89,13 +107,11 @@ export function toggledPermissions(
 
   if (wanted.has(permission)) {
     wanted.delete(permission);
-    for (const [dependent, required] of REQUIRES) {
-      if (required === permission) wanted.delete(dependent);
-    }
   } else {
     wanted.add(permission);
-    for (const [dependent, required] of REQUIRES) {
-      if (dependent === permission) wanted.add(required);
+    for (const [weaker, stronger] of EXCLUSIVE) {
+      if (permission === weaker) wanted.delete(stronger);
+      if (permission === stronger) wanted.delete(weaker);
     }
   }
 

@@ -23,7 +23,7 @@ type Context = { params: Promise<{ eventSeriesId: string }> };
  * rule grants a whole document to everyone it grants it to, and a token is the enrolment itself.
  */
 export async function GET(_request: Request, context: Context) {
-  const denied = await requirePermissionOrResponse("editAssignments");
+  const denied = await requirePermissionOrResponse("editRegistrations");
   if (denied) return denied;
 
   const { eventSeriesId } = await context.params;
@@ -45,7 +45,7 @@ export async function GET(_request: Request, context: Context) {
  * a rule would hand to everyone the document is readable by is not a secret.
  */
 export async function POST(request: Request, context: Context) {
-  const denied = await requirePermissionOrResponse("editAssignments");
+  const denied = await requirePermissionOrResponse("editRegistrations");
   if (denied) return denied;
 
   const { eventSeriesId } = await context.params;

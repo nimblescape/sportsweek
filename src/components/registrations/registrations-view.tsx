@@ -24,7 +24,7 @@ export const NO_CLASSES_HINT = noneMaintainedHint(MASTER_DATA_CATEGORIES.classes
  * students in it attending and not, and that class's figures. Opening it to students is done on
  * its tag in the header, which names the series it concerns and is on screen from every page.
  */
-export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
+export function RegistrationsView({ eventSeriesId }: { eventSeriesId: string }) {
   const { eventSeries, missing, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
   const invitations = useInvitations(eventSeriesId);
 

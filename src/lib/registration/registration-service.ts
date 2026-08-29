@@ -196,7 +196,7 @@ export async function saveRegistration(
   });
 }
 
-export const NO_SUCH_REGISTRATION = "Diese Anmeldung gibt es nicht.";
+export const NO_SUCH_REGISTRATION = "Diese Registrierung gibt es nicht.";
 
 /**
  * Joins a student to an event series, which is the whole of what following an invitation link

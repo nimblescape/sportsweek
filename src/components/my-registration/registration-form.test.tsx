@@ -161,7 +161,7 @@ describe("RegistrationForm", () => {
     renderForm();
 
     expect(cardTitles()).toEqual([
-      "Anmeldung",
+      "Registrierung",
       "Persönliches",
       "Notfallkontakt",
       "Veranstaltung",

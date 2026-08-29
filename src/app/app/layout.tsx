@@ -8,6 +8,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { EventSeriesTagRows } from "@/components/layout/event-series-tag-rows";
 import { TeacherNav } from "@/components/layout/teacher-nav";
 import { requireUser, fetchUserPhoto } from "@/lib/auth/guards";
+import { may } from "@/lib/auth/permissions";
 import { resolveSelectedEventSeriesId } from "@/lib/event-series/event-series-service";
 import { EVENT_SERIES_COOKIE_NAME } from "@/lib/event-series/event-series-selection";
 
@@ -38,7 +39,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           />
         ) : null
       }
-      scope={isTeacher ? <EventSeriesTagRows /> : null}
+      scope={isTeacher ? <EventSeriesTagRows mayOpen={may(user, "editRegistrations")} /> : null}
       photo={photo}
     >
       {children}

@@ -35,13 +35,14 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
   apiRequest: (...args: unknown[]) => apiRequest(...args),
 }));
 
-const { OverviewView: ScopedOverviewView, NO_CLASSES_HINT } = await import("./overview-view");
+const { RegistrationsView: ScopedRegistrationsView, NO_CLASSES_HINT } =
+  await import("./registrations-view");
 const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");
 
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
 // only has to be present.
-function OverviewView() {
-  return <ScopedOverviewView eventSeriesId="s1" />;
+function RegistrationsView() {
+  return <ScopedRegistrationsView eventSeriesId="s1" />;
 }
 
 function student(
@@ -90,16 +91,16 @@ beforeEach(() => {
   });
 });
 
-describe("OverviewView", () => {
+describe("RegistrationsView", () => {
   it("titles the page", () => {
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     // Level 1: every card has a "Statistik" area heading of its own further down.
     expect(screen.getByRole("heading", { name: "Übersicht", level: 1 })).toBeInTheDocument();
   });
 
   it("shows a card per maintained class, counting the registrations of the active event series", () => {
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
     expect(within(screen.getByRole("group", { name: "5AHIF" })).getByText("5AHIF: 2")).toBeInTheDocument(); // prettier-ignore
@@ -109,7 +110,7 @@ describe("OverviewView", () => {
   it("points at the event series list when the selection resolves to nothing", () => {
     useEventSeries.mockReturnValue({ eventSeries: [], loading: false, error: null });
 
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     expect(screen.getByText(NO_EVENT_SERIES_HINT)).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "5AHIF" })).not.toBeInTheDocument();
@@ -122,7 +123,7 @@ describe("OverviewView", () => {
   it("says nothing about the selection while the list is still arriving", () => {
     useEventSeries.mockReturnValue({ eventSeries: [], loading: true, error: null });
 
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     expect(screen.queryByText(NO_EVENT_SERIES_HINT)).not.toBeInTheDocument();
   });
@@ -135,7 +136,7 @@ describe("OverviewView", () => {
       error: null,
     });
 
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
   });
@@ -145,7 +146,7 @@ describe("OverviewView", () => {
  * Opening and closing registration is done on the series' own tag in the header (US-19, US-29).
  * This page offers no control for it: two controls for one decision would be two answers to it.
  */
-describe("OverviewView — no second registration control", () => {
+describe("RegistrationsView — no second registration control", () => {
   it.each([{}, { isOpenToStudents: false }, { isArchived: true }])(
     "offers nothing that opens or closes the series, whatever state %o it is in",
     (state) => {
@@ -155,16 +156,16 @@ describe("OverviewView — no second registration control", () => {
         error: null,
       });
 
-      render(<OverviewView />);
+      render(<RegistrationsView />);
 
-      expect(screen.queryByRole("button", { name: /Anmeldung/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Registrierung/ })).not.toBeInTheDocument();
     },
   );
 });
 
-describe("OverviewView — handing out links", () => {
+describe("RegistrationsView — handing out links", () => {
   it("gives each class card the series' own links", async () => {
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     expect(useInvitations).toHaveBeenCalledWith("s1");
     expect(
@@ -182,7 +183,7 @@ describe("OverviewView — handing out links", () => {
       error: null,
     });
 
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     expect(
       screen.queryByRole("button", { name: new RegExp(INVITATION_LINK_LABEL) }),
@@ -196,7 +197,7 @@ describe("OverviewView — handing out links", () => {
       error: null,
     });
 
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     expect(
       screen.queryByRole("button", { name: new RegExp(INVITATION_LINK_LABEL) }),
@@ -212,7 +213,7 @@ describe("OverviewView — handing out links", () => {
       error: "Nicht erlaubt.",
     });
 
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Nicht erlaubt.");
   });
@@ -223,19 +224,19 @@ describe("OverviewView — handing out links", () => {
  * empty page says only that something is broken. It says which list is still empty instead,
  * exactly as the assignment board does for its events (US-21, US-29).
  */
-describe("OverviewView — before any class is maintained", () => {
+describe("RegistrationsView — before any class is maintained", () => {
   it("says the event series has no classes yet", () => {
     useMasterData.mockImplementation((key: string) =>
       key === "classes" ? listOf() : listOf("Profi"),
     );
 
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     expect(screen.getByRole("status")).toHaveTextContent(NO_CLASSES_HINT);
   });
 
   it("says nothing of the sort once there is a class", () => {
-    render(<OverviewView />);
+    render(<RegistrationsView />);
 
     expect(screen.queryByText(NO_CLASSES_HINT)).not.toBeInTheDocument();
   });

@@ -221,12 +221,12 @@ export function firstMasterDataPath(eventSeriesId: string): string {
  * whole series off every screen instead (US-19). What frees it is the registration going.
  */
 export const IN_USE_HINT =
-  "Dieser Eintrag wurde in einer Anmeldung dieser Eventreihe gewählt und kann " +
+  "Dieser Eintrag wurde in einer Registrierung dieser Eventreihe gewählt und kann " +
   "deshalb nicht umbenannt oder gelöscht werden.";
 
 /** Deleting a program takes its equipment with it, so a rented item holds the program back too. */
 export const CHILD_IN_USE_HINT =
-  "Ausrüstung dieses Programms wurde in einer Anmeldung dieser Eventreihe ausgeliehen. " +
+  "Ausrüstung dieses Programms wurde in einer Registrierung dieser Eventreihe ausgeliehen. " +
   "Das Programm kann deshalb nicht gelöscht werden.";
 
 /**
@@ -235,7 +235,7 @@ export const CHILD_IN_USE_HINT =
  * and withdrawing them a moment later, offers something the list already knows it may refuse.
  */
 export const USAGE_PENDING_HINT =
-  "Es wird noch geprüft, ob dieser Eintrag in Anmeldungen verwendet wird.";
+  "Es wird noch geprüft, ob dieser Eintrag in Registrierungen verwendet wird.";
 
 /**
  * What a page built on one of these lists says before the list has been maintained (US-21). The

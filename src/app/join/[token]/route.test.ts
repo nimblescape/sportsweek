@@ -80,7 +80,7 @@ describe("GET /join/[token]", () => {
 
     const response = await follow();
 
-    expect(response.headers.get("location")).toBe("https://example.com/app/s1/overview");
+    expect(response.headers.get("location")).toBe("https://example.com/app/s1/registrations");
     expect(joinEventSeries).not.toHaveBeenCalled();
   });
 

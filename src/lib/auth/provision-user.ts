@@ -10,7 +10,7 @@ import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Registration } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema, type User } from "@/lib/schemas/user";
-import { PERMISSIONS, permissionsSchema, type Permission } from "./permissions";
+import { permissionsSchema, type Permission } from "./permissions";
 import { fetchEntraName, fetchEntraPhoto } from "./graph";
 import { refuseSignIn } from "./sign-in-policy";
 import { accountTypeFromUpn } from "./upn";
@@ -62,21 +62,6 @@ function resolveName(claims: EntraClaims, localPart: string) {
 
 /** What a registration copies off the user record, derived so a field added there reaches this. */
 type StoredIdentity = Pick<Registration, "firstName" | "lastName" | "email">;
-
-/**
- * Whether this login is the school's first teacher, who is provisioned holding every accountType
- * because there is nobody yet who could grant them one (US-2). Asked with a limit: what matters
- * is that one exists, not who they are.
- */
-async function isFirstTeacher(): Promise<boolean> {
-  const existing = await adminDb
-    .collection(COLLECTIONS.users)
-    .where("accountType", "==", accountTypeSchema.enum.teacher)
-    .limit(1)
-    .get();
-
-  return existing.empty;
-}
 
 /**
  * Carries a corrected name into the registrations this student already holds (US-26).
@@ -170,10 +155,8 @@ export async function provisionUser(
     // The photo is written even when there is none, so removing it in Entra removes it here.
     await ref.update({ firstName, lastName, email: upn, photo });
   } else {
-    permissions =
-      accountType === accountTypeSchema.enum.teacher && (await isFirstTeacher())
-        ? [...PERMISSIONS]
-        : [];
+    // Nobody is granted anything by signing in. The administrators a school starts with are
+    // written by the seeding script, so there is no race to be the first through the door.
     await ref.set({ firstName, lastName, email: upn, accountType, photo, permissions });
   }
 

@@ -4,23 +4,24 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { PERMISSIONS } from "@/lib/auth/permissions";
-import { PAGE_PERMISSION, reachablePages, firstReachableHref } from "./reachable-pages";
+import { PERMISSIONS, FULL_PERMISSIONS } from "@/lib/auth/permissions";
+import { PAGE_PERMISSIONS, reachablePages, firstReachableHref } from "./reachable-pages";
 
 const SERIES = "s1";
 
-describe("PAGE_PERMISSION", () => {
-  it("names a permission for every page a teacher can be sent to", () => {
-    for (const permission of Object.values(PAGE_PERMISSION)) {
-      expect(PERMISSIONS).toContain(permission);
+describe("PAGE_PERMISSIONS", () => {
+  it("names permissions that exist for every page a teacher can be sent to", () => {
+    for (const opens of Object.values(PAGE_PERMISSIONS)) {
+      expect(opens.length).toBeGreaterThan(0);
+      for (const permission of opens) expect(PERMISSIONS).toContain(permission);
     }
   });
 });
 
 describe("reachablePages", () => {
   it("lists them in the order the navigation shows them", () => {
-    expect(reachablePages([...PERMISSIONS])).toEqual([
-      "overview",
+    expect(reachablePages([...FULL_PERMISSIONS])).toEqual([
+      "registrations",
       "assignment",
       "report",
       "masterData",
@@ -32,9 +33,18 @@ describe("reachablePages", () => {
     expect(reachablePages(["editAssignments"])).toEqual(["assignment"]);
   });
 
-  /** Both report pages hang off the one permission, so neither appears without it. */
-  it("gives viewReports both the overview and the report", () => {
-    expect(reachablePages(["viewReports"])).toEqual(["overview", "report"]);
+  /** The overview is where registrations are invited and removed, not where reports are read. */
+  it("gives the overview to whoever may edit registrations", () => {
+    expect(reachablePages(["editRegistrations"])).toEqual(["registrations"]);
+  });
+
+  it("opens the report page with either of the two that exclude each other", () => {
+    expect(reachablePages(["viewReports"])).toEqual(["report"]);
+    expect(reachablePages(["editReports"])).toEqual(["report"]);
+  });
+
+  it("no longer gives the overview to somebody who may only read reports", () => {
+    expect(reachablePages(["viewReports"])).not.toContain("registrations");
   });
 
   it("lists nothing for a teacher holding nothing", () => {
@@ -48,7 +58,11 @@ describe("firstReachableHref", () => {
   });
 
   it("prefers the overview when it is reachable", () => {
-    expect(firstReachableHref([...PERMISSIONS], SERIES)).toBe("/app/s1/overview");
+    expect(firstReachableHref([...FULL_PERMISSIONS], SERIES)).toBe("/app/s1/registrations");
+  });
+
+  it("sends somebody who may only edit reports to the report page", () => {
+    expect(firstReachableHref(["editReports"], SERIES)).toBe("/app/s1/report");
   });
 
   /**

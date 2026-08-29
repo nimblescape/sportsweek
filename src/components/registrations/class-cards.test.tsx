@@ -581,7 +581,7 @@ describe("ClassCards — removing a registration", () => {
   const max = student({ class: "5AHIF", firstName: "Max", lastName: "Mustermann" });
 
   const removeOn = (person: RosterStudent) =>
-    screen.queryByRole("button", { name: `Anmeldung von ${nameOf(person)} löschen` });
+    screen.queryByRole("button", { name: `Registrierung von ${nameOf(person)} löschen` });
 
   it("offers nothing until a student is marked", () => {
     setup([jane, max], "s1");

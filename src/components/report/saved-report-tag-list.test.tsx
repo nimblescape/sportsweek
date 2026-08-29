@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag, type StudentFilter } from "@/lib/filters/student-filter";
 import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
 import { stubTagRowLayout } from "@/test/stub-tag-row-layout";
-import { SavedReportTagList } from "./saved-report-tag-list";
+import { SavedReportTagList, MAY_NOT_EDIT_HINT } from "./saved-report-tag-list";
 
 const selection = toggleTag(EMPTY_FILTER, "class", "5AHIF");
 
@@ -37,10 +37,11 @@ const onRename = vi.fn();
 const onDelete = vi.fn();
 const onReorder = vi.fn();
 
-const row = (reports: readonly SavedReport[], current: ReportSelection) => (
+const row = (reports: readonly SavedReport[], current: ReportSelection, mayEdit = true) => (
   <SavedReportTagList
     reports={reports}
     current={current}
+    mayEdit={mayEdit}
     onOpen={onOpen}
     onSave={onSave}
     onUpdate={onUpdate}
@@ -523,5 +524,106 @@ describe("renaming and deleting from within the tag", () => {
     expect(
       screen.queryByRole("button", { name: "Löschen von Alle Mädchen bestätigen" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Viewing a report and keeping one are two permissions (US-2). Somebody who may only view still
+ * opens any saved report — they are shared — but is offered no way to change what is stored.
+ */
+describe("SavedReportTagList — without the permission to edit", () => {
+  const viewing = () => render(row(REPORTS, CURRENT, false));
+
+  it("disables saving, and says why", async () => {
+    viewing();
+
+    const save = screen.getByRole("button", { name: /Bericht speichern/ });
+
+    expect(save).toBeDisabled();
+    expect(screen.getAllByText(MAY_NOT_EDIT_HINT).length).toBeGreaterThan(0);
+  });
+
+  it("still lets a saved report be opened", async () => {
+    viewing();
+
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: 5AHIF" }));
+
+    expect(onOpen).toHaveBeenCalled();
+  });
+
+  it("offers no controls on the tag that was opened", async () => {
+    viewing();
+
+    await userEvent.click(screen.getByRole("button", { name: "Gespeicherter Bericht: 5AHIF" }));
+
+    expect(screen.queryByRole("button", { name: /umbenennen/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /löschen/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /aktualisieren/ })).not.toBeInTheDocument();
+  });
+
+  /** Reordering the row is stored too, so it is not offered either. */
+  it("offers no grip to reorder them by", () => {
+    viewing();
+
+    expect(screen.queryByRole("button", { name: /verschieben/ })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * A marked tag that no longer matches the screen reads as "changed", and what a teacher does
+ * about that is store the change. Somebody who may not store one has nothing to do about it, so
+ * the mark is simply released and the row goes back to saying that none of them is open.
+ */
+describe("SavedReportTagList — a viewer changing what is on screen", () => {
+  function viewing(current: ReportSelection = CURRENT) {
+    const { rerender } = render(row(REPORTS, current, false));
+    return { change: (next: ReportSelection) => rerender(row(REPORTS, next, false)) };
+  }
+
+  it("releases the mark when the filter is changed", async () => {
+    const { change } = viewing();
+    await userEvent.click(tag("5AHIF"));
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "true");
+
+    change({ ...CURRENT, filter: toggleTag(selection, "gender", "male") });
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("releases it when the fields are changed", async () => {
+    const { change } = viewing();
+    await userEvent.click(tag("5AHIF"));
+
+    change({ ...CURRENT, fields: [] });
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("keeps the mark while the screen still matches the report", async () => {
+    const { change } = viewing();
+    await userEvent.click(tag("5AHIF"));
+
+    change({ ...CURRENT });
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("says nothing about the report having changed", async () => {
+    const { change } = viewing();
+    await userEvent.click(tag("5AHIF"));
+
+    change({ ...CURRENT, fields: [] });
+
+    expect(screen.queryByText(/Geändert/)).not.toBeInTheDocument();
+  });
+
+  /** The teacher who may store one keeps the mark, which is what makes the update reachable. */
+  it("is not what happens for somebody who may edit", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+
+    change({ ...CURRENT, fields: [] });
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "true");
   });
 });

@@ -43,7 +43,9 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
   const invitation = await resolveInvitation(token);
 
   if (user.accountType === "teacher") {
-    return to(invitation ? eventSeriesRoutes(invitation.eventSeriesId).overview : ROUTES.appRoot);
+    return to(
+      invitation ? eventSeriesRoutes(invitation.eventSeriesId).registrations : ROUTES.appRoot,
+    );
   }
 
   if (invitation === null) return to(ROUTES.myRegistration);
