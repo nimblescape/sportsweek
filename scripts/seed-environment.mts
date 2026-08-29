@@ -7,17 +7,17 @@
  * Resets a project to its defaults: everything is deleted, and what this script writes is then
  * all it holds.
  *
- * | production, development | one event series with the lists that are the same every year |
- * | staging                 | that series, filled in, plus a roster and its registrations  |
+ * | production              | one event series with the lists that are the same every year |
+ * | development, staging    | that series, filled in, plus a roster and its registrations  |
  *
  * Seeding on top of what a project already holds says nothing about whether the application put
  * it there, so the point of a seeded environment — that its contents are known — needs the delete
  * as much as the write.
  *
- * `--bare` asks staging for the same bare state, which is what a school's first day looks like.
- * It can only ever leave a project holding less, so nowhere else receives an invented person
- * whatever is passed — that stays true by construction rather than by a check, because no
- * argument adds anything anywhere.
+ * `--bare` asks a test environment for what production gets, which is what a school's first day
+ * looks like and the only way to see the empty states behind seeded data. It can only ever leave
+ * a project holding less, so production receives no invented person whatever is passed — that
+ * stays true by construction rather than by a check, because no argument adds anything anywhere.
  *
  * Emptying production is a legitimate admin task and is not fenced off, but it is the one thing
  * here that cannot be undone, so it asks for the project id to be typed back first.
@@ -47,19 +47,13 @@ import {
 } from "./environment.mjs";
 
 /**
- * Where a purge needs no ceremony, because there is nothing in them that anyone would miss.
- * Production is absent by construction rather than by a check.
+ * Where inventing people is allowed, and where a purge needs no ceremony. Production is absent
+ * by construction rather than by a check: it gets the defaults and stops, because no argument
+ * can ask for anything else.
  */
 const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
 
-/**
- * Where inventing people is allowed. Development is not: what it is for is working on the
- * application, and a school's own first day is a roster of nobody — so a made-up one hides every
- * empty state behind data that only exists here.
- */
-const POPULATED_ENVIRONMENTS: readonly Environment[] = [STAGING];
-
-/** Leaves a populated environment as bare as the rest, which is what a school's first day is. */
+/** Asks one of them for the bare state instead, which is what a school's first day is. */
 const BARE = "--bare";
 
 /** Both listUsers and deleteUsers cap a single call at this many accounts. */
@@ -439,14 +433,14 @@ async function main(): Promise<void> {
     fail(
       `Usage: npm run seed:<environment> [-- ${BARE}],`,
       `where <environment> is ${ENVIRONMENTS.join(", ")}.`,
-      `${BARE} leaves ${POPULATED_ENVIRONMENTS.join(", ")} as bare as the rest.`,
+      `${BARE} leaves a test environment as bare as production.`,
     );
   }
 
   const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
   const isTest = TEST_ENVIRONMENTS.includes(environment);
-  // Only staging invents people, so the flag changes nothing anywhere else and is not refused.
-  const seedsStudents = POPULATED_ENVIRONMENTS.includes(environment) && !args.includes(BARE);
+  // Production is bare whatever is asked, so the flag changes nothing there and is not refused.
+  const seedsStudents = isTest && !args.includes(BARE);
 
   if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
 
