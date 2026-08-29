@@ -175,6 +175,19 @@ describe("AssignmentView", () => {
     settle();
   });
 
+  /**
+   * The indicator answers for writes. A teacher moving between the pages of a series is reading,
+   * and an indicator that fired on every page would be reporting the app working rather than
+   * anything the teacher started.
+   */
+  it("reports nothing while it is only reading", () => {
+    useRoster.mockReturnValue({ students: [], loading: true, error: null });
+
+    render(<AssignmentView />);
+
+    expect(useBusyWhile).not.toHaveBeenCalledWith(true);
+  });
+
   it("tells the teacher when an event series has no events to assign to yet", () => {
     useEventSeries.mockReturnValue({
       eventSeries: [{ ...eventSeries, events: [] }],

@@ -24,24 +24,11 @@ const buttonVariants = cva(
           "border-border bg-background hover:bg-muted hover:text-foreground active:bg-accent aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] active:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_10%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
-        // An event series tag: the accent when it is the chosen one, and the same blue a weight
-        // back when it is not — which is the only place an unpressed tag is filled at all.
-        series: "bg-primary text-primary-foreground hover:bg-primary/80 active:bg-primary/70",
-        "series-soft":
-          "bg-brand-subtle text-primary-foreground border-transparent hover:bg-[color-mix(in_oklch,var(--brand-subtle),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--brand-subtle),var(--foreground)_20%)]",
-        open: "bg-open text-open-foreground hover:bg-[color-mix(in_oklch,var(--open),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--open),var(--foreground)_20%)]",
-        // The same green said quietly — brighter, since it is not the chosen one — wearing the
-        // same white, because a tag that changed both its fill and its ink would read as another
-        // kind of tag rather than the same one unpressed.
-        "open-soft":
-          "bg-open-subtle text-open-foreground border-transparent hover:bg-[color-mix(in_oklch,var(--open-subtle),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--open-subtle),var(--foreground)_20%)]",
         // Greyscale that a white surface can still be told from, which `secondary` at 0.97 cannot.
         neutral:
           "bg-neutral text-neutral-foreground hover:bg-[color-mix(in_oklch,var(--neutral),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--neutral),var(--foreground)_20%)]",
         template:
           "bg-template text-template-foreground hover:bg-[color-mix(in_oklch,var(--template),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--template),var(--foreground)_20%)]",
-        "template-soft":
-          "bg-template-subtle text-template-foreground border-transparent hover:bg-[color-mix(in_oklch,var(--template-subtle),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--template-subtle),var(--foreground)_20%)]",
         ghost:
           "hover:bg-muted hover:text-foreground active:bg-accent aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:

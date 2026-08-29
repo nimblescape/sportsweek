@@ -13,7 +13,6 @@ import { DeleteEventSeriesDialog } from "@/components/event-series/delete-event-
 import { EventSeriesFormDialog } from "@/components/event-series/event-series-form-dialog";
 import { EventSeriesList } from "@/components/event-series/event-series-list";
 import { apiRequest, ApiRequestError, type RequestOptions } from "@/lib/api/client";
-import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { applyVisibleOrder } from "@/lib/schemas/position";
 import type { EventSeries } from "@/lib/schemas/event-series";
@@ -34,8 +33,6 @@ export function EventSeriesView() {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
   const { busyId, pending, run } = useRowAction();
   const [actionError, setActionError] = React.useState<string | null>(null);
-
-  useBusyWhile(loading);
 
   const listed = visibleEventSeries(eventSeries, showArchived);
 

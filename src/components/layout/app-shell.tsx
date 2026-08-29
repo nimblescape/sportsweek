@@ -42,16 +42,21 @@ export function AppShell({
           </div>
         ) : null}
 
-        <header className="border-border bg-background col-start-2 row-start-1 flex items-center justify-between gap-4 border-b px-4 py-2 md:px-6">
+        <header className="border-border bg-background col-start-2 row-start-1 flex items-center gap-4 border-b px-4 py-2 md:px-6">
           {nav ? null : <Brand />}
-          {/* The scope leads the header, because it says what every page below it is about. */}
-          {scope}
+          {/* The scope leads the header, because it says what every page below it is about. Its
+              slot grows whether or not it has anything in it: a school with no event series yet
+              would otherwise leave the row empty, and the indicator would report from the near
+              end instead of the far one. */}
+          <div className="flex min-w-0 flex-1 items-center">{scope}</div>
           {/* Where there is a bar, signing out sits at the foot of it, under the person's own
               mark. A student has no bar, so it stays here. */}
           {nav ? null : <SignOutButton photo={photo} />}
-          {/* Last, so the row's own space-between puts it at the far end — the one part of the
-              header nothing else occupies, whatever the tags do. */}
-          <BusyBar />
+          {/* The indicator's own place at the far end, kept whether or not it is reporting, so
+              the one thing that speaks for the whole app is always found where it was last. */}
+          <div className="flex shrink-0 items-center">
+            <BusyBar />
+          </div>
         </header>
 
         <main className="bg-background col-start-2 row-start-2 flex min-h-0 flex-col overflow-y-auto">

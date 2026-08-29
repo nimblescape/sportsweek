@@ -247,6 +247,59 @@ describe("EventSeriesTagRows", () => {
 });
 
 /**
+ * Three colours and no more: the accent for the series being worked in, grey for a template
+ * being worked in, and the plain outline for everything else. Whether a series is open is said
+ * by its icon, not by its fill, so the row carries one question at a time.
+ */
+describe("EventSeriesTagRows — colour", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    pathname.mockReturnValue("/app/s1/report");
+    document.cookie = "sportsweek_event_series=; max-age=0; path=/";
+  });
+
+  const tagFor = (name: string) => screen.getByRole("button", { name }).parentElement!.className;
+
+  it("fills the selected series with the accent", () => {
+    showing(seriesNamed("s1", "Wintersportwoche"));
+
+    render(<EventSeriesTagRows />);
+
+    expect(tagFor("Wintersportwoche")).toContain("bg-primary");
+  });
+
+  it("fills a selected template with grey instead", () => {
+    pathname.mockReturnValue("/app/t1/master-data/classes");
+    showing(seriesNamed("t1", "Vorlage", { isTemplate: true }));
+
+    render(<EventSeriesTagRows />);
+
+    expect(tagFor("Vorlage")).toContain("bg-template");
+  });
+
+  it("leaves an unselected tag with the plain outline", () => {
+    showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
+
+    render(<EventSeriesTagRows />);
+
+    expect(tagFor("Kulturwoche")).toContain("bg-background");
+  });
+
+  /** Open is said by the door on the tag; a second colour for it would say it twice. */
+  it("gives an open series no colour of its own once it is not the selected one", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche"),
+      seriesNamed("s2", "Kulturwoche", { isOpenToStudents: true }),
+      seriesNamed("s3", "Projektwoche"),
+    );
+
+    render(<EventSeriesTagRows />);
+
+    expect(tagFor("Kulturwoche")).toBe(tagFor("Projektwoche"));
+  });
+});
+
+/**
  * Opening registration to students is done on the tag of the series it concerns (US-19, US-29).
  * There is no second control anywhere else — two controls for one decision would be two answers
  * to it — and it is offered only on the tag that is selected, so a press cannot land on the
@@ -352,5 +405,28 @@ describe("EventSeriesTagRows — opening and closing", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Ohne Klasse geht das nicht.");
+  });
+
+  /** An icon on its own says nothing to a teacher who has not met it before (US-19). */
+  it("says on hover what the icon would do", async () => {
+    showing(seriesNamed("s1", "Wintersportwoche"));
+
+    render(<EventSeriesTagRows />);
+    await userEvent.hover(
+      screen.getByRole("button", { name: openActionLabel("Wintersportwoche") }),
+    );
+
+    expect(await screen.findByText(openActionLabel("Wintersportwoche"))).toBeInTheDocument();
+  });
+
+  it("says closing instead once the series is open", async () => {
+    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+
+    render(<EventSeriesTagRows />);
+    await userEvent.hover(
+      screen.getByRole("button", { name: closeActionLabel("Wintersportwoche") }),
+    );
+
+    expect(await screen.findByText(closeActionLabel("Wintersportwoche"))).toBeInTheDocument();
   });
 });

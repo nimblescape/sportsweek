@@ -47,25 +47,23 @@ function CardHeading({ children }: { children: string }) {
  * dialog and is why its filter carries categories the board has no use for.
  */
 export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, loading, error, students, filterGroups } = useEventSeriesRoster(
-    eventSeriesId,
-    {
-      attendance: true,
-      completeness: true,
-      equipmentRental: true,
-      health: true,
-      answerLists: true,
-      events: true,
-    },
-  );
+  const { eventSeries, error, students, filterGroups } = useEventSeriesRoster(eventSeriesId, {
+    attendance: true,
+    completeness: true,
+    equipmentRental: true,
+    health: true,
+    answerLists: true,
+    events: true,
+  });
   const { reports: savedReports } = useSavedReports(eventSeriesId, eventSeries);
   const [filter, setFilter] = useState(EMPTY_FILTER);
   const [activeFields, setActiveFields] = useState<string[]>([]);
   const [outputError, setOutputError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading || exporting);
+  // Answered by the one spinner in the header, so this view places none of its own. The read is
+  // not reported: a teacher moving between the pages of a series has started nothing to wait for.
+  useBusyWhile(exporting);
 
   const shown = useMemo(() => filterStudents(students, filter), [students, filter]);
   const fields = useMemo(() => reportFieldsOf(activeFields), [activeFields]);

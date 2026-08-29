@@ -7,7 +7,6 @@
 
 import { classOverview } from "@/lib/assignment/statistics";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
-import { useBusyWhile } from "@/lib/api/busy";
 import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { PageHeading } from "@/components/layout/page-heading";
 import { useInvitations } from "@/lib/invitations/use-invitations";
@@ -19,11 +18,8 @@ import { ClassCards } from "./class-cards";
  * its tag in the header, which names the series it concerns and is on screen from every page.
  */
 export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, loading, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
+  const { eventSeries, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
   const invitations = useInvitations(eventSeriesId);
-
-  // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading);
 
   // Neither can ever be open, so neither has anyone to invite (US-19, US-22).
   const openable = eventSeries !== null && !eventSeries.isTemplate && !eventSeries.isArchived;

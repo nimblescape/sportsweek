@@ -54,14 +54,10 @@ export const openActionLabel = (name: string) => `${name} für Schüler:innen ö
 export const closeActionLabel = (name: string) => `${name} für Schüler:innen schließen`;
 
 /**
- * What the fill of a pressed tag says. Green is the series taking registrations, which is what a
- * teacher scans the row for; blue is simply the one being worked in; grey is a template, which is
- * neither and cannot become either.
+ * What the fill of a pressed tag says: grey for a template, the accent for a series. Whether a
+ * series is open is left to its icon, so the row is not colouring two questions at once.
  */
-function fillFor(one: EventSeries): TagVariant {
-  if (one.isTemplate) return "template";
-  return one.isOpenToStudents ? "open" : "series";
-}
+const fillFor = (one: EventSeries): TagVariant => (one.isTemplate ? "template" : "default");
 
 function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }: RowProps) {
   return (

@@ -7,7 +7,6 @@
 
 import * as React from "react";
 import { X } from "lucide-react";
-import { BusyBar } from "@/components/layout/busy-bar";
 import { cn } from "@/lib/utils";
 
 type DialogProps = {
@@ -99,12 +98,7 @@ export function Dialog({
       </div>
 
       {footer ? (
-        <div className="bg-muted/50 flex items-center justify-end gap-2 border-t p-4">
-          {/* The one in the header is behind the backdrop while this is open, and a dialog is
-              where the slowest writes are started. At the near end, away from the controls. */}
-          <BusyBar className="mr-auto" />
-          {footer}
-        </div>
+        <div className="bg-muted/50 flex items-center justify-end gap-2 border-t p-4">{footer}</div>
       ) : null}
     </dialog>
   );

@@ -6,7 +6,6 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { useBusyWhile } from "@/lib/api/busy";
 import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
 import { questionsAsked } from "@/lib/master-data/categories";
 import { classFrom, REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
@@ -38,9 +37,6 @@ export function RegistrationView({
   const foodOptions = useMasterData("food-options", eventSeriesId);
   const seasonPassOptions = useMasterData("season-pass-options", eventSeriesId);
   const programs = usePrograms(eventSeriesId);
-
-  // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading);
 
   if (loading) return null;
 

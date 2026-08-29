@@ -20,7 +20,6 @@ import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { PageHeading } from "@/components/layout/page-heading";
 import { ApiRequestError } from "@/lib/api/client";
-import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { listItemNameSchema } from "@/lib/schemas/master-data";
 import { IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
@@ -103,8 +102,6 @@ export function CrudList({
 }: CrudListProps) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
   const { busyId, pending, run } = useRowAction();
-
-  useBusyWhile(loading);
 
   const closeDialog = () => setDialog({ kind: "none" });
 
