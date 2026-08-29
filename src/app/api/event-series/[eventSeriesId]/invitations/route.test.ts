@@ -83,13 +83,13 @@ describe("POST /api/event-series/[eventSeriesId]/invitations", () => {
   });
 
   it("passes a refusal from the service on with its own wording", async () => {
-    createInvitation.mockRejectedValue(new ServiceError("CONFLICT", "Eine Vorlage geht nicht."));
+    createInvitation.mockRejectedValue(new ServiceError("CONFLICT", "Archiviert geht nicht."));
 
     const response = await POST(request({ class: "3aWI" }), context);
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
-      error: { message: "Eine Vorlage geht nicht." },
+      error: { message: "Archiviert geht nicht." },
     });
   });
 });

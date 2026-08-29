@@ -6,14 +6,12 @@
 import { describe, expect, it } from "vitest";
 import {
   EVENT_SERIES_STATE_LABELS,
-  eventSeriesLabel,
   eventSeriesState,
   visibleEventSeries,
 } from "@/lib/event-series/event-series-state";
 
 const flags = (overrides: Partial<Parameters<typeof eventSeriesState>[0]> = {}) => ({
   isArchived: false,
-  isTemplate: false,
   isOpenToStudents: false,
   ...overrides,
 });
@@ -21,10 +19,6 @@ const flags = (overrides: Partial<Parameters<typeof eventSeriesState>[0]> = {}) 
 describe("eventSeriesState", () => {
   it("reports an archived event series", () => {
     expect(eventSeriesState(flags({ isArchived: true }))).toBe("archived");
-  });
-
-  it("reports a template", () => {
-    expect(eventSeriesState(flags({ isTemplate: true }))).toBe("template");
   });
 
   it("reports a series taking registrations as open", () => {
@@ -35,16 +29,9 @@ describe("eventSeriesState", () => {
     expect(eventSeriesState(flags())).toBe("closed");
   });
 
-  /** Archiving closes a series and takes away every screen the other two describe (US-19). */
-  it("lets archived win over both, so a contradictory record resolves to one state", () => {
-    const contradictory = flags({ isArchived: true, isTemplate: true, isOpenToStudents: true });
-
-    expect(eventSeriesState(contradictory)).toBe("archived");
-  });
-
-  /** A template can never be opened to students, so a stored flag saying it is, is not believed. */
-  it("lets template win over open", () => {
-    expect(eventSeriesState(flags({ isTemplate: true, isOpenToStudents: true }))).toBe("template");
+  /** Archiving closes a series and takes away every screen the other state describes (US-19). */
+  it("lets archived win, so a contradictory record resolves to one state", () => {
+    expect(eventSeriesState(flags({ isArchived: true, isOpenToStudents: true }))).toBe("archived");
   });
 });
 
@@ -52,24 +39,9 @@ describe("EVENT_SERIES_STATE_LABELS", () => {
   it("labels every state in German", () => {
     expect(EVENT_SERIES_STATE_LABELS).toEqual({
       archived: "Archiviert",
-      template: "Vorlage",
       open: "Schüler:innen-Anmeldung offen",
       closed: "Schüler:innen-Anmeldung geschlossen",
     });
-  });
-});
-
-describe("eventSeriesLabel", () => {
-  it("says of a template that it is one, since its name does not", () => {
-    expect(eventSeriesLabel({ name: "Wintersportwochen", isTemplate: true })).toBe(
-      "Wintersportwochen (Vorlage)",
-    );
-  });
-
-  it("leaves a series to its own name", () => {
-    expect(eventSeriesLabel({ name: "Wintersportwoche 2026", isTemplate: false })).toBe(
-      "Wintersportwoche 2026",
-    );
   });
 });
 

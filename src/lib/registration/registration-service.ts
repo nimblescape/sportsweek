@@ -47,8 +47,8 @@ export type RegistrationTarget = {
 /**
  * The series as it has to stand for a student to write into it (US-19).
  *
- * One flag rather than two: archiving closes, and the server refuses to open an archived series
- * or a template, so `isOpenToStudents` already excludes both. A series that has since been
+ * One flag rather than two: archiving closes, and the server refuses to open an archived series,
+ * so `isOpenToStudents` already excludes it. A series that has since been
  * closed, archived or deleted, and one that was never named by a link the student holds, are all
  * answered with the same sentence — from where the student stands they are the same thing.
  */

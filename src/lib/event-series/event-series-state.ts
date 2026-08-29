@@ -5,7 +5,7 @@
  */
 import type { EventSeries } from "@/lib/schemas/event-series";
 
-export const EVENT_SERIES_STATES = ["archived", "template", "open", "closed"] as const;
+export const EVENT_SERIES_STATES = ["archived", "open", "closed"] as const;
 export type EventSeriesState = (typeof EVENT_SERIES_STATES)[number];
 
 /**
@@ -38,45 +38,31 @@ export const ARCHIVE_OPEN_HINT =
 export const NO_SUCH_EVENT_SERIES = "Diese Eventreihe gibt es nicht.";
 
 /**
- * Why the last template stays. Everything a teacher sees is scoped to a selection, so a school
- * with no event series at all has a header offering nothing and a navigation bar pointing nowhere.
- * One template held back keeps that state out of reach.
+ * Why the last one stays. Everything a teacher sees is scoped to a selection, so a school with no
+ * event series at all has a header offering nothing and a navigation bar pointing nowhere. One
+ * held back keeps that state out of reach.
  */
-export const LAST_TEMPLATE_HINT =
-  "Die letzte Vorlage kann nicht gelöscht werden, damit immer eine Eventreihe zur Auswahl steht.";
+export const LAST_EVENT_SERIES_HINT =
+  "Die letzte Eventreihe kann nicht gelöscht werden, damit immer eine zur Auswahl steht.";
 
 /**
  * What the list says about a series (US-19) — derived from the stored flags, never persisted.
  *
- * The order is a precedence rather than a preference: archiving closes a series and takes away
- * every screen that could show it, and a template can never be opened to students at all — so a
- * record that somehow contradicts itself still resolves to exactly one state.
+ * Archiving wins: it closes a series and takes away every screen that could show it, so a record
+ * that somehow says both still resolves to exactly one state.
  */
 export function eventSeriesState(
-  eventSeries: Pick<EventSeries, "isArchived" | "isTemplate" | "isOpenToStudents">,
+  eventSeries: Pick<EventSeries, "isArchived" | "isOpenToStudents">,
 ): EventSeriesState {
   if (eventSeries.isArchived) return "archived";
-  if (eventSeries.isTemplate) return "template";
   return eventSeries.isOpenToStudents ? "open" : "closed";
 }
 
 export const EVENT_SERIES_STATE_LABELS: Record<EventSeriesState, string> = {
   archived: "Archiviert",
-  template: "Vorlage",
   open: "Schüler:innen-Anmeldung offen",
   closed: "Schüler:innen-Anmeldung geschlossen",
 };
-
-/**
- * What to call an event series on screen. A template is named for the pattern rather than for any
- * one running of it, which reads like an ordinary series until it is said otherwise — so it is
- * said, in the name, wherever the name is what the teacher is choosing between.
- */
-export function eventSeriesLabel(eventSeries: Pick<EventSeries, "name" | "isTemplate">): string {
-  return eventSeries.isTemplate
-    ? `${eventSeries.name} (${EVENT_SERIES_STATE_LABELS.template})`
-    : eventSeries.name;
-}
 
 /** Archived event series are hidden by default; the list offers a toggle to bring them back (US-19). */
 export function visibleEventSeries<T extends Pick<EventSeries, "isArchived">>(

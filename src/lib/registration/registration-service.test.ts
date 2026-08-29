@@ -57,7 +57,7 @@ function seedStudent(upn: string, name: { firstName: string; lastName: string })
 /**
  * Every answer has to be one the series offers (US-27), so the lists a student picks from are
  * part of what makes a series registrable at all. Open unless a test says otherwise: one flag
- * governs the student side, and archiving and templates are excluded by it rather than beside it.
+ * governs the student side, and archiving is excluded by it rather than beside it.
  */
 function seedEventSeries(id: string, fields: Record<string, unknown> = {}) {
   firestore.seed(

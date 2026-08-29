@@ -32,10 +32,8 @@ const { ApiRequestError } = await import("@/lib/api/client");
 const {
   EventSeriesTagRows,
   EVENT_SERIES_ROW_LABEL,
-  TEMPLATE_ROW_LABEL,
   OPEN_TO_STUDENTS_LABEL,
   CLOSED_TO_STUDENTS_LABEL,
-  TEMPLATE_LABEL,
   openActionLabel,
   closeActionLabel,
 } = await import("@/components/layout/event-series-tag-rows");
@@ -56,7 +54,7 @@ describe("EventSeriesTagRows", () => {
     document.cookie = "sportsweek_event_series=; max-age=0; path=/";
   });
 
-  it("puts the series that carry data in their own named row", () => {
+  it("puts every live series in one named row", () => {
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
     render(<EventSeriesTagRows />);
@@ -66,91 +64,41 @@ describe("EventSeriesTagRows", () => {
     expect(within(row).getByRole("button", { name: "Kulturwoche" })).toBeInTheDocument();
   });
 
-  it("puts the templates in a row of their own", () => {
-    pathname.mockReturnValue("/app/s1/master-data/classes");
-    showing(
-      seriesNamed("s1", "Wintersportwoche"),
-      seriesNamed("t1", "Wintersportwochen", { isTemplate: true }),
-    );
+  /** Every page can be about every series, so the row is the same wherever the teacher is. */
+  it.each([
+    "/app/s1/overview",
+    "/app/s1/assignment",
+    "/app/s1/report",
+    "/app/s1/master-data/programs",
+    "/app/event-series",
+  ])("offers the same row on %s", (path) => {
+    pathname.mockReturnValue(path);
+    showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
     render(<EventSeriesTagRows />);
 
-    const templates = screen.getByRole("group", { name: TEMPLATE_ROW_LABEL });
-    expect(
-      within(templates).getByRole("button", { name: "Wintersportwochen (Vorlage)" }),
-    ).toBeInTheDocument();
-    expect(
-      within(screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL })).queryByRole("button", {
-        name: "Wintersportwochen (Vorlage)",
-      }),
-    ).not.toBeInTheDocument();
+    const row = screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL });
+    expect(within(row).getByRole("button", { name: "Wintersportwoche" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Kulturwoche" })).toBeInTheDocument();
   });
-
-  /** A school that never makes one never sees a space set aside for it (US-20). */
-  it("leaves the template row out entirely when there are none", () => {
-    pathname.mockReturnValue("/app/s1/master-data/classes");
-    showing(seriesNamed("s1", "Wintersportwoche"));
-
-    render(<EventSeriesTagRows />);
-
-    expect(screen.queryByRole("group", { name: TEMPLATE_ROW_LABEL })).not.toBeInTheDocument();
-  });
-
-  /**
-   * A template holds lists and no registrations, so it has nothing an overview, an assignment or
-   * a report could show. Only where the lists themselves are maintained is it worth offering.
-   */
-  it.each(["/app/s1/overview", "/app/s1/assignment", "/app/s1/report"])(
-    "offers no template on %s, leaving the series the whole width",
-    (path) => {
-      pathname.mockReturnValue(path);
-      showing(
-        seriesNamed("s1", "Wintersportwoche"),
-        seriesNamed("t1", "Wintersportwochen", { isTemplate: true }),
-      );
-
-      render(<EventSeriesTagRows />);
-
-      expect(screen.queryByRole("group", { name: TEMPLATE_ROW_LABEL })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Wintersportwochen" })).not.toBeInTheDocument();
-    },
-  );
-
-  it.each(["/app/event-series", "/app/s1/master-data/programs"])(
-    "offers the templates on %s, where the lists are maintained",
-    (path) => {
-      pathname.mockReturnValue(path);
-      showing(
-        seriesNamed("s1", "Wintersportwoche"),
-        seriesNamed("t1", "Wintersportwochen", { isTemplate: true }),
-      );
-
-      render(<EventSeriesTagRows />);
-
-      expect(screen.getByRole("group", { name: TEMPLATE_ROW_LABEL })).toBeInTheDocument();
-    },
-  );
 
   /** Archived is what takes a series off every screen, the header included (US-19). */
-  it("shows an archived series in neither row", () => {
-    pathname.mockReturnValue("/app/s1/master-data/classes");
+  it("shows an archived series in no row at all", () => {
     showing(
       seriesNamed("s1", "Wintersportwoche"),
       seriesNamed("old", "Letztes Jahr", { isArchived: true }),
-      seriesNamed("t1", "Vorlage", { isTemplate: true, isArchived: true }),
     );
 
     render(<EventSeriesTagRows />);
 
     expect(screen.queryByRole("button", { name: "Letztes Jahr" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: TEMPLATE_ROW_LABEL })).not.toBeInTheDocument();
   });
 
-  it("presses exactly one tag across both rows, since exactly one thing is scoped", () => {
+  it("presses exactly one tag, since exactly one thing is scoped", () => {
     showing(
       seriesNamed("s1", "Wintersportwoche"),
       seriesNamed("s2", "Kulturwoche"),
-      seriesNamed("t1", "Vorlage", { isTemplate: true }),
+      seriesNamed("s3", "Projektwoche"),
     );
 
     render(<EventSeriesTagRows />);
@@ -162,16 +110,13 @@ describe("EventSeriesTagRows", () => {
     expect(pressed[0]).toHaveTextContent("Wintersportwoche");
   });
 
-  it("marks a selected template instead when the URL names one", () => {
-    pathname.mockReturnValue("/app/t1/master-data/classes");
-    showing(
-      seriesNamed("s1", "Wintersportwoche"),
-      seriesNamed("t1", "Vorlage", { isTemplate: true }),
-    );
+  it("marks whichever series the URL names", () => {
+    pathname.mockReturnValue("/app/s2/master-data/classes");
+    showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
     render(<EventSeriesTagRows />);
 
-    expect(screen.getByRole("button", { name: "Vorlage (Vorlage)" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Kulturwoche" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -206,20 +151,6 @@ describe("EventSeriesTagRows", () => {
     expect(screen.getAllByLabelText(CLOSED_TO_STUDENTS_LABEL)).toHaveLength(1);
   });
 
-  /** A template is neither open nor closed — it can never be opened at all (US-22). */
-  it("marks a template as one rather than as a door", () => {
-    pathname.mockReturnValue("/app/s1/master-data/classes");
-    showing(
-      seriesNamed("s1", "Wintersportwoche"),
-      seriesNamed("t1", "Wintersportwochen", { isTemplate: true }),
-    );
-
-    render(<EventSeriesTagRows />);
-
-    expect(screen.getAllByLabelText(TEMPLATE_LABEL)).toHaveLength(1);
-    expect(screen.queryAllByLabelText(OPEN_TO_STUDENTS_LABEL)).toHaveLength(0);
-  });
-
   it("re-scopes the page that is open rather than navigating away from it", async () => {
     pathname.mockReturnValue("/app/s1/master-data/classes");
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
@@ -250,9 +181,9 @@ describe("EventSeriesTagRows", () => {
 });
 
 /**
- * Three colours and no more: the accent for the series being worked in, grey for a template
- * being worked in, and the plain outline for everything else. Whether a series is open is said
- * by its icon, not by its fill, so the row carries one question at a time.
+ * Two colours and no more: the accent for the series being worked in, and the plain outline for
+ * every other. Whether a series is open is said by its icon, not by its fill, so the row carries
+ * one question at a time.
  */
 describe("EventSeriesTagRows — colour", () => {
   beforeEach(() => {
@@ -269,15 +200,6 @@ describe("EventSeriesTagRows — colour", () => {
     render(<EventSeriesTagRows />);
 
     expect(tagFor("Wintersportwoche")).toContain("bg-primary");
-  });
-
-  it("fills a selected template with grey instead", () => {
-    pathname.mockReturnValue("/app/t1/master-data/classes");
-    showing(seriesNamed("t1", "Vorlage", { isTemplate: true }));
-
-    render(<EventSeriesTagRows />);
-
-    expect(tagFor("Vorlage (Vorlage)")).toContain("bg-template");
   });
 
   it("leaves an unselected tag with the plain outline", () => {
@@ -339,18 +261,6 @@ describe("EventSeriesTagRows — opening and closing", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: openActionLabel("Wintersportwoche") }),
-    ).not.toBeInTheDocument();
-  });
-
-  /** A tag that offers to open what cannot be opened is a tag explaining a refusal (US-22). */
-  it("offers no action on a template, which can never be opened", () => {
-    pathname.mockReturnValue("/app/t1/master-data/classes");
-    showing(seriesNamed("t1", "Vorlage", { isTemplate: true }));
-
-    render(<EventSeriesTagRows />);
-
-    expect(
-      screen.queryByRole("button", { name: openActionLabel("Vorlage") }),
     ).not.toBeInTheDocument();
   });
 

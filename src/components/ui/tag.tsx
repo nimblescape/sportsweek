@@ -48,13 +48,13 @@ const TagContext = createContext<TagState>({ pressed: false, disabled: false });
 
 /**
  * How a pressed tag is filled: the accent for the chosen one, grey for a chosen one standing
- * apart from the rest — a template among event series, a report edited since it was opened.
+ * apart from the rest — a report edited since it was opened.
  *
  * An unpressed tag is outlined, whatever it would have been filled with. A row then answers one
  * question — which of these am I working in — and anything else a tag has to say, such as whether
  * a series is taking registrations, is said by the icon it carries rather than by a second colour.
  */
-export type TagVariant = "default" | "neutral" | "template";
+export type TagVariant = "default" | "neutral";
 
 type TagProps = {
   pressed?: boolean;

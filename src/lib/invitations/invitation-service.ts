@@ -35,8 +35,8 @@ function invitationDoc(token: string) {
  * registrations and reach them by signing in.
  *
  * Handing out a link and opening the series are one intent, so this opens it (US-19). A series
- * that cannot be opened has no link to hand out either, which is why a template and an archived
- * series are refused here rather than at a second control.
+ * that cannot be opened has no link to hand out either, which is why an archived series is
+ * refused here rather than at a second control.
  */
 export async function createInvitation(
   eventSeriesId: string,
@@ -56,12 +56,6 @@ export async function createInvitation(
       throw new ServiceError(
         ErrorCode.Conflict,
         "Eine archivierte Eventreihe kann nicht freigeschaltet werden.",
-      );
-    }
-    if (series.isTemplate) {
-      throw new ServiceError(
-        ErrorCode.Conflict,
-        "Eine Vorlage kann nicht für Anmeldungen freigeschaltet werden.",
       );
     }
 

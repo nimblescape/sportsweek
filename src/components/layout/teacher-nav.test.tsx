@@ -32,7 +32,6 @@ const SUB_ITEMS = [
 
 const series = (id: string, overrides = {}) => ({
   id,
-  isTemplate: false,
   isArchived: false,
   ...overrides,
 });
@@ -85,27 +84,26 @@ describe("TeacherNav", () => {
     );
   });
 
-  /** Master data can be about a template, so it is where a selected one is kept (US-22). */
-  it("opens Stammdaten on the first template when nothing is selected", () => {
+  /** Every page can be about every series, so one selection answers for the whole bar. */
+  it("opens Stammdaten on the first series when nothing is selected", () => {
     pathname.mockReturnValue("/app/event-series");
-    showing(series("s1"), series("t1", { isTemplate: true }));
+    showing(series("s1"), series("s2"));
 
     render(<TeacherNav />);
 
     expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
       "href",
-      "/app/t1/master-data/events",
+      "/app/s1/master-data/events",
     );
   });
 
-  /** A template has no registrations, so the pages that read them take the first series instead. */
-  it("points the other sections past a selected template", () => {
-    pathname.mockReturnValue("/app/t1/master-data/classes");
-    showing(series("t1", { isTemplate: true }), series("s1"));
+  it("points every section at the series the master data is about", () => {
+    pathname.mockReturnValue("/app/s2/master-data/classes");
+    showing(series("s1"), series("s2"));
 
     render(<TeacherNav />);
 
-    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s1/report");
+    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s2/report");
   });
 
   /**

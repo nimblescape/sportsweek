@@ -12,7 +12,6 @@ const VARIANTS = [
   "outline",
   "secondary",
   "neutral",
-  "template",
   "ghost",
   "destructive",
   "link",

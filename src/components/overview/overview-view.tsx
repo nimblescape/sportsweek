@@ -21,8 +21,8 @@ export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
   const { eventSeries, missing, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
   const invitations = useInvitations(eventSeriesId);
 
-  // Neither can ever be open, so neither has anyone to invite (US-19, US-22).
-  const openable = eventSeries !== null && !eventSeries.isTemplate && !eventSeries.isArchived;
+  // An archived series is read-only, so it has nobody left to invite (US-19).
+  const openable = eventSeries !== null && !eventSeries.isArchived;
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">

@@ -17,7 +17,7 @@ import {
   ARCHIVE_OPEN_HINT,
   EVENT_SERIES_STATE_LABELS,
   eventSeriesState,
-  LAST_TEMPLATE_HINT,
+  LAST_EVENT_SERIES_HINT,
 } from "@/lib/event-series/event-series-state";
 
 const DELETE_HINT =
@@ -69,7 +69,7 @@ export function EventSeriesList({
   }
 
   // Counted over the whole list rather than per row, so a row can tell whether it is the last one.
-  const unarchivedTemplates = eventSeries.filter((one) => one.isTemplate && !one.isArchived).length;
+  const unarchived = eventSeries.filter((one) => !one.isArchived).length;
 
   return (
     <Card className="[--card-spacing:--spacing(0)]">
@@ -96,8 +96,8 @@ export function EventSeriesList({
           const deleteHint = !eventSeries.isArchived
             ? eventSeries.hasRegistrations
               ? DELETE_HINT
-              : eventSeries.isTemplate && unarchivedTemplates === 1
-                ? LAST_TEMPLATE_HINT
+              : unarchived === 1
+                ? LAST_EVENT_SERIES_HINT
                 : null
             : null;
           const deletingDisabled = deleteHint !== null;

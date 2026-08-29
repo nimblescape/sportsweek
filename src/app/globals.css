@@ -45,8 +45,6 @@
   --color-primary: var(--primary);
   --color-neutral-foreground: var(--neutral-foreground);
   --color-neutral: var(--neutral);
-  --color-template-foreground: var(--template-foreground);
-  --color-template: var(--template);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -70,13 +68,10 @@
   /* The accent colour, at the hue of the HTL logo's slate. */
   --brand: oklch(0.55 0.17 250);
   --brand-foreground: var(--color-white);
-  /* A chosen tag standing apart from the rest: a template among series, a report since edited.
-     Selected always means white on a fill, so both are dark enough to carry it. */
+  /* A chosen tag standing apart from the rest: a report edited since it was opened.
+     Selected always means white on a fill, so it is dark enough to carry it. */
   --neutral: var(--color-gray-700);
   --neutral-foreground: var(--color-white);
-  /* A template, which is neither open nor closed and cannot become either (US-22). */
-  --template: var(--color-gray-500);
-  --template-foreground: var(--color-white);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -118,8 +113,6 @@
   --brand-foreground: var(--color-white);
   --neutral: var(--color-gray-600);
   --neutral-foreground: var(--color-white);
-  --template: var(--color-gray-400);
-  --template-foreground: var(--color-white);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

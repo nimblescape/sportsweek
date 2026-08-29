@@ -14,7 +14,7 @@ const allEventSeries = [
   { id: "s2", ...storedEventSeries({ name: "Wintersportwoche 2025", isArchived: true, hasRegistrations: true }) }, // prettier-ignore
   { id: "s3", ...storedEventSeries({ name: "Wintersportwoche 2027", hasRegistrations: true }) },
   { id: "s4", ...storedEventSeries({ name: "Wintersportwoche 2024" }) },
-  { id: "s5", ...storedEventSeries({ name: "Wintersportwochen", isTemplate: true }) },
+  { id: "s5", ...storedEventSeries({ name: "Wintersportwochen" }) },
 ];
 
 function renderList(overrides: Record<string, unknown> = {}) {
@@ -51,7 +51,7 @@ describe("EventSeriesList", () => {
     ["Wintersportwoche 2026", "Schüler:innen-Anmeldung offen"],
     ["Wintersportwoche 2025", "Archiviert"],
     ["Wintersportwoche 2027", "Schüler:innen-Anmeldung geschlossen"],
-    ["Wintersportwochen", "Vorlage"],
+    ["Wintersportwochen", "Schüler:innen-Anmeldung geschlossen"],
   ])("shows %s with the state %s", (name, state) => {
     renderList();
 
@@ -109,22 +109,21 @@ describe("EventSeriesList — row actions", () => {
   });
 
   /** Every teacher view is scoped to a selection, so the last one has to stay (US-19, US-22). */
-  it("disables deleting the only unarchived template, and says why", () => {
-    renderList();
+  it("disables deleting the only unarchived event series, and says why", () => {
+    renderList({
+      eventSeries: [{ id: "s1", ...storedEventSeries({ name: "Wintersportwoche 2026" }) }],
+    });
 
-    const control = screen.getByRole("button", { name: "Eventreihe Wintersportwochen löschen" });
+    const control = screen.getByRole("button", {
+      name: "Eventreihe Wintersportwoche 2026 löschen",
+    });
 
     expect(control).toBeDisabled();
-    expect(control).toHaveAccessibleDescription(/letzte vorlage/i);
+    expect(control).toHaveAccessibleDescription(/letzte eventreihe/i);
   });
 
-  it("allows deleting a template while another one remains", () => {
-    renderList({
-      eventSeries: [
-        ...allEventSeries,
-        { id: "s6", ...storedEventSeries({ name: "Sommersportwochen", isTemplate: true }) },
-      ],
-    });
+  it("allows deleting one while another unarchived one remains", () => {
+    renderList();
 
     expect(
       screen.getByRole("button", { name: "Eventreihe Wintersportwochen löschen" }),

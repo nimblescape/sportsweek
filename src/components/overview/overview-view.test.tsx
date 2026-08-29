@@ -146,7 +146,7 @@ describe("OverviewView", () => {
  * This page offers no control for it: two controls for one decision would be two answers to it.
  */
 describe("OverviewView — no second registration control", () => {
-  it.each([{}, { isOpenToStudents: false }, { isTemplate: true }, { isArchived: true }])(
+  it.each([{}, { isOpenToStudents: false }, { isArchived: true }])(
     "offers nothing that opens or closes the series, whatever state %o it is in",
     (state) => {
       useEventSeries.mockReturnValue({
@@ -174,10 +174,10 @@ describe("OverviewView — handing out links", () => {
     ).toBeInTheDocument();
   });
 
-  /** A series that can never be opened has no link to hand out either (US-19, US-22). */
-  it("offers no links for a template", () => {
+  /** A series that can never be opened has no link to hand out either (US-19). */
+  it("offers no links for an archived series", () => {
     useEventSeries.mockReturnValue({
-      eventSeries: [{ ...eventSeries, isTemplate: true, isOpenToStudents: false }],
+      eventSeries: [{ ...eventSeries, isArchived: true, isOpenToStudents: false }],
       loading: false,
       error: null,
     });
