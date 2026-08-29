@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+
+# Overrides for local development, layered over apphosting.yaml by `npm run dev`.
+#
+# App Hosting selects an environment file by the backend's Environment name, and no backend is
+# called `development` -- so unlike the base, which every backend inherits, nothing here can
+# arrive somewhere it was not asked for.
+#
+# Its own Firebase project, so developers work in their own database and never share one with
+# the teachers testing on staging. See https://firebase.google.com/docs/app-hosting/multiple-environments.
+env:
+  # Public in the same sense as the production key -- it identifies the project, it does not
+  # grant access. Restrict it to this project's own origins in the Cloud console.
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyB_tnEefYgqpBMMn6LtQOGItrzpwAKF3i8
+    availability:
+      - BUILD
+      - RUNTIME
+  # No custom domain here, unlike the deployed environments: development is served from
+  # localhost, and resolveAuthDomain answers with the current host anyway.
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: htld-sportsweek-development.firebaseapp.com
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: htld-sportsweek-development
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "1070085870088"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:1070085870088:web:2a04f98eb1e0ce0f27f7bd"
+    availability:
+      - BUILD
+      - RUNTIME
+  # The one environment where this is read at all: production and staging are pinned in
+  # resolveAuthMode. Set it to `entra` to rehearse the real Microsoft sign-in locally.
+  - variable: AUTH_MODE
+    value: fake
+    availability:
+      - BUILD
+      - RUNTIME
+  # Not a secret: an identifier, not a credential -- signing as it takes an IAM binding.
+  #
+  # Minting a custom token means signing a JWT, and the user credential from
+  # `gcloud auth application-default login` holds no signing key, so the Admin SDK signs
+  # through the IAM API instead and has to be told whose name to sign under. A deployment has
+  # no such problem: it runs as a service account already and discovers it from the metadata
+  # server, which is why naming one in a deployed environment's file would break it rather
+  # than help -- App Hosting's compute account may sign as itself and as nothing else.
+  #
+  # Deliberately not in INJECTED_VARIABLES, so a build that reads no file naming it cannot
+  # pick one up from the surrounding environment either.
+  #
+  # Grant yourself the right to sign as it once:
+  #   gcloud iam service-accounts add-iam-policy-binding \
+  #     firebase-adminsdk-fbsvc@htld-sportsweek-development.iam.gserviceaccount.com \
+  #     --member="user:YOUR_EMAIL" --role="roles/iam.serviceAccountTokenCreator" \
+  #     --project=htld-sportsweek-development
+  - variable: FIREBASE_SERVICE_ACCOUNT_ID
+    value: firebase-adminsdk-fbsvc@htld-sportsweek-development.iam.gserviceaccount.com
+    availability:
+      - BUILD
+      - RUNTIME

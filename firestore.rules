@@ -39,9 +39,16 @@ service cloud.firestore {
       return upn() != '' && upn() == uid;
     }
 
-    // See .github/instructions/firestore-security-rules.instructions.md before adding collections below.
+    /**
+     * A caller's own record, and nobody else's. A teacher used to read every user because the
+     * roster joined registrations to them for the student's name; the registration now carries
+     * that name itself (US-26), so the permission has no reader left and is withdrawn.
+     *
+     * The fake login's list of existing users (US-16) is unaffected: it is read server-side
+     * with the Admin SDK, which bypasses these rules.
+     */
     match /users/{uid} {
-      allow read: if isSelf(uid) || isTeacher();
+      allow read: if isSelf(uid);
 
       // Records are provisioned on first login by the Admin SDK, which bypasses these rules.
       allow create: if false;
@@ -54,23 +61,79 @@ service cloud.firestore {
     }
 
     /**
-     * Every teacher-maintained collection: anyone signed in may read, because student master
-     * data selects from these lists and the teacher views subscribe to them live. Nobody
-     * writes from the client.
+     * A student's own registration (US-11), stored beneath the event series it belongs to so
+     * that which series it is in is its path rather than a field it carries (US-26). Its id is
+     * the student's UPN, so ownership is the document's own name and a read needs no query.
+     * The record carries the emergency contact and the rented equipment in its own fields, so
+     * there is no child document whose ownership would have to be worked out separately.
      *
-     * Writes are closed rather than merely restricted to teachers, because the invariants
-     * these collections carry cannot be expressed here at all. Rules can `get()` a known
-     * path but cannot run a query, so "is this name already taken?" (US-4 to US-10), "is
-     * at most one season active?" (US-4), "is this item still in use?" (US-5 to US-10) and
-     * the cascade on delete (US-4) are all out of reach. They are enforced in transactions
-     * in the Route Handlers, which use the Admin SDK and bypass these rules — leaving a
-     * second, unchecked way in would make those guarantees worthless.
+     * A teacher reads the whole subcollection, because planning is what it is for: the
+     * assignment board counts every class and every event of the series (US-12) and the report
+     * lists every student (US-13). Checked first, so a list is answered without touching
+     * `resource`, which a list has none of until a document is returned.
+     *
+     * Writes are closed for the reason the event series document's are: a save carries
+     * invariants rules cannot run a query for — every answer has to be one the series still
+     * offers (US-27), answering "no" gives up the event assignment (US-12), and the series'
+     * `hasRegistrations` mirror follows it (US-4). The teacher's assignment goes the same way,
+     * through a handler that owns `event`.
+     */
+    match /eventSeries/{eventSeriesId}/registrations/{studentUpn} {
+      allow read: if isTeacher() || isSelf(studentUpn);
+      allow write: if false;
+    }
+
+    /**
+     * Saved reports are shared among all teachers, not private to who saved them (US-13), and
+     * are no business of a student's.
+     *
+     * They sit beneath the series whose lists they filter on rather than in its document, which
+     * is what lets that last part be said at all: a rule grants a whole document or none of it,
+     * and anyone signed in may read an event series because a registration selects from its
+     * lists (US-11). A field would therefore have handed every student every report of every
+     * series; a subcollection has a rule of its own.
+     *
+     * Writes are closed for the reason the event series document's are: the author is the
+     * session's rather than the request's, and a copy has to prune what its new lists no longer
+     * offer (US-22). Both are done in transactions by the Route Handlers.
+     */
+    match /eventSeries/{eventSeriesId}/savedReports/{reportId} {
+      allow read: if isTeacher();
+      allow write: if false;
+    }
+
+    /**
+     * The invitation tokens (US-23). Closed to everybody, in both directions: a token is what
+     * enrols somebody, so handing it to a reader would hand them the enrolment. It is resolved
+     * server-side by the Route Handler behind the link, which uses the Admin SDK.
+     *
+     * The catch-all below would deny this collection anyway, since it lists what may be read.
+     * This says so out loud, so that adding `invitations` to that list reads as the mistake it
+     * would be rather than as one more name in a list.
+     */
+    match /invitations/{token} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    /**
+     * The event series, and with it every list a teacher maintains — its events among them
+     * (US-21). Anyone signed in may read, because a registration selects from those lists
+     * (US-11) and the teacher views subscribe to them live.
+     *
+     * Writes are closed rather than merely restricted to teachers, because the invariants this
+     * document carries cannot be expressed here at all. Rules can `get()` a known path but cannot
+     * run a query, so "is this name already taken?" (US-4) and "is this item still in use?"
+     * (US-5 to US-10) are out of reach — and a list edit has to be a read-modify-write of one
+     * array, which no rule can hold to being one. They are enforced in transactions in the Route
+     * Handlers, which use the Admin SDK and bypass these rules — leaving a second, unchecked way
+     * in would make those guarantees worthless.
+     *
+     * The name below is a copy: this language cannot import application code. It is owned by
+     * COLLECTIONS in src/lib/schemas/collections.ts and has to be kept in step by hand.
      */
     match /{collection}/{itemId} {
-      allow read: if isSignedIn() && collection in [
-        'seasons', 'events', 'programs',
-        'classOptions', 'skillLevels', 'busPickupPoints', 'foodOptions', 'seasonPassOptions'
-      ];
+      allow read: if isSignedIn() && collection in ['eventSeries'];
 
       allow write: if false;
     }

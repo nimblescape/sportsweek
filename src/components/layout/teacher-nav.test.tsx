@@ -7,26 +7,44 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const pathname = vi.fn(() => "/app/report");
+const pathname = vi.fn(() => "/app/s1/report");
+const eventSeries = vi.fn<() => { eventSeries: unknown[] }>(() => ({ eventSeries: [] }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => pathname() }));
+vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => eventSeries() }));
+
+// The bar carries it at its foot, and it reaches Firebase, which no test here has cause to start.
+vi.mock("@/components/auth/sign-out-button", () => ({
+  SignOutButton: () => <button type="button">Abmelden</button>,
+}));
 
 const { TeacherNav } = await import("@/components/layout/teacher-nav");
 
 const SUB_ITEMS = [
-  "Saisonen",
-  "Programme",
+  "Eventreihen",
   "Klassen",
+  "Programme",
   "Leistungsstufen",
+  "Zugangskarten",
   "Zustiegsstellen",
   "Verpflegung",
-  "Saisonkarten",
 ];
+
+const series = (id: string, overrides = {}) => ({
+  id,
+  isTemplate: false,
+  isArchived: false,
+  ...overrides,
+});
+
+const showing = (...list: ReturnType<typeof series>[]) =>
+  eventSeries.mockReturnValue({ eventSeries: list });
 
 describe("TeacherNav", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    pathname.mockReturnValue("/app/report");
+    pathname.mockReturnValue("/app/s1/report");
+    showing(series("s1"), series("s2"), series("s7"));
   });
 
   it("lists the top-level items in order", () => {
@@ -37,42 +55,118 @@ describe("TeacherNav", () => {
       .concat(screen.getAllByRole("button"))
       .map((element) => element.textContent);
 
-    expect(labels).toEqual(expect.arrayContaining(["Bericht", "Zuteilung", "Stammdaten"]));
-    expect(labels.indexOf("Bericht")).toBeLessThan(labels.indexOf("Zuteilung"));
+    expect(labels).toEqual(
+      expect.arrayContaining(["\u00dcbersicht", "Zuteilung", "Bericht", "Stammdaten"]),
+    );
+    expect(labels.indexOf("\u00dcbersicht")).toBeLessThan(labels.indexOf("Zuteilung"));
+    expect(labels.indexOf("Zuteilung")).toBeLessThan(labels.indexOf("Bericht"));
+    expect(labels.indexOf("Bericht")).toBeLessThan(labels.indexOf("Stammdaten"));
   });
 
-  it("keeps the master data sub-items collapsed outside that section", () => {
+  it("gives every top-level item an icon to be recognised by once the labels are gone", () => {
     render(<TeacherNav />);
 
-    for (const label of SUB_ITEMS) {
+    for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht"]) {
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: label }).querySelector("svg")).toBeInTheDocument();
+    }
+    expect(
+      screen.getByRole("link", { name: /stammdaten/i }).querySelector("svg"),
+    ).toBeInTheDocument();
+  });
+
+  /** Moving into the section is not a change of series, so it opens on the one already selected. */
+  it("opens Stammdaten on the selected series, at its first list", () => {
+    render(<TeacherNav />);
+
+    expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
+      "href",
+      "/app/s1/master-data/events",
+    );
+  });
+
+  /** Master data can be about a template, so it is where a selected one is kept (US-22). */
+  it("opens Stammdaten on the first template when nothing is selected", () => {
+    pathname.mockReturnValue("/app/event-series");
+    showing(series("s1"), series("t1", { isTemplate: true }));
+
+    render(<TeacherNav />);
+
+    expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
+      "href",
+      "/app/t1/master-data/events",
+    );
+  });
+
+  /** A template has no registrations, so the pages that read them take the first series instead. */
+  it("points the other sections past a selected template", () => {
+    pathname.mockReturnValue("/app/t1/master-data/classes");
+    showing(series("t1", { isTemplate: true }), series("s1"));
+
+    render(<TeacherNav />);
+
+    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s1/report");
+  });
+
+  /**
+   * Every page but the event series list is about one series, so with none at all there is
+   * nowhere for the other entries to point (US-20).
+   */
+  it("offers only the event series list while there is no series to be about", () => {
+    pathname.mockReturnValue("/app/event-series");
+    showing();
+
+    render(<TeacherNav />);
+
+    expect(screen.getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
+    for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht", "Klassen"]) {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
   });
 
-  it("expands the sub-items when Stammdaten is selected", async () => {
-    render(<TeacherNav />);
+  /** The list page has no selection of its own, so the layout resolves one for it (Q8). */
+  it("points at the remembered series while standing on the unscoped list", () => {
+    pathname.mockReturnValue("/app/event-series");
 
-    await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
+    render(<TeacherNav fallbackEventSeriesId="s7" />);
+
+    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s7/report");
+  });
+
+  /**
+   * The fallback is resolved by a layout above the series id, which does not render again while
+   * the teacher moves about below it — so on its own it goes stale the moment they select another.
+   */
+  it("keeps pointing at the series it was last in after leaving it for the list", () => {
+    pathname.mockReturnValue("/app/s1/report");
+    const { rerender } = render(<TeacherNav />);
+
+    pathname.mockReturnValue("/app/event-series");
+    rerender(<TeacherNav />);
+
+    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s1/report");
+  });
+
+  it("shows the master data sub-items whatever the route is, since they never fold away", () => {
+    render(<TeacherNav />);
 
     for (const label of SUB_ITEMS) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
   });
 
-  it("collapses the sub-items again when Stammdaten is deselected", async () => {
+  it("leaves them there when Stammdaten is clicked, which folds nothing", async () => {
     render(<TeacherNav />);
-    const toggle = screen.getByRole("button", { name: /stammdaten/i });
 
-    await userEvent.click(toggle);
-    await userEvent.click(toggle);
+    await userEvent.click(screen.getByRole("link", { name: /stammdaten/i }));
 
-    expect(screen.queryByRole("link", { name: "Saisonen" })).not.toBeInTheDocument();
+    for (const label of SUB_ITEMS) {
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+    }
   });
 
-  it("has one sub-item per teacher-maintained category", async () => {
+  it("has one sub-item per teacher-maintained category", () => {
     render(<TeacherNav />);
-
-    await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
 
     expect(SUB_ITEMS).toHaveLength(7);
     for (const label of SUB_ITEMS) {
@@ -80,16 +174,8 @@ describe("TeacherNav", () => {
     }
   });
 
-  it("starts expanded when the current route is inside master data", () => {
-    pathname.mockReturnValue("/app/master-data/classes");
-
-    render(<TeacherNav />);
-
-    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
-  });
-
   it("marks the active item for assistive technology", () => {
-    pathname.mockReturnValue("/app/assignment");
+    pathname.mockReturnValue("/app/s1/assignment");
 
     render(<TeacherNav />);
 
@@ -98,10 +184,41 @@ describe("TeacherNav", () => {
   });
 
   it("marks the active sub-item", () => {
-    pathname.mockReturnValue("/app/master-data/classes");
+    pathname.mockReturnValue("/app/s1/master-data/classes");
 
     render(<TeacherNav />);
 
     expect(screen.getByRole("link", { name: "Klassen" })).toHaveAttribute("aria-current", "page");
   });
+});
+
+/**
+ * The bar does not fold. It had a control on the logo and, before that, on whichever row you
+ * were already standing on; both are gone until the width is worth the second state.
+ */
+describe("TeacherNav — always open", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    pathname.mockReturnValue("/app/s1/report");
+    showing(series("s1"), series("s2"), series("s7"));
+  });
+
+  const openSubItems = () => screen.queryByRole("link", { name: "Klassen" });
+
+  it("offers nothing that folds it", () => {
+    render(<TeacherNav />);
+
+    expect(screen.queryByRole("button", { name: /navigation/i })).not.toBeInTheDocument();
+  });
+
+  it.each(["Bericht", "\u00dcbersicht", "Stammdaten"])(
+    "stays open when %s is pressed, whether it is where you already are or not",
+    async (label) => {
+      render(<TeacherNav />);
+
+      await userEvent.click(screen.getByRole("link", { name: label }));
+
+      expect(openSubItems()).toBeInTheDocument();
+    },
+  );
 });

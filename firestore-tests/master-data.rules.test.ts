@@ -53,25 +53,29 @@ async function seed(collection: string, id: string, data: Record<string, unknown
 }
 
 /**
- * Every teacher-maintained collection follows one model: anyone signed in may read, because
- * student master data selects from these lists, and nobody may write from the client.
+ * The event series and its events follow one model: anyone signed in may read, because a
+ * registration selects from the lists the event series document carries (US-21), and nobody may
+ * write from the client.
  *
- * Writes are closed because the invariants these collections carry cannot be expressed in
- * rules at all — rules can `get()` a known path but cannot run a query, so "is this name
- * already taken?" (US-4 to US-10), "is exactly one season active?" (US-4) and "is this item
- * still in use?" (US-5 to US-10) are all unreachable here. They are enforced in transactions
- * in the Route Handlers instead, and leaving a second, unchecked way in would make those
- * guarantees worthless.
+ * Writes are closed because the invariants these documents carry cannot be expressed in rules at
+ * all — rules can `get()` a known path but cannot run a query, so "is this name already taken?"
+ * (US-4, US-21), "is exactly one event series active?" (US-4) and "is this item still in use?"
+ * (US-5 to US-10) are all unreachable here. They are enforced in transactions in the Route
+ * Handlers instead, and leaving a second, unchecked way in would make those guarantees worthless.
  */
 const READABLE_COLLECTIONS: [string, Record<string, unknown>][] = [
-  ["programs", { name: "Ski", requiredEquipment: ["Helm"] }],
-  ["classOptions", { name: "5AHIF" }],
-  ["skillLevels", { name: "Fortgeschritten" }],
-  ["busPickupPoints", { name: "Dornbirn" }],
-  ["foodOptions", { name: "Vegetarisch" }],
-  ["seasonPassOptions", { name: "Montafon Card" }],
-  ["seasons", { name: "Winter 2026", isActive: false, isArchived: false }],
-  ["events", { seasonId: "s1", name: "Montafon" }],
+  [
+    "eventSeries",
+    {
+      name: "Winter 2026",
+      nameKey: "winter 2026",
+      isOpenToStudents: false,
+      isArchived: false,
+      events: ["Montafon"],
+      classOptions: ["5AHIF"],
+      programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+    },
+  ],
 ];
 
 describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
@@ -81,7 +85,7 @@ describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
     await assertSucceeds(teacher().collection(collection).doc("item1").get());
   });
 
-  it("lets a student read it, since master data selects from these lists", async () => {
+  it("lets a student read it, since a registration selects from the lists it carries", async () => {
     await seed(collection, "item1", valid);
 
     await assertSucceeds(student().collection(collection).doc("item1").get());
@@ -125,14 +129,18 @@ describe.each(READABLE_COLLECTIONS)("/%s", (collection, valid) => {
 });
 
 /**
- * Bookkeeping the app keeps for itself. Neither is part of any view, and both would hand a
- * client a way to interfere with invariants it is not allowed to touch: freeing a reserved
- * name would let a duplicate through, and rewriting the seed marker would resurrect defaults
- * a teacher deleted (US-5 to US-10).
+ * A collection the application does not have is closed to every client, whatever it is called.
+ * The catch-all names what may be read, so anything outside that list — including the
+ * collections this refactoring deleted — is denied rather than merely unused (US-21).
  */
 describe.each([
+  ["events", { eventSeriesId: "s1", name: "Montafon" }],
+  ["classOptions", { name: "5AHIF" }],
+  ["programs", { name: "Ski" }],
   ["reservedNames", { scope: "classOptions", name: "5AHIF", ownerId: "c1" }],
   ["seedState", { seededKeys: ["classes|5ahif"] }],
+  // A registration lives beneath its event series now (US-26); a top-level one is nothing.
+  ["registrations", { studentUpn: "schuelerin@student.htldornbirn.at" }],
 ])("/%s stays invisible to every client", (collection, valid) => {
   it("denies a teacher reading it", async () => {
     await seed(collection, "item1", valid);
@@ -158,29 +166,82 @@ describe.each([
 });
 
 describe("invariants that rules cannot express are not left half-guarded", () => {
-  it("stops a teacher marking a second season active from the client", async () => {
-    await seed("seasons", "a", { name: "Winter 2026", isActive: true, isArchived: false });
-    await seed("seasons", "b", { name: "Winter 2027", isActive: false, isArchived: false });
+  /** Opening a series is the invitation link's doing, in a handler (US-19, US-23). */
+  it("stops a teacher opening an event series to students from the client", async () => {
+    await seed("eventSeries", "a", {
+      name: "Winter 2026",
+      isOpenToStudents: false,
+      isArchived: false,
+    });
 
-    await assertFails(teacher().collection("seasons").doc("b").update({ isActive: true }));
+    await assertFails(
+      teacher().collection("eventSeries").doc("a").update({ isOpenToStudents: true }),
+    );
   });
 
-  it("stops a teacher creating a duplicate season name from the client", async () => {
-    await seed("seasons", "a", { name: "Winter 2026", isActive: false, isArchived: false });
+  it("stops a teacher creating a duplicate event series name from the client", async () => {
+    await seed("eventSeries", "a", {
+      name: "Winter 2026",
+      isOpenToStudents: false,
+      isArchived: false,
+    });
 
     await assertFails(
       teacher()
-        .collection("seasons")
+        .collection("eventSeries")
         .doc("b")
-        .set({ name: "Winter 2026", isActive: false, isArchived: false }),
+        .set({ name: "Winter 2026", isOpenToStudents: false, isArchived: false }),
     );
   });
 
   it("stops a teacher creating a duplicate event name from the client", async () => {
-    await seed("events", "e1", { seasonId: "s1", name: "Montafon" });
+    await seed("events", "e1", { eventSeriesId: "s1", name: "Montafon" });
 
     await assertFails(
-      teacher().collection("events").doc("e2").set({ seasonId: "s1", name: "Montafon" }),
+      teacher().collection("events").doc("e2").set({ eventSeriesId: "s1", name: "Montafon" }),
     );
+  });
+});
+
+/**
+ * A token is what enrols somebody (US-23), so reading one is enrolling. Nobody may — not a
+ * student, not a teacher, not the person who generated it. The Route Handler behind the link
+ * resolves it with the Admin SDK, which these rules do not govern.
+ */
+describe("/invitations/{token}", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context
+        .firestore()
+        .collection("invitations")
+        .doc("secret-token")
+        .set({ eventSeriesId: "s1", class: "3aWI" });
+    });
+  });
+
+  it.each([
+    ["a teacher", () => teacher()],
+    ["a student", () => student()],
+    ["a signed-out visitor", () => anonymous()],
+  ])("refuses to hand the token to %s", async (_who, as) => {
+    await assertFails(as().collection("invitations").doc("secret-token").get());
+  });
+
+  it("refuses to let anyone list the tokens", async () => {
+    await assertFails(teacher().collection("invitations").get());
+  });
+
+  /** Minting one is a teacher's act, but it goes through the handler, never from a client. */
+  it.each([
+    ["a teacher", () => teacher()],
+    ["a student", () => student()],
+  ])("refuses to let %s mint one", async (_who, as) => {
+    await assertFails(
+      as().collection("invitations").doc("mine").set({ eventSeriesId: "s1", class: "3aWI" }),
+    );
+  });
+
+  it("refuses to let anyone delete one, which would invalidate a class's link", async () => {
+    await assertFails(teacher().collection("invitations").doc("secret-token").delete());
   });
 });

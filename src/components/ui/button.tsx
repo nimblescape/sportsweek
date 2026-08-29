@@ -6,9 +6,12 @@
  * Adapted from shadcn/ui (https://ui.shadcn.com), MIT licensed.
  * See LICENSE and THIRD-PARTY-NOTICES.md in the repository root for details.
  */
+"use client";
+
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 
+import { useInert } from "@/lib/api/busy";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -21,24 +24,37 @@ const buttonVariants = cva(
           "border-border bg-background hover:bg-muted hover:text-foreground active:bg-accent aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] active:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_10%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+        // An event series tag: the accent when it is the chosen one, and the same blue a weight
+        // back when it is not — which is the only place an unpressed tag is filled at all.
+        series: "bg-primary text-primary-foreground hover:bg-primary/80 active:bg-primary/70",
+        "series-soft":
+          "bg-brand-subtle text-primary-foreground border-transparent hover:bg-[color-mix(in_oklch,var(--brand-subtle),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--brand-subtle),var(--foreground)_20%)]",
+        open: "bg-open text-open-foreground hover:bg-[color-mix(in_oklch,var(--open),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--open),var(--foreground)_20%)]",
+        // The same green said quietly — brighter, since it is not the chosen one — wearing the
+        // same white, because a tag that changed both its fill and its ink would read as another
+        // kind of tag rather than the same one unpressed.
+        "open-soft":
+          "bg-open-subtle text-open-foreground border-transparent hover:bg-[color-mix(in_oklch,var(--open-subtle),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--open-subtle),var(--foreground)_20%)]",
+        // Greyscale that a white surface can still be told from, which `secondary` at 0.97 cannot.
+        neutral:
+          "bg-neutral text-neutral-foreground hover:bg-[color-mix(in_oklch,var(--neutral),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--neutral),var(--foreground)_20%)]",
+        template:
+          "bg-template text-template-foreground hover:bg-[color-mix(in_oklch,var(--template),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--template),var(--foreground)_20%)]",
+        "template-soft":
+          "bg-template-subtle text-template-foreground border-transparent hover:bg-[color-mix(in_oklch,var(--template-subtle),var(--foreground)_10%)] active:bg-[color-mix(in_oklch,var(--template-subtle),var(--foreground)_20%)]",
         ghost:
           "hover:bg-muted hover:text-foreground active:bg-accent aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 active:bg-destructive/30 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline active:text-primary/70",
       },
+      // One height, and a square of it, both from the shared token. A button that could be
+      // another size is a decision every call site has to make again, and the answers stop
+      // agreeing — which is what left tags at 28px in rows of 32.
       size: {
         default:
-          "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        icon: "size-8",
-        "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
-        "icon-lg": "size-9",
+          "h-(--control-height) gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        icon: "size-(--control-height)",
       },
     },
     defaultVariants: {
@@ -52,11 +68,13 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  disabled,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
       data-slot="button"
+      disabled={useInert(disabled)}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

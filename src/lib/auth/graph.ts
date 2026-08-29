@@ -9,12 +9,16 @@ import "server-only";
 // authoritative first/last name has to come from Graph itself (US-1).
 const GRAPH_ME_URL = "https://graph.microsoft.com/v1.0/me?$select=givenName,surname";
 
-export type EntraName = { firstName: string; lastName: string };
+/** Whichever of the two Entra holds; each is used on its own if the other is missing. */
+export type EntraName = { firstName?: string; lastName?: string };
 
 /**
  * Reads the signed-in user's name from Microsoft Graph.
- * The access token comes from the browser but is never trusted — Graph rejects a forged
- * one, so a `null` result simply means the name could not be established.
+ *
+ * `givenName` is the first name and `surname` the last one, asked for by name so neither can be
+ * confused for the other — unlike the display name, whose word order is the tenant's choice.
+ * The access token comes from the browser but is never trusted: Graph rejects a forged one, so
+ * `null` simply means the name could not be established.
  */
 export async function fetchEntraName(accessToken: string): Promise<EntraName | null> {
   try {
@@ -32,9 +36,66 @@ export async function fetchEntraName(accessToken: string): Promise<EntraName | n
     const firstName = typeof givenName === "string" ? givenName.trim() : "";
     const lastName = typeof surname === "string" ? surname.trim() : "";
 
-    return firstName && lastName ? { firstName, lastName } : null;
+    if (!firstName && !lastName) {
+      console.error("Microsoft Graph /me holds neither givenName nor surname");
+      return null;
+    }
+
+    return { ...(firstName ? { firstName } : {}), ...(lastName ? { lastName } : {}) };
   } catch (err) {
     console.error("Microsoft Graph /me request failed:", err);
+    return null;
+  }
+}
+
+// Twice the 24px the mark is drawn at, so it stays sharp on a dense screen without carrying a
+// photo nothing will ever use. Graph resizes; the original is whatever the tenant uploaded.
+const PHOTO_SIZE = 48;
+const GRAPH_PHOTO_URL = `https://graph.microsoft.com/v1.0/me/photos/${PHOTO_SIZE}x${PHOTO_SIZE}/$value`;
+
+/** Well inside the 1 MiB a Firestore document holds, this being kept in one. */
+export const MAX_PHOTO_BYTES = 64 * 1024;
+
+/** What may be named in the data URL. Graph sends JPEG; the rest is what a browser can decode. */
+const PHOTO_TYPES: readonly string[] = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+/**
+ * Reads the signed-in user's Entra photo, as a data URL.
+ *
+ * The bytes rather than an address, because Graph serves the photo to a bearer token and the
+ * browser has none — the token belongs to the sign-in in progress and is not kept (US-1).
+ * Null is the ordinary answer: most accounts have no photo, and a decorative mark is not worth
+ * failing a sign-in over.
+ */
+export async function fetchEntraPhoto(accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch(GRAPH_PHOTO_URL, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (response.status === 404) return null;
+    if (!response.ok) {
+      console.error(`Microsoft Graph /me/photo returned ${response.status}`);
+      return null;
+    }
+
+    // Named in a URL the browser will parse, so it is chosen from a list here rather than
+    // repeated from the header, whatever the header happens to say.
+    const type = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+    if (!PHOTO_TYPES.includes(type)) {
+      console.error(`Microsoft Graph /me/photo answered with ${type || "no type"}`);
+      return null;
+    }
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.byteLength === 0 || bytes.byteLength > MAX_PHOTO_BYTES) {
+      console.error(`Microsoft Graph /me/photo answered with ${bytes.byteLength} bytes`);
+      return null;
+    }
+
+    return `data:${type};base64,${bytes.toString("base64")}`;
+  } catch (err) {
+    console.error("Microsoft Graph /me/photo request failed:", err);
     return null;
   }
 }

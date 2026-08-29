@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { ErrorCodeSchema, type ErrorCode } from "@/lib/errors";
+import { holdRequest } from "@/lib/api/requests";
 
 const GENERIC_MESSAGE = "Das hat leider nicht geklappt.";
 
@@ -19,8 +20,8 @@ export class ApiRequestError extends Error {
   }
 }
 
-type RequestOptions = {
-  method: "POST" | "PATCH" | "DELETE";
+export type RequestOptions = {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
 };
 
@@ -35,23 +36,35 @@ async function readError(response: Response): Promise<ApiRequestError> {
   }
 }
 
+/**
+ * Every request the browser makes to this application's own API, and the only place one is made.
+ *
+ * It reports itself busy for as long as it is out, so the spinner speaks for every write without
+ * a caller having to remember to say so — which is what keeps a control that forgot from being
+ * possible at all.
+ */
 export async function apiRequest<T = unknown>(
   url: string,
   { method, body }: RequestOptions,
 ): Promise<T | null> {
-  let response: Response;
+  const release = holdRequest();
   try {
-    response = await fetch(url, {
-      method,
-      headers: { "content-type": "application/json" },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-  } catch {
-    throw new ApiRequestError("Keine Verbindung zum Server. Bitte versuche es erneut.");
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers: { "content-type": "application/json" },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    } catch {
+      throw new ApiRequestError("Keine Verbindung zum Server. Bitte versuche es erneut.");
+    }
+
+    if (!response.ok) throw await readError(response);
+    if (response.status === 204) return null;
+
+    return (await response.json()) as T;
+  } finally {
+    release();
   }
-
-  if (!response.ok) throw await readError(response);
-  if (response.status === 204) return null;
-
-  return (await response.json()) as T;
 }

@@ -14,19 +14,30 @@ process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
 process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "sportsweek-unique-integration";
 
 const { adminDb } = await import("@/lib/firebase/admin");
-const { createSeason, updateSeason, deleteSeason } = await import("@/lib/seasons/season-service");
-const { createEvent, deleteEvent } = await import("@/lib/events/event-service");
+const { createEventSeries, updateEventSeries, deleteEventSeries } =
+  await import("@/lib/event-series/event-series-service");
+const { createMasterDataItem, deleteMasterDataItem } =
+  await import("@/lib/master-data/master-data-service");
+
+// Events are one of the maintained lists (US-21), so they are created like any other item.
+const createEvent = ({ eventSeriesId, name }: { eventSeriesId: string; name: string }) =>
+  createMasterDataItem(eventSeriesId, "events", { name });
+const deleteEvent = (eventSeriesId: string, event: string) =>
+  deleteMasterDataItem(eventSeriesId, "events", event);
 
 async function wipe(collection: string) {
   const snapshot = await adminDb.collection(collection).get();
   await Promise.all(snapshot.docs.map((doc) => doc.ref.delete()));
 }
 
-// reservedNames has to go too: a leftover reservation blocks the name it still holds.
-const COLLECTIONS_UNDER_TEST = ["seasons", "events", "reservedNames"];
-
+/** Events are entries of the event series document, so emptying that collection takes them too. */
 async function reset() {
-  for (const collection of COLLECTIONS_UNDER_TEST) await wipe(collection);
+  await wipe("eventSeries");
+}
+
+async function eventsOf(eventSeriesId: string): Promise<string[]> {
+  const snapshot = await adminDb.collection("eventSeries").doc(eventSeriesId).get();
+  return (snapshot.data()?.events ?? []) as string[];
 }
 
 beforeEach(reset);
@@ -35,148 +46,159 @@ afterAll(reset);
 const settledReasons = (results: PromiseSettledResult<unknown>[]) =>
   results.flatMap((r) => (r.status === "rejected" ? [r.reason] : []));
 
-describe("season name uniqueness against a real Firestore", () => {
+describe("event series name uniqueness against a real Firestore", () => {
   it("rejects a duplicate created one after the other", async () => {
-    await createSeason({ name: "Winter 2026" });
+    await createEventSeries({ name: "Winter 2026" });
 
-    await expect(createSeason({ name: "Winter 2026" })).rejects.toMatchObject({
+    await expect(createEventSeries({ name: "Winter 2026" })).rejects.toMatchObject({
       code: "CONFLICT",
     });
   });
 
   it("lets exactly one of two simultaneous creates win", async () => {
     const results = await Promise.allSettled([
-      createSeason({ name: "Winter 2026" }),
-      createSeason({ name: "Winter 2026" }),
+      createEventSeries({ name: "Winter 2026" }),
+      createEventSeries({ name: "Winter 2026" }),
     ]);
 
-    const snapshot = await adminDb.collection("seasons").get();
+    const snapshot = await adminDb.collection("eventSeries").get();
     expect(snapshot.size).toBe(1);
     expect(settledReasons(results)).toHaveLength(1);
   });
 
   it("holds under a burst of simultaneous creates", async () => {
-    const attempts = Array.from({ length: 8 }, () => createSeason({ name: "Winter 2026" }));
+    const attempts = Array.from({ length: 8 }, () => createEventSeries({ name: "Winter 2026" }));
 
     await Promise.allSettled(attempts);
 
-    const snapshot = await adminDb.collection("seasons").get();
+    const snapshot = await adminDb.collection("eventSeries").get();
     expect(snapshot.size).toBe(1);
   });
 
   it("still lets genuinely different names through concurrently", async () => {
     await Promise.all([
-      createSeason({ name: "Winter 2026" }),
-      createSeason({ name: "Winter 2027" }),
-      createSeason({ name: "Winter 2028" }),
+      createEventSeries({ name: "Winter 2026" }),
+      createEventSeries({ name: "Winter 2027" }),
+      createEventSeries({ name: "Winter 2028" }),
     ]);
 
-    const snapshot = await adminDb.collection("seasons").get();
+    const snapshot = await adminDb.collection("eventSeries").get();
     expect(snapshot.size).toBe(3);
   });
 
   it("treats a case-only difference as the same name under contention", async () => {
     await Promise.allSettled([
-      createSeason({ name: "Winter 2026" }),
-      createSeason({ name: "WINTER 2026" }),
+      createEventSeries({ name: "Winter 2026" }),
+      createEventSeries({ name: "WINTER 2026" }),
     ]);
 
-    const snapshot = await adminDb.collection("seasons").get();
+    const snapshot = await adminDb.collection("eventSeries").get();
     expect(snapshot.size).toBe(1);
   });
 
   it("refuses a rename onto a name taken in the meantime", async () => {
-    const first = await createSeason({ name: "Winter 2026" });
-    await createSeason({ name: "Winter 2027" });
+    const first = await createEventSeries({ name: "Winter 2026" });
+    await createEventSeries({ name: "Winter 2027" });
 
-    await expect(updateSeason(first.id, { name: "Winter 2027" })).rejects.toMatchObject({
+    await expect(updateEventSeries(first.id, { name: "Winter 2027" })).rejects.toMatchObject({
       code: "CONFLICT",
     });
   });
 });
 
+/**
+ * Event names are unique within their own series, and that is now decided by a comparison rather
+ * than a query: the whole list is in the document the write already holds (US-21). The index
+ * locking these tests were written to catch cannot arise, because no query is made.
+ */
 describe("event name uniqueness against a real Firestore", () => {
-  it("does not serialise writes to unrelated seasons", async () => {
-    const seasons = await Promise.all(
-      Array.from({ length: 4 }, (_, i) => createSeason({ name: `Saison ${i}` })),
+  it("does not make writes to unrelated event series wait for one another", async () => {
+    const eventSeries = await Promise.all(
+      Array.from({ length: 4 }, (_, i) => createEventSeries({ name: `Eventreihe ${i}` })),
     );
 
     const started = Date.now();
     await Promise.all(
-      seasons.map((season) => createEvent({ seasonId: season.id, name: "Montafon" })),
+      eventSeries.map((eventSeries) =>
+        createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
+      ),
     );
     const elapsed = Date.now() - started;
 
-    expect(await adminDb.collection("events").get()).toHaveProperty("size", 4);
-    // Querying siblings inside the transaction used to take ~20s here through index locks.
+    for (const series of eventSeries) expect(await eventsOf(series.id)).toEqual(["Montafon"]);
+    // Four separate documents, so nothing is shared to contend over. A sibling query used to
+    // lock the index range it scanned and take seconds over exactly this.
     expect(elapsed).toBeLessThan(3000);
   });
 
-  it("lets exactly one of two simultaneous creates win within a season", async () => {
-    const season = await createSeason({ name: "Winter 2026" });
+  it("lets exactly one of two simultaneous creates win within an event series", async () => {
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
 
     await Promise.allSettled([
-      createEvent({ seasonId: season.id, name: "Montafon" }),
-      createEvent({ seasonId: season.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
     ]);
 
-    const snapshot = await adminDb.collection("events").get();
-    expect(snapshot.size).toBe(1);
+    expect(await eventsOf(eventSeries.id)).toEqual(["Montafon"]);
   });
 
-  it("allows the same name concurrently in two different seasons", async () => {
+  it("treats a case-only difference as the same name under contention", async () => {
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
+
+    await Promise.allSettled([
+      createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: eventSeries.id, name: "MONTAFON" }),
+    ]);
+
+    expect(await eventsOf(eventSeries.id)).toHaveLength(1);
+  });
+
+  it("allows the same name concurrently in two different event series", async () => {
     const [a, b] = await Promise.all([
-      createSeason({ name: "Winter 2026" }),
-      createSeason({ name: "Winter 2027" }),
+      createEventSeries({ name: "Winter 2026" }),
+      createEventSeries({ name: "Winter 2027" }),
     ]);
 
     await Promise.all([
-      createEvent({ seasonId: a.id, name: "Montafon" }),
-      createEvent({ seasonId: b.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: a!.id, name: "Montafon" }),
+      createEvent({ eventSeriesId: b!.id, name: "Montafon" }),
     ]);
 
-    const snapshot = await adminDb.collection("events").get();
-    expect(snapshot.size).toBe(2);
+    expect(await eventsOf(a!.id)).toEqual(["Montafon"]);
+    expect(await eventsOf(b!.id)).toEqual(["Montafon"]);
   });
 });
 
 describe("names are freed again when their owner goes", () => {
   it("frees an event name when the event is deleted", async () => {
-    const season = await createSeason({ name: "Winter 2026" });
-    const event = await createEvent({ seasonId: season.id, name: "Montafon" });
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
+    await createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" });
 
-    await deleteEvent(event.id);
+    await deleteEvent(eventSeries.id, "Montafon");
 
-    await expect(createEvent({ seasonId: season.id, name: "Montafon" })).resolves.toBeTruthy();
+    await expect(
+      createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
+    ).resolves.toBeTruthy();
   });
 
   it("frees the old name after a rename", async () => {
-    const season = await createSeason({ name: "Winter 2026" });
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
 
-    await updateSeason(season.id, { name: "Winter 2027" });
+    await updateEventSeries(eventSeries.id, { name: "Winter 2027" });
 
-    await expect(createSeason({ name: "Winter 2026" })).resolves.toBeTruthy();
+    await expect(createEventSeries({ name: "Winter 2026" })).resolves.toBeTruthy();
   });
 
-  it("frees the season name and every event name when a season is deleted", async () => {
-    const season = await createSeason({ name: "Winter 2026" });
-    await createEvent({ seasonId: season.id, name: "Montafon" });
-    await createEvent({ seasonId: season.id, name: "Lech" });
+  it("frees the event series name and every event name when an event series is deleted", async () => {
+    const eventSeries = await createEventSeries({ name: "Winter 2026" });
+    await createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" });
+    await createEvent({ eventSeriesId: eventSeries.id, name: "Lech" });
 
-    await deleteSeason(season.id);
+    await deleteEventSeries(eventSeries.id);
 
-    const reused = await createSeason({ name: "Winter 2026" });
-    await expect(createEvent({ seasonId: reused.id, name: "Montafon" })).resolves.toBeTruthy();
-    await expect(createEvent({ seasonId: reused.id, name: "Lech" })).resolves.toBeTruthy();
-  });
-
-  it("leaves no reservation behind after a season cascade", async () => {
-    const season = await createSeason({ name: "Winter 2026" });
-    await createEvent({ seasonId: season.id, name: "Montafon" });
-
-    await deleteSeason(season.id);
-
-    const snapshot = await adminDb.collection("reservedNames").get();
-    expect(snapshot.size).toBe(0);
+    // The events went with the document, so nothing outlives it to keep a name claimed (US-21).
+    const reused = await createEventSeries({ name: "Winter 2026" });
+    await expect(createEvent({ eventSeriesId: reused.id, name: "Montafon" })).resolves.toBeTruthy();
+    await expect(createEvent({ eventSeriesId: reused.id, name: "Lech" })).resolves.toBeTruthy();
   });
 });

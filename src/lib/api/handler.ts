@@ -9,6 +9,7 @@ import { z } from "zod";
 import { apiError, ErrorCode } from "@/lib/errors";
 import { ServiceError, statusForCode } from "@/lib/service-error";
 import { getUserWithRole } from "@/lib/auth/guards";
+import type { UserRole } from "@/lib/schemas/user";
 
 export function errorResponse(code: ErrorCode, message: string, details?: unknown) {
   return NextResponse.json(apiError(code, message, details), { status: statusForCode(code) });
@@ -27,6 +28,42 @@ export async function requireTeacherOrResponse(): Promise<NextResponse | null> {
     return errorResponse(ErrorCode.PermissionDenied, "Dafür fehlen dir die Rechte.");
   }
   return null;
+}
+
+type IdentifiedOutcome = { ok: true; userId: string } | { ok: false; response: NextResponse };
+
+/**
+ * The same check as above, plus who the caller is — for a write that records its author rather
+ * than merely permitting it (US-13). Records are keyed by the UPN, so a session without an
+ * address cannot be attributed and is not served.
+ */
+async function requireIdentity(role: UserRole): Promise<IdentifiedOutcome> {
+  const user = await getUserWithRole();
+  if (!user || !user.email) {
+    return {
+      ok: false,
+      response: errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an."),
+    };
+  }
+  if (user.role !== role) {
+    return {
+      ok: false,
+      response: errorResponse(ErrorCode.PermissionDenied, "Dafür fehlen dir die Rechte."),
+    };
+  }
+  return { ok: true, userId: user.email.toLowerCase() };
+}
+
+export function requireTeacherIdentityOrResponse(): Promise<IdentifiedOutcome> {
+  return requireIdentity("teacher");
+}
+
+/**
+ * Roles are hierarchical everywhere else, but not here: a teacher keeps no master data of their
+ * own (US-15), so admitting one would create a record for an event series they are not registered in.
+ */
+export function requireStudentOrResponse(): Promise<IdentifiedOutcome> {
+  return requireIdentity("student");
 }
 
 type ParseOutcome<T> = { ok: true; data: T } | { ok: false; response: NextResponse };

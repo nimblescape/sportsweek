@@ -38,4 +38,27 @@ describe("SignOutButton", () => {
     expect(signOut).toHaveBeenCalled();
     expect(push).toHaveBeenCalledWith("/");
   });
+
+  /** The mark is the person's own where Entra has one, and a generic one where it has not. */
+  it("wears the photo it is given", () => {
+    render(<SignOutButton photo="data:image/jpeg;base64,AAA" />);
+
+    const mark = screen.getByRole("button", { name: "Abmelden" }).querySelector("img");
+    expect(mark).toHaveAttribute("src", expect.stringContaining("data:image/jpeg"));
+  });
+
+  it("falls back to a drawn mark when there is no photo", () => {
+    render(<SignOutButton />);
+
+    const button = screen.getByRole("button", { name: "Abmelden" });
+    expect(button.querySelector("img")).not.toBeInTheDocument();
+    expect(button.querySelector("svg")).toBeInTheDocument();
+  });
+
+  /** The name is already on the button, so the photo repeating it would only be read twice. */
+  it("leaves the photo out of the accessible name", () => {
+    render(<SignOutButton photo="data:image/jpeg;base64,AAA" />);
+
+    expect(screen.getByRole("button", { name: "Abmelden" })).toBeInTheDocument();
+  });
 });

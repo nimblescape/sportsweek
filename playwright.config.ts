@@ -18,7 +18,11 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
+    // The base names no Firebase project, so a server started without an environment refuses
+    // to load its config. Development is the one the tests are written against: the fake login
+    // is what lets them sign in without a tenant account.
     command: "npx next dev -p 3100",
+    env: { APP_HOSTING_ENV: "development" },
     url: "http://localhost:3100",
     reuseExistingServer: !process.env.CI,
   },

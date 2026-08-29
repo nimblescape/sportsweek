@@ -2,72 +2,34 @@
 # Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 
-# See .agents/skills/firebase-app-hosting-basics/references/configuration.md for the full schema.
+# What every environment shares, and nothing else.
+#
+# App Hosting always reads this file and merges apphosting.<environment>.yaml on top, choosing
+# that file by the backend's Environment name. There is no way to keep a base out of a
+# deployment, so anything standing here is handed to an environment whether it asked or not --
+# which is why nothing environment-specific does. A backend with no Environment name gets no
+# Firebase project at all and the build stops, rather than quietly borrowing another
+# environment's. See requireFirebaseProject in src/lib/apphosting-env.ts.
+#
+# See https://firebase.google.com/docs/app-hosting/multiple-environments.
 runConfig:
   minInstances: 0
-  maxInstances: 3
+  maxInstances: 1
 
 env:
-  # Not a secret, despite the name. A Firebase Web API key identifies the project, it does not
-  # grant access -- it is compiled into the client bundle and served to every visitor, so it is
-  # readable by anyone who opens the app regardless of this repository's visibility. Access is
-  # decided by Firestore Security Rules and by the sign-in providers, never by this value.
-  #
-  # It is nonetheless restricted in Google Cloud, so it cannot be lifted and reused elsewhere:
-  #   - API restrictions: limited to the Firebase/Google services this app actually calls.
-  #   - HTTP referrer restrictions: only this app's own origins (the custom domain, the App
-  #     Hosting backend, the two default Firebase domains, and localhost for `npm run dev`).
-  #     A request without a matching Referer is rejected as API_KEY_HTTP_REFERRER_BLOCKED.
-  #
-  # A Referer header can be forged, so that is a speed bump rather than a boundary. The actual
-  # control on the abuse path this closes -- creating accounts through the Identity Toolkit
-  # endpoints -- is that Microsoft/Entra ID is the only enabled sign-in provider. E-mail
-  # /password, anonymous and phone sign-in are all disabled, so accounts:signUp answers
-  # ADMIN_ONLY_OPERATION. Keep it that way: enabling another provider would open that path.
-  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: AIzaSyBWfiPscbz7JDxxvqOMw9p80DP6TRAdzQM
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: sportsweek.htldornbirn.org
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: htld-sportsweek
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: htld-sportsweek.firebasestorage.app
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: "431781920808"
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: "1:431781920808:web:00425cd8f18cb2d87b351d"
-    availability:
-      - BUILD
-      - RUNTIME
+  # The one Entra ID tenant every environment signs in against, so it is genuinely shared
+  # rather than a default waiting to be overridden.
   - variable: NEXT_PUBLIC_ENTRA_ID_TENANT_ID
     value: 9987787c-b131-4ef8-bdad-35e3b7c323ec
     availability:
       - BUILD
       - RUNTIME
-  # Which sign-in the app offers. This file is the fallback for every backend without an
-  # environment name, so production reads `entra` from here; apphosting.staging.yaml
-  # overrides it. See src/lib/auth/auth-mode.ts, which refuses `fake` for this project anyway.
-  - variable: AUTH_MODE
-    value: entra
-    availability:
-      - BUILD
-      - RUNTIME
+# AUTH_MODE is not here, and not in every environment file either: src/lib/auth/auth-mode.ts
+# is the single place the sign-in is decided. It pins production to Entra ID and staging to the
+# fake login by project, reads AUTH_MODE only for development, and answers Entra ID for any
+# project nobody named -- so an environment that says nothing gets the real sign-in.
+#
 # No service account keys are used anywhere: on App Hosting, firebase-admin uses Application
-# Default Credentials automatically via the backend's service account. Local dev uses
-# `gcloud auth application-default login` instead. The public values above are read straight
-# from this file by next.config.ts, so no .env file is needed.
+# Default Credentials automatically via the backend's service account. Local development uses
+# `gcloud auth application-default login` instead. The public values in these files are read
+# straight from them by next.config.ts, so no .env file is needed.

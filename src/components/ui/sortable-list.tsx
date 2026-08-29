@@ -25,6 +25,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
+import { DraggingCursor } from "@/components/ui/dragging-cursor";
+import { useDroppedOrder } from "@/lib/ui/use-dropped-order";
 import { cn } from "@/lib/utils";
 
 export type SortableItem = { id: string; name: string };
@@ -39,6 +41,8 @@ type SortableListProps<T extends SortableItem> = {
   renderItem: (item: T) => React.ReactNode;
   /** Hides the handles, for a list that is read-only in its current state. */
   disabled?: boolean;
+  /** The row a write is running on; its handle is locked until the write is answered. */
+  busyId?: string | null;
   className?: string;
 };
 
@@ -55,36 +59,10 @@ export function SortableList<T extends SortableItem>({
   onReorder,
   renderItem,
   disabled = false,
+  busyId = null,
   className,
 }: SortableListProps<T>) {
-  /**
-   * The order the teacher just dropped, held until the stored data reflects it.
-   *
-   * Without this the list would flick back: the write goes through a Route Handler rather than
-   * the client SDK, so there is no local echo to compensate with, and the subscription only
-   * catches up a round trip later. In between, dropping would visibly undo itself.
-   */
-  const [dropped, setDropped] = React.useState<string[] | null>(null);
-
-  // Once the stored order says the same thing, the local one has nothing left to add. Adjusted
-  // during render rather than in an effect, which would show the list twice to say it once.
-  const storedOrder = items.map((item) => item.id).join("\u0000");
-  if (dropped !== null && dropped.join("\u0000") === storedOrder) setDropped(null);
-
-  const ordered = React.useMemo(() => {
-    if (dropped === null) return items;
-
-    const remaining = new Map(items.map((item) => [item.id, item]));
-    const moved = dropped.flatMap((id) => {
-      const item = remaining.get(id);
-      if (!item) return [];
-      remaining.delete(id);
-      return [item];
-    });
-
-    // Anything added since the drop is kept, so a concurrent create cannot vanish from view.
-    return [...moved, ...remaining.values()];
-  }, [items, dropped]);
+  const { ordered, drop } = useDroppedOrder(items, onReorder);
 
   const sensors = useSensors(
     // A short distance threshold, so a tap on a handle is not mistaken for the start of a drag.
@@ -99,21 +77,17 @@ export function SortableList<T extends SortableItem>({
     const to = ordered.findIndex((item) => item.id === over.id);
     if (from === -1 || to === -1) return;
 
-    const next = arrayMove(ordered, from, to).map((item) => item.id);
-    setDropped(next);
-
-    try {
-      await onReorder(next);
-    } catch {
-      setDropped(null);
-    }
+    await drop(arrayMove(ordered, from, to).map((item) => item.id));
   }
 
   if (disabled) {
     return (
       <ul className={className}>
         {items.map((item) => (
-          <li key={item.id}>{renderItem(item)}</li>
+          <li key={item.id} className="flex items-center">
+            <HandleSlot />
+            <div className="min-w-0 flex-1">{renderItem(item)}</div>
+          </li>
         ))}
       </ul>
     );
@@ -127,9 +101,10 @@ export function SortableList<T extends SortableItem>({
       onDragEnd={(event) => void handleDragEnd(event)}
     >
       <SortableContext items={ordered} strategy={verticalListSortingStrategy}>
+        <DraggingCursor />
         <ul className={className}>
           {ordered.map((item) => (
-            <SortableRow key={item.id} item={item}>
+            <SortableRow key={item.id} item={item} disabled={item.id === busyId}>
               {renderItem(item)}
             </SortableRow>
           ))}
@@ -139,9 +114,29 @@ export function SortableList<T extends SortableItem>({
   );
 }
 
-function SortableRow({ item, children }: { item: SortableItem; children: React.ReactNode }) {
+const HANDLE_BOX = "ml-2 shrink-0 rounded-md p-1";
+
+/** Where there is no handle its space is kept, so every row of a list is shaped the same. */
+function HandleSlot() {
+  return (
+    <span aria-hidden className={HANDLE_BOX}>
+      <GripVertical className="invisible size-4" />
+    </span>
+  );
+}
+
+function SortableRow({
+  item,
+  disabled,
+  children,
+}: {
+  item: SortableItem;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
+    disabled,
   });
 
   return (
@@ -152,8 +147,12 @@ function SortableRow({ item, children }: { item: SortableItem; children: React.R
     >
       <button
         type="button"
+        disabled={disabled}
         aria-label={`${item.name} verschieben`}
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 ml-2 shrink-0 cursor-grab touch-none rounded-md p-1 transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing"
+        className={cn(
+          HANDLE_BOX,
+          "text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 cursor-grab touch-none transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50",
+        )}
         {...attributes}
         {...listeners}
       >

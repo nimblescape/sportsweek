@@ -37,6 +37,15 @@ async function seedUser(uid: string, data: Record<string, unknown>) {
   });
 }
 
+/** Beneath the event series it belongs to, named after the student it belongs to (US-26). */
+const REGISTRATIONS = "eventSeries/eventSeries1/registrations";
+
+async function seedRegistration(studentUpn: string) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().collection(REGISTRATIONS).doc(studentUpn).set({ studentUpn });
+  });
+}
+
 /**
  * Production keys `/users` by UPN (see provisionUser) while `request.auth.uid` is an opaque
  * Firebase id. Signing in through this helper keeps the two distinct, so a rule that confuses
@@ -78,12 +87,24 @@ describe("/users/{uid} read access", () => {
     await assertFails(db.collection("users").doc(BOB).get());
   });
 
-  it("allows a teacher to read any user's document", async () => {
+  /**
+   * A teacher used to read every user, because the roster joined registrations to them for the
+   * student's name. The registration carries that name itself now (US-26), so the permission
+   * has no reader left and is withdrawn.
+   */
+  it("denies a teacher reading another user's document", async () => {
     await seedUser(ALICE, student());
     await seedUser(CAROL, teacher());
     const db = signInAs(CAROL);
 
-    await assertSucceeds(db.collection("users").doc(ALICE).get());
+    await assertFails(db.collection("users").doc(ALICE).get());
+  });
+
+  it("allows a teacher to read their own document", async () => {
+    await seedUser(CAROL, teacher());
+    const db = signInAs(CAROL);
+
+    await assertSucceeds(db.collection("users").doc(CAROL).get());
   });
 });
 
@@ -181,6 +202,9 @@ describe("/users/{uid} has no admin role", () => {
  * Production keys `/users` by UPN (see provisionUser), while `request.auth.uid` is an opaque
  * Firebase id. Tests that reuse one value for both silently pass rules that can never match
  * a real request, so these deliberately keep the two apart.
+ *
+ * The teacher cases read a registration rather than a user record: `/users` now answers only
+ * to `isSelf`, so a registration is the one door left that still resolves a role.
  */
 describe("identity resolution with a realistic uid", () => {
   const UID = "6Xk2p9QwErTyUiOpAsDf";
@@ -203,24 +227,31 @@ describe("identity resolution with a realistic uid", () => {
 
   it("recognises a teacher whose record is keyed by UPN", async () => {
     await seedUser(UPN, teacher({ email: UPN }));
-    await seedUser("pupil@student.htldornbirn.at", student());
+    await seedRegistration("pupil@student.htldornbirn.at");
 
-    await assertSucceeds(signedIn().collection("users").doc("pupil@student.htldornbirn.at").get());
+    await assertSucceeds(
+      signedIn().collection(REGISTRATIONS).doc("pupil@student.htldornbirn.at").get(),
+    );
   });
 
   it("recognises a teacher from the role claim, without reading the record", async () => {
-    await seedUser("pupil@student.htldornbirn.at", student());
+    await seedRegistration("pupil@student.htldornbirn.at");
 
     await assertSucceeds(
-      signedIn({ role: "teacher" }).collection("users").doc("pupil@student.htldornbirn.at").get(),
+      signedIn({ role: "teacher" })
+        .collection(REGISTRATIONS)
+        .doc("pupil@student.htldornbirn.at")
+        .get(),
     );
   });
 
   it("does not grant teacher rights to a student who forges nothing but a uid", async () => {
     await seedUser(UPN, student({ email: UPN }));
-    await seedUser("pupil@student.htldornbirn.at", student());
+    await seedRegistration("pupil@student.htldornbirn.at");
 
-    await assertFails(signedIn().collection("users").doc("pupil@student.htldornbirn.at").get());
+    await assertFails(
+      signedIn().collection(REGISTRATIONS).doc("pupil@student.htldornbirn.at").get(),
+    );
   });
 
   it("matches the UPN case-insensitively, since the record id is lowercased", async () => {

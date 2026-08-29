@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { adminDb } from "@/lib/firebase/admin";
 import { getSessionUser, type SessionUser } from "@/lib/session";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { userRoleSchema, type UserRole } from "@/lib/schemas/user";
+import { userRoleSchema, userSchema, type UserRole } from "@/lib/schemas/user";
 import { ROUTES } from "@/lib/routes";
 
 export type AuthenticatedUser = SessionUser & { role: UserRole };
@@ -58,4 +58,16 @@ export async function requireStudent(): Promise<AuthenticatedUser> {
   const user = await requireUser();
   if (user.role !== "student") redirect(ROUTES.appRoot);
   return user;
+}
+
+/**
+ * The Entra photo kept on the record at sign-in (US-1), for the mark the person is shown by.
+ * Null for most accounts, which have none, and for anything that fails to parse as one.
+ */
+export async function fetchUserPhoto(email: string | null): Promise<string | null> {
+  if (!email) return null;
+
+  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(email.toLowerCase()).get();
+  const parsed = userSchema.shape.photo.safeParse(snapshot.data()?.photo);
+  return parsed.success ? (parsed.data ?? null) : null;
 }

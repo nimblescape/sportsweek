@@ -1,0 +1,95 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
+import { describe, expect, it } from "vitest";
+import {
+  classFrom,
+  EMPTY_REGISTRATION,
+  registrationPath,
+  REGISTRATION_NOT_OPEN_HINT,
+  scopeRentalToProgram,
+} from "./registration";
+
+describe("registrationPath", () => {
+  it("puts a registration beneath the event series it belongs to (US-26)", () => {
+    expect(registrationPath("eventSeries1")).toBe("eventSeries/eventSeries1/registrations");
+  });
+
+  /**
+   * The point of deriving it: which series a registration is in is where it is stored rather
+   * than a field, so one student holds exactly one per series without anyone querying for it.
+   */
+  it("gives each event series its own collection", () => {
+    expect(registrationPath("eventSeries1")).not.toBe(registrationPath("eventSeries2"));
+  });
+
+  /** "Veranstaltung" because a series may be a Kulturwoche; "derzeit" because it can reclose. */
+  it("states the one message US-23 gives for every link that leads nowhere", () => {
+    expect(REGISTRATION_NOT_OPEN_HINT).toBe("Derzeit ist keine Veranstaltung freigeschaltet.");
+  });
+});
+
+describe("classFrom", () => {
+  it("enrols a student the link's class where they hold no registration yet", () => {
+    expect(classFrom("3AHME", null)).toBe("3AHME");
+  });
+
+  it("keeps the stored class for a student who is simply coming back", () => {
+    expect(classFrom(null, "3AHME")).toBe("3AHME");
+  });
+
+  /** Q20: another link is the one way a class changes after registration. */
+  it("lets a newer link move the student to another class", () => {
+    expect(classFrom("4AHME", "3AHME")).toBe("4AHME");
+  });
+
+  it("has no class to give where there is neither", () => {
+    expect(classFrom(null, null)).toBeNull();
+  });
+});
+
+describe("scopeRentalToProgram", () => {
+  const renting = {
+    ...EMPTY_REGISTRATION,
+    program: "Ski",
+    equipmentRentalNeeded: true,
+    rentedEquipment: ["Helm", "Ski"],
+  };
+
+  it("keeps a selection the program still requires", () => {
+    const scoped = scopeRentalToProgram(renting, ["Ski", "Helm", "Stöcke"]);
+
+    expect(scoped.rentedEquipment).toEqual(["Helm", "Ski"]);
+  });
+
+  /** Switching program leaves the old boxes ticked in form state; they must not be stored. */
+  it("drops an item the selected program does not require", () => {
+    const scoped = scopeRentalToProgram(renting, ["Board", "Helm"]);
+
+    expect(scoped.rentedEquipment).toEqual(["Helm"]);
+  });
+
+  /**
+   * A rented name is what holds a teacher back from removing that equipment (US-5), so a student
+   * who is not borrowing anything must not keep blocking it.
+   */
+  it("clears the selection once the student says they need nothing", () => {
+    const scoped = scopeRentalToProgram({ ...renting, equipmentRentalNeeded: false }, ["Ski"]);
+
+    expect(scoped.rentedEquipment).toEqual([]);
+  });
+
+  it("takes the question away entirely for a program that requires nothing", () => {
+    const scoped = scopeRentalToProgram(renting, []);
+
+    expect(scoped).toMatchObject({ equipmentRentalNeeded: null, rentedEquipment: [] });
+  });
+
+  it("leaves every other answer untouched", () => {
+    const scoped = scopeRentalToProgram(renting, ["Ski", "Helm"]);
+
+    expect(scoped).toMatchObject({ program: "Ski" });
+  });
+});

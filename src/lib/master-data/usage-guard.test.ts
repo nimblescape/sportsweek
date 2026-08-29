@@ -3,6 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
+import type { Transaction } from "firebase-admin/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
 import { IN_USE_HINT, MASTER_DATA_CATEGORIES } from "./categories";
@@ -13,239 +14,291 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const { assertEquipmentNotInUse, assertNotInUse, namesInUse, usageReport } =
-  await import("./usage-guard");
+const { assertEquipmentNotInUse, assertNotInUse, usageReport } = await import("./usage-guard");
+const { registrationPath } = await import("@/lib/registration/registration");
+const { adminDb } = await import("@/lib/firebase/admin");
 const { ServiceError } = await import("@/lib/service-error");
+
+/** The lists belong to one event series (US-21), so the question is asked of one series. */
+const SERIES = "s1";
 
 beforeEach(() => firestore.reset());
 
-function seedSeason(id: string, isArchived: boolean) {
-  firestore.seed("seasons", id, {
-    name: `Saison ${id}`,
-    isActive: false,
-    isArchived,
-    hasStudentData: true,
-  });
+function seedRegistration(id: string, eventSeriesId: string, answers: Record<string, unknown>) {
+  firestore.seed(registrationPath(eventSeriesId), id, { studentUpn: id, ...answers });
 }
 
-function seedRecord(id: string, seasonId: string, fields: Record<string, unknown>) {
-  firestore.seed("studentMasterData", id, { userId: `u-${id}`, seasonId, ...fields });
+/**
+ * The guards read through the transaction that is about to write the list (US-27), so asking one
+ * a question means opening the write it belongs to.
+ */
+function guard(work: (transaction: Transaction) => Promise<void>): Promise<void> {
+  return adminDb.runTransaction(work);
 }
 
-describe("assertNotInUse — categories matched through a master data field", () => {
-  it("blocks an item selected by a record of a non-archived season", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT" });
+describe("assertNotInUse", () => {
+  it("blocks an item a registration of this event series selected", async () => {
+    seedRegistration("r1", SERIES, { class: "3AHIT" });
 
-    await expect(assertNotInUse(MASTER_DATA_CATEGORIES.classes, "3AHIT")).rejects.toBeInstanceOf(
-      ServiceError,
-    );
+    await expect(
+      guard((transaction) =>
+        assertNotInUse(transaction, SERIES, MASTER_DATA_CATEGORIES.classes, "3AHIT"),
+      ),
+    ).rejects.toBeInstanceOf(ServiceError);
   });
 
-  it("explains that the season has to be archived first", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT" });
+  it("explains that the event series has to be archived first", async () => {
+    seedRegistration("r1", SERIES, { class: "3AHIT" });
 
-    await expect(assertNotInUse(MASTER_DATA_CATEGORIES.classes, "3AHIT")).rejects.toMatchObject({
-      code: "CONFLICT",
-      message: IN_USE_HINT,
-    });
+    await expect(
+      guard((transaction) =>
+        assertNotInUse(transaction, SERIES, MASTER_DATA_CATEGORIES.classes, "3AHIT"),
+      ),
+    ).rejects.toMatchObject({ code: "CONFLICT", message: IN_USE_HINT });
   });
 
-  it("allows an item used only by records of archived seasons", async () => {
-    seedSeason("done", true);
-    seedRecord("r1", "done", { class: "3AHIT" });
+  /** A list is now a series' own, so what another series' registrations hold cannot reach it. */
+  it("ignores the registrations of another event series", async () => {
+    seedRegistration("r1", "s2", { class: "3AHIT" });
 
-    await expect(assertNotInUse(MASTER_DATA_CATEGORIES.classes, "3AHIT")).resolves.toBeUndefined();
+    await expect(
+      guard((transaction) =>
+        assertNotInUse(transaction, SERIES, MASTER_DATA_CATEGORIES.classes, "3AHIT"),
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it("allows an unused item", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT" });
+    seedRegistration("r1", SERIES, { class: "3AHIT" });
 
-    await expect(assertNotInUse(MASTER_DATA_CATEGORIES.classes, "4BHIT")).resolves.toBeUndefined();
+    await expect(
+      guard((transaction) =>
+        assertNotInUse(transaction, SERIES, MASTER_DATA_CATEGORIES.classes, "4BHIT"),
+      ),
+    ).resolves.toBeUndefined();
   });
 
-  it("compares names the way the rest of the app does, ignoring case and surrounding space", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT" });
+  /**
+   * Names compare normalized everywhere else; here the match is exact, because a student picks
+   * from the list and so stores the list's own spelling. A respelling is not a value any
+   * registration can hold — it could only arrive through the rename this guard refuses.
+   */
+  it("matches the stored answer exactly, since that is the spelling the list handed out", async () => {
+    seedRegistration("r1", SERIES, { class: "3AHIT" });
 
-    await expect(assertNotInUse(MASTER_DATA_CATEGORIES.classes, " 3ahit ")).rejects.toBeInstanceOf(
-      ServiceError,
-    );
+    await expect(
+      guard((transaction) =>
+        assertNotInUse(transaction, SERIES, MASTER_DATA_CATEGORIES.classes, " 3ahit "),
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it("keeps the categories apart, so a program named like a class is not blocked by it", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "Alternativ", program: "Ski" });
+    seedRegistration("r1", SERIES, { class: "Alternativ", program: "Ski" });
 
     await expect(
-      assertNotInUse(MASTER_DATA_CATEGORIES.programs, "Alternativ"),
+      guard((transaction) =>
+        assertNotInUse(transaction, SERIES, MASTER_DATA_CATEGORIES.programs, "Alternativ"),
+      ),
     ).resolves.toBeUndefined();
   });
 
   it("blocks a program through the program field", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Ski" });
+    seedRegistration("r1", SERIES, { class: "3AHIT", program: "Ski" });
 
-    await expect(assertNotInUse(MASTER_DATA_CATEGORIES.programs, "Ski")).rejects.toBeInstanceOf(
-      ServiceError,
-    );
+    await expect(
+      guard((transaction) =>
+        assertNotInUse(transaction, SERIES, MASTER_DATA_CATEGORIES.programs, "Ski"),
+      ),
+    ).rejects.toBeInstanceOf(ServiceError);
+  });
+
+  /**
+   * The read has to go through the transaction, or Firestore locks nothing and a save choosing
+   * the value being edited slips past between the question and the write (US-27). A transaction
+   * refuses a read once it has written, so a guard reading around it would answer here instead.
+   */
+  it("reads through the transaction it is given rather than around it", async () => {
+    seedRegistration("r1", SERIES, { class: "3AHIT" });
+
+    await expect(
+      adminDb.runTransaction(async (transaction) => {
+        transaction.set(adminDb.collection("eventSeries").doc(SERIES), { classOptions: [] });
+        await assertNotInUse(transaction, SERIES, MASTER_DATA_CATEGORIES.classes, "4BHIT");
+      }),
+    ).rejects.toThrow(/every read before the first write/);
+  });
+
+  /** Only the registrations holding this one value are scanned, so nobody else's save waits. */
+  it("reads one registration however many the event series has", async () => {
+    for (const id of ["r1", "r2", "r3", "r4", "r5"]) {
+      seedRegistration(id, SERIES, { class: "3AHIT" });
+    }
+    firestore.queryDocumentsRead = 0;
+
+    await expect(
+      guard((transaction) =>
+        assertNotInUse(transaction, SERIES, MASTER_DATA_CATEGORIES.classes, "3AHIT"),
+      ),
+    ).rejects.toBeInstanceOf(ServiceError);
+    expect(firestore.queryDocumentsRead).toBe(1);
   });
 });
 
 describe("assertEquipmentNotInUse", () => {
-  it("blocks an entry a student of a non-archived season rented", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Ski" });
-    firestore.seed("equipmentRentalItems", "e1", { studentMasterDataId: "r1", itemName: "Helm" });
+  it("blocks an entry a student of this event series rented", async () => {
+    seedRegistration("r1", SERIES, { program: "Ski", rentedEquipment: ["Helm"] });
 
-    await expect(assertEquipmentNotInUse(["Helm"])).rejects.toBeInstanceOf(ServiceError);
+    await expect(
+      guard((transaction) => assertEquipmentNotInUse(transaction, SERIES, ["Helm"])),
+    ).rejects.toBeInstanceOf(ServiceError);
   });
 
-  it("allows an entry only rented by students of archived seasons", async () => {
-    seedSeason("done", true);
-    seedRecord("r1", "done", { class: "3AHIT", program: "Ski" });
-    firestore.seed("equipmentRentalItems", "e1", { studentMasterDataId: "r1", itemName: "Helm" });
+  it("ignores what students of another event series rented", async () => {
+    seedRegistration("r1", "s2", { program: "Ski", rentedEquipment: ["Helm"] });
 
-    await expect(assertEquipmentNotInUse(["Helm"])).resolves.toBeUndefined();
+    await expect(
+      guard((transaction) => assertEquipmentNotInUse(transaction, SERIES, ["Helm"])),
+    ).resolves.toBeUndefined();
   });
 
+  /** Requiring an item is the program's business; only renting one makes it used (US-5). */
   it("does not match through the program field, only through the rental selections", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Ski" });
+    seedRegistration("r1", SERIES, { class: "3AHIT", program: "Ski" });
 
-    await expect(assertEquipmentNotInUse(["Ski"])).resolves.toBeUndefined();
+    await expect(
+      guard((transaction) => assertEquipmentNotInUse(transaction, SERIES, ["Ski"])),
+    ).resolves.toBeUndefined();
   });
 
   it("rejects as soon as any one of the names is rented", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Ski" });
-    firestore.seed("equipmentRentalItems", "e1", { studentMasterDataId: "r1", itemName: "Helm" });
+    seedRegistration("r1", SERIES, { program: "Ski", rentedEquipment: ["Helm"] });
 
-    await expect(assertEquipmentNotInUse(["Stöcke", " helm "])).rejects.toMatchObject({
-      code: "CONFLICT",
-      message: IN_USE_HINT,
-    });
+    await expect(
+      guard((transaction) => assertEquipmentNotInUse(transaction, SERIES, ["Stöcke", "Helm"])),
+    ).rejects.toMatchObject({ code: "CONFLICT", message: IN_USE_HINT });
+  });
+
+  /** A rental was picked from the program's own list, so it carries the program's spelling. */
+  it("matches a rental exactly, as the program spelled the entry it offered", async () => {
+    seedRegistration("r1", SERIES, { program: "Ski", rentedEquipment: ["Helm"] });
+
+    await expect(
+      guard((transaction) => assertEquipmentNotInUse(transaction, SERIES, [" helm "])),
+    ).resolves.toBeUndefined();
   });
 
   it("reads nothing when there is nothing to check", async () => {
-    await expect(assertEquipmentNotInUse([])).resolves.toBeUndefined();
-  });
-});
+    seedRegistration("r1", SERIES, { program: "Ski", rentedEquipment: ["Helm"] });
+    firestore.queryDocumentsRead = 0;
 
-describe("namesInUse", () => {
-  it("reports the blocked names so the list can disable their controls", async () => {
-    seedSeason("open", false);
-    seedSeason("done", true);
-    seedRecord("r1", "open", { class: "3AHIT" });
-    seedRecord("r2", "done", { class: "4BHIT" });
-
-    await expect(namesInUse(MASTER_DATA_CATEGORIES.classes)).resolves.toEqual(new Set(["3ahit"]));
+    await expect(
+      guard((transaction) => assertEquipmentNotInUse(transaction, SERIES, [])),
+    ).resolves.toBeUndefined();
+    expect(firestore.queryDocumentsRead).toBe(0);
   });
 
-  it("is empty when nothing is in use", async () => {
-    seedSeason("open", false);
+  it("reads through the transaction it is given rather than around it", async () => {
+    seedRegistration("r1", SERIES, { program: "Ski", rentedEquipment: ["Helm"] });
 
-    await expect(namesInUse(MASTER_DATA_CATEGORIES.classes)).resolves.toEqual(new Set());
-  });
-
-  it("skips records whose snapshot field was never filled in", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", skillLevel: null });
-
-    await expect(namesInUse(MASTER_DATA_CATEGORIES["skill-levels"])).resolves.toEqual(new Set());
+    await expect(
+      adminDb.runTransaction(async (transaction) => {
+        transaction.set(adminDb.collection("eventSeries").doc(SERIES), { programs: [] });
+        await assertEquipmentNotInUse(transaction, SERIES, ["Stöcke"]);
+      }),
+    ).rejects.toThrow(/every read before the first write/);
   });
 });
 
 describe("usageReport", () => {
-  it("resolves the blocked names onto the items the list renders", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: " 3ahit " });
-    firestore.seed("classOptions", "c1", { name: "3AHIT" });
-    firestore.seed("classOptions", "c2", { name: "4BHIT" });
+  it("names the blocked items as the list stores them, not as a registration spelled them", async () => {
+    seedRegistration("r1", SERIES, { class: " 3ahit " });
 
-    await expect(usageReport(MASTER_DATA_CATEGORIES.classes)).resolves.toEqual({
-      blockedIds: ["c1"],
-      blockedEquipment: {},
-    });
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES.classes, [{ name: "3AHIT" }, { name: "4BHIT" }]),
+    ).resolves.toEqual({ blockedNames: ["3AHIT"], blockedEquipment: {} });
   });
 
   it("blocks nothing when nothing is in use", async () => {
-    seedSeason("open", false);
-    firestore.seed("classOptions", "c1", { name: "3AHIT" });
-
-    await expect(usageReport(MASTER_DATA_CATEGORIES.classes)).resolves.toEqual({
-      blockedIds: [],
-      blockedEquipment: {},
-    });
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES.classes, [{ name: "3AHIT" }]),
+    ).resolves.toEqual({ blockedNames: [], blockedEquipment: {} });
   });
 
-  it("names the rented entries of a program, spelled the way the program stores them", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Snowboard" });
-    firestore.seed("programs", "ski", { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] });
-    firestore.seed("equipmentRentalItems", "rent1", {
-      studentMasterDataId: "r1",
-      itemName: " helm ",
-    });
+  it("leaves the registrations of another event series out of it", async () => {
+    seedRegistration("r1", "s2", { class: "3AHIT" });
 
-    // Renaming the program is still fine — only removing the entry along with it is not.
-    await expect(usageReport(MASTER_DATA_CATEGORIES.programs)).resolves.toEqual({
-      blockedIds: [],
-      blockedEquipment: { ski: ["Helm"] },
-    });
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES.classes, [{ name: "3AHIT" }]),
+    ).resolves.toEqual({ blockedNames: [], blockedEquipment: {} });
+  });
+
+  it("skips a registration whose answer was never given", async () => {
+    seedRegistration("r1", SERIES, { class: "3AHIT", skillLevel: null });
+
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES["skill-levels"], [{ name: "Anfänger" }]),
+    ).resolves.toEqual({ blockedNames: [], blockedEquipment: {} });
+  });
+
+  /** Renaming the program is still fine — only removing the rented entry with it is not. */
+  it("names the rented entries of a program, keyed by the program's own name", async () => {
+    seedRegistration("r1", SERIES, { program: "Snowboard", rentedEquipment: [" helm "] });
+
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES.programs, [
+        { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] },
+      ]),
+    ).resolves.toEqual({ blockedNames: [], blockedEquipment: { Ski: ["Helm"] } });
+  });
+
+  it("treats a registration stored before the rental field existed as renting nothing", async () => {
+    seedRegistration("r1", SERIES, { program: "Snowboard" });
+
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES.programs, [
+        { name: "Ski", requiredEquipment: ["Helm"] },
+      ]),
+    ).resolves.toEqual({ blockedNames: [], blockedEquipment: {} });
   });
 
   it("blocks a program outright once it is itself selected", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Ski" });
-    firestore.seed("programs", "ski", { name: "Ski", requiredEquipment: [] });
+    seedRegistration("r1", SERIES, { class: "3AHIT", program: "Ski" });
 
-    await expect(usageReport(MASTER_DATA_CATEGORIES.programs)).resolves.toEqual({
-      blockedIds: ["ski"],
-      blockedEquipment: {},
-    });
-  });
-
-  it("leaves a program whose equipment is only rented in archived seasons alone", async () => {
-    seedSeason("done", true);
-    seedRecord("r1", "done", { class: "3AHIT", program: "Ski" });
-    firestore.seed("programs", "ski", { name: "Ski", requiredEquipment: ["Helm"] });
-    firestore.seed("equipmentRentalItems", "rent1", {
-      studentMasterDataId: "r1",
-      itemName: "Helm",
-    });
-
-    await expect(usageReport(MASTER_DATA_CATEGORIES.programs)).resolves.toEqual({
-      blockedIds: [],
-      blockedEquipment: {},
-    });
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES.programs, [
+        { name: "Ski", requiredEquipment: [] },
+      ]),
+    ).resolves.toEqual({ blockedNames: ["Ski"], blockedEquipment: {} });
   });
 
   it("does not hold one program back for another program's rented equipment", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Snowboard" });
-    firestore.seed("programs", "ski", { name: "Ski", requiredEquipment: ["Stöcke"] });
-    firestore.seed("programs", "board", { name: "Snowboard", requiredEquipment: ["Helm"] });
-    firestore.seed("equipmentRentalItems", "rent1", {
-      studentMasterDataId: "r1",
-      itemName: "Helm",
-    });
+    seedRegistration("r1", SERIES, { program: "Snowboard", rentedEquipment: ["Helm"] });
 
-    const report = await usageReport(MASTER_DATA_CATEGORIES.programs);
+    const report = await usageReport(SERIES, MASTER_DATA_CATEGORIES.programs, [
+      { name: "Ski", requiredEquipment: ["Stöcke"] },
+      { name: "Snowboard", requiredEquipment: ["Helm"] },
+    ]);
 
-    expect(report.blockedEquipment).toEqual({ board: ["Helm"] });
+    expect(report.blockedEquipment).toEqual({ Snowboard: ["Helm"] });
   });
 
-  it("treats a program stored before the field existed as requiring nothing", async () => {
-    seedSeason("open", false);
-    seedRecord("r1", "open", { class: "3AHIT", program: "Snowboard" });
-    firestore.seed("programs", "ski", { name: "Ski" });
+  it("treats a program requiring nothing as having no entry to hold back", async () => {
+    seedRegistration("r1", SERIES, { program: "Snowboard", rentedEquipment: ["Helm"] });
 
-    await expect(usageReport(MASTER_DATA_CATEGORIES.programs)).resolves.toEqual({
-      blockedIds: [],
-      blockedEquipment: {},
-    });
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES.programs, [{ name: "Ski" }]),
+    ).resolves.toEqual({ blockedNames: [], blockedEquipment: {} });
+  });
+
+  /** Only a program keeps a list of its own, so no other category can report one (US-5). */
+  it("reports no equipment for a category that keeps none", async () => {
+    seedRegistration("r1", SERIES, { class: "3AHIT", rentedEquipment: ["Helm"] });
+
+    await expect(
+      usageReport(SERIES, MASTER_DATA_CATEGORIES.classes, [
+        { name: "3AHIT", requiredEquipment: ["Helm"] },
+      ]),
+    ).resolves.toEqual({ blockedNames: ["3AHIT"], blockedEquipment: {} });
   });
 });

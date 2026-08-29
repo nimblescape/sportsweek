@@ -7,6 +7,7 @@
 
 import * as React from "react";
 import { X } from "lucide-react";
+import { BusyBar } from "@/components/layout/busy-bar";
 import { cn } from "@/lib/utils";
 
 type DialogProps = {
@@ -19,6 +20,17 @@ type DialogProps = {
   tone?: "default" | "destructive";
   className?: string;
 };
+
+/**
+ * The dialog a popup has to be rendered into. `showModal()` puts the dialog in the top layer and
+ * makes everything outside it inert, so a listbox portalled to the body opens dead: visible,
+ * unclickable, and empty of anything the pointer can reach.
+ */
+const DialogContainerContext = React.createContext<HTMLElement | null>(null);
+
+export function useDialogContainer() {
+  return React.use(DialogContainerContext);
+}
 
 /**
  * Built on the native <dialog> element: the browser supplies the top layer, the focus trap
@@ -34,27 +46,27 @@ export function Dialog({
   tone = "default",
   className,
 }: DialogProps) {
-  const ref = React.useRef<HTMLDialogElement>(null);
+  // State rather than a ref, because what is portalled into it has to render again once it exists.
+  const [element, setElement] = React.useState<HTMLDialogElement | null>(null);
   const titleId = React.useId();
 
   React.useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
+    if (!element) return;
 
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
+    if (open && !element.open) element.showModal();
+    if (!open && element.open) element.close();
+  }, [open, element]);
 
   if (!open) return null;
 
   return (
     <dialog
-      ref={ref}
+      ref={setElement}
       aria-labelledby={titleId}
       onClose={onClose}
       onCancel={onClose}
       className={cn(
-        "bg-card text-card-foreground ring-foreground/10 shadow-card m-auto w-[calc(100vw---spacing(8))] max-w-md rounded-xl p-0 ring-1 backdrop:bg-black/40",
+        "bg-card text-card-foreground ring-foreground/10 shadow-card relative m-auto w-[calc(100vw-(--spacing(8)))] max-w-md rounded-xl p-0 ring-1 backdrop:bg-black/40",
         className,
       )}
     >
@@ -82,10 +94,17 @@ export function Dialog({
         <div className="text-muted-foreground px-4 pt-2 text-sm">{description}</div>
       ) : null}
 
-      <div className="p-4">{children}</div>
+      <div className="p-4">
+        <DialogContainerContext value={element}>{children}</DialogContainerContext>
+      </div>
 
       {footer ? (
-        <div className="bg-muted/50 flex items-center justify-end gap-2 border-t p-4">{footer}</div>
+        <div className="bg-muted/50 flex items-center justify-end gap-2 border-t p-4">
+          {/* The one in the header is behind the backdrop while this is open, and a dialog is
+              where the slowest writes are started. At the near end, away from the controls. */}
+          <BusyBar className="mr-auto" />
+          {footer}
+        </div>
       ) : null}
     </dialog>
   );

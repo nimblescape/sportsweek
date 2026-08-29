@@ -9,7 +9,7 @@ import { initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 
 /**
- * Reproduces what the browser actually does: a client-SDK listener on the seasons/events
+ * Reproduces what the browser actually does: a client-SDK listener on the event series/events
  * query while the server writes through privileged access. Rules-only tests cannot catch a
  * listener that is allowed to read yet never receives the push.
  */
@@ -43,7 +43,7 @@ async function serverWrite(fn: (db: FirebaseFirestore.Firestore) => Promise<unkn
   });
 }
 
-type Emission = { ids: string[] };
+type Emission = { ids: string[]; events: string[] };
 
 /** Collects snapshot emissions so a test can wait for the one it expects. */
 function collectSnapshots(builtQuery: ReturnType<typeof query>) {
@@ -52,7 +52,11 @@ function collectSnapshots(builtQuery: ReturnType<typeof query>) {
 
   const unsubscribe = onSnapshot(
     builtQuery,
-    (snapshot) => emissions.push({ ids: snapshot.docs.map((d) => d.id) }),
+    (snapshot) =>
+      emissions.push({
+        ids: snapshot.docs.map((d) => d.id),
+        events: snapshot.docs.flatMap((d) => (d.data() as { events?: string[] }).events ?? []),
+      }),
     (error) => {
       failure = error as Error;
     },
@@ -79,10 +83,10 @@ function collectSnapshots(builtQuery: ReturnType<typeof query>) {
   };
 }
 
-describe("seasons list stays live", () => {
+describe("event series list stays live", () => {
   it("delivers a first snapshot", async () => {
     const listener = collectSnapshots(
-      query(collection(teacherDb() as never, "seasons"), orderBy("name", "desc")),
+      query(collection(teacherDb() as never, "eventSeries"), orderBy("name", "desc")),
     );
 
     await listener.waitFor((emission) => emission.ids.length === 0);
@@ -90,16 +94,16 @@ describe("seasons list stays live", () => {
     listener.unsubscribe();
   });
 
-  it("pushes a season created by the server, without resubscribing", async () => {
+  it("pushes an event series created by the server, without resubscribing", async () => {
     const listener = collectSnapshots(
-      query(collection(teacherDb() as never, "seasons"), orderBy("name", "desc")),
+      query(collection(teacherDb() as never, "eventSeries"), orderBy("name", "desc")),
     );
     await listener.waitFor((emission) => emission.ids.length === 0);
 
     await serverWrite((db) =>
-      db.collection("seasons").doc("new").set({
+      db.collection("eventSeries").doc("new").set({
         name: "2026/2027",
-        isActive: false,
+        isOpenToStudents: false,
         isArchived: false,
       }),
     );
@@ -110,62 +114,81 @@ describe("seasons list stays live", () => {
 
   it("pushes a deletion too", async () => {
     await serverWrite((db) =>
-      db.collection("seasons").doc("gone").set({
+      db.collection("eventSeries").doc("gone").set({
         name: "2025/2026",
-        isActive: false,
+        isOpenToStudents: false,
         isArchived: false,
       }),
     );
     const listener = collectSnapshots(
-      query(collection(teacherDb() as never, "seasons"), orderBy("name", "desc")),
+      query(collection(teacherDb() as never, "eventSeries"), orderBy("name", "desc")),
     );
     await listener.waitFor((emission) => emission.ids.includes("gone"));
 
-    await serverWrite((db) => db.collection("seasons").doc("gone").delete());
+    await serverWrite((db) => db.collection("eventSeries").doc("gone").delete());
 
     await listener.waitFor((emission) => !emission.ids.includes("gone"));
     listener.unsubscribe();
   });
 });
 
+/**
+ * The events are a field of the event series document (US-21), so what keeps them live is the
+ * subscription that already carries every other list rather than a query of their own.
+ */
 describe("events list stays live", () => {
-  it("pushes an event created by the server for the season being viewed", async () => {
-    const listener = collectSnapshots(
-      query(
-        collection(teacherDb() as never, "events"),
-        where("seasonId", "==", "s1"),
-        orderBy("name"),
-      ),
+  it("pushes an event added by the server to the event series being viewed", async () => {
+    await serverWrite((db) =>
+      db
+        .collection("eventSeries")
+        .doc("s1")
+        .set({ name: "2026/2027", isOpenToStudents: true, isArchived: false, events: [] }),
     );
-    await listener.waitFor((emission) => emission.ids.length === 0);
+    const listener = collectSnapshots(
+      query(collection(teacherDb() as never, "eventSeries"), orderBy("name")),
+    );
+    await listener.waitFor((emission) => emission.ids.includes("s1"));
 
     await serverWrite((db) =>
-      db.collection("events").doc("e1").set({ seasonId: "s1", name: "Montafon" }),
+      db
+        .collection("eventSeries")
+        .doc("s1")
+        .update({ events: ["Montafon"] }),
     );
 
-    await listener.waitFor((emission) => emission.ids.includes("e1"));
+    await listener.waitFor((emission) => emission.events.includes("Montafon"));
     listener.unsubscribe();
   });
 
-  it("ignores an event created for a different season", async () => {
+  it("keeps one event series' events out of another's, because each holds its own", async () => {
+    await serverWrite((db) =>
+      db
+        .collection("eventSeries")
+        .doc("s2")
+        .set({ name: "2027/2028", isOpenToStudents: false, isArchived: false, events: ["Lech"] }),
+    );
     const listener = collectSnapshots(
       query(
-        collection(teacherDb() as never, "events"),
-        where("seasonId", "==", "s1"),
+        collection(teacherDb() as never, "eventSeries"),
+        where("isOpenToStudents", "==", true),
         orderBy("name"),
       ),
     );
-    await listener.waitFor((emission) => emission.ids.length === 0);
 
     await serverWrite((db) =>
-      db.collection("events").doc("other").set({ seasonId: "s2", name: "Lech" }),
-    );
-    await serverWrite((db) =>
-      db.collection("events").doc("mine").set({ seasonId: "s1", name: "Montafon" }),
+      db
+        .collection("eventSeries")
+        .doc("s1")
+        .set({
+          name: "2026/2027",
+          isOpenToStudents: true,
+          isArchived: false,
+          events: ["Montafon"],
+        }),
     );
 
-    const emission = await listener.waitFor((e) => e.ids.includes("mine"));
-    expect(emission.ids).not.toContain("other");
+    const emission = await listener.waitFor((e) => e.events.includes("Montafon"));
+    expect(emission.events).not.toContain("Lech");
     listener.unsubscribe();
   });
 });

@@ -9,21 +9,26 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LoaderCircle, Lock, Pencil, Plus, Trash2 } from "lucide-react";
+import { Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BusyRegion } from "@/components/ui/busy-region";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
+import { PageHeading } from "@/components/layout/page-heading";
 import { ApiRequestError } from "@/lib/api/client";
-import { namedListItemSchema } from "@/lib/schemas/master-data";
-import { IN_USE_HINT } from "@/lib/master-data/categories";
+import { useBusyWhile } from "@/lib/api/busy";
+import { useRowAction } from "@/lib/api/use-row-action";
+import { listItemNameSchema } from "@/lib/schemas/master-data";
+import { IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
 
-const formSchema = z.object({ name: namedListItemSchema.shape.name });
+const formSchema = z.object({ name: listItemNameSchema });
 type FormValues = z.infer<typeof formSchema>;
 
+/** An item has no id of its own: its name is what identifies it within its list (US-21). */
 export type CrudItem = { id: string; name: string };
 
 export type CrudLabels = {
@@ -47,6 +52,11 @@ type CrudListProps = {
   error: string | null;
   /** In use itself: neither editable nor deletable. */
   blockedIds?: Set<string>;
+  /**
+   * The in-use answer is still on its way. Every row is held closed until it lands, because the
+   * opposite order offers controls the answer may withdraw a moment later.
+   */
+  usagePending?: boolean;
   /** Deletable no longer, but still renameable — its own list holds something in use. */
   undeletableIds?: Set<string>;
   undeletableHint?: string;
@@ -54,13 +64,15 @@ type CrudListProps = {
   fixedItems?: readonly string[];
   fixedItemsHint?: string;
   /** One extra control per row, ahead of edit and delete — the programs list uses it. */
-  renderRowAction?: (item: CrudItem) => React.ReactNode;
+  renderRowAction?: (item: CrudItem, options: { disabled: boolean }) => React.ReactNode;
   /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
   onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
   onDelete: (item: CrudItem) => Promise<void>;
   /** Receives the ids in their new order after a drag (see Ordering). */
   onReorder: (orderedIds: string[]) => void | Promise<void>;
   deleteNote: (item: CrudItem) => React.ReactNode;
+  /** What renaming this item does not do; shown while an existing one is being edited. */
+  editNote: (item: CrudItem) => React.ReactNode;
 };
 
 /**
@@ -77,6 +89,7 @@ export function CrudList({
   loading,
   error,
   blockedIds = new Set(),
+  usagePending = false,
   undeletableIds = new Set(),
   undeletableHint = IN_USE_HINT,
   fixedItems = [],
@@ -86,45 +99,65 @@ export function CrudList({
   onDelete,
   onReorder,
   deleteNote,
+  editNote,
 }: CrudListProps) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
+  const { busyId, pending, run } = useRowAction();
+
+  useBusyWhile(loading);
 
   const closeDialog = () => setDialog({ kind: "none" });
+
+  // A write started from a row holds that row until it is answered, and every write holds the
+  // list. The list refreshes from a separate subscription, so until then the other controls
+  // would act on data this write may already have changed. A new item has no row to hold.
+  const submit = (name: string, item: CrudItem | null) =>
+    run(item?.id ?? null, () => onSubmit(name, item));
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
       {children}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-lg font-semibold">{title ?? labels.title}</h1>
-        <Button onClick={() => setDialog({ kind: "form", item: null })}>
-          <Plus aria-hidden data-icon="inline-start" />
-          {labels.add}
-        </Button>
-      </div>
+      <BusyRegion busy={pending}>
+        <div className="flex flex-col gap-4">
+          <PageHeading
+            actions={
+              <Button onClick={() => setDialog({ kind: "form", item: null })}>
+                <Plus aria-hidden data-icon="inline-start" />
+                {labels.add}
+              </Button>
+            }
+          >
+            {title ?? labels.title}
+          </PageHeading>
 
-      <ItemList
-        labels={labels}
-        items={items}
-        loading={loading}
-        error={error}
-        blockedIds={blockedIds}
-        undeletableIds={undeletableIds}
-        undeletableHint={undeletableHint}
-        fixedItems={fixedItems}
-        fixedItemsHint={fixedItemsHint}
-        renderRowAction={renderRowAction}
-        onEdit={(item) => setDialog({ kind: "form", item })}
-        onDelete={(item) => setDialog({ kind: "delete", item })}
-        onReorder={onReorder}
-      />
+          <ItemList
+            labels={labels}
+            items={items}
+            loading={loading}
+            error={error}
+            blockedIds={blockedIds}
+            usagePending={usagePending}
+            undeletableIds={undeletableIds}
+            undeletableHint={undeletableHint}
+            fixedItems={fixedItems}
+            fixedItemsHint={fixedItemsHint}
+            renderRowAction={renderRowAction}
+            busyId={busyId}
+            onEdit={(item) => setDialog({ kind: "form", item })}
+            onDelete={(item) => setDialog({ kind: "delete", item })}
+            onReorder={(orderedIds) => run(null, async () => onReorder(orderedIds))}
+          />
+        </div>
+      </BusyRegion>
 
       {dialog.kind === "form" ? (
         <ItemFormDialog
           key={dialog.item?.id ?? "new"}
           labels={labels}
           item={dialog.item}
-          onSubmit={onSubmit}
+          note={dialog.item === null ? null : editNote(dialog.item)}
+          onSubmit={submit}
           onClose={closeDialog}
         />
       ) : null}
@@ -135,7 +168,7 @@ export function CrudList({
           labels={labels}
           item={dialog.item}
           note={deleteNote(dialog.item)}
-          onDelete={onDelete}
+          onDelete={(item) => run(item.id, () => onDelete(item))}
           onClose={closeDialog}
         />
       ) : null}
@@ -144,13 +177,17 @@ export function CrudList({
 }
 
 type ItemListProps = Required<
-  Pick<CrudListProps, "labels" | "items" | "loading" | "blockedIds" | "undeletableIds">
+  Pick<
+    CrudListProps,
+    "labels" | "items" | "loading" | "blockedIds" | "usagePending" | "undeletableIds"
+  >
 > & {
   error: string | null;
   undeletableHint: string;
   fixedItems: readonly string[];
   fixedItemsHint?: string;
-  renderRowAction?: (item: CrudItem) => React.ReactNode;
+  renderRowAction?: (item: CrudItem, options: { disabled: boolean }) => React.ReactNode;
+  busyId: string | null;
   onEdit: (item: CrudItem) => void;
   onDelete: (item: CrudItem) => void;
   onReorder: (orderedIds: string[]) => void | Promise<void>;
@@ -162,26 +199,21 @@ function ItemList({
   loading,
   error,
   blockedIds,
+  usagePending,
   undeletableIds,
   undeletableHint,
   fixedItems,
   fixedItemsHint,
   renderRowAction,
+  busyId,
   onEdit,
   onDelete,
   onReorder,
 }: ItemListProps) {
   const { title, singular, empty } = labels;
 
-  if (loading) {
-    return (
-      <Card className="items-center">
-        <div role="status" aria-label={`${title} werden geladen`} className="text-muted-foreground">
-          <LoaderCircle aria-hidden className="size-5 animate-spin" />
-        </div>
-      </Card>
-    );
-  }
+  // The header spinner says the app is working; a second one on the list would say it twice.
+  if (loading) return null;
 
   if (error) {
     return (
@@ -206,10 +238,13 @@ function ItemList({
       <SortableList
         items={items}
         onReorder={onReorder}
+        busyId={busyId}
         renderItem={(item) => {
-          const blocked = blockedIds.has(item.id);
-          const undeletable = blocked || undeletableIds.has(item.id);
-          const deleteHint = blocked ? IN_USE_HINT : undeletableHint;
+          const busy = item.id === busyId;
+          const locked = usagePending || blockedIds.has(item.id);
+          const undeletable = locked || undeletableIds.has(item.id);
+          const lockedHint = usagePending ? USAGE_PENDING_HINT : IN_USE_HINT;
+          const deleteHint = locked ? lockedHint : undeletableHint;
           const hintId = `${item.id}-in-use-hint`;
 
           return (
@@ -217,18 +252,18 @@ function ItemList({
               <span className="truncate text-sm font-medium">{item.name}</span>
 
               <div className="flex shrink-0 items-center gap-1">
-                {renderRowAction?.(item)}
+                {renderRowAction?.(item, { disabled: busy })}
 
                 {/* Wrapped in a span because a disabled button emits no pointer events, and the
                     reason it is disabled is exactly what needs explaining here. */}
-                <Tooltip label={blocked ? IN_USE_HINT : "Bearbeiten"}>
+                <Tooltip label={locked ? lockedHint : "Bearbeiten"}>
                   <span className="inline-flex">
                     <Button
                       variant="ghost"
-                      size="icon-sm"
-                      disabled={blocked}
+                      size="icon"
+                      disabled={locked || busy}
                       aria-label={`${singular} ${item.name} bearbeiten`}
-                      aria-describedby={blocked ? hintId : undefined}
+                      aria-describedby={locked ? hintId : undefined}
                       onClick={() => onEdit(item)}
                     >
                       <Pencil aria-hidden />
@@ -240,8 +275,8 @@ function ItemList({
                   <span className="inline-flex">
                     <Button
                       variant="ghost"
-                      size="icon-sm"
-                      disabled={undeletable}
+                      size="icon"
+                      disabled={undeletable || busy}
                       aria-label={`${singular} ${item.name} löschen`}
                       aria-describedby={undeletable ? hintId : undefined}
                       onClick={() => onDelete(item)}
@@ -292,11 +327,13 @@ function ItemList({
 function ItemFormDialog({
   labels,
   item,
+  note,
   onSubmit,
   onClose,
 }: {
   labels: CrudLabels;
   item: CrudItem | null;
+  note: React.ReactNode;
   onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
   onClose: () => void;
 }) {
@@ -336,6 +373,9 @@ function ItemFormDialog({
   return (
     <Dialog open title={isEdit ? `${labels.singular} bearbeiten` : labels.add} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
+        {/* Renaming leaves what was already stored alone, which is worth saying before it is. */}
+        {note === null ? null : <p className="text-muted-foreground text-sm">{note}</p>}
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={nameId}>Name</Label>
           <Input

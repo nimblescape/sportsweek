@@ -17,18 +17,27 @@ import { cn } from "@/lib/utils";
  * list stays reachable even while the program itself is locked: its items are matched through
  * the students' rental selections, so the two are blocked independently.
  */
-export function ProgramsView() {
+export function ProgramsView({ eventSeriesId }: { eventSeriesId: string }) {
   return (
     <MasterDataView
       category="programs"
-      renderRowAction={(program) => (
+      eventSeriesId={eventSeriesId}
+      renderRowAction={(program, { disabled }) => (
         <Tooltip label="Benötigte Ausrüstung">
           <Link
-            href={`/app/master-data/programs/${program.id}`}
+            href={`/app/${encodeURIComponent(eventSeriesId)}/master-data/programs?equipment=${encodeURIComponent(program.name)}`}
             aria-label={`Benötigte Ausrüstung für ${program.name}`}
-            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+            // A link has no disabled state of its own, so a write running on this program has to
+            // be spelled out for the pointer, the keyboard and assistive technology separately.
+            aria-disabled={disabled || undefined}
+            tabIndex={disabled ? -1 : undefined}
+            onClick={disabled ? (clicked) => clicked.preventDefault() : undefined}
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "icon" }),
+              disabled && "pointer-events-none opacity-50",
+            )}
           >
-            <Package aria-hidden className="size-3.5" />
+            <Package aria-hidden className="size-4" />
           </Link>
         </Tooltip>
       )}

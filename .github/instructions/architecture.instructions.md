@@ -1,5 +1,6 @@
 ---
-description: "Use when deciding where to put new backend logic, API endpoints, or data access in this Firebase + Next.js app — choosing between Next.js Route Handlers, Server Actions, Cloud Functions, Cloud Run, or direct Firestore Client SDK access. Also covers the tech stack (Next.js, Tailwind CSS, shadcn/ui, React Hook Form, Zod) and Firebase Auth with Entra ID."
+description: "Where logic belongs and how shared state is held — layering in a Backend-for-Frontend, declarative access rules versus guarded server code, and the three homes state may have."
+applyTo: "**/*.ts, **/*.tsx"
 ---
 
 <!--
@@ -8,61 +9,76 @@ Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
 Licensed under the MIT License. See LICENSE in the repository root for details.
 -->
 
-# Architecture & Stack Conventions
+# Architecture
 
 ## Stack
 
-- Framework: Next.js (App Router), used as Backend-for-Frontend (BFF)
-- Styling: Tailwind CSS
-- UI components: shadcn/ui
-- Forms: React Hook Form
-- Validation: Zod — use the RHF/Zod resolver for forms, and validate all Route Handler / Server Action inputs with Zod schemas
-- Database: Firestore
-- Auth: Firebase Authentication with Entra ID via `new OAuthProvider("microsoft.com")`
-- Hosting: Firebase App Hosting (Next.js), Cloud Functions for event-driven/backend work
+Next.js (App Router) as a Backend-for-Frontend, Tailwind CSS with shadcn/ui, React Hook Form
+with Zod resolvers, a document database read live from the browser, and privileged work behind
+server-side handlers.
 
-## Where does logic belong?
+## Where logic belongs
 
-| Use case                                       | Recommendation                                                                     |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------- |
-| API used only by the Next.js web app           | Next.js Route Handler                                                              |
-| CRUD with privileged server access             | Next.js Route Handler                                                              |
-| Server Action triggered from a React form      | Next.js Server Action                                                              |
-| Public API for multiple clients                | Cloud Function or Cloud Run                                                        |
-| Firestore document created/changed             | Cloud Function (Firestore trigger)                                                 |
-| File uploaded                                  | Cloud Function (Storage trigger)                                                   |
-| Scheduled daily job                            | Cloud Function (Scheduler)                                                         |
-| Queue, Pub/Sub, or Eventarc                    | Cloud Function                                                                     |
-| Long-running background processing             | Cloud Function                                                                     |
-| External webhook                               | Usually a Cloud Function                                                           |
-| Real-time data for signed-in users             | Direct Firestore Client SDK access, governed by Security Rules                     |
-| Microsoft Graph calls with confidential tokens | Next.js Route Handler or Cloud Function — never expose Graph tokens to the browser |
+| Use case                                                                   | Home                                                          |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| An API only this app calls                                                 | Route Handler                                                 |
+| A write needing privileged credentials                                     | Route Handler                                                 |
+| A form submission                                                          | Server Action or Route Handler                                |
+| An API several clients call                                                | A standalone service, not the app's own handlers              |
+| Reacting to a document change, an upload, a schedule, a queue or a webhook | An event-driven function                                      |
+| Real-time data for a signed-in user                                        | Read straight from the database, governed by its access rules |
+| A call carrying a confidential token                                       | Server-side only — such a token never reaches the browser     |
 
-## Layers
+Two rules follow from the table and are worth stating on their own:
 
-```
-Browser
-├── Firebase Auth → Entra ID (OAuthProvider("microsoft.com"))
-├── Firestore Client SDK → normal data reads/writes, governed by Security Rules
-└── Next.js API → privileged synchronous operations
+- **Privileged credentials never leave the server.** An admin SDK, a service credential or a
+  third-party secret belongs to handlers and functions, never to a component.
+- **Prefer a direct client read over a round trip** when the declarative access rules can
+  express the authorization. Adding a server hop that only forwards a query buys nothing and
+  costs the live updates.
 
-Next.js on App Hosting
-├── Route Handlers
-├── Server Actions
-├── Session and role checks
-└── Firebase Admin SDK
+## Declarative access rules cannot run queries
 
-Cloud Functions
-├── Firestore triggers
-├── Storage triggers
-├── Scheduler
-├── Background processing
-└── Auth Blocking Functions
-```
+A database's declarative rules can usually fetch a document whose path they can name, but not
+search for one. Any invariant that needs a search — is this name already taken, is at most one
+record flagged, is this value still referenced elsewhere, does deleting this take its dependants
+with it — is therefore inexpressible there.
 
-## Rules
+Such invariants belong in a guarded server layer that holds them in a transaction. And once
+they do, the declarative write path must be **closed**, not merely narrowed: a second way in
+that does not enforce them makes the guarantee worthless. Rules then gate reads, and the server
+owns writes.
 
-- Never call the Firebase Admin SDK or use service credentials from the browser — only from Route Handlers, Server Actions, or Cloud Functions.
-- Use Cloud Functions (not Route Handlers) for anything triggered by Firestore/Storage events, schedules, queues, or external webhooks — Route Handlers only run in response to HTTP requests to the Next.js app.
-- Prefer direct Firestore Client SDK reads for real-time UI data instead of round-tripping through Next.js, as long as Security Rules can express the authorization.
-- Do session/role checks (Entra ID claims) server-side in Next.js Proxy (`src/proxy.ts`, formerly "Middleware" — renamed in Next.js 16), Route Handlers, or Server Actions — never trust role/permission data from client input. Treat Proxy checks as optimistic only; re-verify in the Route Handler/Server Action itself.
+State that decision where the rules live, so the closed path reads as a design and not as
+unfinished work.
+
+## Trust the session, not the request
+
+Whose data an endpoint touches follows from the authenticated session, never from an id in the
+body or the path. An endpoint acting on "my" record takes no identifier at all — there is then
+nothing for a caller to point elsewhere.
+
+Checks made in edge middleware are optimistic: they run where the session cannot be fully
+verified. Re-verify in the handler that does the work.
+
+## Shared state
+
+There is no client-side store, and there should not be one. State has three kinds and each has
+one home:
+
+| Kind                               | Home                                                 |
+| ---------------------------------- | ---------------------------------------------------- |
+| Server data                        | The database, subscribed to through a hook           |
+| Something a whole subtree may need | A context provider mounted where that subtree begins |
+| One view's own concern             | Local component state                                |
+
+- **Server state is subscribed to, never mirrored.** The write goes to the server and the
+  subscription brings the result back. Copying that data into a store creates a second answer
+  to a question the database is already answering.
+- **Cross-cutting UI state goes in a context, scoped as narrowly as it can be**, and is reached
+  through a hook so no consumer touches the raw value. A context two neighbouring components
+  need is a prop instead.
+- **Derive rather than store.** A value computed from others cannot disagree with them; a
+  stored copy can, and eventually will.
+- **No module-level mutable singletons.** They outlive a request on the server and a navigation
+  in the browser, which makes them a cache nobody declared.

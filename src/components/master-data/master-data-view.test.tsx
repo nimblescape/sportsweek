@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { stubRowLayout } from "@/test/stub-row-layout";
-import { CHILD_IN_USE_HINT, IN_USE_HINT } from "@/lib/master-data/categories";
+import { CHILD_IN_USE_HINT, IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
 
 const useMasterData = vi.fn();
 const useUsageReport = vi.fn();
@@ -19,10 +19,8 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
 
 const { MasterDataView } = await import("./master-data-view");
 
-const items = [
-  { id: "c1", name: "3AHIT" },
-  { id: "c2", name: "4BHIT" },
-];
+/** The list is names in the teacher's order; a name is what identifies a row (US-21). */
+const items = ["3AHIT", "4BHIT"];
 
 function stubFetch(implementation: (...args: unknown[]) => unknown) {
   const fetchMock = vi.fn(implementation);
@@ -32,7 +30,7 @@ function stubFetch(implementation: (...args: unknown[]) => unknown) {
 
 const created = () =>
   Promise.resolve(
-    new Response(JSON.stringify({ item: { id: "c3", name: "5CHIT", parentId: null } }), {
+    new Response(JSON.stringify({ item: { name: "5CHIT" } }), {
       status: 201,
       headers: { "content-type": "application/json" },
     }),
@@ -49,7 +47,11 @@ const conflict = (message: string) =>
 beforeEach(() => {
   stubRowLayout();
   useMasterData.mockReturnValue({ items, loading: false, error: null });
-  useUsageReport.mockReturnValue({ blockedIds: new Set<string>(), blockedEquipment: {} });
+  useUsageReport.mockReturnValue({
+    blockedNames: new Set<string>(),
+    blockedEquipment: {},
+    loading: false,
+  });
 });
 
 afterEach(() => {
@@ -59,7 +61,7 @@ afterEach(() => {
 });
 
 function renderView(props: Record<string, unknown> = {}) {
-  render(<MasterDataView category="classes" {...props} />);
+  render(<MasterDataView category="classes" eventSeriesId="s1" {...props} />);
 }
 
 describe("MasterDataView — reading the list", () => {
@@ -76,11 +78,13 @@ describe("MasterDataView — reading the list", () => {
     expect(screen.getByText("4BHIT")).toBeInTheDocument();
   });
 
-  it("shows a loading state while the subscription settles", () => {
+  /** The header spinner answers for the wait, so the list itself says nothing at all. */
+  it("shows nothing while the subscription settles, rather than an empty list", () => {
     useMasterData.mockReturnValue({ items: [], loading: true, error: null });
     renderView();
 
-    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByText(/noch keine Klasse/i)).not.toBeInTheDocument();
   });
 
   it("reports a failed subscription instead of pretending the list is empty", () => {
@@ -98,10 +102,10 @@ describe("MasterDataView — reading the list", () => {
     expect(screen.getByText("Es gibt noch keine Klasse.")).toBeInTheDocument();
   });
 
-  it("subscribes to the category it was configured with", () => {
-    render(<MasterDataView category="skill-levels" />);
+  it("subscribes to the category it was configured with, for the series the page names", () => {
+    render(<MasterDataView category="skill-levels" eventSeriesId="s1" />);
 
-    expect(useMasterData).toHaveBeenCalledWith("skill-levels");
+    expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1");
     expect(screen.getByRole("heading", { name: "Leistungsstufen" })).toBeInTheDocument();
   });
 });
@@ -117,7 +121,7 @@ describe("MasterDataView — adding", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("POST");
     expect(JSON.parse(String(init.body))).toEqual({ name: "5CHIT" });
   });
@@ -148,7 +152,8 @@ describe("MasterDataView — adding", () => {
 });
 
 describe("MasterDataView — editing", () => {
-  it("patches the item under its own id", async () => {
+  /** The item travels in the body rather than the path, since a name may contain a slash. */
+  it("patches the item under the name that identifies it", async () => {
     const fetchMock = stubFetch(created);
     renderView();
 
@@ -160,9 +165,9 @@ describe("MasterDataView — editing", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes/c1");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("PATCH");
-    expect(JSON.parse(String(init.body))).toEqual({ name: "3BHIT" });
+    expect(JSON.parse(String(init.body))).toEqual({ item: "3AHIT", name: "3BHIT" });
   });
 
   it("opens the dialog with the current name already filled in", async () => {
@@ -172,6 +177,21 @@ describe("MasterDataView — editing", () => {
     await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" }));
 
     expect(screen.getByLabelText("Name")).toHaveValue("3AHIT");
+  });
+
+  /**
+   * An entry that can be renamed at all is one nobody has chosen — the in-use rule saw to that
+   * — so a sentence about what happens to registrations explains something that cannot happen.
+   */
+  it("says that it is renamed, and nothing further", async () => {
+    stubFetch(created);
+    renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("wird umbenannt.");
+    expect(dialog).not.toHaveTextContent(/Anmeldungen/);
   });
 });
 
@@ -198,8 +218,9 @@ describe("MasterDataView — deleting", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes/c1");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("DELETE");
+    expect(JSON.parse(String(init.body))).toEqual({ item: "3AHIT" });
   });
 
   it("keeps the item when the teacher cancels", async () => {
@@ -214,9 +235,85 @@ describe("MasterDataView — deleting", () => {
   });
 });
 
+// The list refreshes from a separate subscription, so between the answer and the refresh a row
+// still offers actions against an item the write it is waiting on may already have removed.
+describe("MasterDataView — while a write is in flight", () => {
+  async function confirmDelete() {
+    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT löschen" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Löschen" }),
+    );
+  }
+
+  it("locks the row that is being written to", async () => {
+    stubFetch(() => new Promise(() => {}));
+    renderView();
+
+    await confirmDelete();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "3AHIT verschieben" })).toBeDisabled();
+  });
+
+  it("leaves every other row alone", async () => {
+    stubFetch(() => new Promise(() => {}));
+    renderView();
+
+    await confirmDelete();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "Klasse 4BHIT bearbeiten" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "4BHIT verschieben" })).toBeEnabled();
+  });
+
+  it("releases the row once the write is answered", async () => {
+    stubFetch(() => Promise.resolve(new Response(null, { status: 204 })));
+    renderView();
+
+    await confirmDelete();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeEnabled();
+  });
+
+  it("locks the extra action a category contributes, which acts on the same item", async () => {
+    stubFetch(() => new Promise(() => {}));
+    renderView({
+      renderRowAction: (
+        item: { id: string; name: string },
+        { disabled }: { disabled: boolean },
+      ) => (
+        <a href={`/detail/${item.id}`} aria-disabled={disabled || undefined}>
+          Details zu {item.name}
+        </a>
+      ),
+    });
+
+    await confirmDelete();
+
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    expect(screen.getByRole("link", { name: "Details zu 4BHIT" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+  });
+});
+
 describe("MasterDataView — the in-use restriction", () => {
   beforeEach(() =>
-    useUsageReport.mockReturnValue({ blockedIds: new Set(["c1"]), blockedEquipment: {} }),
+    useUsageReport.mockReturnValue({
+      blockedNames: new Set(["3AHIT"]),
+      blockedEquipment: {},
+      loading: false,
+    }),
   );
 
   it("disables editing and deleting for an item still in use", () => {
@@ -226,7 +323,7 @@ describe("MasterDataView — the in-use restriction", () => {
     expect(screen.getByRole("button", { name: "Klasse 3AHIT löschen" })).toBeDisabled();
   });
 
-  it("explains that the season has to be archived first", () => {
+  it("explains that the event series has to be archived first", () => {
     renderView();
 
     expect(screen.getAllByText(IN_USE_HINT).length).toBeGreaterThan(0);
@@ -239,18 +336,19 @@ describe("MasterDataView — the in-use restriction", () => {
     expect(screen.getByRole("button", { name: "Klasse 4BHIT löschen" })).toBeEnabled();
   });
 
-  it("asks the guard about the category it is showing", () => {
+  it("asks the guard about the category it is showing, for the series the page names", () => {
     renderView();
 
-    expect(useUsageReport).toHaveBeenCalledWith("classes");
+    expect(useUsageReport).toHaveBeenCalledWith("classes", "s1");
   });
 });
 
 describe("MasterDataView — an item whose own list is in use", () => {
   beforeEach(() =>
     useUsageReport.mockReturnValue({
-      blockedIds: new Set<string>(),
-      blockedEquipment: { c1: ["Helm"] },
+      blockedNames: new Set<string>(),
+      blockedEquipment: { "3AHIT": ["Helm"] },
+      loading: false,
     }),
   );
 
@@ -270,6 +368,35 @@ describe("MasterDataView — an item whose own list is in use", () => {
     renderView();
 
     expect(screen.getAllByText(CHILD_IN_USE_HINT).length).toBeGreaterThan(0);
+  });
+});
+
+describe("MasterDataView — while the in-use check is still running", () => {
+  beforeEach(() =>
+    useUsageReport.mockReturnValue({
+      blockedNames: new Set<string>(),
+      blockedEquipment: {},
+      loading: true,
+    }),
+  );
+
+  it("starts out disabled, rather than offering the controls and taking them back", () => {
+    renderView();
+
+    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Klasse 3AHIT löschen" })).toBeDisabled();
+  });
+
+  it("says what is being checked", () => {
+    renderView();
+
+    expect(screen.getAllByText(USAGE_PENDING_HINT).length).toBeGreaterThan(0);
+  });
+
+  it("leaves ordering alone, which no usage can block", () => {
+    renderView();
+
+    expect(screen.getByRole("button", { name: "3AHIT verschieben" })).toBeEnabled();
   });
 });
 
@@ -298,13 +425,17 @@ describe("MasterDataView — per-row actions", () => {
 
     expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toHaveAttribute(
       "href",
-      "/detail/c1",
+      "/detail/3AHIT",
     );
     expect(screen.getByRole("link", { name: "Details zu 4BHIT" })).toBeInTheDocument();
   });
 
   it("leaves the extra action reachable for an item the in-use guard blocks", () => {
-    useUsageReport.mockReturnValue({ blockedIds: new Set(["c1"]), blockedEquipment: {} });
+    useUsageReport.mockReturnValue({
+      blockedNames: new Set(["3AHIT"]),
+      blockedEquipment: {},
+      loading: false,
+    });
     renderView({
       renderRowAction: (item: { id: string; name: string }) => (
         <a href={`/detail/${item.id}`}>Details zu {item.name}</a>
@@ -324,7 +455,11 @@ describe("MasterDataView — ordering", () => {
   });
 
   it("offers the handle even for an item the in-use guard blocks, since ordering is always allowed", () => {
-    useUsageReport.mockReturnValue({ blockedIds: new Set(["c1"]), blockedEquipment: {} });
+    useUsageReport.mockReturnValue({
+      blockedNames: new Set(["3AHIT"]),
+      blockedEquipment: {},
+      loading: false,
+    });
     renderView();
 
     expect(screen.getByRole("button", { name: "3AHIT verschieben" })).toBeEnabled();
@@ -342,8 +477,8 @@ describe("MasterDataView — ordering", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/classes");
     expect(init.method).toBe("PATCH");
-    expect(JSON.parse(String(init.body))).toEqual({ order: ["c2", "c1"] });
+    expect(JSON.parse(String(init.body))).toEqual({ order: ["4BHIT", "3AHIT"] });
   });
 });

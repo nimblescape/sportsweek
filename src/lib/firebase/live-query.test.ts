@@ -35,7 +35,7 @@ function subscribe(overrides: Record<string, unknown> = {}) {
   const onData = vi.fn();
   const onError = vi.fn();
   const stop = subscribeWithRecovery({
-    label: "Saisonen",
+    label: "Eventreihen",
     buildQuery: () => "the-query" as never,
     parse: (id: string, data: unknown) => ({ id, ...(data as object) }),
     onData,

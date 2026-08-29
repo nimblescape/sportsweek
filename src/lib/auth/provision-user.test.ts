@@ -4,6 +4,8 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FakeFirestore } from "@/test/fake-firestore";
+import { storedEventSeries } from "@/test/event-series";
 
 const docGet = vi.fn();
 const docSet = vi.fn();
@@ -12,15 +14,33 @@ const doc = vi.fn(() => ({ get: docGet, set: docSet, update: docUpdate }));
 const collection = vi.fn(() => ({ doc }));
 const setCustomUserClaims = vi.fn();
 const fetchEntraName = vi.fn();
+const fetchEntraPhoto = vi.fn();
+
+/**
+ * The user record stays a mock, so the tests below can stage a login that finds one or does
+ * not. The registrations are a real store: what the refresh has to get right is which documents
+ * a collection group query reaches and which series each of them sits beneath (US-26).
+ */
+const firestore = new FakeFirestore();
 
 vi.mock("@/lib/firebase/admin", () => ({
-  adminDb: { collection },
+  adminDb: {
+    collection,
+    collectionGroup: (id: string) => firestore.collectionGroup(id),
+    batch: () => firestore.batch(),
+  },
   adminAuth: { setCustomUserClaims },
 }));
 
-vi.mock("@/lib/auth/graph", () => ({ fetchEntraName }));
+vi.mock("@/lib/auth/graph", () => ({ fetchEntraName, fetchEntraPhoto }));
+
+// Whatever else a deployment refuses. Production refuses nothing, so the tests below say so
+// explicitly rather than leaning on which module the build happens to resolve.
+const refuseSignIn = vi.fn();
+vi.mock("@/lib/auth/sign-in-policy", () => ({ refuseSignIn }));
 
 const { provisionUser } = await import("@/lib/auth/provision-user");
+const { registrationPath } = await import("@/lib/registration/registration");
 
 const teacherClaims = {
   uid: "firebase-uid-1",
@@ -33,9 +53,68 @@ function existingRecord(data: Record<string, unknown>) {
   docGet.mockResolvedValue({ exists: true, data: () => data });
 }
 
+const ENTRA = { firebase: { sign_in_provider: "microsoft.com" } };
+const IMPERSONATED = { firebase: { sign_in_provider: "custom" } };
+
+const studentClaims = {
+  uid: "firebase-uid-2",
+  email: "max.mustermann@student.htldornbirn.at",
+  given_name: "Max",
+  family_name: "Mustermann",
+};
+
+/**
+ * Which sign-ins are refused is the policy's business, not this function's. What belongs here
+ * is that a refusal is asked for, and honoured when one comes back.
+ */
+describe("the deployment's own sign-in policy", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    refuseSignIn.mockReturnValue(null);
+    docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    fetchEntraName.mockResolvedValue(null);
+  });
+
+  it("refuses the sign-in the policy refuses, and writes nothing", async () => {
+    refuseSignIn.mockReturnValue({ reason: "students-excluded", message: "Nur Lehrpersonen." });
+
+    const result = await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "students-excluded",
+      message: "Nur Lehrpersonen.",
+    });
+    expect(docSet).not.toHaveBeenCalled();
+  });
+
+  // The role has been derived by then, so the policy never has to parse a UPN itself.
+  it("asks with the derived role and the provider Firebase reported", async () => {
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(refuseSignIn).toHaveBeenCalledWith({
+      role: "student",
+      signInProvider: "microsoft.com",
+    });
+  });
+
+  it("passes on an impersonated provider unchanged, so the policy can tell them apart", async () => {
+    await provisionUser({ ...studentClaims, ...IMPERSONATED });
+
+    expect(refuseSignIn).toHaveBeenCalledWith({ role: "student", signInProvider: "custom" });
+  });
+
+  it("provisions as usual when nothing is refused", async () => {
+    const result = await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe("provisionUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
   });
@@ -51,6 +130,7 @@ describe("provisionUser", () => {
         lastName: "Doe",
         email: "jane.doe@htldornbirn.at",
         role: "teacher",
+        photo: null,
       },
     });
     expect(collection).toHaveBeenCalledWith("users");
@@ -121,6 +201,7 @@ describe("provisionUser", () => {
       firstName: "Jane",
       lastName: "Doe",
       email: "jane.doe@htldornbirn.at",
+      photo: null,
     });
   });
 
@@ -143,14 +224,30 @@ describe("provisionUser", () => {
     expect(setCustomUserClaims).not.toHaveBeenCalled();
   });
 
-  it("falls back to the display name when given/family names are absent", async () => {
+  /**
+   * The display name is deliberately ignored: this tenant writes "Mustermann Erika", so
+   * splitting it stored the name the wrong way round. The UPN is `firstname.lastname`.
+   */
+  it("reads the name from the UPN when given/family names are absent", async () => {
     const result = await provisionUser({
       uid: "firebase-uid-1",
       email: "jane.doe@htldornbirn.at",
-      name: "Jane Doe",
+      name: "Doe Jane",
     });
 
     expect(result).toMatchObject({ ok: true, user: { firstName: "Jane", lastName: "Doe" } });
+  });
+
+  it("capitalises what the UPN spells in lower case", async () => {
+    const result = await provisionUser({
+      uid: "firebase-uid-1",
+      email: "anna.stauss-mueller@htldornbirn.at",
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      user: { firstName: "Anna", lastName: "Stauss-Mueller" },
+    });
   });
 
   it("still produces a valid record when Entra sends no name at all", async () => {
@@ -184,7 +281,7 @@ describe("provisionUser", () => {
     expect(fetchEntraName).toHaveBeenCalledWith("graph-token");
   });
 
-  it("falls back to the display name when Graph cannot supply a name", async () => {
+  it("falls back to the UPN when Graph cannot supply a name", async () => {
     fetchEntraName.mockResolvedValue(null);
 
     const result = await provisionUser(
@@ -198,7 +295,22 @@ describe("provisionUser", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      user: { firstName: "Mustermann", lastName: "Erika" },
+      user: { firstName: "Erika", lastName: "Mustermann" },
+    });
+  });
+
+  /** Graph is asked for each name by name, so a half-filled profile still gets one right. */
+  it("takes whichever half of the name Graph holds", async () => {
+    fetchEntraName.mockResolvedValue({ lastName: "Musterfrau" });
+
+    const result = await provisionUser(
+      { uid: "firebase-uid-1", email: "erika.mustermann@htldornbirn.at" },
+      "graph-token",
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      user: { firstName: "Erika", lastName: "Musterfrau" },
     });
   });
 
@@ -212,5 +324,188 @@ describe("provisionUser", () => {
     await provisionUser({ ...teacherClaims, email: "jane@gmail.com" }, "graph-token");
 
     expect(fetchEntraName).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Sign-in is the one moment the Graph token is held, so it is the one moment the photo can be
+ * read — the token is not kept afterwards, and the browser never had one of its own (US-1).
+ */
+describe("provisionUser — the Entra photo", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    refuseSignIn.mockReturnValue(null);
+    docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    fetchEntraName.mockResolvedValue(null);
+    fetchEntraPhoto.mockResolvedValue(null);
+  });
+
+  it("stores the photo Graph holds", async () => {
+    fetchEntraPhoto.mockResolvedValue("data:image/jpeg;base64,AAA");
+
+    const result = await provisionUser(teacherClaims, "graph-token");
+
+    expect(fetchEntraPhoto).toHaveBeenCalledWith("graph-token");
+    expect(docSet).toHaveBeenCalledWith(
+      expect.objectContaining({ photo: "data:image/jpeg;base64,AAA" }),
+    );
+    expect(result).toMatchObject({ ok: true, user: { photo: "data:image/jpeg;base64,AAA" } });
+  });
+
+  /** An account with no photo stores none, rather than a key holding nothing. */
+  it("stores null when there is no photo to store", async () => {
+    const result = await provisionUser(teacherClaims, "graph-token");
+
+    expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ photo: null }));
+    expect(result).toMatchObject({ ok: true, user: { photo: null } });
+  });
+
+  /** Removing it in Entra removes it here, which only a write on every login can do. */
+  it("clears a photo that Entra no longer has", async () => {
+    existingRecord({ role: "teacher", photo: "data:image/jpeg;base64,OLD" });
+
+    await provisionUser(teacherClaims, "graph-token");
+
+    expect(docUpdate).toHaveBeenCalledWith(expect.objectContaining({ photo: null }));
+  });
+
+  it("does not ask for one without a token to ask with", async () => {
+    await provisionUser(teacherClaims);
+
+    expect(fetchEntraPhoto).not.toHaveBeenCalled();
+    expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ photo: null }));
+  });
+
+  /** Two independent reads of the same profile; one waiting for the other only slows sign-in. */
+  it("asks for the name and the photo at the same time", async () => {
+    let namePending = false;
+    fetchEntraName.mockImplementation(async () => {
+      namePending = true;
+      return null;
+    });
+    fetchEntraPhoto.mockImplementation(async () => {
+      expect(namePending).toBe(true);
+      return null;
+    });
+
+    await provisionUser(teacherClaims, "graph-token");
+
+    expect(fetchEntraPhoto).toHaveBeenCalled();
+  });
+});
+
+/**
+ * The name on a registration is a copy (US-26), and this is the repair that makes it safe: it
+ * can never be more than one login out of date.
+ */
+describe("the login refresh of a student's registrations", () => {
+  const STUDENT = studentClaims.email;
+
+  function seedEventSeries(id: string, isArchived = false) {
+    firestore.seed("eventSeries", id, storedEventSeries({ name: `Eventreihe ${id}`, isArchived }));
+  }
+
+  function seedRegistration(eventSeriesId: string, name: Record<string, unknown>) {
+    firestore.seed(registrationPath(eventSeriesId), STUDENT, {
+      studentUpn: STUDENT,
+      email: STUDENT,
+      class: "3AHME",
+      ...name,
+    });
+  }
+
+  const stored = (eventSeriesId: string) => firestore.get(registrationPath(eventSeriesId), STUDENT);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    firestore.reset();
+    refuseSignIn.mockReturnValue(null);
+    docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    fetchEntraName.mockResolvedValue(null);
+  });
+
+  it("corrects a name the directory has since changed", async () => {
+    seedEventSeries("s1");
+    seedRegistration("s1", { firstName: "Maks", lastName: "Mustermann" });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(stored("s1")).toMatchObject({ firstName: "Max", lastName: "Mustermann" });
+  });
+
+  it("writes only the field that differs, so a correction is not a rewrite", async () => {
+    seedEventSeries("s1");
+    seedRegistration("s1", { firstName: "Maks", lastName: "Mustermann" });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(firestore.batchSizes).toEqual([1]);
+  });
+
+  /** A login that changes nothing must not wake every teacher's subscription to say so. */
+  it("writes nothing at all when the name has not changed", async () => {
+    seedEventSeries("s1");
+    seedRegistration("s1", { firstName: "Max", lastName: "Mustermann" });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(firestore.commitCount).toBe(0);
+  });
+
+  /** An archived series is read-only in everything it holds (US-19). */
+  it("leaves a registration in an archived event series as it was", async () => {
+    seedEventSeries("archived", true);
+    seedRegistration("archived", { firstName: "Maks", lastName: "Mustermann" });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(stored("archived")).toMatchObject({ firstName: "Maks" });
+    expect(firestore.commitCount).toBe(0);
+  });
+
+  it("reaches every event series the student has registered in", async () => {
+    seedEventSeries("s1");
+    seedEventSeries("s2");
+    seedEventSeries("archived", true);
+    seedRegistration("s1", { firstName: "Maks", lastName: "Mustermann" });
+    seedRegistration("s2", { firstName: "Maks", lastName: "Mustermann" });
+    seedRegistration("archived", { firstName: "Maks", lastName: "Mustermann" });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(stored("s1")).toMatchObject({ firstName: "Max" });
+    expect(stored("s2")).toMatchObject({ firstName: "Max" });
+    expect(stored("archived")).toMatchObject({ firstName: "Maks" });
+  });
+
+  it("leaves somebody else's registration alone", async () => {
+    seedEventSeries("s1");
+    firestore.seed(registrationPath("s1"), "other@student.htldornbirn.at", {
+      studentUpn: "other@student.htldornbirn.at",
+      firstName: "Maks",
+      lastName: "Mustermann",
+      email: "other@student.htldornbirn.at",
+    });
+
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(firestore.get(registrationPath("s1"), "other@student.htldornbirn.at")).toMatchObject({
+      firstName: "Maks",
+    });
+  });
+
+  /** A teacher keeps no registration of their own (US-15), so there is nothing to look for. */
+  it("asks nothing of the registrations when a teacher signs in", async () => {
+    const read = vi.spyOn(firestore, "runGroupQuery");
+
+    await provisionUser({ ...teacherClaims, ...ENTRA });
+
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing for a student who has not registered anywhere", async () => {
+    await provisionUser({ ...studentClaims, ...ENTRA });
+
+    expect(firestore.commitCount).toBe(0);
   });
 });

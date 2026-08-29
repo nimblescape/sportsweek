@@ -8,30 +8,35 @@ import type { UserRole } from "@/lib/schemas/user";
 export const ROUTES = {
   signIn: "/sign-in",
   appRoot: "/app",
-  report: "/app/report",
-  assignment: "/app/assignment",
-  masterData: "/app/master-data",
-  studentMasterData: "/app/my-master-data",
+  eventSeries: "/app/event-series",
+  myRegistration: "/app/my-registration",
 } as const;
 
-/** One sub-item per teacher-maintained category (US-4 to US-10). */
-export const MASTER_DATA_SECTIONS = [
-  { href: "/app/master-data/seasons", label: "Saisonen" },
-  { href: "/app/master-data/programs", label: "Programme" },
-  { href: "/app/master-data/classes", label: "Klassen" },
-  { href: "/app/master-data/skill-levels", label: "Leistungsstufen" },
-  { href: "/app/master-data/bus-pickup-points", label: "Zustiegsstellen" },
-  { href: "/app/master-data/food-options", label: "Verpflegung" },
-  { href: "/app/master-data/season-pass-options", label: "Saisonkarten" },
-] as const;
+/**
+ * The pages a teacher works in are scoped to the selected event series, so their paths carry its
+ * id (Q8) and there is no fixed prefix left to list. What can be listed is the far shorter set a
+ * student may reach — so everything else under `/app` is a teacher's, and a page nobody has
+ * thought about yet is guarded by existing rather than by being remembered here (US-15).
+ */
+export const STUDENT_ONLY_PREFIXES = [ROUTES.myRegistration] as const;
 
-export const TEACHER_ONLY_PREFIXES = [ROUTES.report, ROUTES.assignment, ROUTES.masterData] as const;
+/** The pages beneath a selected event series. The id is a segment, so these are built, not stored. */
+export function eventSeriesRoutes(eventSeriesId: string) {
+  const scope = `${ROUTES.appRoot}/${encodeURIComponent(eventSeriesId)}`;
+  return {
+    report: `${scope}/report`,
+    assignment: `${scope}/assignment`,
+    overview: `${scope}/overview`,
+    masterData: `${scope}/master-data`,
+  };
+}
 
-// A teacher has no master data record of their own, so this page is student-only (US-15).
-export const STUDENT_ONLY_PREFIXES = [ROUTES.studentMasterData] as const;
-
+/**
+ * A teacher lands on `/app`, which resolves the selection and sends them on, because which series
+ * they were last in is not something the sign-in knows.
+ */
 export function homeFor(role: UserRole): string {
-  return role === "teacher" ? ROUTES.report : ROUTES.studentMasterData;
+  return role === "teacher" ? ROUTES.appRoot : ROUTES.myRegistration;
 }
 
 export function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {

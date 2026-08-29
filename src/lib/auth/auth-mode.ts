@@ -11,21 +11,39 @@ export type AuthMode = z.infer<typeof authModeSchema>;
 /** The one project holding real people's data, and so the one that may never fake a login. */
 export const PRODUCTION_PROJECT_ID = "htld-sportsweek";
 
+/** Where teachers try the app out, so impersonation is the point of it rather than an option. */
+export const STAGING_PROJECT_ID = "htld-sportsweek-staging";
+
+/** The only project whose sign-in is a choice, because it is the only one developers own. */
+export const DEVELOPMENT_PROJECT_ID = "htld-sportsweek-development";
+
 /**
- * Picks the sign-in implementation for this deployment (`AUTH_MODE`).
+ * Where the sign-in is decided by the project rather than by configuration. Pinning both ends
+ * means AUTH_MODE cannot forge an identity in production, and cannot take impersonation away
+ * from the people staging exists for.
+ */
+const PINNED: Record<string, AuthMode> = {
+  [PRODUCTION_PROJECT_ID]: "entra",
+  [STAGING_PROJECT_ID]: "fake",
+};
+
+/**
+ * Picks the sign-in implementation for this deployment.
  *
- * The fake login forges an identity from a form and provisions it for real, so it is opt-in
- * and confined to staging. Three things have to fail before it could serve real users:
- * `apphosting.yaml` pins the mode for production, `.env` is gitignored so a local override
- * cannot travel with the code, and the production project is refused here regardless.
- * Deliberately not a `NEXT_PUBLIC_` variable — it is read on the server and handed to the
- * client as a prop, so it never reaches the browser bundle.
+ * The fake login forges an identity from a form and provisions it for real, so which project
+ * it runs in is not left to a string: production and staging are pinned here, development is
+ * the one place `AUTH_MODE` is read, and every other project — including one added later and
+ * never thought about — is served the real sign-in.
+ *
+ * Deliberately not a `NEXT_PUBLIC_` variable: `next.config.ts` reads the result at build time
+ * to decide which modules exist, so outside development the fake login is not merely switched
+ * off but absent from the build.
  */
 export function resolveAuthMode(
   configured: string | undefined,
   projectId: string | undefined,
 ): AuthMode {
-  if (!projectId || projectId === PRODUCTION_PROJECT_ID) return "entra";
+  if (projectId !== DEVELOPMENT_PROJECT_ID) return PINNED[projectId ?? ""] ?? "entra";
 
   const parsed = authModeSchema.safeParse(configured);
   return parsed.success ? parsed.data : "entra";

@@ -17,20 +17,29 @@ import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
  * live in a field on the program, so every change rewrites the whole list — which is what makes
  * adding, renaming and removing one atomic, and uniqueness checkable without a query.
  */
-export function ProgramEquipmentView({ programId }: { programId: string }) {
-  const { program, loading, error } = useProgram(programId);
-  const report = useUsageReport("programs");
+export function ProgramEquipmentView({
+  program: named,
+  eventSeriesId,
+}: {
+  program: string;
+  eventSeriesId: string;
+}) {
+  const { program, loading, error } = useProgram(named, eventSeriesId);
+  const report = useUsageReport("programs", eventSeriesId);
 
   const equipment = program?.requiredEquipment ?? [];
   // An entry has no id of its own, so its name is what identifies it within the program.
   const items: CrudItem[] = equipment.map((name) => ({ id: name, name }));
-  const blockedIds = new Set(report.blockedEquipment[programId] ?? []);
+  const blockedIds = new Set(report.blockedEquipment[named] ?? []);
 
   async function save(names: string[]) {
-    await apiRequest(`/api/master-data/programs/${programId}`, {
-      method: "PATCH",
-      body: { requiredEquipment: names },
-    });
+    await apiRequest(
+      `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/programs`,
+      {
+        method: "PATCH",
+        body: { item: named, requiredEquipment: names },
+      },
+    );
   }
 
   return (
@@ -41,6 +50,7 @@ export function ProgramEquipmentView({ programId }: { programId: string }) {
       loading={loading}
       error={error}
       blockedIds={blockedIds}
+      usagePending={report.loading}
       onSubmit={(name, item) =>
         save(
           item === null ? [...equipment, name] : equipment.map((e) => (e === item.id ? name : e)),
@@ -51,7 +61,11 @@ export function ProgramEquipmentView({ programId }: { programId: string }) {
       deleteNote={(item) => (
         <>
           <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.
-          Bereits gespeicherte Schülerdaten bleiben unverändert.
+        </>
+      )}
+      editNote={(item) => (
+        <>
+          <strong>{item.name}</strong> wird umbenannt.
         </>
       )}
     >

@@ -10,8 +10,11 @@ import { describe, expect, it } from "vitest";
 // and red reserved for warning dialogs / error messages.
 const css = readFileSync("src/app/globals.css", "utf8");
 
-/** The only tokens allowed to carry chroma: the single accent, and the danger colour. */
-const CHROMATIC_TOKENS = ["--brand", "--destructive"];
+/**
+ * The only tokens allowed to carry chroma: the accent, the danger colour, and the two greens of
+ * a series taking registrations — the one state a teacher has to spot without reading (US-19).
+ */
+const CHROMATIC_TOKENS = ["--brand", "--brand-subtle", "--destructive", "--open", "--open-subtle"];
 
 function themeBlock(selector: string): string {
   const match = css.match(new RegExp(`${selector}\\s*\\{([\\s\\S]*?)\\n\\}`));
@@ -26,10 +29,22 @@ function declarations(block: string): { name: string; value: string }[] {
   }));
 }
 
-/** Chroma of a literal `oklch(L C H)` value, or null when the value isn't a literal colour. */
+/** Families that carry no chroma, whatever step of them is used. */
+const GREYSCALE = ["slate", "gray", "zinc", "neutral", "stone"];
+
+/**
+ * Chroma of a literal `oklch(L C H)` value, or of a reference to the Tailwind palette, or null
+ * when the value is neither. A palette step is taken at its word rather than resolved: what the
+ * check is for is that no third hue appears, not what shade the second one is.
+ */
 function chroma(value: string): number | null {
-  const match = value.match(/^oklch\(\s*[\d.]+%?\s+([\d.]+)/);
-  return match ? Number(match[1]) : null;
+  const literal = value.match(/^oklch\(\s*[\d.]+%?\s+([\d.]+)/);
+  if (literal) return Number(literal[1]);
+
+  const palette = value.match(/^var\(--color-([a-z]+)-\d+\)$/);
+  if (palette) return GREYSCALE.includes(palette[1]) ? 0 : 1;
+
+  return null;
 }
 
 describe.each([
@@ -44,13 +59,26 @@ describe.each([
     expect(chroma(brand!.value)).toBeGreaterThan(0);
   });
 
-  it("introduces no colour beyond the accent and the danger token", () => {
+  it("introduces no colour beyond the accent, the danger and the open token", () => {
     const chromatic = decls
       .filter((d) => (chroma(d.value) ?? 0) > 0)
       .map((d) => d.name)
       .sort();
 
     expect(chromatic).toEqual([...CHROMATIC_TOKENS].sort());
+  });
+
+  /**
+   * Selected means white on a fill, in either theme. A control that changed its ink between
+   * themes would be two designs, and a row of them would agree in one and not the other.
+   */
+  it.each([
+    "--brand-foreground",
+    "--open-foreground",
+    "--neutral-foreground",
+    "--template-foreground",
+  ])("writes %s in the white a selected control is written in", (token) => {
+    expect(decls.find((d) => d.name === token)?.value).toBe("var(--color-white)");
   });
 
   it("drives focus rings from the accent", () => {
