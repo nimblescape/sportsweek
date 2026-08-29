@@ -568,3 +568,62 @@ describe("SavedReportTagList — without the permission to edit", () => {
     expect(screen.queryByRole("button", { name: /verschieben/ })).not.toBeInTheDocument();
   });
 });
+
+/**
+ * A marked tag that no longer matches the screen reads as "changed", and what a teacher does
+ * about that is store the change. Somebody who may not store one has nothing to do about it, so
+ * the mark is simply released and the row goes back to saying that none of them is open.
+ */
+describe("SavedReportTagList — a viewer changing what is on screen", () => {
+  function viewing(current: ReportSelection = CURRENT) {
+    const { rerender } = render(row(REPORTS, current, false));
+    return { change: (next: ReportSelection) => rerender(row(REPORTS, next, false)) };
+  }
+
+  it("releases the mark when the filter is changed", async () => {
+    const { change } = viewing();
+    await userEvent.click(tag("5AHIF"));
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "true");
+
+    change({ ...CURRENT, filter: toggleTag(selection, "gender", "male") });
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("releases it when the fields are changed", async () => {
+    const { change } = viewing();
+    await userEvent.click(tag("5AHIF"));
+
+    change({ ...CURRENT, fields: [] });
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("keeps the mark while the screen still matches the report", async () => {
+    const { change } = viewing();
+    await userEvent.click(tag("5AHIF"));
+
+    change({ ...CURRENT });
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("says nothing about the report having changed", async () => {
+    const { change } = viewing();
+    await userEvent.click(tag("5AHIF"));
+
+    change({ ...CURRENT, fields: [] });
+
+    expect(screen.queryByText(/Geändert/)).not.toBeInTheDocument();
+  });
+
+  /** The teacher who may store one keeps the mark, which is what makes the update reachable. */
+  it("is not what happens for somebody who may edit", async () => {
+    const { change } = setup();
+    await userEvent.click(tag("5AHIF"));
+
+    change({ ...CURRENT, fields: [] });
+
+    expect(tag("5AHIF")).toHaveAttribute("aria-pressed", "true");
+  });
+});

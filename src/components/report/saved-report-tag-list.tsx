@@ -88,6 +88,14 @@ export function SavedReportTagList({
   // teacher then makes — which is what keeps this report's controls, and its update, reachable.
   const [markedId, setMarkedId] = React.useState<string | null>(null);
   const refusalId = React.useId();
+
+  /**
+   * A marked tag that no longer matches the screen reads as "changed", and what a teacher does
+   * about that is store the change. Somebody who may not store one has nothing to do about it,
+   * so the mark is released instead and the row goes back to saying that none of them is open.
+   */
+  const marked = reports.find((report) => report.id === markedId) ?? null;
+  if (!mayEdit && marked !== null && !sameSelection(marked, current)) setMarkedId(null);
   // Every tag is drawn from the reports one write is changing, so all of them wait for it.
   const { pending, run } = useRowAction();
   const { ordered, drop } = useDroppedOrder(reports, onReorder);
