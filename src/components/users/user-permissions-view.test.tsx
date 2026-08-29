@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PERMISSIONS, PERMISSION_LABELS } from "@/lib/auth/permissions";
 
@@ -85,7 +85,10 @@ describe("UserPermissionsView", () => {
     teachers(BOB);
     show();
 
-    expect(screen.getByText(NO_PERMISSIONS_LABEL)).toBeInTheDocument();
+    // Scoped to the row: the filter offers a tag by the same name, which is a different thing.
+    expect(
+      within(screen.getByRole("listitem")).getByText(NO_PERMISSIONS_LABEL),
+    ).toBeInTheDocument();
   });
 
   it("grants the permission that was pressed", async () => {
@@ -283,5 +286,41 @@ describe("UserPermissionsView — filtering", () => {
     await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
 
     expect(apiRequest).not.toHaveBeenCalled();
+  });
+
+  /** Who is waiting for access, which is the question this page is most often opened to answer. */
+  it("narrows to whoever holds nothing", async () => {
+    show();
+
+    await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
+
+    expect(shown()).toEqual(["Cerny Clara"]);
+  });
+
+  it("reads that tag as an alternative beside a permission", async () => {
+    show();
+
+    await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
+    await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
+
+    expect(shown()).toEqual(["Auer Ada", "Cerny Clara"]);
+  });
+
+  it("releases it again when pressed twice", async () => {
+    show();
+
+    await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
+    await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
+
+    expect(shown()).toHaveLength(3);
+  });
+
+  it("is cleared by Alle along with the rest", async () => {
+    show();
+    await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
+
+    await userEvent.click(screen.getByRole("button", { name: `${FILTER_LABEL}: Alle` }));
+
+    expect(shown()).toHaveLength(3);
   });
 });
