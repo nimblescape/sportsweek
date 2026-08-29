@@ -15,12 +15,12 @@ vi.mock("@/lib/firebase/client", () => ({ auth: {} }));
 const { ImpersonationDialog } = await import("@/components/auth/fake/impersonation-dialog");
 
 const KNOWN_USERS = [
-  { upn: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", role: "teacher" },
+  { upn: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", accountType: "teacher" },
   {
     upn: "zoe.zimmer@student.htldornbirn.at",
     firstName: "Zoe",
     lastName: "Zimmer",
-    role: "student",
+    accountType: "student",
   },
 ];
 
@@ -116,7 +116,7 @@ describe("ImpersonationDialog", () => {
     expect(JSON.parse((post[1] as { body: string }).body)).toEqual({
       firstName: "Jane",
       lastName: "Doe",
-      role: "teacher",
+      accountType: "teacher",
     });
     expect(onImpersonated).toHaveBeenCalled();
   });

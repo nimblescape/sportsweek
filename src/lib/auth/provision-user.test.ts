@@ -11,10 +11,17 @@ const docGet = vi.fn();
 const docSet = vi.fn();
 const docUpdate = vi.fn();
 const doc = vi.fn(() => ({ get: docGet, set: docSet, update: docUpdate }));
-const collection = vi.fn(() => ({ doc }));
+// Whether anybody already teaches here, which is what decides the first teacher's roles (US-2).
+const teachersGet = vi.fn();
+const limit = vi.fn(() => ({ get: teachersGet }));
+const where = vi.fn(() => ({ limit }));
+const collection = vi.fn(() => ({ doc, where }));
 const setCustomUserClaims = vi.fn();
 const fetchEntraName = vi.fn();
 const fetchEntraPhoto = vi.fn();
+
+// A school that already has one, so a test says so itself when it means to be the first.
+teachersGet.mockResolvedValue({ empty: false });
 
 /**
  * The user record stays a mock, so the tests below can stage a login that finds one or does
@@ -41,6 +48,7 @@ vi.mock("@/lib/auth/sign-in-policy", () => ({ refuseSignIn }));
 
 const { provisionUser } = await import("@/lib/auth/provision-user");
 const { registrationPath } = await import("@/lib/registration/registration");
+const { PERMISSIONS } = await import("@/lib/auth/permissions");
 
 const teacherClaims = {
   uid: "firebase-uid-1",
@@ -93,7 +101,7 @@ describe("the deployment's own sign-in policy", () => {
     await provisionUser({ ...studentClaims, ...ENTRA });
 
     expect(refuseSignIn).toHaveBeenCalledWith({
-      role: "student",
+      accountType: "student",
       signInProvider: "microsoft.com",
     });
   });
@@ -101,7 +109,7 @@ describe("the deployment's own sign-in policy", () => {
   it("passes on an impersonated provider unchanged, so the policy can tell them apart", async () => {
     await provisionUser({ ...studentClaims, ...IMPERSONATED });
 
-    expect(refuseSignIn).toHaveBeenCalledWith({ role: "student", signInProvider: "custom" });
+    expect(refuseSignIn).toHaveBeenCalledWith({ accountType: "student", signInProvider: "custom" });
   });
 
   it("provisions as usual when nothing is refused", async () => {
@@ -129,14 +137,15 @@ describe("provisionUser", () => {
         firstName: "Jane",
         lastName: "Doe",
         email: "jane.doe@htldornbirn.at",
-        role: "teacher",
+        accountType: "teacher",
+        permissions: [],
         photo: null,
       },
     });
     expect(collection).toHaveBeenCalledWith("users");
     expect(doc).toHaveBeenCalledWith("jane.doe@htldornbirn.at");
     expect(docSet).toHaveBeenCalledWith(
-      expect.objectContaining({ firstName: "Jane", lastName: "Doe", role: "teacher" }),
+      expect.objectContaining({ firstName: "Jane", lastName: "Doe", accountType: "teacher" }),
     );
   });
 
@@ -146,7 +155,7 @@ describe("provisionUser", () => {
       email: "sam.smith@student.htldornbirn.at",
     });
 
-    expect(result).toMatchObject({ ok: true, user: { role: "student" } });
+    expect(result).toMatchObject({ ok: true, user: { accountType: "student" } });
   });
 
   it.each([
@@ -175,15 +184,15 @@ describe("provisionUser", () => {
       firstName: "Jane",
       lastName: "Doe",
       email: "jane.doe@htldornbirn.at",
-      role: "student",
+      accountType: "student",
     });
 
     const result = await provisionUser(teacherClaims);
 
-    expect(result).toMatchObject({ ok: true, user: { role: "student" } });
+    expect(result).toMatchObject({ ok: true, user: { accountType: "student" } });
     expect(docSet).not.toHaveBeenCalled();
     expect(docUpdate).not.toHaveBeenCalledWith(
-      expect.objectContaining({ role: expect.anything() }),
+      expect.objectContaining({ accountType: expect.anything() }),
     );
   });
 
@@ -192,7 +201,7 @@ describe("provisionUser", () => {
       firstName: "Old",
       lastName: "Name",
       email: "jane.doe@htldornbirn.at",
-      role: "teacher",
+      accountType: "teacher",
     });
 
     await provisionUser(teacherClaims);
@@ -208,7 +217,7 @@ describe("provisionUser", () => {
   it("mirrors the stored role into the custom claim", async () => {
     await provisionUser(teacherClaims);
 
-    expect(setCustomUserClaims).toHaveBeenCalledWith("firebase-uid-1", { role: "teacher" });
+    expect(setCustomUserClaims).toHaveBeenCalledWith("firebase-uid-1", { accountType: "teacher" });
   });
 
   it("skips the claim write when the token already carries the right role", async () => {
@@ -216,10 +225,10 @@ describe("provisionUser", () => {
       firstName: "Jane",
       lastName: "Doe",
       email: "jane.doe@htldornbirn.at",
-      role: "teacher",
+      accountType: "teacher",
     });
 
-    await provisionUser({ ...teacherClaims, role: "teacher" });
+    await provisionUser({ ...teacherClaims, accountType: "teacher" });
 
     expect(setCustomUserClaims).not.toHaveBeenCalled();
   });
@@ -328,6 +337,85 @@ describe("provisionUser", () => {
 });
 
 /**
+ * Somebody has to be able to hand out the first roles, and nobody can be granted one before a
+ * teacher exists to grant it — so the school's first teacher is provisioned holding all of them
+ * (US-2). Everyone after that starts with none and is granted what they need deliberately.
+ */
+describe("the roles a new teacher is provisioned with", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    refuseSignIn.mockReturnValue(null);
+    docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    fetchEntraName.mockResolvedValue(null);
+    teachersGet.mockResolvedValue({ empty: false });
+  });
+
+  it("gives the first teacher every role", async () => {
+    teachersGet.mockResolvedValue({ empty: true });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(result).toMatchObject({ ok: true, user: { permissions: [...PERMISSIONS] } });
+    expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ permissions: [...PERMISSIONS] }));
+  });
+
+  it("asks only whether a teacher exists, not for the whole staff room", async () => {
+    teachersGet.mockResolvedValue({ empty: true });
+
+    await provisionUser(teacherClaims);
+
+    expect(where).toHaveBeenCalledWith("accountType", "==", "teacher");
+    expect(limit).toHaveBeenCalledWith(1);
+  });
+
+  it("gives a later teacher none", async () => {
+    const result = await provisionUser(teacherClaims);
+
+    expect(result).toMatchObject({ ok: true, user: { permissions: [] } });
+    expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ permissions: [] }));
+  });
+
+  /** A role says what a teacher may do; a student is not one, whoever signs in first (US-3). */
+  it("gives a student none even when nobody has signed in before", async () => {
+    teachersGet.mockResolvedValue({ empty: true });
+
+    const result = await provisionUser(studentClaims);
+
+    expect(result).toMatchObject({ ok: true, user: { accountType: "student", permissions: [] } });
+  });
+
+  it("keeps the roles already stored on a later login instead of reconsidering them", async () => {
+    existingRecord({
+      firstName: "Jane",
+      lastName: "Doe",
+      email: "jane.doe@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["viewReports"],
+    });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(result).toMatchObject({ ok: true, user: { permissions: ["viewReports"] } });
+    expect(docUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ permissions: expect.anything() }),
+    );
+  });
+
+  it("reads a record written before roles existed as holding none", async () => {
+    existingRecord({
+      firstName: "Jane",
+      lastName: "Doe",
+      email: "jane.doe@htldornbirn.at",
+      accountType: "teacher",
+    });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(result).toMatchObject({ ok: true, user: { permissions: [] } });
+  });
+});
+
+/**
  * Sign-in is the one moment the Graph token is held, so it is the one moment the photo can be
  * read — the token is not kept afterwards, and the browser never had one of its own (US-1).
  */
@@ -362,7 +450,7 @@ describe("provisionUser — the Entra photo", () => {
 
   /** Removing it in Entra removes it here, which only a write on every login can do. */
   it("clears a photo that Entra no longer has", async () => {
-    existingRecord({ role: "teacher", photo: "data:image/jpeg;base64,OLD" });
+    existingRecord({ accountType: "teacher", photo: "data:image/jpeg;base64,OLD" });
 
     await provisionUser(teacherClaims, "graph-token");
 

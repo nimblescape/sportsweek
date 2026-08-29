@@ -6,19 +6,19 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { adminAuth } from "@/lib/firebase/admin";
-import { userRoleSchema, type UserRole } from "@/lib/schemas/user";
+import { accountTypeSchema, type AccountType } from "@/lib/schemas/user";
 
 export const SESSION_COOKIE_NAME = "__session";
 
 export type SessionUser = {
   uid: string;
   email: string | null;
-  role: UserRole | null;
+  accountType: AccountType | null;
 };
 
 /**
- * Verifies the Firebase session cookie and reads the role from custom claims.
- * The claim is a cached mirror of `/users/{uid}.role`: re-sync it whenever the record changes,
+ * Verifies the Firebase session cookie and reads the accountType from custom claims.
+ * The claim is a cached mirror of `/users/{uid}.accountType`: re-sync it whenever the record changes,
  * and fall back to the record for anything security-critical, as `firestore.rules` does.
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -28,11 +28,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   try {
     const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    const role = userRoleSchema.safeParse(decoded.role);
+    const accountType = accountTypeSchema.safeParse(decoded.accountType);
     return {
       uid: decoded.uid,
       email: decoded.email ?? null,
-      role: role.success ? role.data : null,
+      accountType: accountType.success ? accountType.data : null,
     };
   } catch {
     return null;

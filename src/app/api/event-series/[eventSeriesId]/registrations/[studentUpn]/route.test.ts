@@ -5,10 +5,10 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithRole = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const deleteRegistration = vi.fn();
 
-vi.mock("@/lib/auth/guards", () => ({ getUserWithRole: () => getUserWithRole() }));
+vi.mock("@/lib/auth/guards", () => ({ getAuthenticatedUser: () => getAuthenticatedUser() }));
 vi.mock("@/lib/registration/registration-service", () => ({
   deleteRegistration: (...args: unknown[]) => deleteRegistration(...args),
 }));
@@ -25,7 +25,12 @@ const paramsFor = (studentUpn: string) => Promise.resolve({ eventSeriesId: "s1",
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: TEACHER, role: "teacher" });
+  getAuthenticatedUser.mockResolvedValue({
+    uid: "u1",
+    email: TEACHER,
+    accountType: "teacher",
+    permissions: ["editAssignments"],
+  });
   deleteRegistration.mockResolvedValue(undefined);
 });
 
@@ -46,7 +51,22 @@ describe("DELETE /api/event-series/[eventSeriesId]/registrations/[studentUpn]", 
 
   /** A student who is not coming answers "no" (US-11); removing one is a teacher's doing. */
   it("refuses a student, and writes nothing", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: STUDENT, role: "student" });
+    getAuthenticatedUser.mockResolvedValue({ uid: "u2", email: STUDENT, accountType: "student" });
+
+    const response = await DELETE(request, { params: paramsFor(STUDENT) });
+
+    expect(response.status).toBe(403);
+    expect(deleteRegistration).not.toHaveBeenCalled();
+  });
+
+  /** Removing somebody from the series is planning, not reporting on what was planned. */
+  it("refuses a teacher who may not edit assignments", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u3",
+      email: "t2@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["viewReports", "editReports", "editMasterData"],
+    });
 
     const response = await DELETE(request, { params: paramsFor(STUDENT) });
 
@@ -55,7 +75,7 @@ describe("DELETE /api/event-series/[eventSeriesId]/registrations/[studentUpn]", 
   });
 
   it("refuses a caller with no session at all", async () => {
-    getUserWithRole.mockResolvedValue(null);
+    getAuthenticatedUser.mockResolvedValue(null);
 
     const response = await DELETE(request, { params: paramsFor(STUDENT) });
 

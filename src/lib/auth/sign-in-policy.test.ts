@@ -13,7 +13,7 @@ import { refuseSignIn } from "@/lib/auth/sign-in-policy";
  */
 describe("the production sign-in policy", () => {
   it("refuses no sign-in of its own accord", () => {
-    expect(refuseSignIn({ role: "student", signInProvider: "microsoft.com" })).toBeNull();
-    expect(refuseSignIn({ role: "teacher", signInProvider: "microsoft.com" })).toBeNull();
+    expect(refuseSignIn({ accountType: "student", signInProvider: "microsoft.com" })).toBeNull();
+    expect(refuseSignIn({ accountType: "teacher", signInProvider: "microsoft.com" })).toBeNull();
   });
 });

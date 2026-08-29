@@ -8,7 +8,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, Database, FileText, Shuffle } from "lucide-react";
+import { ChartColumn, Database, FileText, Shuffle, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Brand } from "@/components/layout/brand";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -18,15 +18,17 @@ import {
   liveSelection,
   selectedEventSeriesIdFrom,
 } from "@/lib/event-series/event-series-selection";
+import { reachablePages, type PageKey } from "@/lib/auth/reachable-pages";
+import type { Permission } from "@/lib/auth/permissions";
 import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
 
-function topLevel(eventSeriesId: string) {
+function topLevel(eventSeriesId: string, reachable: readonly PageKey[]) {
   const routes = eventSeriesRoutes(eventSeriesId);
   return [
-    { href: routes.overview, label: "\u00dcbersicht", Icon: ChartColumn },
-    { href: routes.assignment, label: "Zuteilung", Icon: Shuffle },
-    { href: routes.report, label: "Bericht", Icon: FileText },
-  ];
+    { key: "overview", href: routes.overview, label: "\u00dcbersicht", Icon: ChartColumn },
+    { key: "assignment", href: routes.assignment, label: "Zuteilung", Icon: Shuffle },
+    { key: "report", href: routes.report, label: "Bericht", Icon: FileText },
+  ].filter((item) => reachable.includes(item.key as PageKey));
 }
 
 function itemClasses(active: boolean) {
@@ -45,9 +47,11 @@ function itemClasses(active: boolean) {
  */
 export function TeacherNav({
   fallbackEventSeriesId = null,
+  permissions = [],
   photo = null,
 }: {
   fallbackEventSeriesId?: string | null;
+  permissions?: readonly Permission[];
   photo?: string | null;
 }) {
   const pathname = usePathname();
@@ -67,6 +71,7 @@ export function TeacherNav({
   const { eventSeries } = useEventSeries();
   const selectedId = liveSelection(eventSeries, eventSeriesId);
   const sections = masterDataSections(selectedId);
+  const reachable = reachablePages(permissions);
 
   return (
     <nav aria-label="Hauptnavigation" className="flex h-full flex-col gap-1 p-2 md:w-56">
@@ -74,7 +79,7 @@ export function TeacherNav({
           the column beside it is where a page begins. */}
       <Brand />
 
-      {(selectedId === null ? [] : topLevel(selectedId)).map(({ href, label, Icon }) => {
+      {(selectedId === null ? [] : topLevel(selectedId, reachable)).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
@@ -90,30 +95,46 @@ export function TeacherNav({
       })}
 
       {/* The section has no view of its own, so it opens on the first list beneath it. */}
-      <Link
-        href={selectedId === null ? ROUTES.eventSeries : firstMasterDataPath(selectedId)}
-        className={itemClasses(inMasterData)}
-      >
-        <Database aria-hidden className="size-6 shrink-0" />
-        <span>Stammdaten</span>
-      </Link>
+      {reachable.includes("masterData") ? (
+        <>
+          <Link
+            href={selectedId === null ? ROUTES.eventSeries : firstMasterDataPath(selectedId)}
+            className={itemClasses(inMasterData)}
+          >
+            <Database aria-hidden className="size-6 shrink-0" />
+            <span>Stammdaten</span>
+          </Link>
 
-      <ul className="flex flex-col gap-1">
-        {sections.map(({ href, label }) => (
-          <li key={href}>
-            <Link
-              href={href}
-              aria-current={pathname === href ? "page" : undefined}
-              className={itemClasses(pathname === href)}
-            >
-              {/* Stands in for the icon above it, so the text lines up by being laid out the
+          <ul className="flex flex-col gap-1">
+            {sections.map(({ href, label }) => (
+              <li key={href}>
+                <Link
+                  href={href}
+                  aria-current={pathname === href ? "page" : undefined}
+                  className={itemClasses(pathname === href)}
+                >
+                  {/* Stands in for the icon above it, so the text lines up by being laid out the
                   same way rather than by a padding that has to add up to the same number. */}
-              <span aria-hidden className="size-6 shrink-0" />
-              {label}
-            </Link>
-          </li>
-        ))}
-      </ul>
+                  <span aria-hidden className="size-6 shrink-0" />
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      {/* Not part of the section above it: rights are the school's, not one event series'. */}
+      {reachable.includes("users") ? (
+        <Link
+          href={`${ROUTES.appRoot}/users`}
+          aria-current={pathname === `${ROUTES.appRoot}/users` ? "page" : undefined}
+          className={itemClasses(pathname === `${ROUTES.appRoot}/users`)}
+        >
+          <Users aria-hidden className="size-6 shrink-0" />
+          <span>Benutzerrechte</span>
+        </Link>
+      ) : null}
 
       {/* The foot of the bar: who is signed in. */}
       <div className="mt-auto">

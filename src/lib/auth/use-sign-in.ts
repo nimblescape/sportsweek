@@ -16,7 +16,7 @@ import {
 } from "firebase/auth";
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { ROUTES, homeFor, safeDestination } from "@/lib/routes";
-import { userRoleSchema } from "@/lib/schemas/user";
+import { accountTypeSchema } from "@/lib/schemas/user";
 
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
 const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.";
@@ -98,7 +98,7 @@ export function useSignIn() {
         }
 
         const body = await response.json().catch(() => null);
-        const role = userRoleSchema.safeParse(body?.role);
+        const role = accountTypeSchema.safeParse(body?.accountType);
 
         // Deliberately stays `checking`: there is a session now, so something is always
         // happening next — either navigating, or a step the caller puts in the way.

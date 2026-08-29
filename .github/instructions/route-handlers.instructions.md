@@ -37,12 +37,19 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 `src/lib/api/handler.ts` owns the four steps every handler takes. A handler that hand-rolls one
 of them is a handler whose envelope will eventually differ from the others':
 
-| Step                                  | Helper                                                 |
-| ------------------------------------- | ------------------------------------------------------ |
-| Check the caller's role               | `requireTeacherOrResponse`, `requireStudentOrResponse` |
-| Parse and validate a body             | `parseJsonBody(request, schema)`                       |
-| Report a refusal                      | `errorResponse(code, message, details?)`               |
-| Turn a thrown failure into a response | `handleServiceFailure(error, context)`                 |
+| Step                                  | Helper                                                    |
+| ------------------------------------- | --------------------------------------------------------- |
+| Check what the caller may do          | `requirePermissionOrResponse`, `requireStudentOrResponse` |
+| The same, plus who they are           | `requirePermissionIdentityOrResponse(permission)`         |
+| Parse and validate a body             | `parseJsonBody(request, schema)`                          |
+| Report a refusal                      | `errorResponse(code, message, details?)`                  |
+| Turn a thrown failure into a response | `handleServiceFailure(error, context)`                    |
+
+A handler names the one permission it needs. Being a teacher opens nothing on its own, and no
+permission stands in for another — so the name passed here is the whole of the decision, and
+getting it wrong is the failure a test for a teacher holding a _different_ permission catches.
+Refusals carry `PERMISSION_DENIED_HINT`, one sentence for every permission, so a caller learns
+nothing about which was missing.
 
 Services throw `ServiceError` with an `ErrorCode`; `handleServiceFailure` maps it to the
 documented status and sanitises anything else into a logged 500.
@@ -53,7 +60,7 @@ documented status and sanitises anything else into a logged 500.
 | ------ | ---------------------------------- | ---------------------------------------------------------------------------------- |
 | 400    | `ErrorCode.ValidationError`        | Zod `safeParse` failed                                                             |
 | 401    | `ErrorCode.AuthenticationRequired` | No/invalid session                                                                 |
-| 403    | `ErrorCode.PermissionDenied`       | Authenticated but missing required role/permission                                 |
+| 403    | `ErrorCode.PermissionDenied`       | Authenticated, but does not hold the permission the handler names                  |
 | 404    | `ErrorCode.NotFound`               | The referenced resource does not exist                                             |
 | 409    | `ErrorCode.Conflict`               | Duplicate, concurrent update                                                       |
 | 500    | `ErrorCode.InternalError`          | Unexpected error / Admin SDK failure — log server-side, return a sanitized message |
@@ -62,7 +69,7 @@ documented status and sanitises anything else into a logged 500.
 
 ```ts
 export async function POST(request: Request) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editMasterData");
   if (denied) return denied;
 
   const body = await parseJsonBody(request, createEventSeriesSchema);

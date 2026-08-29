@@ -4,9 +4,12 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { ReactNode } from "react";
+import { requirePermission } from "@/lib/auth/guards";
 import { ShowArchivedProvider } from "@/lib/event-series/show-archived";
 
 /** Wraps the event series list and an event series' events, so walking between them keeps what was revealed. */
-export default function EventSeriesLayout({ children }: { children: ReactNode }) {
+export default async function EventSeriesLayout({ children }: { children: ReactNode }) {
+  await requirePermission("editMasterData");
+
   return <ShowArchivedProvider>{children}</ShowArchivedProvider>;
 }

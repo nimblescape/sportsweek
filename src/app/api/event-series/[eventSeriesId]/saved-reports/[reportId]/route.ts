@@ -4,7 +4,11 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { NextResponse } from "next/server";
-import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@/lib/api/handler";
+import {
+  handleServiceFailure,
+  parseJsonBody,
+  requirePermissionOrResponse,
+} from "@/lib/api/handler";
 import { savedReportEditSchema } from "@/lib/schemas/saved-report";
 import { deleteSavedReport, updateSavedReport } from "@/lib/report/saved-report-service";
 
@@ -12,7 +16,7 @@ type Context = { params: Promise<{ eventSeriesId: string; reportId: string }> };
 
 /** One edit, whichever control sent it: the report as the teacher now has it, name included. */
 export async function PATCH(request: Request, { params }: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editReports");
   if (denied) return denied;
 
   const body = await parseJsonBody(request, savedReportEditSchema);
@@ -30,7 +34,7 @@ export async function PATCH(request: Request, { params }: Context) {
 
 /** Shared among all teachers, so any of them may remove one — including one they did not save. */
 export async function DELETE(_request: Request, { params }: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editReports");
   if (denied) return denied;
 
   const { eventSeriesId, reportId } = await params;

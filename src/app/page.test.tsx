@@ -24,7 +24,7 @@ describe("root page", () => {
     getSessionUser.mockResolvedValue({
       uid: "uid-1",
       email: "jane@htldornbirn.at",
-      role: "teacher",
+      accountType: "teacher",
     });
 
     await expect(Home()).rejects.toThrow("REDIRECT:/app");

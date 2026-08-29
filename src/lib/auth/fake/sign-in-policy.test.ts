@@ -12,7 +12,7 @@ import { refuseSignIn } from "@/lib/auth/fake/sign-in-policy";
  */
 describe("refuseSignIn in a test environment", () => {
   it("turns away a student signing in with their real account", () => {
-    expect(refuseSignIn({ role: "student", signInProvider: "microsoft.com" })).toEqual({
+    expect(refuseSignIn({ accountType: "student", signInProvider: "microsoft.com" })).toEqual({
       reason: "students-excluded",
       message: "Diese Umgebung steht nur Lehrpersonen offen.",
     });
@@ -20,16 +20,16 @@ describe("refuseSignIn in a test environment", () => {
 
   // Which is the whole point of the environment.
   it("admits a student the fake login is standing in for", () => {
-    expect(refuseSignIn({ role: "student", signInProvider: "custom" })).toBeNull();
+    expect(refuseSignIn({ accountType: "student", signInProvider: "custom" })).toBeNull();
   });
 
   it("leaves teachers alone either way", () => {
-    expect(refuseSignIn({ role: "teacher", signInProvider: "microsoft.com" })).toBeNull();
-    expect(refuseSignIn({ role: "teacher", signInProvider: "custom" })).toBeNull();
+    expect(refuseSignIn({ accountType: "teacher", signInProvider: "microsoft.com" })).toBeNull();
+    expect(refuseSignIn({ accountType: "teacher", signInProvider: "custom" })).toBeNull();
   });
 
   // Only `microsoft.com` means the account is real, so anything else is not that case.
   it("does not turn away a student whose provider is unknown", () => {
-    expect(refuseSignIn({ role: "student" })).toBeNull();
+    expect(refuseSignIn({ accountType: "student" })).toBeNull();
   });
 });

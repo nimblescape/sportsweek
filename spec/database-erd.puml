@@ -15,7 +15,11 @@ entity "User" as user {
   firstName : string
   lastName : string
   email : string
-  role : enum(teacher, student)  ' auto-assigned from UPN domain at creation (US-3)
+  accountType : enum(teacher, student)  ' what they are: auto-assigned from the UPN domain at
+                                        ' creation, granted by nobody, never client-writable (US-3)
+  permissions : string[]  ' what they may do: a set, not a rank, granted through the rights page
+                          ' by a holder of editUsers. Empty for every student, and for a teacher
+                          ' until granted — the school's first teacher excepted (US-2, US-30)
 }
 
 entity "EventSeries" as eventSeries {

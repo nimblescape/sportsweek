@@ -4,26 +4,26 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { roleFromUpn } from "@/lib/auth/upn";
+import { accountTypeFromUpn } from "@/lib/auth/upn";
 
-describe("roleFromUpn", () => {
+describe("accountTypeFromUpn", () => {
   it("assigns the teacher role to the staff domain", () => {
-    expect(roleFromUpn("jane.doe@htldornbirn.at")).toBe("teacher");
+    expect(accountTypeFromUpn("jane.doe@htldornbirn.at")).toBe("teacher");
   });
 
   it("assigns the student role to the student domain", () => {
-    expect(roleFromUpn("jane.doe@student.htldornbirn.at")).toBe("student");
+    expect(accountTypeFromUpn("jane.doe@student.htldornbirn.at")).toBe("student");
   });
 
   it.each([
     ["Jane.Doe@HTLDornbirn.at", "teacher"],
     ["Jane.Doe@Student.HTLDornbirn.AT", "student"],
   ])("matches %s case-insensitively", (upn, expected) => {
-    expect(roleFromUpn(upn)).toBe(expected);
+    expect(accountTypeFromUpn(upn)).toBe(expected);
   });
 
   it("trims surrounding whitespace", () => {
-    expect(roleFromUpn("  jane.doe@htldornbirn.at  ")).toBe("teacher");
+    expect(accountTypeFromUpn("  jane.doe@htldornbirn.at  ")).toBe("teacher");
   });
 
   it.each([
@@ -39,6 +39,6 @@ describe("roleFromUpn", () => {
     ["a missing domain", "jane@"],
     ["two at signs", "jane@evil.com@htldornbirn.at"],
   ])("rejects %s", (_case, upn) => {
-    expect(roleFromUpn(upn)).toBeNull();
+    expect(accountTypeFromUpn(upn)).toBeNull();
   });
 });

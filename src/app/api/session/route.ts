@@ -85,9 +85,9 @@ export async function POST(request: Request) {
     path: "/",
   });
 
-  // Returning the role lets the client skip the /app landing hop, which would otherwise cost
+  // Returning the account type lets the client skip the /app landing hop, which would otherwise cost
   // another request and another session-cookie verification.
-  return NextResponse.json({ status: "ok", role: provisioned.user.role });
+  return NextResponse.json({ status: "ok", accountType: provisioned.user.accountType });
 }
 
 // Signs the user out by clearing the session cookie.
