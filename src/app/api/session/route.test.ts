@@ -40,7 +40,7 @@ describe("POST /api/session", () => {
     cookieStore.delete.mockReset();
     provisionUser.mockResolvedValue({
       ok: true,
-      user: { id: "jane@htldornbirn.at", role: "teacher" },
+      user: { id: "jane@htldornbirn.at", accountType: "teacher" },
     });
   });
 
@@ -50,7 +50,7 @@ describe("POST /api/session", () => {
 
     const response = await POST(postRequest({ idToken: "good-token" }));
 
-    expect(await response.json()).toMatchObject({ status: "ok", role: "teacher" });
+    expect(await response.json()).toMatchObject({ status: "ok", accountType: "teacher" });
   });
 
   it("returns 400 when idToken is missing", async () => {

@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import type { UserRole } from "@/lib/schemas/user";
+import type { AccountType } from "@/lib/schemas/user";
 
 export const TEACHER_DOMAIN = "htldornbirn.at";
 export const STUDENT_DOMAIN = "student.htldornbirn.at";
@@ -13,7 +13,7 @@ export const STUDENT_DOMAIN = "student.htldornbirn.at";
  * The domain must match exactly, so lookalikes such as `evil-htldornbirn.at`,
  * `mail.htldornbirn.at` or `htldornbirn.at.evil.com` are rejected.
  */
-export function roleFromUpn(upn: string): UserRole | null {
+export function accountTypeFromUpn(upn: string): AccountType | null {
   const parts = upn.trim().toLowerCase().split("@");
   if (parts.length !== 2) return null;
 

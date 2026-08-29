@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithRole = vi.fn();
+const getUserWithAccountType = vi.fn();
 const createMasterDataItem = vi.fn();
 const updateMasterDataItem = vi.fn();
 const deleteMasterDataItem = vi.fn();
@@ -14,7 +14,7 @@ const readMasterDataItems = vi.fn();
 const usageReport = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  getUserWithRole: () => getUserWithRole(),
+  getUserWithAccountType: () => getUserWithAccountType(),
 }));
 
 vi.mock("@/lib/master-data/master-data-service", () => ({
@@ -33,7 +33,7 @@ const { DELETE, GET, PATCH, POST } = await import("./route");
 const { ServiceError } = await import("@/lib/service-error");
 const { MASTER_DATA_CATEGORIES } = await import("@/lib/master-data/categories");
 
-const STUDENT = { uid: "u2", email: "s@student.htldornbirn.at", role: "student" };
+const STUDENT = { uid: "u2", email: "s@student.htldornbirn.at", accountType: "student" };
 
 function request(method: string, body: unknown) {
   return new Request("https://example.com/api/master-data/classes", {
@@ -48,7 +48,11 @@ function context(category: string, eventSeriesId = "s1") {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: "t@htldornbirn.at", role: "teacher" });
+  getUserWithAccountType.mockResolvedValue({
+    uid: "u1",
+    email: "t@htldornbirn.at",
+    accountType: "teacher",
+  });
   createMasterDataItem.mockResolvedValue({ name: "3AHIT" });
   updateMasterDataItem.mockResolvedValue({ name: "3BHIT" });
   deleteMasterDataItem.mockResolvedValue(undefined);
@@ -84,7 +88,7 @@ describe("POST /api/master-data/[category]", () => {
   });
 
   it("rejects an anonymous caller with 401", async () => {
-    getUserWithRole.mockResolvedValue(null);
+    getUserWithAccountType.mockResolvedValue(null);
 
     const response = await POST(request("POST", { name: "3AHIT" }), context("classes"));
 
@@ -93,7 +97,7 @@ describe("POST /api/master-data/[category]", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot write", async () => {
-    getUserWithRole.mockResolvedValue(STUDENT);
+    getUserWithAccountType.mockResolvedValue(STUDENT);
 
     const response = await POST(request("POST", { name: "3AHIT" }), context("classes"));
 
@@ -155,7 +159,7 @@ describe("PATCH /api/master-data/[category] — reordering", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
-    getUserWithRole.mockResolvedValue(STUDENT);
+    getUserWithAccountType.mockResolvedValue(STUDENT);
 
     const response = await PATCH(request("PATCH", { order: ["3AHIT"] }), context("classes"));
 
@@ -261,7 +265,7 @@ describe("PATCH /api/master-data/[category] — editing one item", () => {
   });
 
   it("rejects a student with 403", async () => {
-    getUserWithRole.mockResolvedValue(STUDENT);
+    getUserWithAccountType.mockResolvedValue(STUDENT);
 
     const response = await PATCH(
       request("PATCH", { item: "3AHIT", name: "3BHIT" }),
@@ -305,7 +309,7 @@ describe("DELETE /api/master-data/[category]", () => {
   });
 
   it("rejects a student with 403", async () => {
-    getUserWithRole.mockResolvedValue(STUDENT);
+    getUserWithAccountType.mockResolvedValue(STUDENT);
 
     const response = await DELETE(request("DELETE", { item: "3AHIT" }), context("classes"));
 
@@ -339,7 +343,7 @@ describe("GET /api/master-data/[category]", () => {
   });
 
   it("rejects a student, since the answer is derived from data they cannot read", async () => {
-    getUserWithRole.mockResolvedValue(STUDENT);
+    getUserWithAccountType.mockResolvedValue(STUDENT);
 
     const response = await GET(new Request("https://example.com"), context("classes"));
 

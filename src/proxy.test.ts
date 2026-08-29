@@ -21,8 +21,8 @@ function makeRequest(pathname: string, { session }: { session?: string } = {}) {
   return new NextRequest(new URL(pathname, "https://example.com"), { headers });
 }
 
-const asTeacher = { session: sessionCookieWith({ role: "teacher" }) };
-const asStudent = { session: sessionCookieWith({ role: "student" }) };
+const asTeacher = { session: sessionCookieWith({ accountType: "teacher" }) };
+const asStudent = { session: sessionCookieWith({ accountType: "student" }) };
 
 function locationOf(response: Response) {
   return new URL(response.headers.get("location")!).pathname;

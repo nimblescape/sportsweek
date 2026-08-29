@@ -58,7 +58,7 @@ afterEach(() => vi.restoreAllMocks());
  * student who can save is one the directory has already provisioned (US-1).
  */
 function seedStudent(upn: string, name: { firstName: string; lastName: string }) {
-  firestore.seed("users", upn, { ...name, email: upn, role: "student" });
+  firestore.seed("users", upn, { ...name, email: upn, accountType: "student" });
 }
 
 /**

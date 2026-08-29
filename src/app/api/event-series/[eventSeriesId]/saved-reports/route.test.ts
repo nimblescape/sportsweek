@@ -6,11 +6,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 
-const getUserWithRole = vi.fn();
+const getUserWithAccountType = vi.fn();
 const createSavedReport = vi.fn();
 const reorderSavedReports = vi.fn();
 
-vi.mock("@/lib/auth/guards", () => ({ getUserWithRole: () => getUserWithRole() }));
+vi.mock("@/lib/auth/guards", () => ({ getUserWithAccountType: () => getUserWithAccountType() }));
 vi.mock("@/lib/report/saved-report-service", () => ({
   createSavedReport: (...args: unknown[]) => createSavedReport(...args),
   reorderSavedReports: (...args: unknown[]) => reorderSavedReports(...args),
@@ -41,7 +41,7 @@ function patchRequest(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: TEACHER, role: "teacher" });
+  getUserWithAccountType.mockResolvedValue({ uid: "u1", email: TEACHER, accountType: "teacher" });
   createSavedReport.mockResolvedValue({ id: "r1", ...input, createdByUserId: TEACHER });
   reorderSavedReports.mockResolvedValue(undefined);
 });
@@ -70,7 +70,11 @@ describe("POST /api/event-series/[eventSeriesId]/saved-reports", () => {
   });
 
   it("rejects a student with 403, since the report is a teacher's (US-13)", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x.at", role: "student" });
+    getUserWithAccountType.mockResolvedValue({
+      uid: "u2",
+      email: "s@x.at",
+      accountType: "student",
+    });
 
     const response = await POST(postRequest(input), context);
 
@@ -79,7 +83,7 @@ describe("POST /api/event-series/[eventSeriesId]/saved-reports", () => {
   });
 
   it("rejects an unauthenticated caller with 401", async () => {
-    getUserWithRole.mockResolvedValue(null);
+    getUserWithAccountType.mockResolvedValue(null);
 
     expect((await POST(postRequest(input), context)).status).toBe(401);
   });
@@ -113,7 +117,11 @@ describe("PATCH /api/event-series/[eventSeriesId]/saved-reports", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x.at", role: "student" });
+    getUserWithAccountType.mockResolvedValue({
+      uid: "u2",
+      email: "s@x.at",
+      accountType: "student",
+    });
 
     expect((await PATCH(patchRequest({ order: ["r1"] }), context)).status).toBe(403);
     expect(reorderSavedReports).not.toHaveBeenCalled();

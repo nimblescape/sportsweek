@@ -29,7 +29,7 @@ const TEACHER_UPN = "lehrperson@htldornbirn.at";
 beforeEach(async () => {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
-    await context.firestore().collection("users").doc(TEACHER_UPN).set({ role: "teacher" });
+    await context.firestore().collection("users").doc(TEACHER_UPN).set({ accountType: "teacher" });
   });
 });
 

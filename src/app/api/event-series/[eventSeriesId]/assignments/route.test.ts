@@ -5,11 +5,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithRole = vi.fn();
+const getUserWithAccountType = vi.fn();
 const assignStudents = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  getUserWithRole: () => getUserWithRole(),
+  getUserWithAccountType: () => getUserWithAccountType(),
 }));
 
 vi.mock("@/lib/assignment/assignment-service", () => ({
@@ -31,7 +31,11 @@ function patch(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: "t@htldornbirn.at", role: "teacher" });
+  getUserWithAccountType.mockResolvedValue({
+    uid: "u1",
+    email: "t@htldornbirn.at",
+    accountType: "teacher",
+  });
   assignStudents.mockResolvedValue(undefined);
 });
 
@@ -59,10 +63,10 @@ describe("PATCH /api/event-series/[eventSeriesId]/assignments", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot assign", async () => {
-    getUserWithRole.mockResolvedValue({
+    getUserWithAccountType.mockResolvedValue({
       uid: "u2",
       email: "s@student.htldornbirn.at",
-      role: "student",
+      accountType: "student",
     });
 
     const response = await patch({ recordIds: ["r1"], event: "Woche 1" });
@@ -72,7 +76,7 @@ describe("PATCH /api/event-series/[eventSeriesId]/assignments", () => {
   });
 
   it("rejects a caller who is not signed in with 401", async () => {
-    getUserWithRole.mockResolvedValue(null);
+    getUserWithAccountType.mockResolvedValue(null);
 
     const response = await patch({ recordIds: ["r1"], event: null });
 

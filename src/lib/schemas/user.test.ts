@@ -4,23 +4,24 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { userLockedFields, userRoleSchema, userSchema } from "@/lib/schemas/user";
+import { userLockedFields, accountTypeSchema, userSchema } from "@/lib/schemas/user";
 
 const validUser = {
   id: "jane.doe@htldornbirn.at",
   firstName: "Jane",
   lastName: "Doe",
   email: "jane.doe@htldornbirn.at",
-  role: "teacher",
+  accountType: "teacher",
+  permissions: [],
 };
 
-describe("userRoleSchema", () => {
+describe("accountTypeSchema", () => {
   it.each(["teacher", "student"])("accepts the %s role", (role) => {
-    expect(userRoleSchema.safeParse(role).success).toBe(true);
+    expect(accountTypeSchema.safeParse(role).success).toBe(true);
   });
 
   it("rejects an admin role, which this app does not have", () => {
-    expect(userRoleSchema.safeParse("admin").success).toBe(false);
+    expect(accountTypeSchema.safeParse("admin").success).toBe(false);
   });
 });
 
@@ -42,12 +43,12 @@ describe("userSchema", () => {
   });
 
   it("stores exactly one role, not an array", () => {
-    expect(userSchema.safeParse({ ...validUser, role: ["teacher"] }).success).toBe(false);
+    expect(userSchema.safeParse({ ...validUser, accountType: ["teacher"] }).success).toBe(false);
   });
 });
 
 describe("userLockedFields", () => {
-  it("locks the role so firestore.rules can deny every client write to it", () => {
-    expect(Object.keys(userLockedFields.shape)).toEqual(["role"]);
+  it("locks what no client may ever write, so firestore.rules can deny it", () => {
+    expect(Object.keys(userLockedFields.shape)).toEqual(["accountType", "permissions"]);
   });
 });

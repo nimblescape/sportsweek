@@ -3,16 +3,16 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { userRoleSchema, type UserRole } from "@/lib/schemas/user";
+import { accountTypeSchema, type AccountType } from "@/lib/schemas/user";
 
 /**
- * Reads the role claim from a Firebase session cookie WITHOUT verifying its signature.
+ * Reads the accountType claim from a Firebase session cookie WITHOUT verifying its signature.
  *
  * Optimistic routing only — never authorization. Signature verification needs the Admin SDK,
- * which cannot run in the proxy's Edge runtime, so every protected page re-checks the role
+ * which cannot run in the proxy's Edge runtime, so every protected page re-checks the accountType
  * against the verified session (see lib/auth/guards).
  */
-export function readUnverifiedRole(sessionCookie: string): UserRole | null {
+export function readUnverifiedAccountType(sessionCookie: string): AccountType | null {
   const payload = sessionCookie.split(".")[1];
   if (!payload) return null;
 
@@ -21,9 +21,9 @@ export function readUnverifiedRole(sessionCookie: string): UserRole | null {
     const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
     const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
     const claims: unknown = JSON.parse(new TextDecoder().decode(bytes));
-    const role = (claims as { role?: unknown } | null)?.role;
+    const accountType = (claims as { accountType?: unknown } | null)?.accountType;
 
-    const parsed = userRoleSchema.safeParse(role);
+    const parsed = accountTypeSchema.safeParse(accountType);
     return parsed.success ? parsed.data : null;
   } catch {
     return null;

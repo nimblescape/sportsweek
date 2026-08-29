@@ -32,7 +32,7 @@ import type { Gender } from "@/lib/schemas/common";
 import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
-import { userRoleSchema, userSchema } from "@/lib/schemas/user";
+import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import { questionsAsked } from "@/lib/master-data/categories";
@@ -276,7 +276,7 @@ function createPerson(gender: Gender, taken: Set<string>): Person {
   for (let attempt = 0; ; attempt += 1) {
     const firstName = pick(firstNames);
     const lastName = attempt < 20 ? pick(LAST_NAMES) : `${pick(LAST_NAMES)}-${pick(LAST_NAMES)}`;
-    const upn = buildUpn(firstName, lastName, userRoleSchema.enum.student);
+    const upn = buildUpn(firstName, lastName, accountTypeSchema.enum.student);
 
     if (upn && !taken.has(upn)) {
       taken.add(upn);
@@ -571,7 +571,7 @@ async function main(): Promise<void> {
       const registration = registrationOf(person, chosen[index], lists, progress[index]);
       if (registration.isAttendingSportsWeek === true) written.attending += 1;
 
-      const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, role: "student" }); // prettier-ignore
+      const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, accountType: "student" }); // prettier-ignore
       const record = registrationSchema.parse({
         id: person.upn,
         studentUpn: person.upn,

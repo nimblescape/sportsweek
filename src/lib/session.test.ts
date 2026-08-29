@@ -41,13 +41,13 @@ describe("getSessionUser", () => {
     verifySessionCookie.mockResolvedValue({
       uid: "user-1",
       email: "user@example.com",
-      role: "teacher",
+      accountType: "teacher",
     });
 
     expect(await getSessionUser()).toEqual({
       uid: "user-1",
       email: "user@example.com",
-      role: "teacher",
+      accountType: "teacher",
     });
     expect(verifySessionCookie).toHaveBeenCalledWith("good-cookie", true);
   });
@@ -56,21 +56,21 @@ describe("getSessionUser", () => {
     cookiesGet.mockReturnValue({ value: "good-cookie" });
     verifySessionCookie.mockResolvedValue({ uid: "user-1", email: null });
 
-    expect(await getSessionUser()).toEqual({ uid: "user-1", email: null, role: null });
+    expect(await getSessionUser()).toEqual({ uid: "user-1", email: null, accountType: null });
   });
 
   it.each(["admin", "", 42])("returns a null role for the unsupported claim %p", async (role) => {
     cookiesGet.mockReturnValue({ value: "good-cookie" });
     verifySessionCookie.mockResolvedValue({ uid: "user-1", email: null, role });
 
-    expect(await getSessionUser()).toEqual({ uid: "user-1", email: null, role: null });
+    expect(await getSessionUser()).toEqual({ uid: "user-1", email: null, accountType: null });
   });
 
   it("ignores a legacy roles array, so the old model cannot grant access", async () => {
     cookiesGet.mockReturnValue({ value: "good-cookie" });
     verifySessionCookie.mockResolvedValue({ uid: "user-1", email: null, roles: ["teacher"] });
 
-    expect(await getSessionUser()).toEqual({ uid: "user-1", email: null, role: null });
+    expect(await getSessionUser()).toEqual({ uid: "user-1", email: null, accountType: null });
   });
 
   it("reads the cookie using the exported cookie name", () => {

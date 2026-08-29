@@ -25,23 +25,33 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/session", () => ({ getSessionUser }));
 vi.mock("@/lib/firebase/admin", () => ({ adminDb: { collection } }));
 
-const { getUserWithRole, requireStudent, requireTeacher, requireUser, resolveRole, satisfiesRole } =
-  await import("@/lib/auth/guards");
+const {
+  getUserWithAccountType,
+  requireStudent,
+  requireTeacher,
+  requireUser,
+  resolveAccountType,
+  satisfiesAccountType,
+} = await import("@/lib/auth/guards");
 
-const teacherSession = { uid: "uid-1", email: "jane@htldornbirn.at", role: "teacher" as const };
+const teacherSession = {
+  uid: "uid-1",
+  email: "jane@htldornbirn.at",
+  accountType: "teacher" as const,
+};
 const studentSession = {
   uid: "uid-2",
   email: "sam@student.htldornbirn.at",
-  role: "student" as const,
+  accountType: "student" as const,
 };
 
 async function expectRedirect(promise: Promise<unknown>, url: string) {
   await expect(promise).rejects.toThrow(`REDIRECT:${url}`);
 }
 
-describe("satisfiesRole", () => {
+describe("satisfiesAccountType", () => {
   it("lets a teacher satisfy every student-level check", () => {
-    expect(satisfiesRole("teacher", "student")).toBe(true);
+    expect(satisfiesAccountType("teacher", "student")).toBe(true);
   });
 
   it.each([
@@ -49,39 +59,39 @@ describe("satisfiesRole", () => {
     ["student", "student", true],
     ["student", "teacher", false],
   ] as const)("returns %s->%s = %s", (actual, required, expected) => {
-    expect(satisfiesRole(actual, required)).toBe(expected);
+    expect(satisfiesAccountType(actual, required)).toBe(expected);
   });
 });
 
-describe("resolveRole", () => {
+describe("resolveAccountType", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("uses the custom claim without reading Firestore", async () => {
-    expect(await resolveRole(teacherSession)).toBe("teacher");
+    expect(await resolveAccountType(teacherSession)).toBe("teacher");
     expect(collection).not.toHaveBeenCalled();
   });
 
   it("falls back to the stored record when the claim is missing", async () => {
-    docGet.mockResolvedValue({ exists: true, data: () => ({ role: "student" }) });
+    docGet.mockResolvedValue({ exists: true, data: () => ({ accountType: "student" }) });
 
-    expect(await resolveRole({ ...studentSession, role: null })).toBe("student");
+    expect(await resolveAccountType({ ...studentSession, accountType: null })).toBe("student");
     expect(doc).toHaveBeenCalledWith("sam@student.htldornbirn.at");
   });
 
   it("returns null when no record exists", async () => {
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
 
-    expect(await resolveRole({ ...studentSession, role: null })).toBeNull();
+    expect(await resolveAccountType({ ...studentSession, accountType: null })).toBeNull();
   });
 
   it("returns null when the stored role is unsupported", async () => {
-    docGet.mockResolvedValue({ exists: true, data: () => ({ role: "admin" }) });
+    docGet.mockResolvedValue({ exists: true, data: () => ({ accountType: "admin" }) });
 
-    expect(await resolveRole({ ...studentSession, role: null })).toBeNull();
+    expect(await resolveAccountType({ ...studentSession, accountType: null })).toBeNull();
   });
 
   it("returns null when the session carries no email to look up", async () => {
-    expect(await resolveRole({ uid: "uid-3", email: null, role: null })).toBeNull();
+    expect(await resolveAccountType({ uid: "uid-3", email: null, accountType: null })).toBeNull();
   });
 });
 
@@ -95,7 +105,7 @@ describe("requireUser", () => {
   });
 
   it("redirects to sign-in when no role can be resolved", async () => {
-    getSessionUser.mockResolvedValue({ ...studentSession, role: null });
+    getSessionUser.mockResolvedValue({ ...studentSession, accountType: null });
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
 
     await expectRedirect(requireUser(), "/sign-in");
@@ -104,7 +114,7 @@ describe("requireUser", () => {
   it("returns the user together with the resolved role", async () => {
     getSessionUser.mockResolvedValue(teacherSession);
 
-    expect(await requireUser()).toMatchObject({ uid: "uid-1", role: "teacher" });
+    expect(await requireUser()).toMatchObject({ uid: "uid-1", accountType: "teacher" });
   });
 });
 
@@ -114,7 +124,7 @@ describe("requireTeacher", () => {
   it("returns the teacher", async () => {
     getSessionUser.mockResolvedValue(teacherSession);
 
-    expect(await requireTeacher()).toMatchObject({ role: "teacher" });
+    expect(await requireTeacher()).toMatchObject({ accountType: "teacher" });
   });
 
   it("redirects a student away from a teacher-only page", async () => {
@@ -130,7 +140,7 @@ describe("requireStudent", () => {
   it("returns the student", async () => {
     getSessionUser.mockResolvedValue(studentSession);
 
-    expect(await requireStudent()).toMatchObject({ role: "student" });
+    expect(await requireStudent()).toMatchObject({ accountType: "student" });
   });
 
   it("redirects a teacher, who has no master data record of their own", async () => {
@@ -140,18 +150,18 @@ describe("requireStudent", () => {
   });
 });
 
-describe("getUserWithRole", () => {
+describe("getUserWithAccountType", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("returns null instead of redirecting, so handlers can emit the error envelope", async () => {
     getSessionUser.mockResolvedValue(null);
 
-    expect(await getUserWithRole()).toBeNull();
+    expect(await getUserWithAccountType()).toBeNull();
   });
 
   it("returns the user with the resolved role", async () => {
     getSessionUser.mockResolvedValue(studentSession);
 
-    expect(await getUserWithRole()).toMatchObject({ role: "student" });
+    expect(await getUserWithAccountType()).toMatchObject({ accountType: "student" });
   });
 });

@@ -14,7 +14,7 @@ import { EVENT_SERIES_COOKIE_NAME } from "@/lib/event-series/event-series-select
 // Both roles share this frame; only a teacher is given a navigation bar (US-14, US-15).
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
   const user = await requireUser();
-  const isTeacher = user.role === "teacher";
+  const isTeacher = user.accountType === "teacher";
 
   // Read here rather than below the series id, where the layout renders once and then not again
   // while the teacher moves about beneath it. Resolved rather than trusted: a teacher who has

@@ -17,7 +17,7 @@ import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
  */
 export default async function AppLandingPage() {
   const user = await requireUser();
-  if (user.role !== "teacher") redirect(ROUTES.myRegistration);
+  if (user.accountType !== "teacher") redirect(ROUTES.myRegistration);
 
   const remembered = (await cookies()).get(EVENT_SERIES_COOKIE_NAME)?.value;
   const eventSeriesId = await resolveSelectedEventSeriesId(remembered);

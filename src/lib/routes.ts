@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import type { UserRole } from "@/lib/schemas/user";
+import type { AccountType } from "@/lib/schemas/user";
 
 export const ROUTES = {
   signIn: "/sign-in",
@@ -35,8 +35,8 @@ export function eventSeriesRoutes(eventSeriesId: string) {
  * A teacher lands on `/app`, which resolves the selection and sends them on, because which series
  * they were last in is not something the sign-in knows.
  */
-export function homeFor(role: UserRole): string {
-  return role === "teacher" ? ROUTES.appRoot : ROUTES.myRegistration;
+export function homeFor(accountType: AccountType): string {
+  return accountType === "teacher" ? ROUTES.appRoot : ROUTES.myRegistration;
 }
 
 export function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {

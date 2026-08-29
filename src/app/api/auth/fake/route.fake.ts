@@ -9,17 +9,17 @@ import { z } from "zod";
 import { ErrorCode, apiError } from "@/lib/errors";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { currentAuthMode } from "@/lib/auth/auth-mode";
-import { resolveRole } from "@/lib/auth/guards";
+import { resolveAccountType } from "@/lib/auth/guards";
 import { buildUpn, isSchoolUpn } from "@/lib/auth/fake/upn-builder";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { userRoleSchema, userSchema } from "@/lib/schemas/user";
+import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
 
 /**
  * Stands in for Entra ID while developing, so the app can be tried out as several teachers
  * and students without tenant accounts. It only replaces the identity provider: the client
  * trades the custom token minted here for an ID token and then goes through `/api/session`
- * like any real login, so provisioning, the role claim and the session cookie stay on the
+ * like any real login, so provisioning, the accountType claim and the session cookie stay on the
  * code path production uses.
  *
  * Reaching it takes a real Entra ID sign-in first — see `entraTeacherCookie`. The mode check
@@ -59,12 +59,12 @@ async function entraTeacherCookie(): Promise<string | null> {
 
       // Impersonation is a staff capability: without this a student could sign in for real
       // and then become a teacher.
-      const role = await resolveRole({
+      const accountType = await resolveAccountType({
         uid: decoded.uid,
         email: decoded.email ?? null,
-        role: userRoleSchema.safeParse(decoded.role).data ?? null,
+        accountType: accountTypeSchema.safeParse(decoded.accountType).data ?? null,
       });
-      if (role === "teacher") return value;
+      if (accountType === "teacher") return value;
     } catch {
       continue;
     }
@@ -76,10 +76,17 @@ async function entraTeacherCookie(): Promise<string | null> {
 const bodySchema = z.object({
   firstName: userSchema.shape.firstName,
   lastName: userSchema.shape.lastName,
-  role: userRoleSchema,
+  accountType: accountTypeSchema,
 });
 
-const listedUserSchema = userSchema.omit({ id: true, email: true, photo: true });
+// Whom to sign in as, which is a name and which domain issues the UPN. What that person may do
+// once signed in is the record's business, not the picker's.
+const listedUserSchema = userSchema.omit({
+  id: true,
+  email: true,
+  photo: true,
+  permissions: true,
+});
 
 /** The UPNs already in Firestore, so a known user can be picked instead of retyped. */
 export async function GET() {
@@ -127,10 +134,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const { firstName, lastName, role } = parsed.data;
-  const upn = buildUpn(firstName, lastName, role);
+  const { firstName, lastName, accountType } = parsed.data;
+  const upn = buildUpn(firstName, lastName, accountType);
   // Holds the fake tenant to the shape the real one issues, so a UPN that could never exist
-  // in Entra ID cannot exist here either — and the role still follows from the domain (US-3).
+  // in Entra ID cannot exist here either — and the accountType still follows from the domain (US-3).
   if (!upn || !isSchoolUpn(upn)) {
     return NextResponse.json(
       apiError(

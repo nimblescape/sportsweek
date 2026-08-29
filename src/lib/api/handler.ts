@@ -8,8 +8,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, ErrorCode } from "@/lib/errors";
 import { ServiceError, statusForCode } from "@/lib/service-error";
-import { getUserWithRole } from "@/lib/auth/guards";
-import type { UserRole } from "@/lib/schemas/user";
+import { getUserWithAccountType } from "@/lib/auth/guards";
+import type { AccountType } from "@/lib/schemas/user";
 
 export function errorResponse(code: ErrorCode, message: string, details?: unknown) {
   return NextResponse.json(apiError(code, message, details), { status: statusForCode(code) });
@@ -20,11 +20,11 @@ export function errorResponse(code: ErrorCode, message: string, details?: unknow
  * runtime cannot verify the session cookie. Every write re-verifies here (US-2, US-3).
  */
 export async function requireTeacherOrResponse(): Promise<NextResponse | null> {
-  const user = await getUserWithRole();
+  const user = await getUserWithAccountType();
   if (!user) {
     return errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an.");
   }
-  if (user.role !== "teacher") {
+  if (user.accountType !== "teacher") {
     return errorResponse(ErrorCode.PermissionDenied, "Dafür fehlen dir die Rechte.");
   }
   return null;
@@ -37,15 +37,15 @@ type IdentifiedOutcome = { ok: true; userId: string } | { ok: false; response: N
  * than merely permitting it (US-13). Records are keyed by the UPN, so a session without an
  * address cannot be attributed and is not served.
  */
-async function requireIdentity(role: UserRole): Promise<IdentifiedOutcome> {
-  const user = await getUserWithRole();
+async function requireIdentity(accountType: AccountType): Promise<IdentifiedOutcome> {
+  const user = await getUserWithAccountType();
   if (!user || !user.email) {
     return {
       ok: false,
       response: errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an."),
     };
   }
-  if (user.role !== role) {
+  if (user.accountType !== accountType) {
     return {
       ok: false,
       response: errorResponse(ErrorCode.PermissionDenied, "Dafür fehlen dir die Rechte."),
@@ -59,7 +59,7 @@ export function requireTeacherIdentityOrResponse(): Promise<IdentifiedOutcome> {
 }
 
 /**
- * Roles are hierarchical everywhere else, but not here: a teacher keeps no master data of their
+ * Account types are hierarchical everywhere else, but not here: a teacher keeps no master data of their
  * own (US-15), so admitting one would create a record for an event series they are not registered in.
  */
 export function requireStudentOrResponse(): Promise<IdentifiedOutcome> {

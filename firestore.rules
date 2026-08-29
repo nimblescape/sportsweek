@@ -20,19 +20,36 @@ service cloud.firestore {
         : '';
     }
 
-    function recordRole() {
-      return get(/databases/$(database)/documents/users/$(upn())).data.role;
+    function recordAccountType() {
+      return get(/databases/$(database)/documents/users/$(upn())).data.accountType;
     }
 
     /**
-     * Hierarchical by construction: every student-level rule also admits isTeacher().
-     * The claim is checked first so the common case costs no document read; it is missing on
-     * the very first login, which is what the fallback covers (see resolveRole in guards.ts).
+     * An account type says which population somebody belongs to, derived once from the UPN
+     * domain and granted by nobody (US-3). The claim is checked first so the common case costs
+     * no document read; it is missing on the very first login, which is what the fallback
+     * covers (see resolveAccountType in guards.ts).
      */
     function isTeacher() {
       return upn() != ''
-        && (request.auth.token.role == 'teacher'
-          || (exists(/databases/$(database)/documents/users/$(upn())) && recordRole() == 'teacher'));
+        && (request.auth.token.accountType == 'teacher'
+          || (exists(/databases/$(database)/documents/users/$(upn())) && recordAccountType() == 'teacher'));
+    }
+
+    /**
+     * What a teacher may do, as against what they are (US-2). Read from the record rather than
+     * the token: permissions are granted and withdrawn while a session is live, and a claim
+     * minted before the change would go on admitting what an admin has just taken away.
+     *
+     * A record carrying none reaches nothing, and a student is refused by isTeacher() ahead of
+     * whatever their own record happens to list. The names below are a copy of PERMISSIONS in
+     * src/lib/auth/permissions.ts, which this language cannot import.
+     */
+    function may(permission) {
+      return isTeacher()
+        && exists(/databases/$(database)/documents/users/$(upn()))
+        && get(/databases/$(database)/documents/users/$(upn())).data
+             .get('permissions', []).hasAny([permission]);
     }
 
     function isSelf(uid) {
@@ -40,22 +57,30 @@ service cloud.firestore {
     }
 
     /**
-     * A caller's own record, and nobody else's. A teacher used to read every user because the
-     * roster joined registrations to them for the student's name; the registration now carries
-     * that name itself (US-26), so the permission has no reader left and is withdrawn.
+     * A caller's own record, and every record to whoever hands out the permissions (US-2). A
+     * teacher used to read every user because the roster joined registrations to them for the
+     * student's name; the registration now carries that name itself (US-26), so that reader is
+     * gone and what is left is the rights page.
      *
      * The fake login's list of existing users (US-16) is unaffected: it is read server-side
      * with the Admin SDK, which bypasses these rules.
      */
     match /users/{uid} {
-      allow read: if isSelf(uid);
+      allow read: if isSelf(uid) || may('editUsers');
 
       // Records are provisioned on first login by the Admin SDK, which bypasses these rules.
       allow create: if false;
 
-      // `role` is assigned once from the UPN domain and is never client-writable, at any role (US-3).
+      /**
+       * Neither what somebody is nor what they may do is theirs to write (US-3). The account
+       * type is assigned once from the UPN domain; the permissions are an admin's to grant,
+       * through the Route Handler that owns the refusals a rule cannot express — that a
+       * dependent permission travels with the one it needs, and that nobody takes editUsers
+       * off themselves.
+       */
       allow update: if isSelf(uid)
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['accountType', 'permissions']);
 
       allow delete: if false;
     }
@@ -79,7 +104,7 @@ service cloud.firestore {
      * through a handler that owns `event`.
      */
     match /eventSeries/{eventSeriesId}/registrations/{studentUpn} {
-      allow read: if isTeacher() || isSelf(studentUpn);
+      allow read: if may('viewReports') || may('editAssignments') || isSelf(studentUpn);
       allow write: if false;
     }
 
@@ -98,7 +123,7 @@ service cloud.firestore {
      * offer (US-22). Both are done in transactions by the Route Handlers.
      */
     match /eventSeries/{eventSeriesId}/savedReports/{reportId} {
-      allow read: if isTeacher();
+      allow read: if may('viewReports');
       allow write: if false;
     }
 

@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { NextResponse } from "next/server";
-import { getUserWithRole } from "@/lib/auth/guards";
+import { getUserWithAccountType } from "@/lib/auth/guards";
 import { resolveInvitation } from "@/lib/invitations/invitation-service";
 import { joinEventSeries } from "@/lib/registration/registration-service";
 import { ROUTES, eventSeriesRoutes } from "@/lib/routes";
@@ -30,7 +30,7 @@ import { ROUTES, eventSeriesRoutes } from "@/lib/routes";
  */
 export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
-  const user = await getUserWithRole();
+  const user = await getUserWithAccountType();
 
   const to = (destination: string) => NextResponse.redirect(new URL(destination, request.url));
 
@@ -42,7 +42,7 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
 
   const invitation = await resolveInvitation(token);
 
-  if (user.role === "teacher") {
+  if (user.accountType === "teacher") {
     return to(invitation ? eventSeriesRoutes(invitation.eventSeriesId).overview : ROUTES.appRoot);
   }
 

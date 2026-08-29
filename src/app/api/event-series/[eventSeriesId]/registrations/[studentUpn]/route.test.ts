@@ -5,10 +5,10 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithRole = vi.fn();
+const getUserWithAccountType = vi.fn();
 const deleteRegistration = vi.fn();
 
-vi.mock("@/lib/auth/guards", () => ({ getUserWithRole: () => getUserWithRole() }));
+vi.mock("@/lib/auth/guards", () => ({ getUserWithAccountType: () => getUserWithAccountType() }));
 vi.mock("@/lib/registration/registration-service", () => ({
   deleteRegistration: (...args: unknown[]) => deleteRegistration(...args),
 }));
@@ -25,7 +25,7 @@ const paramsFor = (studentUpn: string) => Promise.resolve({ eventSeriesId: "s1",
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: TEACHER, role: "teacher" });
+  getUserWithAccountType.mockResolvedValue({ uid: "u1", email: TEACHER, accountType: "teacher" });
   deleteRegistration.mockResolvedValue(undefined);
 });
 
@@ -46,7 +46,7 @@ describe("DELETE /api/event-series/[eventSeriesId]/registrations/[studentUpn]", 
 
   /** A student who is not coming answers "no" (US-11); removing one is a teacher's doing. */
   it("refuses a student, and writes nothing", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: STUDENT, role: "student" });
+    getUserWithAccountType.mockResolvedValue({ uid: "u2", email: STUDENT, accountType: "student" });
 
     const response = await DELETE(request, { params: paramsFor(STUDENT) });
 
@@ -55,7 +55,7 @@ describe("DELETE /api/event-series/[eventSeriesId]/registrations/[studentUpn]", 
   });
 
   it("refuses a caller with no session at all", async () => {
-    getUserWithRole.mockResolvedValue(null);
+    getUserWithAccountType.mockResolvedValue(null);
 
     const response = await DELETE(request, { params: paramsFor(STUDENT) });
 

@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { STUDENT_DOMAIN, TEACHER_DOMAIN } from "@/lib/auth/upn";
-import type { UserRole } from "@/lib/schemas/user";
+import type { AccountType } from "@/lib/schemas/user";
 
 /**
  * Deriving a UPN is something only an impersonation does — the real tenant issues them, and
@@ -54,10 +54,14 @@ function toNamePart(name: string): string | null {
  * Derives the UPN the tenant would issue for a person (US-3). Null when a name carries no
  * character the UPN alphabet can represent.
  */
-export function buildUpn(firstName: string, lastName: string, role: UserRole): string | null {
+export function buildUpn(
+  firstName: string,
+  lastName: string,
+  accountType: AccountType,
+): string | null {
   const first = toNamePart(firstName);
   const last = toNamePart(lastName);
   if (!first || !last) return null;
 
-  return `${first}.${last}@${role === "teacher" ? TEACHER_DOMAIN : STUDENT_DOMAIN}`;
+  return `${first}.${last}@${accountType === "teacher" ? TEACHER_DOMAIN : STUDENT_DOMAIN}`;
 }

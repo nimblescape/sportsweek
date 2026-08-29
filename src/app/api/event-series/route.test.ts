@@ -5,12 +5,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithRole = vi.fn();
+const getUserWithAccountType = vi.fn();
 const createEventSeries = vi.fn();
 const reorderEventSeries = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  getUserWithRole: () => getUserWithRole(),
+  getUserWithAccountType: () => getUserWithAccountType(),
 }));
 
 vi.mock("@/lib/event-series/event-series-service", () => ({
@@ -29,10 +29,14 @@ function postRequest(body: unknown) {
 }
 
 beforeEach(() => {
-  getUserWithRole.mockReset();
+  getUserWithAccountType.mockReset();
   createEventSeries.mockReset();
   reorderEventSeries.mockReset();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: "t@htldornbirn.at", role: "teacher" });
+  getUserWithAccountType.mockResolvedValue({
+    uid: "u1",
+    email: "t@htldornbirn.at",
+    accountType: "teacher",
+  });
   createEventSeries.mockResolvedValue({
     id: "s1",
     name: "Winter 2026",
@@ -71,7 +75,7 @@ describe("POST /api/event-series", () => {
   });
 
   it("rejects an anonymous caller with 401", async () => {
-    getUserWithRole.mockResolvedValue(null);
+    getUserWithAccountType.mockResolvedValue(null);
 
     const response = await POST(postRequest({ name: "Winter 2026" }));
 
@@ -83,10 +87,10 @@ describe("POST /api/event-series", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot write", async () => {
-    getUserWithRole.mockResolvedValue({
+    getUserWithAccountType.mockResolvedValue({
       uid: "u2",
       email: "s@student.htldornbirn.at",
-      role: "student",
+      accountType: "student",
     });
 
     const response = await POST(postRequest({ name: "Winter 2026" }));
@@ -154,10 +158,10 @@ describe("PATCH /api/event-series", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
-    getUserWithRole.mockResolvedValue({
+    getUserWithAccountType.mockResolvedValue({
       uid: "u2",
       email: "s@student.htldornbirn.at",
-      role: "student",
+      accountType: "student",
     });
 
     const response = await PATCH(patchRequest({ order: ["s1"] }));

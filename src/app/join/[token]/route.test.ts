@@ -5,11 +5,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithRole = vi.fn();
+const getUserWithAccountType = vi.fn();
 const resolveInvitation = vi.fn();
 const joinEventSeries = vi.fn();
 
-vi.mock("@/lib/auth/guards", () => ({ getUserWithRole: () => getUserWithRole() }));
+vi.mock("@/lib/auth/guards", () => ({ getUserWithAccountType: () => getUserWithAccountType() }));
 vi.mock("@/lib/invitations/invitation-service", () => ({
   resolveInvitation: (token: string) => resolveInvitation(token),
 }));
@@ -29,7 +29,11 @@ function follow(token = TOKEN) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: "S@student.at", role: "student" });
+  getUserWithAccountType.mockResolvedValue({
+    uid: "u1",
+    email: "S@student.at",
+    accountType: "student",
+  });
   resolveInvitation.mockResolvedValue({ token: TOKEN, eventSeriesId: "s1", class: "3aWI" });
 });
 
@@ -56,7 +60,7 @@ describe("GET /join/[token]", () => {
    * is followed before signing in. They come back here afterwards and join then.
    */
   it("sends a visitor who is not signed in to sign in, and back here", async () => {
-    getUserWithRole.mockResolvedValue(null);
+    getUserWithAccountType.mockResolvedValue(null);
 
     const response = await follow();
 
@@ -68,7 +72,11 @@ describe("GET /join/[token]", () => {
 
   /** Q12: the commonest teacher to follow a link is the one checking it before sending it out. */
   it("takes a teacher to the dashboard for the series the link names", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "t@htl.at", role: "teacher" });
+    getUserWithAccountType.mockResolvedValue({
+      uid: "u2",
+      email: "t@htl.at",
+      accountType: "teacher",
+    });
 
     const response = await follow();
 
@@ -77,7 +85,11 @@ describe("GET /join/[token]", () => {
   });
 
   it("takes a teacher whose link leads nowhere to the dashboard, saying nothing", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "t@htl.at", role: "teacher" });
+    getUserWithAccountType.mockResolvedValue({
+      uid: "u2",
+      email: "t@htl.at",
+      accountType: "teacher",
+    });
     resolveInvitation.mockResolvedValue(null);
 
     const response = await follow();

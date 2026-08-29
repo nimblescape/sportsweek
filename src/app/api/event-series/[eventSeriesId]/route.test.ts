@@ -5,12 +5,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithRole = vi.fn();
+const getUserWithAccountType = vi.fn();
 const updateEventSeries = vi.fn();
 const deleteEventSeries = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  getUserWithRole: () => getUserWithRole(),
+  getUserWithAccountType: () => getUserWithAccountType(),
 }));
 
 vi.mock("@/lib/event-series/event-series-service", () => ({
@@ -35,10 +35,14 @@ function deleteRequest() {
 }
 
 beforeEach(() => {
-  getUserWithRole.mockReset();
+  getUserWithAccountType.mockReset();
   updateEventSeries.mockReset();
   deleteEventSeries.mockReset();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: "t@htldornbirn.at", role: "teacher" });
+  getUserWithAccountType.mockResolvedValue({
+    uid: "u1",
+    email: "t@htldornbirn.at",
+    accountType: "teacher",
+  });
   updateEventSeries.mockResolvedValue({
     id: "s1",
     name: "Winter",
@@ -88,14 +92,14 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
   });
 
   it("rejects an unknown field instead of silently dropping it", async () => {
-    const response = await PATCH(patchRequest({ role: "teacher" }), context);
+    const response = await PATCH(patchRequest({ accountType: "teacher" }), context);
 
     expect(response.status).toBe(400);
     expect(updateEventSeries).not.toHaveBeenCalled();
   });
 
   it("rejects a student with 403", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x", role: "student" });
+    getUserWithAccountType.mockResolvedValue({ uid: "u2", email: "s@x", accountType: "student" });
 
     const response = await PATCH(patchRequest({ name: "X" }), context);
 
@@ -132,7 +136,7 @@ describe("DELETE /api/event-series/[eventSeriesId]", () => {
   });
 
   it("rejects a student with 403", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x", role: "student" });
+    getUserWithAccountType.mockResolvedValue({ uid: "u2", email: "s@x", accountType: "student" });
 
     const response = await DELETE(deleteRequest(), context);
 
