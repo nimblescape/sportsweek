@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EVENT_SERIES_STATE_LABELS,
+  eventSeriesLabel,
   eventSeriesState,
   visibleEventSeries,
 } from "@/lib/event-series/event-series-state";
@@ -55,6 +56,20 @@ describe("EVENT_SERIES_STATE_LABELS", () => {
       open: "Schüler:innen-Anmeldung offen",
       closed: "Schüler:innen-Anmeldung geschlossen",
     });
+  });
+});
+
+describe("eventSeriesLabel", () => {
+  it("says of a template that it is one, since its name does not", () => {
+    expect(eventSeriesLabel({ name: "Wintersportwochen", isTemplate: true })).toBe(
+      "Wintersportwochen (Vorlage)",
+    );
+  });
+
+  it("leaves a series to its own name", () => {
+    expect(eventSeriesLabel({ name: "Wintersportwoche 2026", isTemplate: false })).toBe(
+      "Wintersportwoche 2026",
+    );
   });
 });
 

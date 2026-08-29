@@ -9,6 +9,8 @@ import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { reorderCollection } from "@/lib/firebase/reorder";
 import {
+  ARCHIVE_NO_DATA_HINT,
+  ARCHIVE_OPEN_HINT,
   ARCHIVED_IS_READ_ONLY_HINT,
   LAST_TEMPLATE_HINT,
   NO_SUCH_EVENT_SERIES,
@@ -227,14 +229,17 @@ export async function updateEventSeries(
 
     let hasRegistrations = current.hasRegistrations;
     if (wantsArchival) {
+      // Closing is the teacher's own decision, made on the tag of the series it concerns (US-19).
+      // Archiving used to make it for them as a side effect; a series is closed first, then filed.
+      if (update.isOpenToStudents !== false && current.isOpenToStudents) {
+        throw new ServiceError(ErrorCode.Conflict, ARCHIVE_OPEN_HINT);
+      }
+
       const registrations = await transaction.get(
         adminDb.collection(registrationPath(id)).limit(1),
       );
       if (registrations.empty) {
-        throw new ServiceError(
-          ErrorCode.Conflict,
-          "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.",
-        );
+        throw new ServiceError(ErrorCode.Conflict, ARCHIVE_NO_DATA_HINT);
       }
       hasRegistrations = true;
     }

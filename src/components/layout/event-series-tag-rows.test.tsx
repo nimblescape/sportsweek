@@ -77,11 +77,11 @@ describe("EventSeriesTagRows", () => {
 
     const templates = screen.getByRole("group", { name: TEMPLATE_ROW_LABEL });
     expect(
-      within(templates).getByRole("button", { name: "Wintersportwochen" }),
+      within(templates).getByRole("button", { name: "Wintersportwochen (Vorlage)" }),
     ).toBeInTheDocument();
     expect(
       within(screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL })).queryByRole("button", {
-        name: "Wintersportwochen",
+        name: "Wintersportwochen (Vorlage)",
       }),
     ).not.toBeInTheDocument();
   });
@@ -171,7 +171,10 @@ describe("EventSeriesTagRows", () => {
 
     render(<EventSeriesTagRows />);
 
-    expect(screen.getByRole("button", { name: "Vorlage" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Vorlage (Vorlage)" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByRole("button", { name: "Wintersportwoche" })).toHaveAttribute(
       "aria-pressed",
       "false",
@@ -274,7 +277,7 @@ describe("EventSeriesTagRows — colour", () => {
 
     render(<EventSeriesTagRows />);
 
-    expect(tagFor("Vorlage")).toContain("bg-template");
+    expect(tagFor("Vorlage (Vorlage)")).toContain("bg-template");
   });
 
   it("leaves an unselected tag with the plain outline", () => {

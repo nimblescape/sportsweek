@@ -7,8 +7,8 @@
  * Resets a project to its defaults: everything is deleted, and what this script writes is then
  * all it holds.
  *
- * | production           | the "Wintersportwochen Vorlage" template, and nothing besides |
- * | development, staging | that template, then a series, a roster and its registrations  |
+ * | production           | the "Wintersportwochen" template, and nothing besides        |
+ * | development, staging | that template, then a series, a roster and its registrations |
  *
  * Seeding on top of what a project already holds says nothing about whether the application put
  * it there, so the point of a seeded environment — that its contents are known — needs the delete
@@ -84,11 +84,11 @@ const CATEGORY_DEFAULTS = {
 >;
 
 /**
- * Named as what it is rather than as one of the things made from it: a teacher scanning the
- * header should be able to tell the pattern from a series without reading the icon. It also keeps
- * it clear of every dated Wintersportwoche under the uniqueness rule (Q14).
+ * Plural on purpose: a template is the pattern behind every Wintersportwoche the school runs,
+ * not one of them. What a teacher makes from it is singular and dated, so the two cannot collide
+ * under the uniqueness rule (Q14). That it is a template is said by its label, not by its name.
  */
-const TEMPLATE_NAME = "Wintersportwochen Vorlage";
+const TEMPLATE_NAME = "Wintersportwochen";
 
 /**
  * What a purged environment gets so there is somewhere to put students. The application seeds

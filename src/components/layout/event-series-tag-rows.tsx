@@ -18,7 +18,7 @@ import {
   rescopedPath,
   selectedEventSeriesIdFrom,
 } from "@/lib/event-series/event-series-selection";
-import { EVENT_SERIES_STATE_LABELS } from "@/lib/event-series/event-series-state";
+import { EVENT_SERIES_STATE_LABELS, eventSeriesLabel } from "@/lib/event-series/event-series-state";
 import type { EventSeries } from "@/lib/schemas/event-series";
 
 export const EVENT_SERIES_ROW_LABEL = "Eventreihen";
@@ -70,7 +70,7 @@ function TagRow({ label, eventSeries, selectedId, onSelect, onSetOpen, pending }
         return (
           <Tag key={one.id} pressed={pressed} variant={fillFor(one)} disabled={pending}>
             <StateIcon eventSeries={one} />
-            <TagName label={one.name} onPress={() => onSelect(one)} />
+            <TagName label={eventSeriesLabel(one)} onPress={() => onSelect(one)} />
             {/* Only on the tag that is selected, so a press cannot land on another series, and
                 never on a template, which can never be opened (US-19, US-22). */}
             {pressed && !one.isTemplate ? (

@@ -9,6 +9,7 @@ import { FakeFirestore } from "@/test/fake-firestore";
 import { storedEventSeries } from "@/test/event-series";
 import { registrationPath } from "@/lib/registration/registration";
 import { savedReportPath } from "@/lib/report/saved-reports";
+import { ARCHIVE_OPEN_HINT } from "@/lib/event-series/event-series-state";
 
 const firestore = new FakeFirestore();
 
@@ -299,12 +300,43 @@ describe("updateEventSeries — archiving", () => {
     expect(firestore.get("eventSeries", "s1")).toMatchObject({ isArchived: false });
   });
 
-  /** Archiving closes a series to students, so the door does not stay open on a finished one. */
-  it("closes an event series to students while archiving it", async () => {
+  /**
+   * Closing is a decision a teacher makes on the tag of the series it concerns (US-19). Archiving
+   * an open one used to make that decision for them, quietly, as a side effect of a different
+   * action — and students holding the link would have found it shut without anyone shutting it.
+   */
+  it("refuses to archive an event series that is still open to students", async () => {
     seedEventSeries("s1", { isOpenToStudents: true });
     firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
 
+    await expect(updateEventSeries("s1", { isArchived: true })).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: ARCHIVE_OPEN_HINT,
+    });
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({
+      isArchived: false,
+      isOpenToStudents: true,
+    });
+  });
+
+  it("archives it once it has been closed", async () => {
+    seedEventSeries("s1", { isOpenToStudents: false });
+    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+
     await updateEventSeries("s1", { isArchived: true });
+
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({
+      isArchived: true,
+      isOpenToStudents: false,
+    });
+  });
+
+  /** Closing and archiving in one call is the teacher doing both, in the order that makes sense. */
+  it("archives an open series when the same call closes it", async () => {
+    seedEventSeries("s1", { isOpenToStudents: true });
+    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+
+    await updateEventSeries("s1", { isArchived: true, isOpenToStudents: false });
 
     expect(firestore.get("eventSeries", "s1")).toMatchObject({
       isArchived: true,

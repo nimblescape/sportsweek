@@ -219,6 +219,27 @@ describe("EventSeriesList — row actions", () => {
     ).toHaveAccessibleDescription(/anmeldungen/i);
   });
 
+  /**
+   * Mirrors the server (US-19): closing is a decision made on the tag of the series it concerns,
+   * so archiving may not make it as a side effect. Offering a button the server refuses would be
+   * telling a teacher to press it and read the error.
+   */
+  it("disables archiving a series that is still open to students", () => {
+    renderList();
+
+    expect(
+      screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2026 archivieren" }),
+    ).toBeDisabled();
+  });
+
+  it("explains that an open series has to be closed first", () => {
+    renderList();
+
+    expect(
+      screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2026 archivieren" }),
+    ).toHaveAccessibleDescription(/schließen/i);
+  });
+
   it("allows unarchiving an event series with no registrations, since that rule only gates archiving", () => {
     renderList({
       eventSeries: [
