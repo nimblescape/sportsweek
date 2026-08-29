@@ -43,7 +43,11 @@ const REQUIRES = [["editReports", "viewReports"]] as const satisfies readonly (r
 
 export const permissionSchema = z.enum(PERMISSIONS);
 
-export const permissionsSchema = z
+/**
+ * What a caller has to say out loud. Granting is a replacement rather than a patch, so an
+ * absent list is a request that means nothing and is refused rather than read as "none".
+ */
+export const permissionsInputSchema = z
   .array(permissionSchema)
   .max(PERMISSIONS.length)
   .refine((permissions) => new Set(permissions).size === permissions.length, {
@@ -56,8 +60,10 @@ export const permissionsSchema = z
           !permissions.includes(permission) || permissions.includes(required),
       ),
     { message: "Berichte bearbeiten setzt Berichte ansehen voraus." },
-  )
-  .default([]);
+  );
+
+/** The same, as a record carries it: one written before permissions existed holds none. */
+export const permissionsSchema = permissionsInputSchema.default([]);
 
 /** Whoever is being asked about, narrowed to the two fields that decide it. */
 type Principal = { accountType: AccountType; permissions: readonly Permission[] };

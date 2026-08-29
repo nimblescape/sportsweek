@@ -31,7 +31,11 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
     <AppShell
       nav={
         isTeacher ? (
-          <TeacherNav fallbackEventSeriesId={fallbackEventSeriesId} photo={photo} />
+          <TeacherNav
+            fallbackEventSeriesId={fallbackEventSeriesId}
+            permissions={user.permissions}
+            photo={photo}
+          />
         ) : null
       }
       scope={isTeacher ? <EventSeriesTagRows /> : null}
