@@ -5,7 +5,7 @@
  */
 import { RegistrationsView } from "@/components/registrations/registrations-view";
 
-export default async function OverviewPage({
+export default async function RegistrationsPage({
   params,
 }: {
   params: Promise<{ eventSeriesId: string }>;

@@ -35,14 +35,14 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
   apiRequest: (...args: unknown[]) => apiRequest(...args),
 }));
 
-const { RegistrationsView: ScopedOverviewView, NO_CLASSES_HINT } =
+const { RegistrationsView: ScopedRegistrationsView, NO_CLASSES_HINT } =
   await import("./registrations-view");
 const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");
 
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
 // only has to be present.
 function RegistrationsView() {
-  return <ScopedOverviewView eventSeriesId="s1" />;
+  return <ScopedRegistrationsView eventSeriesId="s1" />;
 }
 
 function student(

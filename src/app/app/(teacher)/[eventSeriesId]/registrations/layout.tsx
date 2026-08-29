@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { requirePermission } from "@/lib/auth/guards";
 
 /** Where registrations are invited and removed (US-12, US-23). */
-export default async function OverviewLayout({ children }: { children: ReactNode }) {
+export default async function RegistrationsLayout({ children }: { children: ReactNode }) {
   await requirePermission("editRegistrations");
 
   return <>{children}</>;
