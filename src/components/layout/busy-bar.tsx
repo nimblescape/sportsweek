@@ -6,6 +6,7 @@
 "use client";
 
 import { useBusy } from "@/lib/api/busy";
+import { cn } from "@/lib/utils";
 
 /** Out of phase, or the bars rise and fall as one block and read as a single bar. */
 const BARS = [0, 0.15, 0.3, 0.45];
@@ -23,7 +24,7 @@ const BARS = [0, 0.15, 0.3, 0.45];
  * once, so it looked like nothing was happening. These cycle several times a second, which is
  * what makes a wait too short to measure still visible.
  */
-export function BusyBar() {
+export function BusyBar({ className }: { className?: string } = {}) {
   const busy = useBusy();
 
   if (!busy) return null;
@@ -33,7 +34,10 @@ export function BusyBar() {
       role="status"
       aria-label="Wird gespeichert"
       // Centred on the border rather than above it: half its height sits either side of the line.
-      className="pointer-events-none absolute inset-x-0 -bottom-1.5 z-20 flex justify-center"
+      className={cn(
+        "pointer-events-none absolute inset-x-0 -bottom-1.5 z-20 flex justify-center",
+        className,
+      )}
     >
       <div className="bg-background flex h-3 items-center gap-0.5 px-1.5">
         {BARS.map((delay) => (

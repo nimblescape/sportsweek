@@ -42,7 +42,9 @@ export function AppShell({
           </div>
         ) : null}
 
-        <header className="border-border bg-background col-start-2 row-start-1 flex items-center justify-between gap-4 border-b px-4 py-2 md:px-6">
+        {/* Positioned, because the busy bar straddles the border at its foot rather than sitting
+            inside it — without this it has nothing nearer than the viewport to be placed against. */}
+        <header className="border-border bg-background relative col-start-2 row-start-1 flex items-center justify-between gap-4 border-b px-4 py-2 md:px-6">
           {nav ? null : <Brand />}
           {/* The scope leads the header, because it says what every page below it is about. */}
           {scope}
