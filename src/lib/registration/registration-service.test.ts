@@ -14,7 +14,8 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const { saveRegistration, deleteRegistration } = await import("./registration-service");
+const { saveRegistration, deleteRegistration, joinEventSeries } =
+  await import("./registration-service");
 const { ANSWER_NO_LONGER_OFFERED_HINT, REGISTRATION_NOT_OPEN_HINT, registrationPath } =
   await import("./registration");
 const { FOOD_OPTION_OTHER } = await import("@/lib/schemas/master-data");
@@ -564,5 +565,70 @@ describe("deleteRegistration", () => {
     seedEventSeries("s1", { hasRegistrations: true });
 
     await expect(deleteRegistration("s1", STUDENT)).rejects.toBeInstanceOf(ServiceError);
+  });
+});
+
+/**
+ * Following the link is what joins a student to an event series (US-23). The record exists from
+ * that moment, so what they hold is a fact in the data rather than a token in a cookie — and
+ * signing in again finds it by looking, however they arrived.
+ */
+describe("joinEventSeries", () => {
+  it("creates an unanswered registration for the class the link names", async () => {
+    seedEventSeries("s1");
+
+    await joinEventSeries("s1", STUDENT, "3AHME");
+
+    expect(firestore.get(registrationPath("s1"), STUDENT)).toMatchObject({
+      studentUpn: STUDENT,
+      firstName: "Jane",
+      lastName: "Doe",
+      class: "3AHME",
+      event: null,
+      isAttendingSportsWeek: false,
+      isIncomplete: true,
+    });
+  });
+
+  /** Following the same link twice is one joining, so the second one takes nothing back. */
+  it("leaves an answered registration exactly as it was", async () => {
+    seedEventSeries("s1");
+    await saveRegistration(target(), attending);
+
+    await joinEventSeries("s1", STUDENT, "3AHME");
+
+    expect(firestore.get(registrationPath("s1"), STUDENT)).toMatchObject({
+      isAttendingSportsWeek: true,
+      program: "Ski",
+      class: "3AHME",
+    });
+  });
+
+  /** Another link, for another class, is how a student's class changes (Q20). */
+  it("moves an existing registration to the class the newer link names", async () => {
+    seedEventSeries("s1");
+    await saveRegistration(target(), attending);
+
+    await joinEventSeries("s1", STUDENT, "4AHME");
+
+    expect(firestore.get(registrationPath("s1"), STUDENT)).toMatchObject({
+      class: "4AHME",
+      isAttendingSportsWeek: true,
+    });
+  });
+
+  it("tells the event series it now has registrations", async () => {
+    seedEventSeries("s1");
+
+    await joinEventSeries("s1", STUDENT, "3AHME");
+
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ hasRegistrations: true });
+  });
+
+  it("refuses a series that is not open to students", async () => {
+    seedEventSeries("s1", { isOpenToStudents: false });
+
+    await expect(joinEventSeries("s1", STUDENT, "3AHME")).rejects.toBeInstanceOf(ServiceError);
+    expect(firestore.get(registrationPath("s1"), STUDENT)).toBeUndefined();
   });
 });

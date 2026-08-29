@@ -27,6 +27,7 @@ import { isRegistrationIncomplete } from "./completeness";
 import {
   ANSWER_NO_LONGER_OFFERED_HINT,
   classFrom,
+  EMPTY_REGISTRATION,
   registrationPath,
   REGISTRATION_NOT_OPEN_HINT,
 } from "./registration";
@@ -198,6 +199,50 @@ export async function saveRegistration(
 }
 
 export const NO_SUCH_REGISTRATION = "Diese Anmeldung gibt es nicht.";
+
+/**
+ * Joins a student to an event series, which is the whole of what following an invitation link
+ * does (US-23). The registration exists from that moment, unanswered, so what a student holds is
+ * a fact in the data rather than a token they are carrying — and signing in again finds it by
+ * looking, whichever way they arrived.
+ *
+ * Following the same link twice is one joining: an existing registration keeps every answer.
+ * What a newer link does change is the class, which is the one way it moves (Q20).
+ */
+export async function joinEventSeries(
+  eventSeriesId: string,
+  studentUpn: string,
+  className: string,
+): Promise<void> {
+  const identity = await identityOf(studentUpn);
+
+  await adminDb.runTransaction(async (transaction) => {
+    const eventSeries = await requireOpenSeries(transaction, eventSeriesId);
+
+    const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUpn);
+    const stored = await transaction.get(reference);
+
+    if (stored.exists) {
+      transaction.update(reference, { class: className });
+    } else {
+      transaction.set(reference, {
+        ...identity,
+        class: className,
+        event: null,
+        // Not computed: an empty registration says "not attending", and a student who has
+        // answered nothing has not said that. Incomplete is what they are until they answer.
+        isIncomplete: true,
+        ...EMPTY_REGISTRATION,
+      });
+    }
+
+    if (!eventSeries.hasRegistrations) {
+      transaction.update(adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeries.id), {
+        hasRegistrations: true,
+      });
+    }
+  });
+}
 
 /**
  * Removes one registration and everything the student answered with it (US-28).
