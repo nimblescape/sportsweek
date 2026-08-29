@@ -50,8 +50,8 @@ export type MasterDataCategory = {
 
 /**
  * The seven teacher-maintained lists, keyed by the URL segment under a series' master data, in
- * the order the menu shows them. The event series itself is not here: it carries archived and
- * template state of its own and is maintained on the one page that is not scoped to a selection.
+ * the order the menu shows them. The event series itself is not here: it carries archive state of
+ * its own and is maintained on the one page that is not scoped to a selection.
  *
  * The events lead because they are the series divided into weeks, and everything else describes
  * the students within it — the order the report fields and the filter categories already follow.
@@ -221,12 +221,12 @@ export function firstMasterDataPath(eventSeriesId: string): string {
  * whole series off every screen instead (US-19). What frees it is the registration going.
  */
 export const IN_USE_HINT =
-  "Dieser Eintrag wurde in einer Anmeldung dieser Eventreihe gewählt und kann " +
+  "Dieser Eintrag wurde in einer Registrierung dieser Eventreihe gewählt und kann " +
   "deshalb nicht umbenannt oder gelöscht werden.";
 
 /** Deleting a program takes its equipment with it, so a rented item holds the program back too. */
 export const CHILD_IN_USE_HINT =
-  "Ausrüstung dieses Programms wurde in einer Anmeldung dieser Eventreihe ausgeliehen. " +
+  "Ausrüstung dieses Programms wurde in einer Registrierung dieser Eventreihe ausgeliehen. " +
   "Das Programm kann deshalb nicht gelöscht werden.";
 
 /**
@@ -235,7 +235,15 @@ export const CHILD_IN_USE_HINT =
  * and withdrawing them a moment later, offers something the list already knows it may refuse.
  */
 export const USAGE_PENDING_HINT =
-  "Es wird noch geprüft, ob dieser Eintrag in Anmeldungen verwendet wird.";
+  "Es wird noch geprüft, ob dieser Eintrag in Registrierungen verwendet wird.";
+
+/**
+ * What a page built on one of these lists says before the list has been maintained (US-21). The
+ * noun comes from the category itself, so a page cannot come to call a list something the menu
+ * that leads to it does not.
+ */
+export const noneMaintainedHint = (category: MasterDataCategory) =>
+  `Für diese Eventreihe sind keine ${category.labels.title} angelegt.`;
 
 /** Labels for the equipment list a program carries, which is a field rather than a category. */
 export const EQUIPMENT_LABELS = {

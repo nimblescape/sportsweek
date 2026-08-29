@@ -51,10 +51,18 @@ beforeEach(async () => {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
-    await db.collection("users").doc(TEACHER_UPN).set({ role: "teacher" });
-    await db.collection("users").doc(STUDENT_UPN).set({ role: "student" });
-    await db.collection("users").doc(OTHER_STUDENT_UPN).set({ role: "student" });
-    await db.collection("users").doc(NEWCOMER_UPN).set({ role: "student" });
+    // The teacher whose reads these tests are about: planning a series is what reads a
+    // registration, and reporting on it is what reads a saved report (US-2).
+    await db
+      .collection("users")
+      .doc(TEACHER_UPN)
+      .set({
+        accountType: "teacher",
+        permissions: ["editRegistrations", "editAssignments", "editReports"],
+      });
+    await db.collection("users").doc(STUDENT_UPN).set({ accountType: "student" });
+    await db.collection("users").doc(OTHER_STUDENT_UPN).set({ accountType: "student" });
+    await db.collection("users").doc(NEWCOMER_UPN).set({ accountType: "student" });
   });
 
   await seed(REGISTRATIONS, STUDENT_UPN, {
@@ -120,6 +128,30 @@ describe("/eventSeries/{id}/registrations", () => {
   it("lets a teacher read a single record", async () => {
     await assertSucceeds(teacher().collection(REGISTRATIONS).doc(OTHER_STUDENT_UPN).get());
   });
+
+  /** Being a teacher opens nothing on its own: each permission is granted deliberately (US-2). */
+  it("denies a teacher holding no permission", async () => {
+    await seed("users", TEACHER_UPN, { accountType: "teacher", permissions: [] });
+
+    await assertFails(teacher().collection(REGISTRATIONS).get());
+    await assertFails(teacher().collection(REGISTRATIONS).doc(OTHER_STUDENT_UPN).get());
+  });
+
+  it("denies a teacher whose only permission is about lists rather than people", async () => {
+    await seed("users", TEACHER_UPN, { accountType: "teacher", permissions: ["editMasterData"] });
+
+    await assertFails(teacher().collection(REGISTRATIONS).get());
+  });
+
+  /** Four permissions read a registration, and each of them alone is enough. */
+  it.each(["editRegistrations", "editAssignments", "viewReports", "editReports"])(
+    "lets a teacher holding only %s read them",
+    async (permission) => {
+      await seed("users", TEACHER_UPN, { accountType: "teacher", permissions: [permission] });
+
+      await assertSucceeds(teacher().collection(REGISTRATIONS).get());
+    },
+  );
 
   it("denies a student reading another student's record", async () => {
     await assertFails(student().collection(REGISTRATIONS).doc(OTHER_STUDENT_UPN).get());
@@ -200,6 +232,26 @@ describe("/eventSeries/{id}/savedReports", () => {
   it("lets a teacher query them, which is what the report's tag row does", async () => {
     await assertSucceeds(teacher().collection(SAVED_REPORTS).get());
   });
+
+  /** A saved report is a report: whoever may not open one may not see what was saved of it. */
+  it("denies a teacher who may neither view nor edit reports", async () => {
+    await seed("users", TEACHER_UPN, {
+      accountType: "teacher",
+      permissions: ["editRegistrations", "editAssignments", "editMasterData"],
+    });
+
+    await assertFails(teacher().collection(SAVED_REPORTS).get());
+    await assertFails(teacher().collection(SAVED_REPORTS).doc("report1").get());
+  });
+
+  it.each(["viewReports", "editReports"])(
+    "lets a teacher holding only %s read them",
+    async (permission) => {
+      await seed("users", TEACHER_UPN, { accountType: "teacher", permissions: [permission] });
+
+      await assertSucceeds(teacher().collection(SAVED_REPORTS).get());
+    },
+  );
 
   it("denies a student reading them", async () => {
     await assertFails(student().collection(SAVED_REPORTS).doc("report1").get());

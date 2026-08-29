@@ -15,8 +15,8 @@ import {
   signOut,
 } from "firebase/auth";
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
-import { ROUTES, homeFor } from "@/lib/routes";
-import { userRoleSchema } from "@/lib/schemas/user";
+import { ROUTES, homeFor, safeDestination } from "@/lib/routes";
+import { accountTypeSchema } from "@/lib/schemas/user";
 
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
 const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.";
@@ -98,13 +98,15 @@ export function useSignIn() {
         }
 
         const body = await response.json().catch(() => null);
-        const role = userRoleSchema.safeParse(body?.role);
+        const role = accountTypeSchema.safeParse(body?.accountType);
 
         // Deliberately stays `checking`: there is a session now, so something is always
         // happening next — either navigating, or a step the caller puts in the way.
         setSession({
-          destination:
-            searchParams.get("next") ?? (role.success ? homeFor(role.data) : ROUTES.appRoot),
+          destination: safeDestination(
+            searchParams.get("next"),
+            role.success ? homeFor(role.data) : ROUTES.appRoot,
+          ),
           signInProvider,
         });
       } catch {

@@ -9,10 +9,11 @@ import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Registration } from "@/lib/schemas/registration";
-import { userRoleSchema, userSchema, type User } from "@/lib/schemas/user";
+import { accountTypeSchema, userSchema, type User } from "@/lib/schemas/user";
+import { permissionsSchema, type Permission } from "./permissions";
 import { fetchEntraName, fetchEntraPhoto } from "./graph";
 import { refuseSignIn } from "./sign-in-policy";
-import { roleFromUpn } from "./upn";
+import { accountTypeFromUpn } from "./upn";
 
 export type EntraClaims = {
   uid: string;
@@ -20,7 +21,7 @@ export type EntraClaims = {
   name?: string;
   given_name?: string;
   family_name?: string;
-  role?: unknown;
+  accountType?: unknown;
   firebase?: { sign_in_provider?: string };
 };
 
@@ -108,7 +109,7 @@ async function refreshRegistrations(upn: string, identity: StoredIdentity): Prom
 }
 
 /**
- * Creates the user record on first login and keeps the role custom claim in sync (US-1, US-3).
+ * Creates the user record on first login and keeps the accountType custom claim in sync (US-1, US-3).
  * Runs server-side only — the Admin SDK bypasses Security Rules, which deny client writes to `users`.
  */
 export async function provisionUser(
@@ -118,12 +119,12 @@ export async function provisionUser(
   const upn = claims.email?.trim().toLowerCase();
   if (!upn) return { ok: false, reason: "missing-upn" };
 
-  const derivedRole = roleFromUpn(upn);
-  if (!derivedRole) return { ok: false, reason: "unsupported-domain" };
+  const derivedAccountType = accountTypeFromUpn(upn);
+  if (!derivedAccountType) return { ok: false, reason: "unsupported-domain" };
 
   // Whatever else this deployment refuses. Production refuses nothing here.
   const refusal = refuseSignIn({
-    role: derivedRole,
+    accountType: derivedAccountType,
     signInProvider: claims.firebase?.sign_in_provider,
   });
   if (refusal) return { ok: false, ...refusal };
@@ -141,26 +142,41 @@ export async function provisionUser(
   const ref = adminDb.collection(COLLECTIONS.users).doc(upn);
   const snapshot = await ref.get();
 
-  let role = derivedRole;
+  let accountType = derivedAccountType;
+  let permissions: readonly Permission[] = [];
   if (snapshot.exists) {
-    // The role is assigned once, at creation; a later login never recomputes it (US-3).
-    const stored = userSchema.shape.role.safeParse(snapshot.data()?.role);
-    if (stored.success) role = stored.data;
+    // The accountType is assigned once, at creation; a later login never recomputes it (US-3).
+    const stored = userSchema.shape.accountType.safeParse(snapshot.data()?.accountType);
+    if (stored.success) accountType = stored.data;
+    // Nor are the permissions reconsidered: they are an admin's to grant, and a record written before
+    // they existed reads as holding none.
+    const held = permissionsSchema.safeParse(snapshot.data()?.permissions);
+    permissions = held.success ? held.data : [];
     // The photo is written even when there is none, so removing it in Entra removes it here.
     await ref.update({ firstName, lastName, email: upn, photo });
   } else {
-    await ref.set({ firstName, lastName, email: upn, role, photo });
+    // Nobody is granted anything by signing in. The administrators a school starts with are
+    // written by the seeding script, so there is no race to be the first through the door.
+    await ref.set({ firstName, lastName, email: upn, accountType, photo, permissions });
   }
 
-  const user = userSchema.parse({ id: upn, firstName, lastName, email: upn, role, photo });
+  const user = userSchema.parse({
+    id: upn,
+    firstName,
+    lastName,
+    email: upn,
+    accountType,
+    permissions,
+    photo,
+  });
 
   // Only a student holds registrations: a teacher keeps none of their own (US-15).
-  if (role === userRoleSchema.enum.student) {
+  if (accountType === accountTypeSchema.enum.student) {
     await refreshRegistrations(upn, { firstName, lastName, email: upn });
   }
 
-  if (claims.role !== role) {
-    await adminAuth.setCustomUserClaims(claims.uid, { role });
+  if (claims.accountType !== accountType) {
+    await adminAuth.setCustomUserClaims(claims.uid, { accountType });
   }
 
   return { ok: true, user };

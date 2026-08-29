@@ -15,12 +15,12 @@ vi.mock("@/lib/firebase/client", () => ({ auth: {} }));
 const { ImpersonationDialog } = await import("@/components/auth/fake/impersonation-dialog");
 
 const KNOWN_USERS = [
-  { upn: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", role: "teacher" },
+  { upn: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", accountType: "teacher" },
   {
     upn: "zoe.zimmer@student.htldornbirn.at",
     firstName: "Zoe",
     lastName: "Zimmer",
-    role: "student",
+    accountType: "student",
   },
 ];
 
@@ -109,14 +109,14 @@ describe("ImpersonationDialog", () => {
     const { user, onImpersonated } = renderDialog();
 
     await typeName(user, "Jane", "Doe");
-    await user.click(screen.getByRole("button", { name: "Anmelden" }));
+    await user.click(screen.getByRole("button", { name: "Als andere Person anmelden" }));
 
     await waitFor(() => expect(signInWithCustomToken).toHaveBeenCalledWith({}, "ct"));
     const post = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")!;
     expect(JSON.parse((post[1] as { body: string }).body)).toEqual({
       firstName: "Jane",
       lastName: "Doe",
-      role: "teacher",
+      accountType: "teacher",
     });
     expect(onImpersonated).toHaveBeenCalled();
   });
@@ -126,7 +126,7 @@ describe("ImpersonationDialog", () => {
     const { user } = renderDialog();
 
     await typeName(user, "字", "字");
-    await user.click(screen.getByRole("button", { name: "Anmelden" }));
+    await user.click(screen.getByRole("button", { name: "Als andere Person anmelden" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Schul-Adresse");
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
@@ -141,11 +141,60 @@ describe("ImpersonationDialog", () => {
     const { user, onImpersonated } = renderDialog();
 
     await typeName(user, "Jane", "Doe");
-    await user.click(screen.getByRole("button", { name: "Anmelden" }));
+    await user.click(screen.getByRole("button", { name: "Als andere Person anmelden" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Test-Anmeldung derzeit nicht möglich.",
     );
     expect(onImpersonated).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Continuing as yourself is the common case and asks for nothing, so it is what the dialog opens
+ * offering. Standing in for somebody else needs a name to stand in for — typed out, or taken from
+ * the list of people who already exist.
+ */
+describe("ImpersonationDialog — which of the two is offered", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    stubApi();
+  });
+
+  const asOther = () => screen.getByRole("button", { name: "Als andere Person anmelden" });
+  const asSelf = () => screen.getByRole("button", { name: "Mich selbst anmelden" });
+
+  it("withholds the other person until there is one to name", () => {
+    renderDialog();
+
+    expect(asOther()).toBeDisabled();
+  });
+
+  it("offers it once a name is typed", async () => {
+    const { user } = renderDialog();
+
+    await typeName(user, "Jane", "Doe");
+
+    await waitFor(() => expect(asOther()).toBeEnabled());
+  });
+
+  it("offers it once somebody is picked from the list", async () => {
+    const { user } = renderDialog();
+    await screen.findByRole("option", { name: "jane.doe@htldornbirn.at" });
+
+    await user.selectOptions(
+      screen.getByLabelText("Bestehende Benutzer:innen"),
+      "jane.doe@htldornbirn.at",
+    );
+
+    await waitFor(() => expect(asOther()).toBeEnabled());
+  });
+
+  it("asks nothing at all to continue as yourself", async () => {
+    const { user, onCancel } = renderDialog();
+
+    await user.click(asSelf());
+
+    expect(onCancel).toHaveBeenCalled();
   });
 });

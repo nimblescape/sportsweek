@@ -5,25 +5,15 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithRole = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const saveRegistration = vi.fn();
-const invitedClassFor = vi.fn();
-const invitationTokenFromCookie = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  getUserWithRole: () => getUserWithRole(),
+  getAuthenticatedUser: () => getAuthenticatedUser(),
 }));
 
 vi.mock("@/lib/registration/registration-service", () => ({
   saveRegistration: (...args: unknown[]) => saveRegistration(...args),
-}));
-
-vi.mock("@/lib/invitations/invitation-cookie", () => ({
-  invitationTokenFromCookie: () => invitationTokenFromCookie(),
-}));
-
-vi.mock("@/lib/invitations/invitation-service", () => ({
-  invitedClassFor: (...args: unknown[]) => invitedClassFor(...args),
 }));
 
 const { PUT } = await import("./route");
@@ -71,10 +61,8 @@ const context = { params: Promise.resolve({ eventSeriesId: SERIES }) };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: STUDENT, role: "student" });
+  getAuthenticatedUser.mockResolvedValue({ uid: "u1", email: STUDENT, accountType: "student" });
   saveRegistration.mockResolvedValue({ id: STUDENT, class: "3AHME", ...body });
-  invitationTokenFromCookie.mockResolvedValue("a-token");
-  invitedClassFor.mockResolvedValue("3AHME");
 });
 
 describe("PUT /api/my-registration/[eventSeriesId]", () => {
@@ -90,32 +78,13 @@ describe("PUT /api/my-registration/[eventSeriesId]", () => {
     await PUT(putRequest(body), context);
 
     expect(saveRegistration).toHaveBeenCalledWith(
-      { studentUpn: STUDENT, eventSeriesId: SERIES, invitedClass: "3AHME" },
+      { studentUpn: STUDENT, eventSeriesId: SERIES },
       expect.objectContaining(body),
     );
   });
 
-  /** The class comes from the link, and only from one naming this series (US-23, Q20). */
-  it("takes the class from the invitation the student is holding", async () => {
-    await PUT(putRequest(body), context);
-
-    expect(invitedClassFor).toHaveBeenCalledWith(SERIES, "a-token");
-  });
-
-  it("saves without an invitation for a student who is simply coming back", async () => {
-    invitationTokenFromCookie.mockResolvedValue(null);
-    invitedClassFor.mockResolvedValue(null);
-
-    await PUT(putRequest(body), context);
-
-    expect(saveRegistration).toHaveBeenCalledWith(
-      expect.objectContaining({ invitedClass: null }),
-      expect.anything(),
-    );
-  });
-
   it("rejects an anonymous caller with 401", async () => {
-    getUserWithRole.mockResolvedValue(null);
+    getAuthenticatedUser.mockResolvedValue(null);
 
     const response = await PUT(putRequest(body), context);
 
@@ -124,7 +93,11 @@ describe("PUT /api/my-registration/[eventSeriesId]", () => {
   });
 
   it("rejects a teacher with 403, since a teacher keeps no master data of their own", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "t@htldornbirn.at", role: "teacher" });
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u2",
+      email: "t@htldornbirn.at",
+      accountType: "teacher",
+    });
 
     const response = await PUT(putRequest(body), context);
 
@@ -134,7 +107,7 @@ describe("PUT /api/my-registration/[eventSeriesId]", () => {
   });
 
   it("rejects a student whose session carries no address to key the record by", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u1", email: null, role: "student" });
+    getAuthenticatedUser.mockResolvedValue({ uid: "u1", email: null, accountType: "student" });
 
     const response = await PUT(putRequest(body), context);
 

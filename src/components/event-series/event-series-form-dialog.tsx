@@ -30,31 +30,26 @@ const formSchema = z.object({
 });
 type FormValues = z.infer<typeof formSchema>;
 
-/** What creating asks for, once all three questions are answered (US-22). */
-export type NewEventSeries = { name: string; isTemplate: boolean; sourceId: string | null };
+/** What creating asks for, once both questions are answered (US-22). */
+export type NewEventSeries = { name: string; sourceId: string | null };
 
 /**
  * Not the empty string: base-ui reads that as no value at all and drops the entry, which left
  * the whole list unreachable. An id is twenty generated characters, so this collides with none.
  */
 const NO_SOURCE = "__none__";
-const NO_SOURCE_LABEL = "Ohne";
+const NO_SOURCE_LABEL = "Keine";
 
-/** What a template made from a series is called until the teacher says otherwise. */
-const templateNameFor = (name: string) => `${name} ${EVENT_SERIES_STATE_LABELS.template}`;
-
-/** In words rather than by colour, which the tag rows have already spent (US-22). */
+/** In words rather than by colour, which the tag row has already spent (US-22). */
 function sourceLabel(one: EventSeries): string {
-  if (one.isTemplate) return `${one.name} (${EVENT_SERIES_STATE_LABELS.template})`;
-  if (one.isArchived) return `${one.name} (${EVENT_SERIES_STATE_LABELS.archived})`;
-  return one.name;
+  return one.isArchived ? `${one.name} (${EVENT_SERIES_STATE_LABELS.archived})` : one.name;
 }
 
 type EventSeriesFormDialogProps = {
   open: boolean;
   /** `null` opens the dialog for a new event series. */
   eventSeries: EventSeries | null;
-  /** What a new one may take its lists from — any series or template, archived ones included. */
+  /** What a new one may take its lists from — any event series, archived ones included. */
   sources: readonly EventSeries[];
   /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
   onSubmit: (values: NewEventSeries, eventSeries: EventSeries | null) => Promise<void>;
@@ -71,14 +66,11 @@ export function EventSeriesFormDialog({
   onSaved,
 }: EventSeriesFormDialogProps) {
   const [submitError, setSubmitError] = React.useState<string | null>(null);
-  // Pressing "save as template" turns an edit into the creation of a template copied from what
-  // was being edited, because the two cannot share a name (US-4).
-  const [templateFrom, setTemplateFrom] = React.useState<EventSeries | null>(null);
   const nameId = React.useId();
   const errorId = React.useId();
   const sourceId = React.useId();
 
-  const isEdit = eventSeries !== null && templateFrom === null;
+  const isEdit = eventSeries !== null;
 
   // No reset effect: the dialog is mounted only while open (and keyed by event series), so every
   // open starts from these defaults.
@@ -86,7 +78,6 @@ export function EventSeriesFormDialog({
     register,
     control,
     handleSubmit,
-    setValue,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
@@ -94,47 +85,35 @@ export function EventSeriesFormDialog({
     defaultValues: { name: eventSeries?.name ?? "", sourceId: NO_SOURCE },
   });
 
-  const submitAs = (isTemplate: boolean) =>
-    handleSubmit(async (values) => {
-      setSubmitError(null);
-      try {
-        await save(
-          {
-            name: values.name,
-            isTemplate,
-            sourceId: templateFrom?.id ?? (values.sourceId === NO_SOURCE ? null : values.sourceId),
-          },
-          // A template made from a series is a new one, so it is created rather than edited.
-          templateFrom === null ? eventSeries : null,
-        );
-        onSaved();
-      } catch (error) {
-        // A duplicate name is a problem with the field, so it is reported there rather than
-        // as a detached alert the teacher has to connect back to the input themselves (US-4).
-        if (error instanceof ApiRequestError && error.code === "CONFLICT") {
-          setError("name", { message: error.message });
-          return;
-        }
-        setSubmitError(
-          error instanceof ApiRequestError ? error.message : "Das hat leider nicht geklappt.",
-        );
+  const submit = handleSubmit(async (values) => {
+    setSubmitError(null);
+    try {
+      await save(
+        {
+          name: values.name,
+          sourceId: values.sourceId === NO_SOURCE ? null : values.sourceId,
+        },
+        eventSeries,
+      );
+      onSaved();
+    } catch (error) {
+      // A duplicate name is a problem with the field, so it is reported there rather than
+      // as a detached alert the teacher has to connect back to the input themselves (US-4).
+      if (error instanceof ApiRequestError && error.code === "CONFLICT") {
+        setError("name", { message: error.message });
+        return;
       }
-    });
+      setSubmitError(
+        error instanceof ApiRequestError ? error.message : "Das hat leider nicht geklappt.",
+      );
+    }
+  });
 
-  function proposeTemplate() {
-    setTemplateFrom(eventSeries);
-    setValue("name", templateNameFor(eventSeries?.name ?? ""));
-  }
-
-  const title = isEdit
-    ? "Eventreihe bearbeiten"
-    : templateFrom === null
-      ? "Neue Eventreihe"
-      : `Neue Vorlage aus „${templateFrom.name}"`;
+  const title = isEdit ? "Eventreihe bearbeiten" : "Neue Eventreihe";
 
   return (
     <Dialog open={open} title={title} onClose={onClose}>
-      <form onSubmit={submitAs(templateFrom !== null)} className="flex flex-col gap-4" noValidate>
+      <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={nameId}>Name</Label>
           <Input
@@ -152,10 +131,10 @@ export function EventSeriesFormDialog({
         </div>
 
         {/* Where the lists come from is asked only of something being made; renaming settles it
-            again for nothing, and a template made from a series already has its source. */}
+            again for nothing. */}
         {eventSeries === null ? (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={sourceId}>Einstellungen übernehmen von</Label>
+            <Label htmlFor={sourceId}>Einstellungen übernehmen</Label>
             <Controller
               control={control}
               name="sourceId"
@@ -191,22 +170,10 @@ export function EventSeriesFormDialog({
           </p>
         ) : null}
 
-        {/* The kind is the button that was pressed, so there is one control per outcome rather
-            than a field to set and a single button to guess from (US-22). */}
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Abbrechen
           </Button>
-          {templateFrom === null ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isSubmitting}
-              onClick={isEdit ? proposeTemplate : submitAs(true)}
-            >
-              {isEdit ? "Als Vorlage speichern" : "Als Vorlage anlegen"}
-            </Button>
-          ) : null}
           <Button type="submit" disabled={isSubmitting}>
             {isEdit ? "Speichern" : "Anlegen"}
           </Button>

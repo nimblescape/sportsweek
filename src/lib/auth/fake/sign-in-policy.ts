@@ -16,8 +16,8 @@ import type { SignInAttempt, SignInRefusal } from "@/lib/auth/sign-in-policy";
  * There is no check here for which project this is. The build already decided that by
  * resolving this module at all, and `resolveAuthMode` never resolves it for production.
  */
-export function refuseSignIn({ role, signInProvider }: SignInAttempt): SignInRefusal | null {
-  if (role === "student" && signInProvider === "microsoft.com") {
+export function refuseSignIn({ accountType, signInProvider }: SignInAttempt): SignInRefusal | null {
+  if (accountType === "student" && signInProvider === "microsoft.com") {
     return {
       reason: "students-excluded",
       message: "Diese Umgebung steht nur Lehrpersonen offen.",

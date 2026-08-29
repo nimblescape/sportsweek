@@ -5,85 +5,128 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithRole = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const resolveInvitation = vi.fn();
+const joinEventSeries = vi.fn();
 
-vi.mock("@/lib/auth/guards", () => ({ getUserWithRole: () => getUserWithRole() }));
+vi.mock("@/lib/auth/guards", () => ({ getAuthenticatedUser: () => getAuthenticatedUser() }));
 vi.mock("@/lib/invitations/invitation-service", () => ({
   resolveInvitation: (token: string) => resolveInvitation(token),
 }));
+vi.mock("@/lib/registration/registration-service", () => ({
+  joinEventSeries: (...args: unknown[]) => joinEventSeries(...args),
+}));
 
 const { GET } = await import("./route");
-const { INVITATION_COOKIE_NAME } = await import("@/lib/invitations/invitation-cookie");
 
 const TOKEN = "a-very-long-unguessable-token";
 
-function follow(token = TOKEN) {
-  return GET(new Request(`https://example.com/join/${token}`), {
+function follow(token = TOKEN, origin = "https://example.com") {
+  return GET(new Request(`${origin}/join/${token}`), {
     params: Promise.resolve({ token }),
   });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: "s@student.at", role: "student" });
+  getAuthenticatedUser.mockResolvedValue({
+    uid: "u1",
+    email: "S@student.at",
+    accountType: "student",
+  });
   resolveInvitation.mockResolvedValue({ token: TOKEN, eventSeriesId: "s1", class: "3aWI" });
 });
 
+/**
+ * Following the link is what joins a student (US-23), so it is a write rather than a note to
+ * self. The registration exists from that moment, which is what lets a later sign-in find it by
+ * looking rather than by carrying a token about.
+ */
 describe("GET /join/[token]", () => {
-  it("takes a student to their registration", async () => {
-    const response = await follow();
+  it("records the joining, for the class the link names", async () => {
+    await follow();
 
-    expect(response.headers.get("location")).toBe("https://example.com/app/my-registration");
+    expect(joinEventSeries).toHaveBeenCalledWith("s1", "s@student.at", "3aWI");
   });
 
-  it("remembers the token, so it survives signing in", async () => {
+  it("takes the student to the registration the link named", async () => {
     const response = await follow();
-    const cookie = response.cookies.get(INVITATION_COOKIE_NAME);
 
-    expect(cookie?.value).toBe(TOKEN);
-    expect(cookie?.httpOnly).toBe(true);
-    expect(cookie?.sameSite).toBe("lax");
+    expect(response.headers.get("location")).toBe("/app/my-registration/s1");
   });
 
-  /** The round trip through Entra ID comes back to `/app`, so the cookie has to be set first. */
-  it("remembers the token for a visitor who is not signed in yet", async () => {
-    getUserWithRole.mockResolvedValue(null);
+  /**
+   * The regression this exists for. A Route Handler sees the address the server was reached on,
+   * which behind a proxy is the container's own -- so a Location built from it sends the browser
+   * to a host only the server can reach. Every redirect here is relative, which the browser
+   * resolves against the address it asked for and which no header can be made to lie about.
+   */
+  it("never names a host, so the container's own address cannot become one", async () => {
+    const response = await follow(TOKEN, "http://0.0.0.0:8080");
+
+    expect(response.headers.get("location")).toBe("/app/my-registration/s1");
+  });
+
+  /**
+   * The write needs to know who joined, and a signed-out visitor is the ordinary case: the link
+   * is followed before signing in. They come back here afterwards and join then.
+   */
+  it("sends a visitor who is not signed in to sign in, and back here", async () => {
+    getAuthenticatedUser.mockResolvedValue(null);
 
     const response = await follow();
 
-    expect(response.cookies.get(INVITATION_COOKIE_NAME)?.value).toBe(TOKEN);
-    expect(response.headers.get("location")).toBe("https://example.com/app/my-registration");
+    expect(response.headers.get("location")).toBe(`/sign-in?next=%2Fjoin%2F${TOKEN}`);
+    expect(joinEventSeries).not.toHaveBeenCalled();
   });
 
   /** Q12: the commonest teacher to follow a link is the one checking it before sending it out. */
   it("takes a teacher to the dashboard for the series the link names", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "t@htl.at", role: "teacher" });
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u2",
+      email: "t@htl.at",
+      accountType: "teacher",
+    });
 
     const response = await follow();
 
-    expect(response.headers.get("location")).toBe("https://example.com/app/s1/overview");
+    expect(response.headers.get("location")).toBe("/app/s1/registrations");
+    expect(joinEventSeries).not.toHaveBeenCalled();
   });
 
   it("takes a teacher whose link leads nowhere to the dashboard, saying nothing", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "t@htl.at", role: "teacher" });
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u2",
+      email: "t@htl.at",
+      accountType: "teacher",
+    });
     resolveInvitation.mockResolvedValue(null);
 
     const response = await follow();
 
-    expect(response.headers.get("location")).toBe("https://example.com/app");
+    expect(response.headers.get("location")).toBe("/app");
   });
 
   /**
    * Every reason a link can lead nowhere is answered by the one sentence on the landing page,
-   * so this handler resolves nothing for a student and therefore tells them nothing here.
+   * so this handler joins nobody and says nothing about which of them it was.
    */
-  it("takes a student whose link leads nowhere to the same place as any other", async () => {
+  it("takes a student whose link leads nowhere to the landing page, saying nothing", async () => {
     resolveInvitation.mockResolvedValue(null);
 
     const response = await follow("mistyped");
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://example.com/app/my-registration");
+    expect(response.headers.get("location")).toBe("/app/my-registration");
+    expect(joinEventSeries).not.toHaveBeenCalled();
+  });
+
+  /** A joining that cannot be written is a link that led nowhere, as far as a student can see. */
+  it("says the same where the joining is refused", async () => {
+    joinEventSeries.mockRejectedValue(new Error("closed"));
+
+    const response = await follow();
+
+    expect(response.headers.get("location")).toBe("/app/my-registration");
   });
 });

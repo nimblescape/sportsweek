@@ -9,8 +9,10 @@ import { adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { reorderCollection } from "@/lib/firebase/reorder";
 import {
+  ARCHIVE_NO_DATA_HINT,
+  ARCHIVE_OPEN_HINT,
   ARCHIVED_IS_READ_ONLY_HINT,
-  LAST_TEMPLATE_HINT,
+  LAST_EVENT_SERIES_HINT,
   NO_SUCH_EVENT_SERIES,
 } from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
@@ -81,15 +83,12 @@ const BLANK_LISTS = {
 
 type CreateEventSeries = {
   name: string;
-  /** Answered on its own: a copy is no more a template for having come from one (US-22). */
-  isTemplate?: boolean;
-  /** Any series or template, archived ones included — which is what keeps archiving reversible. */
+  /** Any event series, archived ones included — which is what keeps archiving reversible. */
   sourceId?: string | null;
 };
 
 /**
- * Creating is one atomic write, whichever of the four combinations it is: a blank series, a
- * series from a template, a series from last year's, or a template from a series (US-22).
+ * Creating is one atomic write, whether the series starts blank or from another one (US-22).
  *
  * What a copy takes is the seven lists and the saved reports. What it never takes is the
  * registrations, the archive state and the invitation link — a link that still pointed at the
@@ -129,7 +128,6 @@ export async function createEventSeries(input: CreateEventSeries): Promise<Event
     const data = {
       name,
       nameKey,
-      isTemplate: input.isTemplate ?? false,
       isArchived: false,
       isOpenToStudents: false,
       hasRegistrations: false,
@@ -199,18 +197,11 @@ export async function updateEventSeries(
       throw new ServiceError(ErrorCode.Conflict, ARCHIVED_IS_READ_ONLY_HINT);
     }
 
-    // One rule shape, three reasons (US-19, US-22, US-23): a template can never take
-    // registrations, an archived series is read-only and cannot even be selected, and a series
-    // with no classes has nothing to invite anybody into. Asked against the archive state this
-    // call is leaving behind, so opening and archiving at once is refused rather than silently
-    // resolved in archiving's favour.
+    // One rule shape, two reasons (US-19, US-23): an archived series is read-only and cannot even
+    // be selected, and a series with no classes has nothing to invite anybody into. Asked against
+    // the archive state this call is leaving behind, so opening and archiving at once is refused
+    // rather than silently resolved in archiving's favour.
     if (update.isOpenToStudents === true) {
-      if (current.isTemplate) {
-        throw new ServiceError(
-          ErrorCode.Conflict,
-          "Eine Vorlage kann nicht für Anmeldungen freigeschaltet werden.",
-        );
-      }
       if (isArchived) {
         throw new ServiceError(
           ErrorCode.Conflict,
@@ -227,14 +218,17 @@ export async function updateEventSeries(
 
     let hasRegistrations = current.hasRegistrations;
     if (wantsArchival) {
+      // Closing is the teacher's own decision, made on the tag of the series it concerns (US-19).
+      // Archiving used to make it for them as a side effect; a series is closed first, then filed.
+      if (update.isOpenToStudents !== false && current.isOpenToStudents) {
+        throw new ServiceError(ErrorCode.Conflict, ARCHIVE_OPEN_HINT);
+      }
+
       const registrations = await transaction.get(
         adminDb.collection(registrationPath(id)).limit(1),
       );
       if (registrations.empty) {
-        throw new ServiceError(
-          ErrorCode.Conflict,
-          "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.",
-        );
+        throw new ServiceError(ErrorCode.Conflict, ARCHIVE_NO_DATA_HINT);
       }
       hasRegistrations = true;
     }
@@ -266,18 +260,15 @@ export async function updateEventSeries(
 
 /**
  * Which event series `/app` sends a teacher into (Q8). Both that page and the navigation built
- * from this answer are about registrations, so neither an archived series nor a template is
- * selectable — a remembered id that has become either falls back to the first that is.
+ * from this answer are about registrations, so an archived series is not selectable — a
+ * remembered id that has become one falls back to the first that is.
  *
  * Null means there is nothing to select, which the caller answers with the event series list.
  */
 export async function resolveSelectedEventSeriesId(preferredId?: string): Promise<string | null> {
-  const selectable = (data: Record<string, unknown> | undefined) =>
-    data?.isArchived !== true && data?.isTemplate !== true;
-
   if (preferredId) {
     const preferred = await eventSeriesDoc(preferredId).get();
-    if (preferred.exists && selectable(preferred.data())) return preferred.id;
+    if (preferred.exists && preferred.data()?.isArchived !== true) return preferred.id;
   }
 
   const unarchived = await adminDb
@@ -285,10 +276,7 @@ export async function resolveSelectedEventSeriesId(preferredId?: string): Promis
     .where("isArchived", "==", false)
     .get();
 
-  // Templates are sieved out here rather than in the query, which would need an index of its own
-  // for a collection already read whole and ordered in memory.
   const first = unarchived.docs
-    .filter((doc) => selectable(doc.data()))
     .map((doc) => ({ id: doc.id, position: Number(doc.data().position ?? 0) }))
     .sort((a, b) => a.position - b.position)[0];
 
@@ -332,13 +320,14 @@ export async function deleteEventSeries(id: string): Promise<void> {
 
   const eventSeries = eventSeriesSchema.parse({ id, ...snapshot.data() });
 
-  if (eventSeries.isTemplate && !eventSeries.isArchived) {
-    const templates = await adminDb
+  // Everything a teacher sees is scoped to a selection, so a school with none at all has a header
+  // offering nothing. The last unarchived one is held back to keep that state out of reach.
+  if (!eventSeries.isArchived) {
+    const live = await adminDb
       .collection(COLLECTIONS.eventSeries)
-      .where("isTemplate", "==", true)
       .where("isArchived", "==", false)
       .get();
-    if (templates.size <= 1) throw new ServiceError(ErrorCode.Conflict, LAST_TEMPLATE_HINT);
+    if (live.size <= 1) throw new ServiceError(ErrorCode.Conflict, LAST_EVENT_SERIES_HINT);
   }
 
   const registrationsSnapshot = await adminDb.collection(registrationPath(id)).get();
@@ -346,7 +335,7 @@ export async function deleteEventSeries(id: string): Promise<void> {
   if (!eventSeries.isArchived && !registrationsSnapshot.empty) {
     throw new ServiceError(
       ErrorCode.Conflict,
-      "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.",
+      "Eine Eventreihe mit Registrierungen kann nur gelöscht werden, wenn sie archiviert ist.",
     );
   }
 

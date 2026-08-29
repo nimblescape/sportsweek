@@ -3,6 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
+import type { ReactNode } from "react";
 import Image from "next/image";
 
 /**
@@ -11,8 +12,11 @@ import Image from "next/image";
  *
  * Laid out as a navigation row is: the logo occupies the same square the icons do and is centred
  * in it, so the name starts where every label below it starts.
+ *
+ * Anything passed in sits beside the name and on its baseline. Two text spans in one row is what
+ * makes that exact — aligning against the logo's box instead would only ever be close.
  */
-export function Brand() {
+export function Brand({ children }: { children?: ReactNode }) {
   return (
     // A control's height, so the name lines up with the tags across the header: both sit one
     // step in from the top of the window, and a taller row here would drop it below them.
@@ -27,7 +31,10 @@ export function Brand() {
           className="h-auto w-6"
         />
       </span>
-      <span className="font-heading text-xl font-semibold tracking-tight">Sportsweek</span>
+      <span className="flex items-baseline gap-2">
+        <span className="font-heading text-xl font-semibold tracking-tight">Sportsweek</span>
+        {children}
+      </span>
     </span>
   );
 }

@@ -6,11 +6,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 
-const getUserWithRole = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const updateSavedReport = vi.fn();
 const deleteSavedReport = vi.fn();
 
-vi.mock("@/lib/auth/guards", () => ({ getUserWithRole: () => getUserWithRole() }));
+vi.mock("@/lib/auth/guards", () => ({ getAuthenticatedUser: () => getAuthenticatedUser() }));
 vi.mock("@/lib/report/saved-report-service", () => ({
   updateSavedReport: (...args: unknown[]) => updateSavedReport(...args),
   deleteSavedReport: (...args: unknown[]) => deleteSavedReport(...args),
@@ -41,7 +41,12 @@ function patchRequest(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithRole.mockResolvedValue({ uid: "u1", email: TEACHER, role: "teacher" });
+  getAuthenticatedUser.mockResolvedValue({
+    uid: "u1",
+    email: TEACHER,
+    accountType: "teacher",
+    permissions: ["editReports"],
+  });
   updateSavedReport.mockResolvedValue(report);
   deleteSavedReport.mockResolvedValue(undefined);
 });
@@ -80,7 +85,24 @@ describe("PATCH /api/event-series/[eventSeriesId]/saved-reports/[reportId]", () 
   });
 
   it("rejects a student with 403", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x.at", role: "student" });
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u2",
+      email: "s@x.at",
+      accountType: "student",
+    });
+
+    expect((await PATCH(patchRequest(report), { params })).status).toBe(403);
+    expect(updateSavedReport).not.toHaveBeenCalled();
+  });
+
+  /** Changing what a saved report holds is editing it, which viewing one does not grant. */
+  it("rejects a teacher who may only view reports", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u3",
+      email: "t2@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["viewReports", "editAssignments", "editMasterData"],
+    });
 
     expect((await PATCH(patchRequest(report), { params })).status).toBe(403);
     expect(updateSavedReport).not.toHaveBeenCalled();
@@ -110,7 +132,11 @@ describe("DELETE /api/event-series/[eventSeriesId]/saved-reports/[reportId]", ()
   });
 
   it("rejects a student with 403", async () => {
-    getUserWithRole.mockResolvedValue({ uid: "u2", email: "s@x.at", role: "student" });
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u2",
+      email: "s@x.at",
+      accountType: "student",
+    });
 
     expect((await DELETE(new Request("https://example.com"), { params })).status).toBe(403);
     expect(deleteSavedReport).not.toHaveBeenCalled();

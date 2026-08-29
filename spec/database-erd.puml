@@ -15,7 +15,11 @@ entity "User" as user {
   firstName : string
   lastName : string
   email : string
-  role : enum(teacher, student)  ' auto-assigned from UPN domain at creation (US-3)
+  accountType : enum(teacher, student)  ' what they are: auto-assigned from the UPN domain at
+                                        ' creation, granted by nobody, never client-writable (US-3)
+  permissions : string[]  ' what they may do: a set, not a rank, granted through the rights page
+                          ' by a holder of editUsers. Empty for every student, and for a teacher
+                          ' until granted — the school's first teacher excepted (US-2, US-30)
 }
 
 entity "EventSeries" as eventSeries {
@@ -26,8 +30,6 @@ entity "EventSeries" as eventSeries {
                     ' sent by a client. Uniqueness is an equality query on this inside the write's
                     ' own transaction — an equality on name would compare exact strings and lose
                     ' the case- and whitespace-insensitivity the rule asks for (US-4, US-21)
-  isTemplate : boolean  ' a template can never be opened to students; it is selected and its
-                        ' lists are maintained like any other series' (US-19, US-22)
   isOpenToStudents : boolean  ' whether students may join this series and go on amending what
                               ' they said. Any number may be open at once; an invitation link
                               ' sets it, archiving clears it, unarchiving does not restore it

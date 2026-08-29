@@ -7,9 +7,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { requireStudent } from "@/lib/auth/guards";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { userSchema } from "@/lib/schemas/user";
-import { RegistrationView } from "@/components/registration/registration-view";
-import { invitationTokenFromCookie } from "@/lib/invitations/invitation-cookie";
-import { invitedClassFor } from "@/lib/invitations/invitation-service";
+import { MyRegistrationView } from "@/components/my-registration/my-registration-view";
 
 /**
  * Only the shared header sits above this page — no left-side navigation (US-15). The name comes
@@ -35,18 +33,11 @@ export default async function RegistrationPage({
     ? `${stored.data.firstName} ${stored.data.lastName}`
     : (user.email ?? "");
 
-  const invitedClass = await invitedClassFor(eventSeriesId, await invitationTokenFromCookie());
-
   return (
-    // Capped rather than stretched: the form is one column of short fields, and a line of
-    // inputs the full width of a desktop screen is a long way from its own label.
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 md:p-6">
-      <RegistrationView
-        eventSeriesId={eventSeriesId}
-        studentUpn={studentUpn}
-        studentName={studentName}
-        invitedClass={invitedClass}
-      />
-    </div>
+    <MyRegistrationView
+      eventSeriesId={eventSeriesId}
+      studentUpn={studentUpn}
+      studentName={studentName}
+    />
   );
 }

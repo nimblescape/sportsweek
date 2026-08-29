@@ -20,7 +20,7 @@ type DeleteRegistrationDialogProps = {
   onDeleted: () => void;
 };
 
-export const DELETE_REGISTRATION_TITLE = "Anmeldung löschen";
+export const DELETE_REGISTRATION_TITLE = "Registrierung löschen";
 
 /**
  * A warning dialog per the Design Guidelines, for one record rather than a whole series (US-28).
@@ -70,7 +70,7 @@ export function DeleteRegistrationDialog({
         <span className="flex gap-2">
           <TriangleAlert aria-hidden className="text-destructive mt-0.5 size-4 shrink-0" />
           <span>
-            Die Anmeldung von <strong className="text-foreground">{name}</strong> wird mit allen
+            Die Registrierung von <strong className="text-foreground">{name}</strong> wird mit allen
             Antworten gelöscht. Das kann nicht rückgängig gemacht werden.
           </span>
         </span>

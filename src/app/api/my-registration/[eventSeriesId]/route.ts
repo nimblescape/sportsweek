@@ -7,8 +7,6 @@ import { NextResponse } from "next/server";
 import { handleServiceFailure, parseJsonBody, requireStudentOrResponse } from "@/lib/api/handler";
 import { registrationInputSchema } from "@/lib/schemas/registration";
 import { saveRegistration } from "@/lib/registration/registration-service";
-import { invitationTokenFromCookie } from "@/lib/invitations/invitation-cookie";
-import { invitedClassFor } from "@/lib/invitations/invitation-service";
 
 /**
  * The student's own registration in one event series (US-11).
@@ -35,11 +33,7 @@ export async function PUT(
   const { eventSeriesId } = await context.params;
 
   try {
-    const invitedClass = await invitedClassFor(eventSeriesId, await invitationTokenFromCookie());
-    const record = await saveRegistration(
-      { studentUpn: student.userId, eventSeriesId, invitedClass },
-      body.data,
-    );
+    const record = await saveRegistration({ studentUpn: student.userId, eventSeriesId }, body.data);
     return NextResponse.json({ record });
   } catch (error) {
     return handleServiceFailure(error, "Saving registration");

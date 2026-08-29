@@ -27,6 +27,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Check, GripVertical, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tag, TagAction, TagField, TagName } from "@/components/ui/tag";
+import { Tooltip } from "@/components/ui/tooltip";
 import { DraggingCursor } from "@/components/ui/dragging-cursor";
 import { cn } from "@/lib/utils";
 import { useRowAction } from "@/lib/api/use-row-action";
@@ -45,10 +46,14 @@ const ROW_LABEL = "Gespeicherte Berichte";
 const NAME_LABEL = "Name des Berichts";
 const CHANGED_HINT = "Geändert gegenüber dem gespeicherten Bericht.";
 
+export const MAY_NOT_EDIT_HINT = "Du darfst Berichte ansehen, aber nicht speichern.";
+
 type SavedReportTagListProps = {
   reports: readonly SavedReport[];
   /** What a save would keep: the report as it currently stands, both tag rows (US-13). */
   current: ReportSelection;
+  /** Saved reports are shared, so anyone may open one; keeping one is its own permission (US-2). */
+  mayEdit: boolean;
   onOpen: (selection: ReportSelection) => void;
   /** Answers with the id of the report it saved, which the row then marks. */
   onSave: (name: string, selection: ReportSelection) => Promise<string | null>;
@@ -69,6 +74,7 @@ type Editing = { kind: "save" } | { kind: "rename"; report: SavedReport };
 export function SavedReportTagList({
   reports,
   current,
+  mayEdit,
   onOpen,
   onSave,
   onUpdate,
@@ -81,6 +87,15 @@ export function SavedReportTagList({
   // Remembered rather than derived from the selection, so the mark survives the changes a
   // teacher then makes — which is what keeps this report's controls, and its update, reachable.
   const [markedId, setMarkedId] = React.useState<string | null>(null);
+  const refusalId = React.useId();
+
+  /**
+   * A marked tag that no longer matches the screen reads as "changed", and what a teacher does
+   * about that is store the change. Somebody who may not store one has nothing to do about it,
+   * so the mark is released instead and the row goes back to saying that none of them is open.
+   */
+  const marked = reports.find((report) => report.id === markedId) ?? null;
+  if (!mayEdit && marked !== null && !sameSelection(marked, current)) setMarkedId(null);
   // Every tag is drawn from the reports one write is changing, so all of them wait for it.
   const { pending, run } = useRowAction();
   const { ordered, drop } = useDroppedOrder(reports, onReorder);
@@ -139,6 +154,7 @@ export function SavedReportTagList({
                 changed={report.id === markedId && !sameSelection(report, current)}
                 confirming={confirming === report.id}
                 pending={pending}
+                mayEdit={mayEdit}
                 onOpen={() => {
                   closeForms();
                   if (report.id === markedId) {
@@ -193,20 +209,31 @@ export function SavedReportTagList({
               onCancel={() => setEditing(null)}
             />
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={pending}
-              onClick={() => {
-                setConfirming(null);
-                // Naming a new report is a move away from the one that was open, not a change to it.
-                setMarkedId(null);
-                setEditing({ kind: "save" });
-              }}
-            >
-              <Plus aria-hidden data-icon="inline-start" />
-              Bericht speichern
-            </Button>
+            <Tooltip label={mayEdit ? "" : MAY_NOT_EDIT_HINT}>
+              {/* A disabled button emits no pointer events, so the reason hangs on a wrapper. */}
+              <span className="inline-flex">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pending || !mayEdit}
+                  aria-describedby={mayEdit ? undefined : refusalId}
+                  onClick={() => {
+                    setConfirming(null);
+                    // Naming a new report is a move away from the one that was open, not a change to it.
+                    setMarkedId(null);
+                    setEditing({ kind: "save" });
+                  }}
+                >
+                  <Plus aria-hidden data-icon="inline-start" />
+                  Bericht speichern
+                </Button>
+              </span>
+            </Tooltip>
+          )}
+          {mayEdit ? null : (
+            <span id={refusalId} className="sr-only">
+              {MAY_NOT_EDIT_HINT}
+            </span>
           )}
         </div>
       </SortableContext>
@@ -220,6 +247,7 @@ type SavedReportTagProps = {
   changed: boolean;
   confirming: boolean;
   pending: boolean;
+  mayEdit: boolean;
   onOpen: () => void;
   onUpdate: () => Promise<void>;
   onStartRename: () => void;
@@ -234,6 +262,7 @@ function SavedReportTag({
   changed,
   confirming,
   pending,
+  mayEdit,
   onOpen,
   onUpdate,
   onStartRename,
@@ -244,7 +273,7 @@ function SavedReportTag({
   const hintId = React.useId();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: report.id,
-    disabled: pending,
+    disabled: pending || !mayEdit,
   });
 
   return (
@@ -262,20 +291,23 @@ function SavedReportTag({
       // The handle offers the grab; the tag itself only says so once a drag is really under way.
       className={cn("touch-none", isDragging && "relative z-10 cursor-grabbing opacity-80")}
     >
-      <button
-        type="button"
-        aria-label={`${report.name} verschieben`}
-        disabled={pending}
-        className={cn(
-          "focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-0.5 outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50",
-          isDragging && "cursor-grabbing",
-        )}
-        {...attributes}
-        onPointerDown={listeners?.onPointerDown as React.PointerEventHandler | undefined}
-        onKeyDown={listeners?.onKeyDown as React.KeyboardEventHandler | undefined}
-      >
-        <GripVertical aria-hidden className="size-3.5" />
-      </button>
+      {/* The order is stored, so the grip is only there for somebody who may store one. */}
+      {mayEdit ? (
+        <button
+          type="button"
+          aria-label={`${report.name} verschieben`}
+          disabled={pending}
+          className={cn(
+            "focus-visible:ring-ring/50 shrink-0 cursor-grab touch-none rounded-md p-0.5 outline-none focus-visible:ring-3 active:cursor-grabbing disabled:cursor-default disabled:opacity-50",
+            isDragging && "cursor-grabbing",
+          )}
+          {...attributes}
+          onPointerDown={listeners?.onPointerDown as React.PointerEventHandler | undefined}
+          onKeyDown={listeners?.onKeyDown as React.KeyboardEventHandler | undefined}
+        >
+          <GripVertical aria-hidden className="size-3.5" />
+        </button>
+      ) : null}
 
       <TagName
         label={`Gespeicherter Bericht: ${report.name}`}
@@ -291,7 +323,7 @@ function SavedReportTag({
       ) : null}
 
       {/* Only the marked tag is managed, so there is nothing on the others to press by accident. */}
-      {!marked ? null : confirming ? (
+      {!marked || !mayEdit ? null : confirming ? (
         <>
           <TagAction label={`Löschen von ${report.name} bestätigen`} onClick={onDelete}>
             <Check aria-hidden />

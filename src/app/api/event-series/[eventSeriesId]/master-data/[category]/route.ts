@@ -9,7 +9,7 @@ import {
   errorResponse,
   handleServiceFailure,
   parseJsonBody,
-  requireTeacherOrResponse,
+  requirePermissionOrResponse,
 } from "@/lib/api/handler";
 import { ErrorCode } from "@/lib/errors";
 import { listItemNameSchema, requiredEquipmentSchema } from "@/lib/schemas/master-data";
@@ -61,7 +61,7 @@ async function readTarget({ params }: Context) {
 }
 
 export async function POST(request: Request, context: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editMasterData");
   if (denied) return denied;
 
   const { eventSeriesId, category } = await readTarget(context);
@@ -85,7 +85,7 @@ export async function POST(request: Request, context: Context) {
  * changes no stored name, so no registration can be affected (see Ordering).
  */
 export async function PATCH(request: Request, context: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editMasterData");
   if (denied) return denied;
 
   const { eventSeriesId, category } = await readTarget(context);
@@ -112,7 +112,7 @@ export async function PATCH(request: Request, context: Context) {
 }
 
 export async function DELETE(request: Request, context: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editMasterData");
   if (denied) return denied;
 
   const { eventSeriesId, category } = await readTarget(context);
@@ -137,7 +137,7 @@ export async function DELETE(request: Request, context: Context) {
  * so the list cannot work this out for itself — and a teacher is the only role that sees it.
  */
 export async function GET(_request: Request, context: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editMasterData");
   if (denied) return denied;
 
   const { eventSeriesId: named, category } = await readTarget(context);

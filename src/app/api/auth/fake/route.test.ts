@@ -42,7 +42,7 @@ function postRequest(body: unknown) {
 const ENTRA_TEACHER = {
   uid: "real-uid",
   email: "jane.doe@htldornbirn.at",
-  role: "teacher",
+  accountType: "teacher",
   firebase: { sign_in_provider: "microsoft.com" },
 };
 
@@ -81,14 +81,14 @@ describe("/api/auth/fake", () => {
       [
         "the signed-in user is a student",
         { __session: "entra-cookie" },
-        { ...ENTRA_TEACHER, role: "student" },
+        { ...ENTRA_TEACHER, accountType: "student" },
       ],
     ])("refuses when %s", async (_case, cookies, decoded) => {
       signedInWith(cookies, decoded);
 
       const listed = await GET();
       const minted = await POST(
-        postRequest({ firstName: "Jane", lastName: "Doe", role: "teacher" }),
+        postRequest({ firstName: "Jane", lastName: "Doe", accountType: "teacher" }),
       );
 
       expect(listed.status).toBe(403);
@@ -117,7 +117,7 @@ describe("/api/auth/fake", () => {
     });
 
     it("remembers the Entra session so later switches still pass", async () => {
-      await POST(postRequest({ firstName: "Jane", lastName: "Doe", role: "teacher" }));
+      await POST(postRequest({ firstName: "Jane", lastName: "Doe", accountType: "teacher" }));
 
       expect(cookieStore.set).toHaveBeenCalledWith(
         "__entra_session",
@@ -149,7 +149,7 @@ describe("/api/auth/fake", () => {
 
       const listed = await GET();
       const minted = await POST(
-        postRequest({ firstName: "Jane", lastName: "Doe", role: "teacher" }),
+        postRequest({ firstName: "Jane", lastName: "Doe", accountType: "teacher" }),
       );
 
       expect(listed.status).toBe(404);
@@ -164,13 +164,13 @@ describe("/api/auth/fake", () => {
         firstName: "Zoe",
         lastName: "Zimmer",
         email: "zoe.zimmer@student.htldornbirn.at",
-        role: "student",
+        accountType: "student",
       });
       firestore.seed("users", "jane.doe@htldornbirn.at", {
         firstName: "Jane",
         lastName: "Doe",
         email: "jane.doe@htldornbirn.at",
-        role: "teacher",
+        accountType: "teacher",
       });
 
       const response = await GET();
@@ -178,19 +178,24 @@ describe("/api/auth/fake", () => {
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({
         users: [
-          { upn: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", role: "teacher" },
+          {
+            upn: "jane.doe@htldornbirn.at",
+            firstName: "Jane",
+            lastName: "Doe",
+            accountType: "teacher",
+          },
           {
             upn: "zoe.zimmer@student.htldornbirn.at",
             firstName: "Zoe",
             lastName: "Zimmer",
-            role: "student",
+            accountType: "student",
           },
         ],
       });
     });
 
     it("skips a record that does not parse instead of failing the whole list", async () => {
-      firestore.seed("users", "broken@htldornbirn.at", { firstName: "Nur", role: "wizard" });
+      firestore.seed("users", "broken@htldornbirn.at", { firstName: "Nur", accountType: "wizard" });
 
       const response = await GET();
 
@@ -201,7 +206,7 @@ describe("/api/auth/fake", () => {
   describe("POST", () => {
     it("derives the UPN from the name and the chosen role", async () => {
       const response = await POST(
-        postRequest({ firstName: "Jürgen", lastName: "Müller", role: "student" }),
+        postRequest({ firstName: "Jürgen", lastName: "Müller", accountType: "student" }),
       );
 
       expect(response.status).toBe(200);
@@ -219,7 +224,9 @@ describe("/api/auth/fake", () => {
     // The UPN provisionUser otherwise falls back to spells umlauts out and loses the spaces,
     // so carrying the parts as claims keeps the record exactly as it was typed.
     it("passes the typed names through as token claims", async () => {
-      await POST(postRequest({ firstName: "Anna Maria", lastName: "van Berg", role: "teacher" }));
+      await POST(
+        postRequest({ firstName: "Anna Maria", lastName: "van Berg", accountType: "teacher" }),
+      );
 
       expect(createCustomToken).toHaveBeenCalledWith("uid-anna-maria.van-berg@htldornbirn.at", {
         given_name: "Anna Maria",
@@ -230,16 +237,16 @@ describe("/api/auth/fake", () => {
     it("reuses the auth account when the UPN is already known", async () => {
       getUserByEmail.mockResolvedValue({ uid: "existing-uid" });
 
-      await POST(postRequest({ firstName: "Jane", lastName: "Doe", role: "teacher" }));
+      await POST(postRequest({ firstName: "Jane", lastName: "Doe", accountType: "teacher" }));
 
       expect(createUser).not.toHaveBeenCalled();
       expect(createCustomToken).toHaveBeenCalledWith("existing-uid", expect.anything());
     });
 
     it.each([
-      ["a missing last name", { firstName: "Jane", role: "teacher" }],
-      ["an unknown role", { firstName: "Jane", lastName: "Doe", role: "admin" }],
-      ["a blank first name", { firstName: "   ", lastName: "Doe", role: "teacher" }],
+      ["a missing last name", { firstName: "Jane", accountType: "teacher" }],
+      ["an unknown role", { firstName: "Jane", lastName: "Doe", accountType: "admin" }],
+      ["a blank first name", { firstName: "   ", lastName: "Doe", accountType: "teacher" }],
     ])("returns 400 for %s", async (_case, body) => {
       const response = await POST(postRequest(body));
 
@@ -250,7 +257,7 @@ describe("/api/auth/fake", () => {
 
     it("returns 400 when the name yields no UPN the tenant could issue", async () => {
       const response = await POST(
-        postRequest({ firstName: "字", lastName: "字", role: "teacher" }),
+        postRequest({ firstName: "字", lastName: "字", accountType: "teacher" }),
       );
 
       expect(response.status).toBe(400);
@@ -262,7 +269,7 @@ describe("/api/auth/fake", () => {
       createCustomToken.mockRejectedValue(new Error("credentials missing"));
 
       const response = await POST(
-        postRequest({ firstName: "Jane", lastName: "Doe", role: "teacher" }),
+        postRequest({ firstName: "Jane", lastName: "Doe", accountType: "teacher" }),
       );
 
       expect(response.status).toBe(500);

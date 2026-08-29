@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { NextResponse } from "next/server";
-import { handleServiceFailure, requireTeacherOrResponse } from "@/lib/api/handler";
+import { handleServiceFailure, requirePermissionOrResponse } from "@/lib/api/handler";
 import { deleteRegistration } from "@/lib/registration/registration-service";
 
 type Context = { params: Promise<{ eventSeriesId: string; studentUpn: string }> };
@@ -14,7 +14,7 @@ type Context = { params: Promise<{ eventSeriesId: string; studentUpn: string }> 
  * not coming answers "no" (US-11), and this endpoint is closed to them by the guard.
  */
 export async function DELETE(_request: Request, { params }: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editRegistrations");
   if (denied) return denied;
 
   const { eventSeriesId, studentUpn } = await params;

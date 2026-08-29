@@ -35,8 +35,8 @@ function invitationDoc(token: string) {
  * registrations and reach them by signing in.
  *
  * Handing out a link and opening the series are one intent, so this opens it (US-19). A series
- * that cannot be opened has no link to hand out either, which is why a template and an archived
- * series are refused here rather than at a second control.
+ * that cannot be opened has no link to hand out either, which is why an archived series is
+ * refused here rather than at a second control.
  */
 export async function createInvitation(
   eventSeriesId: string,
@@ -56,12 +56,6 @@ export async function createInvitation(
       throw new ServiceError(
         ErrorCode.Conflict,
         "Eine archivierte Eventreihe kann nicht freigeschaltet werden.",
-      );
-    }
-    if (series.isTemplate) {
-      throw new ServiceError(
-        ErrorCode.Conflict,
-        "Eine Vorlage kann nicht für Anmeldungen freigeschaltet werden.",
       );
     }
 
@@ -131,21 +125,4 @@ export async function invitationsOf(eventSeriesId: string): Promise<Invitation[]
     .map((stored) => invitationSchema.safeParse({ token: stored.id, ...stored.data() }))
     .filter((parsed) => parsed.success)
     .map((parsed) => parsed.data);
-}
-
-/**
- * The class a link enrols into, where the link leads somewhere and names this series.
- *
- * A token for another series is treated as no token at all rather than as an error: a student
- * looking at one registration while holding a link to a different one has done nothing wrong,
- * and the link still takes them there from the landing page.
- */
-export async function invitedClassFor(
-  eventSeriesId: string,
-  token: string | null,
-): Promise<string | null> {
-  if (token === null) return null;
-
-  const invitation = await resolveInvitation(token);
-  return invitation?.eventSeriesId === eventSeriesId ? invitation.class : null;
 }

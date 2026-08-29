@@ -37,6 +37,9 @@ const ATTENDING_ANSWERS = [
   ["hasMedication", "Medikamente"],
 ] as const satisfies readonly (readonly [keyof RegistrationInput, string])[];
 
+/** The one answer everybody owes, whichever way they answer it (US-11). */
+export const ATTENDANCE_ANSWER_LABEL = "Teilnahme";
+
 const CONTACT_ANSWERS = [
   ["firstName", "Vorname des Notfallkontakts"],
   ["lastName", "Nachname des Notfallkontakts"],
@@ -73,6 +76,12 @@ export function missingAnswers(
   asked: ReadonlySet<AnswerField>,
 ): MissingAnswer[] {
   const missing: MissingAnswer[] = [];
+
+  // Unanswered is not a refusal: following the link joins a student (US-23), so the form exists
+  // before anything has been said in it, and this is the answer still owed.
+  if (input.isAttendingSportsWeek === null) {
+    return [{ path: "isAttendingSportsWeek", label: ATTENDANCE_ANSWER_LABEL }];
+  }
 
   if (!input.isAttendingSportsWeek) return missing;
 

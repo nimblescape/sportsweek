@@ -190,6 +190,9 @@ describe("names are freed again when their owner goes", () => {
   });
 
   it("frees the event series name and every event name when an event series is deleted", async () => {
+    // A second one so the deletion is about freeing names rather than about the last unarchived
+    // event series, which is held back so a teacher always has something to select (US-19).
+    await createEventSeries({ name: "Winter 2025" });
     const eventSeries = await createEventSeries({ name: "Winter 2026" });
     await createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" });
     await createEvent({ eventSeriesId: eventSeries.id, name: "Lech" });

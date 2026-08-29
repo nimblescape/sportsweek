@@ -13,6 +13,7 @@ import { useBusyWhile } from "@/lib/api/busy";
 import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { PageHeading } from "@/components/layout/page-heading";
+import { MASTER_DATA_CATEGORIES, noneMaintainedHint } from "@/lib/master-data/categories";
 import { AssignmentBoard } from "./assignment-board";
 
 /**
@@ -23,11 +24,12 @@ import { AssignmentBoard } from "./assignment-board";
  * shows up as soon as the subscription brings the record back.
  */
 export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, loading, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
+  const { eventSeries, missing, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
   const [saving, setSaving] = useState(false);
 
-  // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading || saving);
+  // Answered by the one spinner in the header, so this view places none of its own. The read is
+  // not reported: a teacher moving between the pages of a series has started nothing to wait for.
+  useBusyWhile(saving);
 
   /**
    * The write and the refresh are separate paths, so the whole view is held until the answer
@@ -48,7 +50,7 @@ export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <PageHeading>Zuteilung</PageHeading>
+      <PageHeading>Zuteilungen</PageHeading>
 
       {error !== null && (
         <p role="alert" className="text-destructive text-sm">
@@ -57,15 +59,17 @@ export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
       )}
 
       {eventSeries === null ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          {NO_EVENT_SERIES_HINT}
-        </p>
+        missing ? (
+          <p role="status" className="text-muted-foreground text-sm">
+            {NO_EVENT_SERIES_HINT}
+          </p>
+        ) : null
       ) : (
         <BusyRegion busy={saving}>
           <div className="flex flex-col gap-4">
             {events.length === 0 ? (
               <p role="status" className="text-muted-foreground text-sm">
-                Für diese Eventreihe gibt es noch keine Events.
+                {noneMaintainedHint(MASTER_DATA_CATEGORIES.events)}
               </p>
             ) : (
               <AssignmentBoard

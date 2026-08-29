@@ -7,17 +7,17 @@
  * Resets a project to its defaults: everything is deleted, and what this script writes is then
  * all it holds.
  *
- * | production           | the "Wintersportwochen" template, and nothing besides        |
- * | development, staging | that template, then a series, a roster and its registrations |
+ * | production              | one event series with the lists that are the same every year |
+ * | development, staging    | that series, filled in, plus a roster and its registrations  |
  *
  * Seeding on top of what a project already holds says nothing about whether the application put
  * it there, so the point of a seeded environment — that its contents are known — needs the delete
  * as much as the write.
  *
- * `--template-only` asks a test environment for the bare state production gets, which is what a
- * school's first day looks like. It can only ever leave a project holding less, so production
- * still receives no invented person whatever is passed — that stays true by construction rather
- * than by a check, because no argument adds anything anywhere.
+ * `--bare` asks a test environment for what production gets, which is what a school's first day
+ * looks like and the only way to see the empty states behind seeded data. It can only ever leave
+ * a project holding less, so production receives no invented person whatever is passed — that
+ * stays true by construction rather than by a check, because no argument adds anything anywhere.
  *
  * Emptying production is a legitimate admin task and is not fenced off, but it is the one thing
  * here that cannot be undone, so it asks for the project id to be typed back first.
@@ -32,7 +32,8 @@ import type { Gender } from "@/lib/schemas/common";
 import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
-import { userRoleSchema, userSchema } from "@/lib/schemas/user";
+import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
+import { FULL_PERMISSIONS } from "@/lib/auth/permissions";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import { questionsAsked } from "@/lib/master-data/categories";
@@ -47,13 +48,29 @@ import {
 } from "./environment.mjs";
 
 /**
- * Where inventing people is allowed. Production is absent by construction, not by a check: it
- * gets the defaults and stops, because no argument can ask for anything else.
+ * Where inventing people is allowed, and where a purge needs no ceremony. Production is absent
+ * by construction rather than by a check: it gets the defaults and stops, because no argument
+ * can ask for anything else.
  */
 const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
 
-/** Leaves a test environment as bare as production, which is what a school's first day is. */
-const TEMPLATE_ONLY = "--template-only";
+/**
+ * Who a purged school starts out able to administer it, in every environment including
+ * production. Signing in grants nothing on its own, so without these there would be nobody who
+ * could hand out a permission and no way to become that person from inside the application.
+ *
+ * These are records rather than accounts: they sign in through Entra ID like anybody else, and
+ * provisioning then fills in the name and the photo it finds. What it does not touch is what a
+ * record already holds, which is what makes these survive their first login.
+ */
+const ADMINISTRATORS = [
+  { firstName: "Hannes", lastName: "Stauss", email: "hannes.stauss@htldornbirn.at" },
+  { firstName: "Julia", lastName: "Mathis", email: "julia.mathis@htldornbirn.at" },
+  { firstName: "Norbert", lastName: "Lenz", email: "norbert.lenz@htldornbirn.at" },
+] as const;
+
+/** Asks one of them for the bare state instead, which is what a school's first day is. */
+const BARE = "--bare";
 
 /** Both listUsers and deleteUsers cap a single call at this many accounts. */
 const USER_PAGE_SIZE = 1000;
@@ -84,13 +101,6 @@ const CATEGORY_DEFAULTS = {
 >;
 
 /**
- * Plural on purpose: a template is the pattern behind every Wintersportwoche the school runs,
- * not one of them. What a teacher makes from it is singular and dated, so the two cannot collide
- * under the uniqueness rule (Q14).
- */
-const TEMPLATE_NAME = "Wintersportwochen";
-
-/**
  * What a purged environment gets so there is somewhere to put students. The application seeds
  * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
  * Kulturwoche — so a fresh project holds only what is written here.
@@ -98,9 +108,16 @@ const TEMPLATE_NAME = "Wintersportwochen";
 const DEFAULT_EVENT_SERIES_NAME = "Wintersportwochen 2026/2027";
 
 /**
- * The seven maintained lists of that event series: its own two, then the five the template hands
- * on, taken from the same place production takes them.
+ * What production gets: the five lists that are the same every year, and nothing for the two that
+ * are not. Which weeks there are and which classes go on them is what a teacher fills in.
  */
+const BARE_LISTS = {
+  events: [],
+  classOptions: [],
+  ...CATEGORY_DEFAULTS,
+} satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
+
+/** The seven maintained lists as a test environment wants them, filled in far enough to use. */
 const MASTER_DATA_DEFAULTS = {
   events: ["Woche 1", "Woche 2", "Woche 3"],
   classOptions: ["2aWI", "2bWI", "2cWI"],
@@ -110,6 +127,25 @@ const MASTER_DATA_DEFAULTS = {
 /** The shape of the sports week as it is wanted in a test environment. */
 const STUDENTS_PER_CLASS = { min: 20, max: 25 };
 const ATTENDING_SHARE = { min: 0.7, max: 0.8 };
+/**
+ * How many registrations per class are left unfinished, so the report has both shapes of them to
+ * show: some who followed the link and answered nothing, some who took part and left a field
+ * blank. A count rather than a share — on a class of twenty a couple of per cent rounds to none.
+ */
+const INCOMPLETE_PER_CLASS = { min: 3, max: 6 };
+
+/**
+ * What a half-finished registration is missing. Never the program: the summary tallies by it,
+ * and a student with no program is not taking part rather than being half-way through.
+ */
+const UNFINISHED_ANSWERS = [
+  "skillLevel",
+  "busPickupPoint",
+  "seasonPassOption",
+  "foodOption",
+  "phoneNumber",
+  "hasMedication",
+] as const satisfies readonly (keyof RegistrationInput)[];
 const FEMALE_SHARE = 1 / 3;
 const AGE_RANGE = { min: 15, max: 16 };
 
@@ -256,7 +292,7 @@ function createPerson(gender: Gender, taken: Set<string>): Person {
   for (let attempt = 0; ; attempt += 1) {
     const firstName = pick(firstNames);
     const lastName = attempt < 20 ? pick(LAST_NAMES) : `${pick(LAST_NAMES)}-${pick(LAST_NAMES)}`;
-    const upn = buildUpn(firstName, lastName, userRoleSchema.enum.student);
+    const upn = buildUpn(firstName, lastName, accountTypeSchema.enum.student);
 
     if (upn && !taken.has(upn)) {
       taken.add(upn);
@@ -286,12 +322,25 @@ type Lists = {
   seasonPassOptions: string[];
 };
 
-function registrationOf(person: Person, program: Program | null, lists: Lists): RegistrationInput {
+/** How far a seeded registration got: answered whole, left half-done, or never opened. */
+type Progress = "answered" | "unfinished" | "unanswered";
+
+function registrationOf(
+  person: Person,
+  program: Program | null,
+  lists: Lists,
+  progress: Progress,
+): RegistrationInput {
+  // Followed the link and never came back to it. Attendance stays null, which is what makes the
+  // record incomplete — the exception a teacher is left chasing (US-13, US-23).
+  if (progress === "unanswered") return { ...EMPTY_REGISTRATION };
+
   // Gender belongs to the person rather than to the sports week, so it is answered either way;
   // everything the form hides behind "Nimmst du teil?" stays unanswered for the rest.
   if (program === null) {
     return {
       ...EMPTY_REGISTRATION,
+      isAttendingSportsWeek: false,
       gender: person.gender,
       dateOfBirth: dateOfBirth(),
     };
@@ -300,7 +349,7 @@ function registrationOf(person: Person, program: Program | null, lists: Lists): 
   const rents = program.requiredEquipment.length > 0 && chance(RENTAL_SHARE);
   const wantsOtherFood = chance(OTHER_FOOD_SHARE);
 
-  return {
+  const answers: RegistrationInput = {
     isAttendingSportsWeek: true,
     program: program.name,
     skillLevel: pick(lists.skillLevels),
@@ -320,6 +369,12 @@ function registrationOf(person: Person, program: Program | null, lists: Lists): 
     heightCm: rents ? intBetween(155, 192) : null,
     weightKg: rents ? intBetween(45, 92) : null,
   };
+
+  if (progress === "answered") return answers;
+
+  // One blank is enough to be chased for, and leaves the rest of the row worth reading.
+  const blank = pick([...UNFINISHED_ANSWERS]);
+  return { ...answers, [blank]: null, ...(blank === "foodOption" ? { foodOtherText: null } : {}) };
 }
 
 async function inBatches(
@@ -380,40 +435,25 @@ async function purgeAuth(auth: Auth): Promise<number> {
 /**
  * The one event series a school cannot be without: every teacher view is scoped to a selection,
  * so with none at all the header offers nothing and the navigation bar points nowhere. Deleting
- * the last unarchived template is refused, so once this has run that state is out of reach.
+ * the last unarchived one is refused, so once this has run that state is out of reach.
  *
- * An ordinary event series with the template flag set, indistinguishable from one a teacher could
- * have made by hand — so the first real series is created from it through US-22's ordinary copy.
+ * Open only where the students are invented too: seeding stands in for the invitation link a
+ * teacher would hand out (US-23), and production has nobody to let in yet.
  */
-async function createTemplate(db: Firestore): Promise<void> {
-  await db.collection(COLLECTIONS.eventSeries).add({
-    name: TEMPLATE_NAME,
-    nameKey: normalizeName(TEMPLATE_NAME),
-    isTemplate: true,
-    isArchived: false,
-    isOpenToStudents: false,
-    hasRegistrations: false,
-    position: 0,
-    // What differs every year, and what a teacher fills in for the series they make from this.
-    events: [],
-    classOptions: [],
-    ...CATEGORY_DEFAULTS,
-  });
-}
-
-/** Open from the start: seeding stands in for the invitation link a teacher would hand out (US-23). */
-async function createOpenEventSeries(db: Firestore): Promise<EventSeries> {
+async function createEventSeries(
+  db: Firestore,
+  lists: typeof BARE_LISTS | typeof MASTER_DATA_DEFAULTS,
+  isOpenToStudents: boolean,
+): Promise<EventSeries> {
   // The lists live in this document (US-21), so seeding them is part of creating it.
   const data = {
     name: DEFAULT_EVENT_SERIES_NAME,
     nameKey: normalizeName(DEFAULT_EVENT_SERIES_NAME),
-    isTemplate: false,
     isArchived: false,
-    isOpenToStudents: true,
+    isOpenToStudents,
     hasRegistrations: false,
-    // After the template, which took the first place.
-    position: 1,
-    ...MASTER_DATA_DEFAULTS,
+    position: 0,
+    ...lists,
   };
   const reference = db.collection(COLLECTIONS.eventSeries).doc();
   await reference.set(data);
@@ -439,22 +479,41 @@ async function confirmed(projectId: string): Promise<boolean> {
   }
 }
 
+/** Writes the administrator records a purged school starts with, in every environment. */
+async function createAdministrators(db: Firestore): Promise<void> {
+  await Promise.all(
+    ADMINISTRATORS.map((person) => {
+      const { id, ...fields } = userSchema.parse({
+        id: person.email,
+        firstName: person.firstName,
+        lastName: person.lastName,
+        email: person.email,
+        accountType: accountTypeSchema.enum.teacher,
+        permissions: [...FULL_PERMISSIONS],
+        photo: null,
+      });
+
+      return db.collection(COLLECTIONS.users).doc(id).set(fields);
+    }),
+  );
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const environment = ENVIRONMENTS.find((allowed) => args.includes(allowed));
-  const unknown = args.filter((arg) => arg !== environment && arg !== TEMPLATE_ONLY);
+  const unknown = args.filter((arg) => arg !== environment && arg !== BARE);
   if (environment === undefined || unknown.length > 0) {
     fail(
-      `Usage: npm run seed:<environment> [-- ${TEMPLATE_ONLY}],`,
+      `Usage: npm run seed:<environment> [-- ${BARE}],`,
       `where <environment> is ${ENVIRONMENTS.join(", ")}.`,
-      `${TEMPLATE_ONLY} leaves a test environment as bare as production.`,
+      `${BARE} leaves a test environment as bare as production.`,
     );
   }
 
   const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
   const isTest = TEST_ENVIRONMENTS.includes(environment);
   // Production is bare whatever is asked, so the flag changes nothing there and is not refused.
-  const seedsStudents = isTest && !args.includes(TEMPLATE_ONLY);
+  const seedsStudents = isTest && !args.includes(BARE);
 
   if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
 
@@ -471,16 +530,20 @@ async function main(): Promise<void> {
   if (collections.length === 0) console.log("  no collections");
   console.log(`  ${accounts} account(s)`);
 
-  // First, both because a school starts from one and because it takes position 0 in the order.
-  await createTemplate(db);
-  console.log(`Created the template "${TEMPLATE_NAME}".`);
+  // The lists are fields of the event series (US-21), so there is nothing to read until it
+  // exists — and creating it is what seeds them, since the application no longer does.
+  const eventSeries = await createEventSeries(
+    db,
+    seedsStudents ? MASTER_DATA_DEFAULTS : BARE_LISTS,
+    seedsStudents,
+  );
+  console.log(`Created the event series "${eventSeries.name}".`);
+
+  await createAdministrators(db);
+  console.log(`Granted every permission to ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
   if (!seedsStudents) return;
-
-  // The lists are fields of the event series (US-21), so there is nothing to read until it
-  // exists — and creating it is what seeds them, since the application no longer does.
-  const eventSeries = await createOpenEventSeries(db);
 
   const programs = eventSeries.programs;
   const named = PROGRAM_SHARES.map(([name]) => programs.find((program) => program.name === name));
@@ -521,6 +584,20 @@ async function main(): Promise<void> {
     const size = intBetween(STUDENTS_PER_CLASS.min, STUDENTS_PER_CLASS.max);
     const [attending, absent] = split(size, [between(ATTENDING_SHARE.min, ATTENDING_SHARE.max)]);
     const genders = deal(["female", "male"] as const, split(size, [FEMALE_SHARE]));
+    // Alternated rather than rolled, so a class always gets both kinds rather than three of one.
+    const unfinished = Math.min(
+      intBetween(INCOMPLETE_PER_CLASS.min, INCOMPLETE_PER_CLASS.max),
+      size,
+    );
+    const progress = shuffle<Progress>([
+      ...Array.from({ length: unfinished }, (_, at) =>
+        at % 2 === 0 ? "unanswered" : ("unfinished" as Progress),
+      ),
+      ...Array<Progress>(size - unfinished).fill("answered"),
+    ]);
+    // Counted from what was written rather than from `attending`: a student the plan meant to
+    // take part may have been left unanswered instead, and a summary that says otherwise lies.
+    const written = { attending: 0, incomplete: 0 };
     // Null is the absentee's "no program", which is why it is dealt alongside the real ones.
     const chosen = shuffle([
       ...deal<Program | null>(ordered, split(attending, programShares)),
@@ -529,9 +606,10 @@ async function main(): Promise<void> {
 
     for (let index = 0; index < size; index += 1) {
       const person = createPerson(genders[index], taken);
-      const registration = registrationOf(person, chosen[index], lists);
+      const registration = registrationOf(person, chosen[index], lists, progress[index]);
+      if (registration.isAttendingSportsWeek === true) written.attending += 1;
 
-      const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, role: "student" }); // prettier-ignore
+      const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, accountType: "student" }); // prettier-ignore
       const record = registrationSchema.parse({
         id: person.upn,
         studentUpn: person.upn,
@@ -546,6 +624,7 @@ async function main(): Promise<void> {
         isIncomplete: isRegistrationIncomplete(registration, questionsAsked(eventSeries)),
         ...registration,
       });
+      if (record.isIncomplete) written.incomplete += 1;
 
       const { id: userId, ...userFields } = user;
       const { id: recordId, ...recordFields } = record;
@@ -560,7 +639,8 @@ async function main(): Promise<void> {
       .map((program) => `${program.name} ${chosen.filter((c) => c === program).length}`)
       .join(", ");
     summary.push(
-      `  ${className}: ${size} students, ${attending} attending, ` +
+      `  ${className}: ${size} students, ${written.attending} attending, ` +
+        `${written.incomplete} incomplete, ` +
         `${size - female} male / ${female} female, ${perProgram}`,
     );
   }

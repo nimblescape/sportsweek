@@ -8,8 +8,8 @@ import { z } from "zod";
 import {
   handleServiceFailure,
   parseJsonBody,
-  requireTeacherIdentityOrResponse,
-  requireTeacherOrResponse,
+  requirePermissionIdentityOrResponse,
+  requirePermissionOrResponse,
 } from "@/lib/api/handler";
 import { orderSchema } from "@/lib/schemas/order";
 import { savedReportInputSchema } from "@/lib/schemas/saved-report";
@@ -20,7 +20,7 @@ const reorderSchema = z.strictObject({ order: orderSchema });
 type Context = { params: Promise<{ eventSeriesId: string }> };
 
 export async function POST(request: Request, context: Context) {
-  const teacher = await requireTeacherIdentityOrResponse();
+  const teacher = await requirePermissionIdentityOrResponse("editReports");
   if (!teacher.ok) return teacher.response;
 
   const body = await parseJsonBody(request, savedReportInputSchema);
@@ -38,7 +38,7 @@ export async function POST(request: Request, context: Context) {
 
 /** Reorders the tag row (see Ordering); it changes nothing a report holds, so it needs no guard. */
 export async function PATCH(request: Request, context: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editReports");
   if (denied) return denied;
 
   const body = await parseJsonBody(request, reorderSchema);

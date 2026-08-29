@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
 import { buildUpn, isSchoolUpn } from "@/lib/auth/fake/upn-builder";
-import { userRoleSchema, userSchema, type UserRole } from "@/lib/schemas/user";
+import { accountTypeSchema, userSchema, type AccountType } from "@/lib/schemas/user";
 
 const NO_UPN = "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden.";
 const SIGN_IN_FAILED = "Test-Anmeldung fehlgeschlagen.";
@@ -28,7 +28,7 @@ const knownUsersSchema = z.array(
     upn: z.string(),
     firstName: z.string(),
     lastName: z.string(),
-    role: userRoleSchema,
+    accountType: accountTypeSchema,
   }),
 );
 type KnownUser = z.infer<typeof knownUsersSchema>[number];
@@ -36,11 +36,11 @@ type KnownUser = z.infer<typeof knownUsersSchema>[number];
 const formSchema = z.object({
   firstName: userSchema.shape.firstName,
   lastName: userSchema.shape.lastName,
-  role: userRoleSchema,
+  accountType: accountTypeSchema,
 });
 type FormValues = z.infer<typeof formSchema>;
 
-const ROLE_LABELS: Record<UserRole, string> = { teacher: "Lehrperson", student: "Schüler:in" };
+const ROLE_LABELS: Record<AccountType, string> = { teacher: "Lehrperson", student: "Schüler:in" };
 
 // A native <select> rather than the design system's portalled one: this dialog never ships,
 // so it is not worth the weight to render a list of UPNs.
@@ -77,7 +77,7 @@ export function ImpersonationDialog({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { firstName: "", lastName: "", role: "teacher" },
+    defaultValues: { firstName: "", lastName: "", accountType: "teacher" },
   });
 
   React.useEffect(() => {
@@ -105,10 +105,13 @@ export function ImpersonationDialog({
 
   const [firstName, lastName, role] = useWatch({
     control,
-    name: ["firstName", "lastName", "role"],
+    name: ["firstName", "lastName", "accountType"],
   });
   const derived = buildUpn(firstName, lastName, role);
   const upn = derived && isSchoolUpn(derived) ? derived : null;
+  // Whether the name yields a school address is a separate question, and one the dialog answers
+  // in words on the press — a control that refuses without saying why explains nothing.
+  const named = firstName?.trim() !== "" && lastName?.trim() !== "";
 
   function pickKnown(pickedUpn: string) {
     const picked = known.find((entry) => entry.upn === pickedUpn);
@@ -116,7 +119,7 @@ export function ImpersonationDialog({
 
     setValue("firstName", picked.firstName);
     setValue("lastName", picked.lastName);
-    setValue("role", picked.role);
+    setValue("accountType", picked.accountType);
   }
 
   const onSubmit = handleSubmit(async (values) => {
@@ -186,9 +189,9 @@ export function ImpersonationDialog({
         <fieldset className="flex flex-col gap-1.5">
           <legend className="text-sm leading-none font-medium">Rolle</legend>
           <div className="flex gap-4 pt-1.5">
-            {userRoleSchema.options.map((option) => (
+            {accountTypeSchema.options.map((option) => (
               <label key={option} className="flex items-center gap-2 text-sm">
-                <input type="radio" value={option} {...register("role")} />
+                <input type="radio" value={option} {...register("accountType")} />
                 {ROLE_LABELS[option]}
               </label>
             ))}
@@ -213,12 +216,14 @@ export function ImpersonationDialog({
           </p>
         ) : null}
 
+        {/* Continuing as yourself asks for nothing, so it leads. Standing in for somebody else
+            needs somebody to stand in for, typed out or taken from the list. */}
         <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Als ich selbst fortfahren
+          <Button type="submit" variant="outline" disabled={!named || isSubmitting}>
+            Als andere Person anmelden
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            Anmelden
+          <Button type="button" onClick={onCancel}>
+            Mich selbst anmelden
           </Button>
         </div>
       </form>

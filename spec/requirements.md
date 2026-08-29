@@ -12,6 +12,15 @@ Licensed under the MIT License. See LICENSE in the repository root for details.
 - Every tag in a tag list starts with a capital letter, so that a wrapping row of them reads as a row of labels rather than as one sentence broken across several.
 - All UI must be responsive, supporting desktop, tablet, and mobile screen sizes.
 
+### Two words that would otherwise collide
+
+German has one obvious word for two different things here, so the split is stated rather than left to whoever writes the next string:
+
+- **"Anmeldung"** is signing in — the identity provider, the session, the fake login. "Anmelden", "angemeldet" and "Test-Anmeldung" all belong to this sense.
+- **"Registrierung"** is a student's answers for one event series — the thing US-11 fills in, US-13 reports on and a teacher deletes. Plural "Registrierungen" names the page that lists them.
+
+Nothing says "Anmeldung" when it means a registration. The two were mixed before, so a teacher could read "Anmeldung löschen" and wonder whose session was about to end.
+
 ## Design Guidelines
 
 - The UI follows a clean, modern, minimal design that is not overloaded with color.
@@ -60,35 +69,60 @@ As a user, I log in with my Microsoft Entra ID credentials so that I can access 
 - First name, last name, and email address are obtained from Entra ID and stored in the user record.
 - The two names are read from the directory itself, each asked for by name — the first name from `givenName`, the last from `surname` — so that neither can be mistaken for the other. Whichever of them the directory holds is used, even if it holds only one.
 - The display name is never split into the two. Its word order is the tenant's own choice, and this school writes the surname first, so splitting it stores the name the wrong way round as often as the right way.
-- When the directory can supply neither, the name is derived from the UPN, whose local part is `firstname.lastname` by the same convention the roles rely on (see US-3, US-16). Umlauts are spelled out there, so this is an approximation — but a correct one about which name is which.
+- When the directory can supply neither, the name is derived from the UPN, whose local part is `firstname.lastname` by the same convention the account types rely on (see US-3, US-16). Umlauts are spelled out there, so this is an approximation — but a correct one about which name is which.
 - The names are refreshed on every login, so a record stored from a worse source corrects itself the next time the user signs in.
 - A user record is created on the user's first login if none exists yet.
 - There is a 1:1 relationship between the Entra ID user and the user record stored in the database.
 - The user record's ID is the Entra ID user principal name (UPN).
 - Production always signs users in this way; only the test environment substitutes a fake login for the identity provider (see US-16).
 
-### US-2: Role model
+### US-2: Account types and permissions
 
-As the system, I recognize the teacher and student roles so that access rights can be managed according to the role assigned in the user's record.
-
-**Acceptance criteria:**
-
-- User records can be stored in the database.
-- There is a 1:1 relationship between a logged-in user and a user record.
-- Each user record stores exactly one role.
-- A user's role is either teacher or student.
-- Roles are hierarchical: teacher has all the rights of student.
-
-### US-3: Role assigned by Entra ID domain
-
-As a user, my role is automatically determined by the domain of my Entra ID UPN when my user record is first created, so that access rights are granted without manual assignment.
+As the system, I tell apart what a person _is_ from what they _may do_, so that access can be granted and withdrawn without touching either the identity provider or the database directly.
 
 **Acceptance criteria:**
 
-- If the UPN's domain (the part after @) is exactly "htldornbirn.at", the newly created user record is assigned the teacher role.
-- If the UPN's domain is exactly "student.htldornbirn.at", the newly created user record is assigned the student role.
+- User records can be stored in the database, 1:1 with a logged-in user.
+- Each record stores exactly one account type, either teacher or student. It says which population somebody belongs to, is derived once at creation (US-3) and is granted by nobody.
+- Each record stores a set of permissions, which says what that person may do.
+- The permissions are `editRegistrations`, `editAssignments`, `viewReports`, `editReports`, `editMasterData` and `editUsers`. Labels shown are "Registrierungen", "Zuteilungen", "Berichte ansehen", "Berichte bearbeiten", "Stammdaten" and "Benutzerrechte". Each names the page it opens; only the two report ones carry a verb, there being two ways into that one page.
+- A permission is asked for by name and none stands in for another: the set is not a rank, and holding one grants nothing else. Only `editUsers` grants the management of permissions.
+- `viewReports` and `editReports` exclude each other, both being ways into the same report page. Pressing either clears the other, and a record naming both is refused rather than quietly reduced.
+- `editRegistrations` covers the registrations page: handing out invitation links, removing a registration, and opening or closing the event series to students. Opening it is what lets registrations arrive, so it goes with the permission that edits them rather than with the one that maintains the series.
+- Every other field of an event series belongs to `editMasterData`. A request touching both needs both, so an opening cannot carry a rename with it.
+- A teacher holding no permission can reach no page and perform no write. They are told so rather than redirected.
+- A student holds no permissions, whatever their record may list: they are refused by their account type, ahead of anything else.
+- Permissions are read from the user record rather than from the session token, so a grant or a withdrawal takes effect on the next request rather than the next sign-in.
+- Signing in grants nothing. Every teacher is created holding no permissions, however early they arrive.
+- The administrators a school starts with are written by the seeding script, in every environment including production, holding every permission that can be held at once. Where two exclude each other that is the stronger of them, so what is seeded is never a set the rules would refuse.
+- Seeding is therefore part of setting an environment up: without it there is nobody who could grant a permission, and no way to become that person from inside the application.
+
+### US-3: Account type assigned by Entra ID domain
+
+As a user, my account type is automatically determined by the domain of my Entra ID UPN when my user record is first created, so that a teacher is told apart from a student without manual assignment.
+
+**Acceptance criteria:**
+
+- If the UPN's domain (the part after @) is exactly "htldornbirn.at", the newly created user record is assigned the teacher account type.
+- If the UPN's domain is exactly "student.htldornbirn.at", the newly created user record is assigned the student account type.
 - If the UPN's domain matches neither pattern, the login is rejected and no user record is created.
-- Once assigned, a role can only be changed by someone with direct database access (e.g. IT staff); there is no in-app role management.
+- Once assigned, an account type can only be changed by someone with direct database access (e.g. IT staff); there is no in-app management of it. What is managed in the app is the permissions (US-30).
+
+### US-30: Admin manages permissions
+
+As a teacher holding `editUsers`, I grant and withdraw what my colleagues may do, so that access follows who is actually running the sports week rather than who happens to have signed in.
+
+**Acceptance criteria:**
+
+- The page is reached from the last item beneath Stammdaten, labelled "Benutzerrechte", and is offered only to a holder of `editUsers`.
+- It lists every teacher, surname first, with their UPN. Students are not listed: a permission is a teacher's.
+- Each teacher's permissions are shown as a row of tags, one per permission, pressed for what they hold. A teacher holding none says so.
+- Pressing a tag grants that permission; pressing a pressed one withdraws it. What travels with it is US-2's exclusivity rule, so pressing "Berichte bearbeiten" clears "Berichte ansehen" and pressing either clears the other.
+- The list updates live, so two admins working at once see each other's changes.
+- A holder of `editUsers` cannot withdraw that permission from themselves. Their own tag for it is shown pressed but carries no button, and the server refuses the change regardless. Every other permission of their own remains theirs to change.
+- This is what keeps at least one holder without counting them: only the last holder could be the last one, since anybody else withdrawing it would have to hold it themselves.
+- Permissions cannot be granted to a student, nor to somebody who has never signed in — there is no record to grant against.
+- Nothing here is writable from a client: the page writes through a Route Handler, and Security Rules deny every client write to the account type and the permissions alike.
 
 ## Seasons & Events
 
@@ -374,7 +408,9 @@ As a teacher, I see a dashboard when I log in so that I can navigate to the diff
 
 - A header row is shown at the top of the dashboard: the application title "Sportsweek" on the left, and a logout button on the right.
 - Below the header, the remaining area is split into a left-side navigation zone and a content area on the right.
-- The left-side navigation contains, from top to bottom: Report (see US-13), Assignment (see US-12), and Master data.
+- The left-side navigation contains, from top to bottom: Registrierungen (see US-12, US-23), Zuteilungen (see US-12), Berichte (see US-13), and Stammdaten.
+- The bar shows only what the teacher's permissions reach (see US-2), so it never offers a page that would refuse them. A teacher holding none sees no destinations at all and is told why on the landing route rather than redirected to a page that would send them back.
+- Stammdaten heads whatever sits beneath it, and two permissions can each put something there: `editMasterData` contributes the event series list and the seven categories, `editUsers` contributes Benutzerrechte, last. It is shown when either does and hidden when neither does.
 - The Master data navigation item has a sub-item for each teacher-maintained category (see US-4 through US-10), in this order: event series, classes, programs, skill levels, season passes, bus pickup points, food/diet options. Classes come first because a class is asked of every student whether they attend or not (see US-11), so it is the list a teacher fills in before any other. The order is stated here rather than left to follow the story numbers, which are stable identifiers and not a running order.
 - That order is the one every other list of the same answers follows: the fields a teacher activates on the report and the categories the filter offers (see US-13), and the questions a student is asked about the event series (see US-11). One decision, so a teacher moving between the three finds an answer in the same place in each.
 - Selecting the Master data navigation item expands its sub-items; deselecting it collapses them again.
@@ -397,7 +433,7 @@ As a teacher trying the application out, I can continue as any teacher or studen
 
 **Acceptance criteria:**
 
-- The fake login replaces the identity provider and nothing else. The chosen identity is signed in through the same session endpoint as a real login, so provisioning (US-1), the role derived from the UPN domain (US-3), the session cookie, and every authorization check downstream stay on the code paths production uses.
+- The fake login replaces the identity provider and nothing else. The chosen identity is signed in through the same session endpoint as a real login, so provisioning (US-1), the account type derived from the UPN domain (US-3), the session cookie, and every authorization check downstream stay on the code paths production uses.
 - The fake login is opt-in per deployment, and the production project refuses it whatever the configuration says.
 - A deployment that does not opt in has no fake login to disable: the modules and the endpoint behind it are not part of the build at all, so a configuration mistake cannot turn it on after the fact.
 - The test environment is a separate Firebase project from production, because the fake login creates real authentication accounts and real user records, and neither belongs anywhere near real people's data.
@@ -406,7 +442,7 @@ As a teacher trying the application out, I can continue as any teacher or studen
 - Whether the caller came through Entra ID is decided by the sign-in provider that Firebase records during the token exchange, which a caller cannot assert for themselves. Without that distinction, one invented identity could authorize inventing the next.
 - The proof of the real Entra ID sign-in is kept separately from the session cookie that continuing as someone else replaces, so switching identity does not give up the right to switch again.
 - A student who signs in through Entra ID is refused with "Diese Umgebung steht nur Lehrpersonen offen.", while an impersonated student is admitted — that case is what the environment exists for.
-- The choice is made in a dialog that asks for a first name, a last name, and a role, or lets one of the users already present be picked instead. Cancelling continues as the signed-in teacher.
-- The UPN is derived from the name and the role rather than typed: `firstname.lastname` at the teacher or the student domain of US-3, with German umlauts spelled out ("Müller" becomes `mueller`, never `muller`) and remaining diacritics dropped. It is shown as it is derived and cannot be edited.
+- The choice is made in a dialog that asks for a first name, a last name, and an account type, or lets one of the users already present be picked instead. Cancelling continues as the signed-in teacher.
+- The UPN is derived from the name and the account type rather than typed: `firstname.lastname` at the teacher or the student domain of US-3, with German umlauts spelled out ("Müller" becomes `mueller`, never `muller`) and remaining diacritics dropped. It is shown as it is derived and cannot be edited.
 - A name from which no valid school address can be formed is refused, on the client and on the server alike, with "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden." — the fake tenant may only issue UPNs the real one could have issued.
-- Choosing a role chooses the domain; the role itself still follows from that domain (US-3). A user record that already exists keeps the role it was created with, exactly as after a real login.
+- Choosing an account type chooses the domain; the account type itself still follows from that domain (US-3). A user record that already exists keeps the account type it was created with, and the permissions it already holds, exactly as after a real login.

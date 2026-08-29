@@ -23,8 +23,10 @@ type DeleteEventSeriesDialogProps = {
 
 /**
  * A warning dialog per the Design Guidelines — one of the few places red is allowed.
- * The typed name is compared verbatim: case and stray spaces must match, so the
- * confirmation cannot be cleared by muscle memory (US-4).
+ *
+ * Deleting is irreversible either way, so it is always asked. Where there are registrations to
+ * lose, the name has to be typed as well, and it is compared verbatim: case and stray spaces must
+ * match, so the confirmation cannot be cleared by muscle memory (US-4).
  */
 export function DeleteEventSeriesDialog({
   open,
@@ -38,7 +40,7 @@ export function DeleteEventSeriesDialog({
   const [deleting, setDeleting] = React.useState(false);
   const fieldId = React.useId();
 
-  const matches = confirmation === eventSeries.name;
+  const matches = !eventSeries.hasRegistrations || confirmation === eventSeries.name;
 
   async function handleDelete() {
     if (!matches) return;
@@ -68,8 +70,11 @@ export function DeleteEventSeriesDialog({
           <TriangleAlert aria-hidden className="text-destructive mt-0.5 size-4 shrink-0" />
           <span>
             Die Eventreihe <strong className="text-foreground">{eventSeries.name}</strong> wird mit
-            allen Events und allen Anmeldungen der Schüler:innen gelöscht. Das kann nicht rückgängig
-            gemacht werden.
+            allen Events
+            {eventSeries.hasRegistrations
+              ? " und allen Registrierungen der Schüler:innen"
+              : ""}{" "}
+            gelöscht. Das kann nicht rückgängig gemacht werden.
           </span>
         </span>
       }
@@ -90,14 +95,18 @@ export function DeleteEventSeriesDialog({
       }
     >
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={fieldId}>Zum Bestätigen den Name der Eventreihe eingeben</Label>
-        <Input
-          id={fieldId}
-          autoFocus
-          autoComplete="off"
-          value={confirmation}
-          onChange={(event) => setConfirmation(event.target.value)}
-        />
+        {eventSeries.hasRegistrations ? (
+          <>
+            <Label htmlFor={fieldId}>Zum Bestätigen den Name der Eventreihe eingeben</Label>
+            <Input
+              id={fieldId}
+              autoFocus
+              autoComplete="off"
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+            />
+          </>
+        ) : null}
         {error ? (
           <p role="alert" className="text-destructive text-sm">
             {error}

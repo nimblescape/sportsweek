@@ -41,8 +41,8 @@ beforeEach(async () => {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
-    await db.collection("users").doc(TEACHER_UPN).set({ role: "teacher" });
-    await db.collection("users").doc(STUDENT_UPN).set({ role: "student" });
+    await db.collection("users").doc(TEACHER_UPN).set({ accountType: "teacher" });
+    await db.collection("users").doc(STUDENT_UPN).set({ accountType: "student" });
   });
 });
 

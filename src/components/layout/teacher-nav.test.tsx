@@ -5,7 +5,7 @@
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const pathname = vi.fn(() => "/app/s1/report");
 const eventSeries = vi.fn<() => { eventSeries: unknown[] }>(() => ({ eventSeries: [] }));
@@ -17,6 +17,8 @@ vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => ev
 vi.mock("@/components/auth/sign-out-button", () => ({
   SignOutButton: () => <button type="button">Abmelden</button>,
 }));
+
+import { PERMISSIONS } from "@/lib/auth/permissions";
 
 const { TeacherNav } = await import("@/components/layout/teacher-nav");
 
@@ -32,7 +34,6 @@ const SUB_ITEMS = [
 
 const series = (id: string, overrides = {}) => ({
   id,
-  isTemplate: false,
   isArchived: false,
   ...overrides,
 });
@@ -47,8 +48,24 @@ describe("TeacherNav", () => {
     showing(series("s1"), series("s2"), series("s7"));
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("says which build this is, under the sign-out at the foot of the bar", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_VERSION", "1.2.3");
+    vi.stubEnv("NEXT_PUBLIC_COMMIT_HASH", "a1b2c3d");
+
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
+
+    const signOut = screen.getByRole("button", { name: "Abmelden" });
+    const stamp = screen.getByText("v1.2.3 · a1b2c3d");
+
+    expect(signOut.compareDocumentPosition(stamp) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("lists the top-level items in order", () => {
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     const labels = screen
       .getAllByRole("link")
@@ -56,17 +73,17 @@ describe("TeacherNav", () => {
       .map((element) => element.textContent);
 
     expect(labels).toEqual(
-      expect.arrayContaining(["\u00dcbersicht", "Zuteilung", "Bericht", "Stammdaten"]),
+      expect.arrayContaining(["Registrierungen", "Zuteilungen", "Berichte", "Stammdaten"]),
     );
-    expect(labels.indexOf("\u00dcbersicht")).toBeLessThan(labels.indexOf("Zuteilung"));
-    expect(labels.indexOf("Zuteilung")).toBeLessThan(labels.indexOf("Bericht"));
-    expect(labels.indexOf("Bericht")).toBeLessThan(labels.indexOf("Stammdaten"));
+    expect(labels.indexOf("Registrierungen")).toBeLessThan(labels.indexOf("Zuteilungen"));
+    expect(labels.indexOf("Zuteilungen")).toBeLessThan(labels.indexOf("Berichte"));
+    expect(labels.indexOf("Berichte")).toBeLessThan(labels.indexOf("Stammdaten"));
   });
 
   it("gives every top-level item an icon to be recognised by once the labels are gone", () => {
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht"]) {
+    for (const label of ["Berichte", "Zuteilungen", "Registrierungen"]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: label }).querySelector("svg")).toBeInTheDocument();
     }
@@ -75,37 +92,38 @@ describe("TeacherNav", () => {
     ).toBeInTheDocument();
   });
 
-  /** Moving into the section is not a change of series, so it opens on the one already selected. */
-  it("opens Stammdaten on the selected series, at its first list", () => {
-    render(<TeacherNav />);
+  /** The heading has no view of its own, so it opens on the first entry beneath it. */
+  it("opens Stammdaten on the event series list, which heads its sub-items", () => {
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
       "href",
-      "/app/s1/master-data/events",
+      "/app/event-series",
     );
   });
 
-  /** Master data can be about a template, so it is where a selected one is kept (US-22). */
-  it("opens Stammdaten on the first template when nothing is selected", () => {
+  it("opens there whether or not a series is selected", () => {
     pathname.mockReturnValue("/app/event-series");
-    showing(series("s1"), series("t1", { isTemplate: true }));
+    showing(series("s1"), series("s2"));
 
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
       "href",
-      "/app/t1/master-data/events",
+      "/app/event-series",
     );
   });
 
-  /** A template has no registrations, so the pages that read them take the first series instead. */
-  it("points the other sections past a selected template", () => {
-    pathname.mockReturnValue("/app/t1/master-data/classes");
-    showing(series("t1", { isTemplate: true }), series("s1"));
+  it("points every section at the series the master data is about", () => {
+    pathname.mockReturnValue("/app/s2/master-data/classes");
+    showing(series("s1"), series("s2"));
 
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s1/report");
+    expect(screen.getByRole("link", { name: "Berichte" })).toHaveAttribute(
+      "href",
+      "/app/s2/report",
+    );
   });
 
   /**
@@ -116,10 +134,10 @@ describe("TeacherNav", () => {
     pathname.mockReturnValue("/app/event-series");
     showing();
 
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     expect(screen.getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
-    for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht", "Klassen"]) {
+    for (const label of ["Berichte", "Zuteilungen", "Registrierungen", "Klassen"]) {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
   });
@@ -128,9 +146,12 @@ describe("TeacherNav", () => {
   it("points at the remembered series while standing on the unscoped list", () => {
     pathname.mockReturnValue("/app/event-series");
 
-    render(<TeacherNav fallbackEventSeriesId="s7" />);
+    render(<TeacherNav fallbackEventSeriesId="s7" permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s7/report");
+    expect(screen.getByRole("link", { name: "Berichte" })).toHaveAttribute(
+      "href",
+      "/app/s7/report",
+    );
   });
 
   /**
@@ -139,16 +160,19 @@ describe("TeacherNav", () => {
    */
   it("keeps pointing at the series it was last in after leaving it for the list", () => {
     pathname.mockReturnValue("/app/s1/report");
-    const { rerender } = render(<TeacherNav />);
+    const { rerender } = render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     pathname.mockReturnValue("/app/event-series");
-    rerender(<TeacherNav />);
+    rerender(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s1/report");
+    expect(screen.getByRole("link", { name: "Berichte" })).toHaveAttribute(
+      "href",
+      "/app/s1/report",
+    );
   });
 
   it("shows the master data sub-items whatever the route is, since they never fold away", () => {
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     for (const label of SUB_ITEMS) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
@@ -156,7 +180,7 @@ describe("TeacherNav", () => {
   });
 
   it("leaves them there when Stammdaten is clicked, which folds nothing", async () => {
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     await userEvent.click(screen.getByRole("link", { name: /stammdaten/i }));
 
@@ -166,7 +190,7 @@ describe("TeacherNav", () => {
   });
 
   it("has one sub-item per teacher-maintained category", () => {
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     expect(SUB_ITEMS).toHaveLength(7);
     for (const label of SUB_ITEMS) {
@@ -177,16 +201,19 @@ describe("TeacherNav", () => {
   it("marks the active item for assistive technology", () => {
     pathname.mockReturnValue("/app/s1/assignment");
 
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Zuteilung" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Bericht" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Zuteilungen" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Berichte" })).not.toHaveAttribute("aria-current");
   });
 
   it("marks the active sub-item", () => {
     pathname.mockReturnValue("/app/s1/master-data/classes");
 
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     expect(screen.getByRole("link", { name: "Klassen" })).toHaveAttribute("aria-current", "page");
   });
@@ -206,19 +233,115 @@ describe("TeacherNav — always open", () => {
   const openSubItems = () => screen.queryByRole("link", { name: "Klassen" });
 
   it("offers nothing that folds it", () => {
-    render(<TeacherNav />);
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
     expect(screen.queryByRole("button", { name: /navigation/i })).not.toBeInTheDocument();
   });
 
-  it.each(["Bericht", "\u00dcbersicht", "Stammdaten"])(
+  it.each(["Berichte", "Registrierungen", "Stammdaten"])(
     "stays open when %s is pressed, whether it is where you already are or not",
     async (label) => {
-      render(<TeacherNav />);
+      render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
       await userEvent.click(screen.getByRole("link", { name: label }));
 
       expect(openSubItems()).toBeInTheDocument();
     },
   );
+});
+
+/**
+ * A bar that offered a page the teacher may not open would send them to the landing route and
+ * back again. It is built from what their permissions reach instead (US-2).
+ */
+describe("TeacherNav — what the permissions reach", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    pathname.mockReturnValue("/app/s1/report");
+    showing(series("s1"));
+  });
+
+  const linkNames = () => screen.queryAllByRole("link").map((link) => link.textContent);
+
+  it("shows nothing to a teacher holding no permission", () => {
+    render(<TeacherNav permissions={[]} />);
+
+    expect(linkNames()).toEqual([]);
+  });
+
+  it("shows only the assignment to somebody who may only plan", () => {
+    render(<TeacherNav permissions={["editAssignments"]} />);
+
+    expect(linkNames()).toEqual(["Zuteilungen"]);
+  });
+
+  /** Either of the two that exclude each other opens the report page, and nothing else. */
+  it("shows only the report to somebody who may view reports", () => {
+    render(<TeacherNav permissions={["viewReports"]} />);
+
+    expect(linkNames()).toEqual(["Berichte"]);
+  });
+
+  it("shows the same to somebody who may edit them", () => {
+    render(<TeacherNav permissions={["editReports"]} />);
+
+    expect(linkNames()).toEqual(["Berichte"]);
+  });
+
+  it("shows the overview to whoever may edit registrations", () => {
+    render(<TeacherNav permissions={["editRegistrations"]} />);
+
+    expect(linkNames()).toEqual(["Registrierungen"]);
+  });
+
+  it("hides the master data section and its sub-items without the permission", () => {
+    render(<TeacherNav permissions={["viewReports"]} />);
+
+    expect(screen.queryByRole("link", { name: "Stammdaten" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Klassen" })).not.toBeInTheDocument();
+  });
+
+  /**
+   * Stammdaten heads whatever sits beneath it, and two permissions can each put something
+   * there. It is shown when either does, and opens on the first of them.
+   */
+  it("keeps Stammdaten for somebody who may only edit users, holding just the rights page", () => {
+    render(<TeacherNav permissions={["editUsers"]} />);
+
+    expect(screen.getByRole("link", { name: "Stammdaten" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Benutzerrechte" })).toHaveAttribute(
+      "href",
+      "/app/users",
+    );
+    expect(screen.queryByRole("link", { name: "Klassen" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Eventreihen" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the lists for somebody who may only edit master data, without the rights page", () => {
+    render(<TeacherNav permissions={["editMasterData"]} />);
+
+    expect(screen.getByRole("link", { name: "Stammdaten" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Benutzerrechte" })).not.toBeInTheDocument();
+  });
+
+  it("puts the rights page last, after the lists", () => {
+    render(<TeacherNav permissions={["editMasterData", "editUsers"]} />);
+
+    const names = linkNames();
+    expect(names[names.length - 1]).toBe("Benutzerrechte");
+  });
+
+  it("opens Stammdaten on the rights page when that is all there is beneath it", () => {
+    render(<TeacherNav permissions={["editUsers"]} />);
+
+    expect(screen.getByRole("link", { name: "Stammdaten" })).toHaveAttribute("href", "/app/users");
+  });
+
+  it("shows nothing at all to a teacher holding no permission", () => {
+    render(<TeacherNav permissions={[]} />);
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
 });

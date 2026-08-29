@@ -4,32 +4,37 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { readUnverifiedRole } from "@/lib/auth/session-claims";
+import { readUnverifiedAccountType } from "@/lib/auth/session-claims";
 
 function jwtWith(payload: Record<string, unknown>) {
   const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
   return `${encode({ alg: "RS256" })}.${encode(payload)}.signature-not-checked`;
 }
 
-describe("readUnverifiedRole", () => {
-  it.each(["teacher", "student"])("reads the %s role from the cookie payload", (role) => {
-    expect(readUnverifiedRole(jwtWith({ role }))).toBe(role);
-  });
+describe("readUnverifiedAccountType", () => {
+  it.each(["teacher", "student"])(
+    "reads the %s account type from the cookie payload",
+    (accountType) => {
+      expect(readUnverifiedAccountType(jwtWith({ accountType }))).toBe(accountType);
+    },
+  );
 
   it("decodes a payload containing non-ASCII characters", () => {
-    expect(readUnverifiedRole(jwtWith({ role: "teacher", name: "Jürgen Öztürk" }))).toBe("teacher");
+    expect(
+      readUnverifiedAccountType(jwtWith({ accountType: "teacher", name: "Jürgen Öztürk" })),
+    ).toBe("teacher");
   });
 
-  it("returns null when the role claim is missing", () => {
-    expect(readUnverifiedRole(jwtWith({ uid: "user-1" }))).toBeNull();
+  it("returns null when the account type claim is missing", () => {
+    expect(readUnverifiedAccountType(jwtWith({ uid: "user-1" }))).toBeNull();
   });
 
-  it("returns null for an unsupported role", () => {
-    expect(readUnverifiedRole(jwtWith({ role: "admin" }))).toBeNull();
+  it("returns null for an unsupported account type", () => {
+    expect(readUnverifiedAccountType(jwtWith({ accountType: "admin" }))).toBeNull();
   });
 
   it("returns null for a legacy roles array", () => {
-    expect(readUnverifiedRole(jwtWith({ roles: ["teacher"] }))).toBeNull();
+    expect(readUnverifiedAccountType(jwtWith({ roles: ["teacher"] }))).toBeNull();
   });
 
   it.each([
@@ -38,6 +43,6 @@ describe("readUnverifiedRole", () => {
     ["a truncated JWT", "header-only."],
     ["an undecodable payload", "header.@@@@.signature"],
   ])("returns null for %s", (_case, cookie) => {
-    expect(readUnverifiedRole(cookie)).toBeNull();
+    expect(readUnverifiedAccountType(cookie)).toBeNull();
   });
 });

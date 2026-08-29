@@ -14,7 +14,7 @@ const allEventSeries = [
   { id: "s2", ...storedEventSeries({ name: "Wintersportwoche 2025", isArchived: true, hasRegistrations: true }) }, // prettier-ignore
   { id: "s3", ...storedEventSeries({ name: "Wintersportwoche 2027", hasRegistrations: true }) },
   { id: "s4", ...storedEventSeries({ name: "Wintersportwoche 2024" }) },
-  { id: "s5", ...storedEventSeries({ name: "Wintersportwochen", isTemplate: true }) },
+  { id: "s5", ...storedEventSeries({ name: "Wintersportwochen" }) },
 ];
 
 function renderList(overrides: Record<string, unknown> = {}) {
@@ -48,10 +48,10 @@ describe("EventSeriesList", () => {
   });
 
   it.each([
-    ["Wintersportwoche 2026", "Schüler:innen-Anmeldung offen"],
+    ["Wintersportwoche 2026", "Registrierung für Schüler:innen offen"],
     ["Wintersportwoche 2025", "Archiviert"],
-    ["Wintersportwoche 2027", "Schüler:innen-Anmeldung geschlossen"],
-    ["Wintersportwochen", "Vorlage"],
+    ["Wintersportwoche 2027", "Registrierung für Schüler:innen geschlossen"],
+    ["Wintersportwochen", "Registrierung für Schüler:innen geschlossen"],
   ])("shows %s with the state %s", (name, state) => {
     renderList();
 
@@ -105,26 +105,25 @@ describe("EventSeriesList — row actions", () => {
 
     expect(
       screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2026 löschen" }),
-    ).toHaveAccessibleDescription(/anmeldungen/i);
+    ).toHaveAccessibleDescription(/registrierungen/i);
   });
 
   /** Every teacher view is scoped to a selection, so the last one has to stay (US-19, US-22). */
-  it("disables deleting the only unarchived template, and says why", () => {
-    renderList();
+  it("disables deleting the only unarchived event series, and says why", () => {
+    renderList({
+      eventSeries: [{ id: "s1", ...storedEventSeries({ name: "Wintersportwoche 2026" }) }],
+    });
 
-    const control = screen.getByRole("button", { name: "Eventreihe Wintersportwochen löschen" });
+    const control = screen.getByRole("button", {
+      name: "Eventreihe Wintersportwoche 2026 löschen",
+    });
 
     expect(control).toBeDisabled();
-    expect(control).toHaveAccessibleDescription(/letzte vorlage/i);
+    expect(control).toHaveAccessibleDescription(/letzte eventreihe/i);
   });
 
-  it("allows deleting a template while another one remains", () => {
-    renderList({
-      eventSeries: [
-        ...allEventSeries,
-        { id: "s6", ...storedEventSeries({ name: "Sommersportwochen", isTemplate: true }) },
-      ],
-    });
+  it("allows deleting one while another unarchived one remains", () => {
+    renderList();
 
     expect(
       screen.getByRole("button", { name: "Eventreihe Wintersportwochen löschen" }),
@@ -216,7 +215,28 @@ describe("EventSeriesList — row actions", () => {
 
     expect(
       screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2024 archivieren" }),
-    ).toHaveAccessibleDescription(/anmeldungen/i);
+    ).toHaveAccessibleDescription(/registrierungen/i);
+  });
+
+  /**
+   * Mirrors the server (US-19): closing is a decision made on the tag of the series it concerns,
+   * so archiving may not make it as a side effect. Offering a button the server refuses would be
+   * telling a teacher to press it and read the error.
+   */
+  it("disables archiving a series that is still open to students", () => {
+    renderList();
+
+    expect(
+      screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2026 archivieren" }),
+    ).toBeDisabled();
+  });
+
+  it("explains that an open series has to be closed first", () => {
+    renderList();
+
+    expect(
+      screen.getByRole("button", { name: "Eventreihe Wintersportwoche 2026 archivieren" }),
+    ).toHaveAccessibleDescription(/schließen/i);
   });
 
   it("allows unarchiving an event series with no registrations, since that rule only gates archiving", () => {
@@ -313,7 +333,7 @@ describe("EventSeriesList — tooltips", () => {
   it("explains on hover why deleting is unavailable, which the sr-only hint cannot do", async () => {
     renderList();
     const hint =
-      "Eine Eventreihe mit Anmeldungen kann nur gelöscht werden, wenn sie archiviert ist.";
+      "Eine Eventreihe mit Registrierungen kann nur gelöscht werden, wenn sie archiviert ist.";
     // One sr-only copy already exists per disabled row; hovering adds the visible one.
     const before = screen.getAllByText(hint).length;
 
@@ -330,7 +350,7 @@ describe("EventSeriesList — tooltips", () => {
 
   it("explains on hover why the archive icon is unavailable, which the sr-only hint cannot do", async () => {
     renderList();
-    const hint = "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.";
+    const hint = "Eine Eventreihe ohne Registrierungen kann nicht archiviert werden.";
     const before = screen.getAllByText(hint).length;
 
     await userEvent.hover(
@@ -346,7 +366,7 @@ describe("EventSeriesList — tooltips", () => {
 
   it("explains on hover why an event series without registrations cannot be archived", async () => {
     renderList();
-    const hint = "Eine Eventreihe ohne Anmeldungen kann nicht archiviert werden.";
+    const hint = "Eine Eventreihe ohne Registrierungen kann nicht archiviert werden.";
     const before = screen.getAllByText(hint).length;
 
     await userEvent.hover(

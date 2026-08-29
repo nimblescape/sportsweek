@@ -5,10 +5,8 @@
  */
 "use client";
 
-import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tag, TagName } from "@/components/ui/tag";
+import { FilterNameField } from "@/components/filters/filter-name-field";
 import {
   clearTags,
   hasNoTags,
@@ -33,29 +31,11 @@ type FilterTagListProps = {
 export function FilterTagList({ label, groups, value, onChange }: FilterTagListProps) {
   return (
     <div className="space-y-2">
-      <div className="relative">
-        <Input
-          // Not type="search": WebKit draws its own clear button for that, next to ours.
-          type="text"
-          aria-label={`${label}: Name`}
-          placeholder="Name suchen"
-          value={value.name}
-          onChange={(event) => onChange({ ...value, name: event.target.value })}
-          className="pr-8"
-        />
-        {value.name !== "" && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`${label}: Name zurücksetzen`}
-            onClick={() => onChange({ ...value, name: "" })}
-            className="absolute inset-y-0 right-0.5 my-auto"
-          >
-            <X aria-hidden />
-          </Button>
-        )}
-      </div>
+      <FilterNameField
+        label={label}
+        value={value.name}
+        onChange={(name) => onChange({ ...value, name })}
+      />
 
       <div role="group" aria-label={`${label}: Filter`} className="flex flex-wrap gap-1.5">
         <Tag pressed={hasNoTags(value)}>

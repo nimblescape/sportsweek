@@ -191,7 +191,7 @@ describe("MasterDataView — editing", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("wird umbenannt.");
-    expect(dialog).not.toHaveTextContent(/Anmeldungen/);
+    expect(dialog).not.toHaveTextContent(/Registrierungen/);
   });
 });
 

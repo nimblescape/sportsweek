@@ -69,8 +69,10 @@ export function useHold(): () => () => void {
 }
 
 /**
- * Reports a wait the caller does not run itself — a list still loading from its subscription.
- * The same spinner answers for it, so a view has none of its own to place.
+ * Reports a wait the caller does not run through `apiRequest` — an export being generated, a
+ * board held while a drag is saved. It is for work the teacher started: a subscription still
+ * loading is not, and reporting one lit the indicator on every page a teacher moved to, which
+ * says the app is busy rather than that anything is being waited for.
  */
 export function useBusyWhile(active: boolean): void {
   const hold = useHold();

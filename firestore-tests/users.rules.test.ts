@@ -61,8 +61,14 @@ function signInAs(upn: string, claims: Record<string, unknown> = {}) {
   return testEnv.authenticatedContext(`uid-of-${upn}`, { email: upn, ...claims }).firestore();
 }
 
-const student = (extra: Record<string, unknown> = {}) => ({ role: "student", ...extra });
-const teacher = (extra: Record<string, unknown> = {}) => ({ role: "teacher", ...extra });
+const student = (extra: Record<string, unknown> = {}) => ({ accountType: "student", ...extra });
+const teacher = (extra: Record<string, unknown> = {}) => ({
+  accountType: "teacher",
+  permissions: [],
+  ...extra,
+});
+const admin = (extra: Record<string, unknown> = {}) =>
+  teacher({ permissions: ["editUsers"], ...extra });
 
 describe("/users/{uid} read access", () => {
   it("denies read access to signed-out users", async () => {
@@ -89,15 +95,32 @@ describe("/users/{uid} read access", () => {
 
   /**
    * A teacher used to read every user, because the roster joined registrations to them for the
-   * student's name. The registration carries that name itself now (US-26), so the permission
-   * has no reader left and is withdrawn.
+   * student's name. The registration carries that name itself now (US-26), so what is left of
+   * that permission belongs to whoever hands the permissions out (US-2).
    */
-  it("denies a teacher reading another user's document", async () => {
+  it("denies a teacher without editUsers reading another user's document", async () => {
     await seedUser(ALICE, student());
     await seedUser(CAROL, teacher());
     const db = signInAs(CAROL);
 
     await assertFails(db.collection("users").doc(ALICE).get());
+  });
+
+  it("allows a teacher with editUsers to read another user's document", async () => {
+    await seedUser(ALICE, student());
+    await seedUser(CAROL, admin());
+    const db = signInAs(CAROL);
+
+    await assertSucceeds(db.collection("users").doc(ALICE).get());
+  });
+
+  /** A permission on a student's record grants nothing: they are refused by what they are. */
+  it("denies a student whose record lists editUsers", async () => {
+    await seedUser(ALICE, student({ permissions: ["editUsers"] }));
+    await seedUser(BOB, student());
+    const db = signInAs(ALICE);
+
+    await assertFails(db.collection("users").doc(BOB).get());
   });
 
   it("allows a teacher to read their own document", async () => {
@@ -108,19 +131,45 @@ describe("/users/{uid} read access", () => {
   });
 });
 
-describe("/users/{uid} role immutability", () => {
-  it("denies a student changing their own role", async () => {
+describe("/users/{uid} account type and permission immutability", () => {
+  it("denies a student changing their own account type", async () => {
     await seedUser(ALICE, student({ firstName: "Alice" }));
     const db = signInAs(ALICE);
 
-    await assertFails(db.collection("users").doc(ALICE).update({ role: "teacher" }));
+    await assertFails(db.collection("users").doc(ALICE).update({ accountType: "teacher" }));
   });
 
-  it("denies a teacher changing their own role", async () => {
+  it("denies a teacher changing their own account type", async () => {
     await seedUser(CAROL, teacher({ firstName: "Carol" }));
     const db = signInAs(CAROL);
 
-    await assertFails(db.collection("users").doc(CAROL).update({ role: "student" }));
+    await assertFails(db.collection("users").doc(CAROL).update({ accountType: "student" }));
+  });
+
+  /** Granting is a Route Handler's, which owns the refusals a rule cannot express (US-2). */
+  it("denies a teacher granting themselves a permission", async () => {
+    await seedUser(CAROL, teacher({ firstName: "Carol" }));
+    const db = signInAs(CAROL);
+
+    await assertFails(
+      db
+        .collection("users")
+        .doc(CAROL)
+        .update({ permissions: ["editMasterData"] }),
+    );
+  });
+
+  it("denies an admin granting someone else a permission directly", async () => {
+    await seedUser(CAROL, admin());
+    await seedUser(ALICE, student());
+    const db = signInAs(CAROL);
+
+    await assertFails(
+      db
+        .collection("users")
+        .doc(ALICE)
+        .update({ permissions: ["editUsers"] }),
+    );
   });
 
   it("denies a teacher changing someone else's role", async () => {
@@ -128,10 +177,10 @@ describe("/users/{uid} role immutability", () => {
     await seedUser(ALICE, student());
     const db = signInAs(CAROL);
 
-    await assertFails(db.collection("users").doc(ALICE).update({ role: "teacher" }));
+    await assertFails(db.collection("users").doc(ALICE).update({ accountType: "teacher" }));
   });
 
-  it("allows a user to update their own non-role fields", async () => {
+  it("allows a user to update their own remaining fields", async () => {
     await seedUser(ALICE, student({ firstName: "Alice" }));
     const db = signInAs(ALICE);
 
@@ -180,12 +229,12 @@ describe("/users/{uid} create and delete", () => {
 
 describe("/users/{uid} has no admin role", () => {
   it("grants a document claiming role 'admin' no privileges at all", async () => {
-    await seedUser(MALLORY, { role: "admin" });
+    await seedUser(MALLORY, { accountType: "admin" });
     await seedUser(ALICE, student());
     const db = signInAs(MALLORY);
 
     await assertFails(db.collection("users").doc(ALICE).get());
-    await assertFails(db.collection("users").doc(ALICE).update({ role: "teacher" }));
+    await assertFails(db.collection("users").doc(ALICE).update({ accountType: "teacher" }));
     await assertFails(db.collection("users").doc(DAVE).set(student()));
   });
 
@@ -226,7 +275,7 @@ describe("identity resolution with a realistic uid", () => {
   });
 
   it("recognises a teacher whose record is keyed by UPN", async () => {
-    await seedUser(UPN, teacher({ email: UPN }));
+    await seedUser(UPN, teacher({ email: UPN, permissions: ["editRegistrations"] }));
     await seedRegistration("pupil@student.htldornbirn.at");
 
     await assertSucceeds(
@@ -234,11 +283,16 @@ describe("identity resolution with a realistic uid", () => {
     );
   });
 
-  it("recognises a teacher from the role claim, without reading the record", async () => {
+  /**
+   * The account type claim spares the common case a document read, but a permission is never
+   * taken from it: permissions are granted and withdrawn while a session is live, and a token
+   * minted beforehand would go on admitting what an admin has just taken away (US-2).
+   */
+  it("does not take a permission from the claim, so a record is still read", async () => {
     await seedRegistration("pupil@student.htldornbirn.at");
 
-    await assertSucceeds(
-      signedIn({ role: "teacher" })
+    await assertFails(
+      signedIn({ accountType: "teacher", permissions: ["editRegistrations"] })
         .collection(REGISTRATIONS)
         .doc("pupil@student.htldornbirn.at")
         .get(),

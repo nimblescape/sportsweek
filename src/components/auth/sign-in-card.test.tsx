@@ -240,16 +240,16 @@ describe("SignInCard", () => {
   it.each([
     ["teacher", "/app"],
     ["student", "/app/my-registration"],
-  ])("sends a %s straight to their own start page", async (role, expected) => {
-    respondWith(200, { status: "ok", role });
+  ])("sends a %s straight to their own start page", async (accountType, expected) => {
+    respondWith(200, { status: "ok", accountType });
 
     render(<SignInCard />);
 
     await waitFor(() => expect(push).toHaveBeenCalledWith(expected));
   });
 
-  it("ignores an unusable role and falls back to the landing route", async () => {
-    respondWith(200, { status: "ok", role: "admin" });
+  it("ignores an unusable account type and falls back to the landing route", async () => {
+    respondWith(200, { status: "ok", accountType: "admin" });
 
     render(<SignInCard />);
 

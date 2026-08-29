@@ -13,7 +13,6 @@ import { DeleteEventSeriesDialog } from "@/components/event-series/delete-event-
 import { EventSeriesFormDialog } from "@/components/event-series/event-series-form-dialog";
 import { EventSeriesList } from "@/components/event-series/event-series-list";
 import { apiRequest, ApiRequestError, type RequestOptions } from "@/lib/api/client";
-import { useBusyWhile } from "@/lib/api/busy";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { applyVisibleOrder } from "@/lib/schemas/position";
 import type { EventSeries } from "@/lib/schemas/event-series";
@@ -35,8 +34,6 @@ export function EventSeriesView() {
   const { busyId, pending, run } = useRowAction();
   const [actionError, setActionError] = React.useState<string | null>(null);
 
-  useBusyWhile(loading);
-
   const listed = visibleEventSeries(eventSeries, showArchived);
 
   // The list is a live Firestore subscription, so a successful write shows up on its own.
@@ -55,13 +52,10 @@ export function EventSeriesView() {
     }
   }
 
-  // Typing the name out only earns its keep when there are registrations to lose (US-4).
+  // Irreversible either way, so it is always asked; the dialog decides whether the name has to
+  // be typed out as well (US-4).
   function handleDelete(eventSeries: EventSeries) {
-    if (eventSeries.hasRegistrations) {
-      setDialog({ kind: "delete", eventSeries });
-    } else {
-      void writeEventSeries(eventSeries, { method: "DELETE" });
-    }
+    setDialog({ kind: "delete", eventSeries });
   }
 
   return (

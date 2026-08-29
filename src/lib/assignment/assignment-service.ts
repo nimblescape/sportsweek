@@ -82,7 +82,7 @@ export async function assignStudents(
 
   const operations: BatchOperation[] = snapshots.map((snapshot, index) => {
     if (!snapshot.exists) {
-      throw new ServiceError(ErrorCode.NotFound, "Diese Anmeldung gibt es nicht.");
+      throw new ServiceError(ErrorCode.NotFound, "Diese Registrierung gibt es nicht.");
     }
 
     const record = assignableSchema.parse(snapshot.data());

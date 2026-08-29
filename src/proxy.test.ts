@@ -21,8 +21,8 @@ function makeRequest(pathname: string, { session }: { session?: string } = {}) {
   return new NextRequest(new URL(pathname, "https://example.com"), { headers });
 }
 
-const asTeacher = { session: sessionCookieWith({ role: "teacher" }) };
-const asStudent = { session: sessionCookieWith({ role: "student" }) };
+const asTeacher = { session: sessionCookieWith({ accountType: "teacher" }) };
+const asStudent = { session: sessionCookieWith({ accountType: "student" }) };
 
 function locationOf(response: Response) {
   return new URL(response.headers.get("location")!).pathname;
@@ -51,7 +51,7 @@ describe("proxy", () => {
   it.each([
     "/app/s1/report",
     "/app/s1/assignment",
-    "/app/s1/overview",
+    "/app/s1/registrations",
     "/app/s1/master-data/classes",
     "/app/event-series",
   ])("lets a teacher reach %s", (pathname) => {
@@ -62,7 +62,7 @@ describe("proxy", () => {
   it.each([
     "/app/s1/report",
     "/app/s1/assignment",
-    "/app/s1/overview",
+    "/app/s1/registrations",
     "/app/s1/master-data/classes",
     "/app/event-series",
   ])("redirects a student away from %s", (pathname) => {

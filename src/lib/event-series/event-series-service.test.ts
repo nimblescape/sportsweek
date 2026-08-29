@@ -9,6 +9,7 @@ import { FakeFirestore } from "@/test/fake-firestore";
 import { storedEventSeries } from "@/test/event-series";
 import { registrationPath } from "@/lib/registration/registration";
 import { savedReportPath } from "@/lib/report/saved-reports";
+import { ARCHIVE_OPEN_HINT } from "@/lib/event-series/event-series-state";
 
 const firestore = new FakeFirestore();
 
@@ -28,7 +29,7 @@ function seedEventSeries(id: string, overrides: Record<string, unknown> = {}) {
 }
 
 describe("createEventSeries", () => {
-  it("stores a new event series as neither active, archived, template nor open", async () => {
+  it("stores a new event series as neither archived nor open", async () => {
     const eventSeries = await createEventSeries({ name: "Wintersportwoche 2026" });
 
     expect(firestore.get("eventSeries", eventSeries.id)).toEqual(storedEventSeries());
@@ -83,20 +84,11 @@ describe("createEventSeries", () => {
     await expect(createEventSeries({ name: "   " })).rejects.toBeInstanceOf(ServiceError);
     expect(firestore.count("eventSeries")).toBe(0);
   });
-
-  /** The kind is answered on its own, so it follows neither the source nor a default (US-22). */
-  it("makes a template when asked for one", async () => {
-    const template = await createEventSeries({ name: "Wintersportwochen", isTemplate: true });
-
-    expect(template.isTemplate).toBe(true);
-    expect(template.isOpenToStudents).toBe(false);
-  });
 });
 
 /**
- * A new series begins with the setup a teacher keeps for exactly that purpose (US-22). Which of
- * the four combinations it is — series or template, blank or copied — is answered by two
- * questions that decide nothing about each other.
+ * A new series begins with the setup a teacher keeps for exactly that purpose (US-22): blank, or
+ * copied from any event series the school still has, archived or not.
  */
 describe("createEventSeries — from a source", () => {
   const lists = {
@@ -143,20 +135,6 @@ describe("createEventSeries — from a source", () => {
     const copy = await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "old" });
 
     expect(copy.classOptions).toEqual(["4AHIF"]);
-  });
-
-  it("is a series copied from a template unless a template was asked for", async () => {
-    firestore.seed("eventSeries", "tpl", storedEventSeries({ name: "Vorlage", isTemplate: true }));
-
-    const asSeries = await createEventSeries({ name: "Winter 2027", sourceId: "tpl" });
-    const asTemplate = await createEventSeries({
-      name: "Sommer",
-      sourceId: "tpl",
-      isTemplate: true,
-    });
-
-    expect(asSeries.isTemplate).toBe(false);
-    expect(asTemplate.isTemplate).toBe(true);
   });
 
   it("refuses a source that is not there rather than making a blank one", async () => {
@@ -299,12 +277,43 @@ describe("updateEventSeries — archiving", () => {
     expect(firestore.get("eventSeries", "s1")).toMatchObject({ isArchived: false });
   });
 
-  /** Archiving closes a series to students, so the door does not stay open on a finished one. */
-  it("closes an event series to students while archiving it", async () => {
+  /**
+   * Closing is a decision a teacher makes on the tag of the series it concerns (US-19). Archiving
+   * an open one used to make that decision for them, quietly, as a side effect of a different
+   * action — and students holding the link would have found it shut without anyone shutting it.
+   */
+  it("refuses to archive an event series that is still open to students", async () => {
     seedEventSeries("s1", { isOpenToStudents: true });
     firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
 
+    await expect(updateEventSeries("s1", { isArchived: true })).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: ARCHIVE_OPEN_HINT,
+    });
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({
+      isArchived: false,
+      isOpenToStudents: true,
+    });
+  });
+
+  it("archives it once it has been closed", async () => {
+    seedEventSeries("s1", { isOpenToStudents: false });
+    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+
     await updateEventSeries("s1", { isArchived: true });
+
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({
+      isArchived: true,
+      isOpenToStudents: false,
+    });
+  });
+
+  /** Closing and archiving in one call is the teacher doing both, in the order that makes sense. */
+  it("archives an open series when the same call closes it", async () => {
+    seedEventSeries("s1", { isOpenToStudents: true });
+    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+
+    await updateEventSeries("s1", { isArchived: true, isOpenToStudents: false });
 
     expect(firestore.get("eventSeries", "s1")).toMatchObject({
       isArchived: true,
@@ -343,6 +352,7 @@ describe("deleteEventSeries", () => {
 
   it("deletes an unarchived event series that has no registrations", async () => {
     seedEventSeries("s1");
+    seedEventSeries("s2");
 
     await deleteEventSeries("s1");
 
@@ -351,6 +361,7 @@ describe("deleteEventSeries", () => {
 
   it("deletes an open event series that has no registrations", async () => {
     seedEventSeries("s1", { isOpenToStudents: true });
+    seedEventSeries("s2");
 
     await deleteEventSeries("s1");
 
@@ -363,39 +374,40 @@ describe("deleteEventSeries", () => {
 
   /**
    * A teacher with nothing to select has a header offering nothing and a navigation bar with
-   * nowhere to point. Keeping one template back is what makes that state unreachable.
+   * nowhere to point. Keeping one back is what makes that state unreachable.
    */
-  it("refuses to delete the only template", async () => {
-    seedEventSeries("s1", { isTemplate: true });
-    seedEventSeries("s2");
+  it("refuses to delete the only event series", async () => {
+    seedEventSeries("s1");
 
     await expect(deleteEventSeries("s1")).rejects.toMatchObject({ code: "CONFLICT" });
     expect(firestore.get("eventSeries", "s1")).toBeDefined();
   });
 
-  it("deletes a template while another one remains", async () => {
-    seedEventSeries("s1", { isTemplate: true });
-    seedEventSeries("s2", { isTemplate: true });
+  it("deletes one while another remains", async () => {
+    seedEventSeries("s1");
+    seedEventSeries("s2");
 
     await deleteEventSeries("s1");
 
     expect(firestore.get("eventSeries", "s1")).toBeUndefined();
   });
 
-  /** Archiving hides a series from every screen, so an archived template is not one to fall back on. */
-  it("refuses to delete the only unarchived template", async () => {
-    seedEventSeries("s1", { isTemplate: true });
-    seedEventSeries("s2", { isTemplate: true, isArchived: true });
+  /** Archiving hides a series from every screen, so an archived one is not one to fall back on. */
+  it("refuses to delete the only unarchived event series", async () => {
+    seedEventSeries("s1");
+    seedEventSeries("s2", { isArchived: true });
 
     await expect(deleteEventSeries("s1")).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
-  it("deletes the last series that is not a template", async () => {
+  /** The rule is about what is left to select, and an archived one was never selectable. */
+  it("deletes the last archived event series, which nothing could have selected anyway", async () => {
     seedEventSeries("s1");
+    seedEventSeries("s2", { isArchived: true });
 
-    await deleteEventSeries("s1");
+    await deleteEventSeries("s2");
 
-    expect(firestore.get("eventSeries", "s1")).toBeUndefined();
+    expect(firestore.get("eventSeries", "s2")).toBeUndefined();
   });
 
   it("deletes an archived event series", async () => {
@@ -623,15 +635,6 @@ describe("updateEventSeries — opening to students", () => {
     expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
   });
 
-  it("refuses to open a template, which can never take registrations", async () => {
-    seedEventSeries("s1", { isTemplate: true });
-
-    await expect(updateEventSeries("s1", { isOpenToStudents: true })).rejects.toMatchObject({
-      code: "CONFLICT",
-    });
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
-  });
-
   it("refuses to open an archived series, which cannot even be selected", async () => {
     seedEventSeries("s1", { isArchived: true });
 
@@ -695,7 +698,8 @@ describe("updateEventSeries — opening needs a class to invite", () => {
 
 /**
  * What `/app` opens on, and what the navigation points at from a page that names no series (Q8).
- * Both are pages about registrations, which is exactly what a template has none of (US-22).
+ * Archiving is what takes a series off every screen, so it is the only thing that can make a
+ * remembered id unusable.
  */
 describe("resolveSelectedEventSeriesId", () => {
   it("takes the remembered series when it is still selectable", async () => {
@@ -712,25 +716,15 @@ describe("resolveSelectedEventSeriesId", () => {
     expect(await resolveSelectedEventSeriesId()).toBe("s1");
   });
 
-  it.each([{ isArchived: true }, { isTemplate: true }])(
-    "passes over a remembered %o, which no longer has the pages that would be opened",
-    async (state) => {
-      seedEventSeries("remembered", { position: 0, ...state });
-      seedEventSeries("s1", { position: 1 });
-
-      expect(await resolveSelectedEventSeriesId("remembered")).toBe("s1");
-    },
-  );
-
-  it("skips a template when picking the first, however early it sorts", async () => {
-    seedEventSeries("t1", { position: 0, isTemplate: true });
+  it("passes over a remembered archived series, which has no pages left to open", async () => {
+    seedEventSeries("remembered", { position: 0, isArchived: true });
     seedEventSeries("s1", { position: 1 });
 
-    expect(await resolveSelectedEventSeriesId()).toBe("s1");
+    expect(await resolveSelectedEventSeriesId("remembered")).toBe("s1");
   });
 
-  it("selects nothing when only templates remain, there being no series to run", async () => {
-    seedEventSeries("t1", { position: 0, isTemplate: true });
+  it("selects nothing when every series is archived", async () => {
+    seedEventSeries("old", { position: 0, isArchived: true });
 
     expect(await resolveSelectedEventSeriesId()).toBeNull();
   });

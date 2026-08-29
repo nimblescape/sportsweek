@@ -8,7 +8,7 @@ import type { RegistrationInput } from "@/lib/schemas/registration";
 import { questionsAsked } from "@/lib/master-data/categories";
 import { storedEventSeries } from "@/test/event-series";
 import { EQUIPMENT_RENTAL_LABEL } from "./answer-labels";
-import { isRegistrationIncomplete, missingAnswers } from "./completeness";
+import { ATTENDANCE_ANSWER_LABEL, isRegistrationIncomplete, missingAnswers } from "./completeness";
 import { EMPTY_REGISTRATION } from "./registration";
 
 const complete: RegistrationInput = {
@@ -61,7 +61,15 @@ describe("missingAnswers", () => {
 
   /** Answering "no" hides the questions, so an answer nobody is asking for cannot be missing. */
   it("asks nothing of a student who is not attending", () => {
-    expect(labelsOf({ ...EMPTY_REGISTRATION })).toEqual([]);
+    expect(labelsOf({ ...EMPTY_REGISTRATION, isAttendingSportsWeek: false })).toEqual([]);
+  });
+
+  /**
+   * Not the same as answering "no". Following the link joins a student (US-23), so the form
+   * exists before anything has been said in it, and what they owe is the answer itself.
+   */
+  it("asks for the attendance answer of a student who has not given one", () => {
+    expect(labelsOf({ ...EMPTY_REGISTRATION })).toEqual([ATTENDANCE_ANSWER_LABEL]);
   });
 
   it.each([

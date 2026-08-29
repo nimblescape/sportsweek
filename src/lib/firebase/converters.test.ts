@@ -14,7 +14,6 @@ const converter = zodConverter(eventSeriesSchema);
 const storedEventSeries = {
   name: "Wintersportwoche 2026",
   nameKey: "wintersportwoche 2026",
-  isTemplate: false,
   isArchived: false,
   isOpenToStudents: false,
   hasRegistrations: false,

@@ -69,17 +69,17 @@ describe("BusyBar", () => {
     await waitFor(() => expect(spinner()).not.toBeInTheDocument());
   });
 
-  /** A list still loading from its subscription is a wait like any other (see useBusyWhile). */
-  it("answers for a view that is still loading, not only for writes", async () => {
-    function Loading({ loading }: { loading: boolean }) {
-      useBusyWhile(loading);
+  /** A wait a caller runs itself rather than through `apiRequest` — an export, a held board. */
+  it("answers for a wait reported by hand, not only for a request", async () => {
+    function Working({ working }: { working: boolean }) {
+      useBusyWhile(working);
       return null;
     }
 
     const { rerender } = render(
       <BusyProvider>
         <BusyBar />
-        <Loading loading />
+        <Working working />
       </BusyProvider>,
     );
 
@@ -88,7 +88,7 @@ describe("BusyBar", () => {
     rerender(
       <BusyProvider>
         <BusyBar />
-        <Loading loading={false} />
+        <Working working={false} />
       </BusyProvider>,
     );
 

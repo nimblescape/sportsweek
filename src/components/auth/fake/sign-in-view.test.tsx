@@ -28,8 +28,8 @@ vi.mock("@/components/auth/fake/impersonation-dialog", () => ({
     onImpersonated: () => void;
   }) => (
     <div role="dialog">
-      <button onClick={onCancel}>Als ich selbst fortfahren</button>
-      <button onClick={onImpersonated}>Anmelden</button>
+      <button onClick={onCancel}>Mich selbst anmelden</button>
+      <button onClick={onImpersonated}>Als andere Person anmelden</button>
     </div>
   ),
 }));
@@ -90,7 +90,7 @@ describe("the test environment's sign-in screen", () => {
     state.session = { destination: "/app", signInProvider: "microsoft.com" };
     render(<SignInView />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Als ich selbst/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Mich selbst anmelden" }));
 
     expect(enter).toHaveBeenCalled();
   });
@@ -101,7 +101,7 @@ describe("the test environment's sign-in screen", () => {
     state.session = { destination: "/app", signInProvider: "microsoft.com" };
     render(<SignInView />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Anmelden" }));
+    await userEvent.click(screen.getByRole("button", { name: "Als andere Person anmelden" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(enter).not.toHaveBeenCalled();

@@ -567,8 +567,8 @@ everybody at once.
   invalidated with it. What a link may never become is an enrolment into a class that is gone.
   the third thing a list change reaches, after the registrations and the saved reports.
 - The link selects an event series and does nothing else. It signs nobody in and grants no
-  identity: a student following it still signs in through Entra ID (US-1) and still has the role
-  their UPN domain gives them (US-3).
+  identity: a student following it still signs in through Entra ID (US-1) and still has the
+  account type their UPN domain gives them (US-3).
 - Following the link as a signed-in student opens that series' registration form (US-11); the
   registration itself is created on the first save, as it is today.
 - **A link never leads to a choice.** It names one series, so a student following it goes there

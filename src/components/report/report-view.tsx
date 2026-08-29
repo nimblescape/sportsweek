@@ -46,8 +46,14 @@ function CardHeading({ children }: { children: string }) {
  * it — including the students who answered "no", which is what sets it apart from the assignment
  * dialog and is why its filter carries categories the board has no use for.
  */
-export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, loading, error, students, filterGroups } = useEventSeriesRoster(
+export function ReportView({
+  eventSeriesId,
+  mayEdit = false,
+}: {
+  eventSeriesId: string;
+  mayEdit?: boolean;
+}) {
+  const { eventSeries, missing, error, students, filterGroups } = useEventSeriesRoster(
     eventSeriesId,
     {
       attendance: true,
@@ -64,8 +70,9 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
   const [outputError, setOutputError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  // Answered by the one spinner in the header, so this view places none of its own.
-  useBusyWhile(loading || exporting);
+  // Answered by the one spinner in the header, so this view places none of its own. The read is
+  // not reported: a teacher moving between the pages of a series has started nothing to wait for.
+  useBusyWhile(exporting);
 
   const shown = useMemo(() => filterStudents(students, filter), [students, filter]);
   const fields = useMemo(() => reportFieldsOf(activeFields), [activeFields]);
@@ -188,9 +195,11 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
       )}
 
       {eventSeries === null ? (
-        <p role="status" className="text-muted-foreground text-sm">
-          {NO_EVENT_SERIES_HINT}
-        </p>
+        missing ? (
+          <p role="status" className="text-muted-foreground text-sm">
+            {NO_EVENT_SERIES_HINT}
+          </p>
+        ) : null
       ) : (
         <>
           <Card>
@@ -198,6 +207,7 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
               <SavedReportTagList
                 reports={savedReports}
                 current={selection}
+                mayEdit={mayEdit}
                 onOpen={openReport}
                 onSave={saveReport}
                 onUpdate={editReport}

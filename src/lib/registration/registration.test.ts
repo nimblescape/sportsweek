@@ -5,7 +5,6 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  classFrom,
   EMPTY_REGISTRATION,
   registrationPath,
   REGISTRATION_NOT_OPEN_HINT,
@@ -28,25 +27,6 @@ describe("registrationPath", () => {
   /** "Veranstaltung" because a series may be a Kulturwoche; "derzeit" because it can reclose. */
   it("states the one message US-23 gives for every link that leads nowhere", () => {
     expect(REGISTRATION_NOT_OPEN_HINT).toBe("Derzeit ist keine Veranstaltung freigeschaltet.");
-  });
-});
-
-describe("classFrom", () => {
-  it("enrols a student the link's class where they hold no registration yet", () => {
-    expect(classFrom("3AHME", null)).toBe("3AHME");
-  });
-
-  it("keeps the stored class for a student who is simply coming back", () => {
-    expect(classFrom(null, "3AHME")).toBe("3AHME");
-  });
-
-  /** Q20: another link is the one way a class changes after registration. */
-  it("lets a newer link move the student to another class", () => {
-    expect(classFrom("4AHME", "3AHME")).toBe("4AHME");
-  });
-
-  it("has no class to give where there is neither", () => {
-    expect(classFrom(null, null)).toBeNull();
   });
 });
 

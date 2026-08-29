@@ -655,3 +655,24 @@ describe("filterSummary", () => {
     expect(filterSummary(withTags(["class", "3AHME"]), GROUPS)).toBeNull();
   });
 });
+
+/**
+ * Joining is not answering (US-23), so a student who has followed the link and said nothing is
+ * neither attending nor declining. They are found by the completeness tag instead, which is what
+ * a teacher chases them by (US-13).
+ */
+describe("a student who has not answered the attendance question", () => {
+  const unanswered = student({ isAttending: null });
+
+  it("is not in the attending tag", () => {
+    const filter = toggleTag(EMPTY_FILTER, "attendance", ATTENDANCE_VALUES.attending);
+
+    expect(matchesFilter(unanswered, filter)).toBe(false);
+  });
+
+  it("is not in the not-attending tag either", () => {
+    const filter = toggleTag(EMPTY_FILTER, "attendance", ATTENDANCE_VALUES.notAttending);
+
+    expect(matchesFilter(unanswered, filter)).toBe(false);
+  });
+});

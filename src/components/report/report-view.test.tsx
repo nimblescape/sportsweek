@@ -46,9 +46,10 @@ const { ReportView: ScopedReportView } = await import("./report-view");
 const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-state");
 
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
-// only has to be present.
-function ReportView() {
-  return <ScopedReportView eventSeriesId="s1" />;
+// only has to be present. The page also decides whether what is set up here may be kept, which
+// these tests take as granted unless they are about the refusal.
+function ReportView({ mayEdit = true }: { mayEdit?: boolean } = {}) {
+  return <ScopedReportView eventSeriesId="s1" mayEdit={mayEdit} />;
 }
 
 function student(
@@ -123,6 +124,15 @@ describe("ReportView", () => {
     render(<ReportView />);
 
     expect(screen.getByText(NO_EVENT_SERIES_HINT)).toBeInTheDocument();
+  });
+
+  /** An empty list that has not arrived yet is not an answer; saying so made the pages flicker. */
+  it("says nothing about the selection while the list is still arriving", () => {
+    useEventSeries.mockReturnValue({ eventSeries: [], loading: true, error: null });
+
+    render(<ReportView />);
+
+    expect(screen.queryByText(NO_EVENT_SERIES_HINT)).not.toBeInTheDocument();
   });
 
   it("lists everyone registered, including the students who stay at home (US-13)", () => {

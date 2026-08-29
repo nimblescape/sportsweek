@@ -11,7 +11,7 @@ import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tag, TagAction, TagName } from "@/components/ui/tag";
-import { DeleteRegistrationDialog } from "@/components/overview/delete-registration-dialog";
+import { DeleteRegistrationDialog } from "@/components/registrations/delete-registration-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
@@ -36,6 +36,12 @@ import { SkillMatrix } from "@/components/assignment/skill-matrix";
 
 const ATTENDING_LABEL = ATTENDANCE_LABELS.attending;
 const NOT_ATTENDING_LABEL = ATTENDANCE_LABELS.notAttending;
+
+/**
+ * The third state of the attendance question, which the two answers cannot cover: a student who
+ * followed the link and has said nothing yet (US-23). Exported so a test names it once.
+ */
+export const NO_ANSWER_LABEL = "Noch keine Antwort";
 
 /** What a card may do with its class's link; null where the series can never be opened (US-19). */
 export type InvitationControls = {
@@ -231,7 +237,7 @@ function ClassCard({
           >
             <p className="text-sm">
               {`Der bisherige Link für ${row.class} funktioniert danach nicht mehr. ` +
-                "Bereits angemeldete Schüler:innen bleiben angemeldet."}
+                "Bereits registrierte Schüler:innen bleiben registriert."}
             </p>
           </Dialog>
         )}
@@ -264,7 +270,7 @@ function ClassCard({
                 <Cloud
                   className={row.class}
                   label={ATTENDING_LABEL}
-                  students={shown.filter((student) => student.isAttending)}
+                  students={shown.filter((student) => student.isAttending === true)}
                   markedId={markedId}
                   onMark={setMarkedId}
                   onRemove={removableEventSeriesId === null ? null : setRemoving}
@@ -272,7 +278,17 @@ function ClassCard({
                 <Cloud
                   className={row.class}
                   label={NOT_ATTENDING_LABEL}
-                  students={shown.filter((student) => !student.isAttending)}
+                  students={shown.filter((student) => student.isAttending === false)}
+                  markedId={markedId}
+                  onMark={setMarkedId}
+                  onRemove={removableEventSeriesId === null ? null : setRemoving}
+                />
+                {/* Empty clouds hide themselves, so a class where everybody has answered shows
+                    no heading for what is outstanding. */}
+                <Cloud
+                  className={row.class}
+                  label={NO_ANSWER_LABEL}
+                  students={shown.filter((student) => student.isAttending === null)}
                   markedId={markedId}
                   onMark={setMarkedId}
                   onRemove={removableEventSeriesId === null ? null : setRemoving}
@@ -358,7 +374,7 @@ function Cloud({
                 {/* On the marked tag only, as a saved report's controls are (US-13, US-28). */}
                 {marked && onRemove ? (
                   <TagAction
-                    label={`Anmeldung von ${name} löschen`}
+                    label={`Registrierung von ${name} löschen`}
                     onClick={() => onRemove(student)}
                   >
                     <Trash2 aria-hidden />

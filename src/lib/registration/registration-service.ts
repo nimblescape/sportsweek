@@ -26,29 +26,26 @@ import {
 import { isRegistrationIncomplete } from "./completeness";
 import {
   ANSWER_NO_LONGER_OFFERED_HINT,
-  classFrom,
+  EMPTY_REGISTRATION,
   registrationPath,
   REGISTRATION_NOT_OPEN_HINT,
 } from "./registration";
 
 /**
- * The series the student is writing into, and where its class comes from. The series is named
- * rather than searched for, because a student may hold registrations in several (Q7) and only
- * they know which form they are looking at; what they cannot do is name one they were never
- * invited to, since a save with no class to give it is refused below.
+ * The series the student is writing into. It is named rather than searched for, because a student
+ * may hold registrations in several (Q7) and only they know which form they are looking at; what
+ * they cannot do is name one they never joined, since a save with no stored class is refused.
  */
 export type RegistrationTarget = {
   studentUpn: string;
   eventSeriesId: string;
-  /** From the link the student joined through, or null where they are simply coming back. */
-  invitedClass: string | null;
 };
 
 /**
  * The series as it has to stand for a student to write into it (US-19).
  *
- * One flag rather than two: archiving closes, and the server refuses to open an archived series
- * or a template, so `isOpenToStudents` already excludes both. A series that has since been
+ * One flag rather than two: archiving closes, and the server refuses to open an archived series,
+ * so `isOpenToStudents` already excludes it. A series that has since been
  * closed, archived or deleted, and one that was never named by a link the student holds, are all
  * answered with the same sentence — from where the student stands they are the same thing.
  */
@@ -162,9 +159,9 @@ export async function saveRegistration(
     const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUpn);
     const stored = await transaction.get(reference);
 
-    // Nothing to enrol them into and nothing already enrolling them: the link is how a student
-    // joins (US-23), so without one this is somebody who has simply arrived at the wrong series.
-    const studentClass = classFrom(target.invitedClass, (stored.data()?.class as string) ?? null);
+    // Nothing already enrolling them: following the link is what joins a student and writes the
+    // registration (US-23), so without one this is somebody who has arrived at the wrong series.
+    const studentClass = (stored.data()?.class as string) ?? null;
     if (studentClass === null) {
       throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
     }
@@ -172,8 +169,10 @@ export async function saveRegistration(
     assertAnswersAreOffered(eventSeries, { ...fields, class: studentClass });
 
     // The teacher owns the assignment, so a save carries the stored one forward — unless the
-    // student has just said they are not coming, which unassigns them (US-11).
-    const event = fields.isAttendingSportsWeek ? ((stored.data()?.event as string) ?? null) : null;
+    // student has just said they are not coming, which unassigns them (US-11). Saying nothing
+    // is not saying no, so an unanswered form leaves the assignment where it is.
+    const event =
+      fields.isAttendingSportsWeek === false ? null : ((stored.data()?.event as string) ?? null);
 
     const data = {
       ...identity,
@@ -197,7 +196,49 @@ export async function saveRegistration(
   });
 }
 
-export const NO_SUCH_REGISTRATION = "Diese Anmeldung gibt es nicht.";
+export const NO_SUCH_REGISTRATION = "Diese Registrierung gibt es nicht.";
+
+/**
+ * Joins a student to an event series, which is the whole of what following an invitation link
+ * does (US-23). The registration exists from that moment, unanswered, so what a student holds is
+ * a fact in the data rather than a token they are carrying — and signing in again finds it by
+ * looking, whichever way they arrived.
+ *
+ * Following the same link twice is one joining: an existing registration keeps every answer.
+ * What a newer link does change is the class, which is the one way it moves (Q20).
+ */
+export async function joinEventSeries(
+  eventSeriesId: string,
+  studentUpn: string,
+  className: string,
+): Promise<void> {
+  const identity = await identityOf(studentUpn);
+
+  await adminDb.runTransaction(async (transaction) => {
+    const eventSeries = await requireOpenSeries(transaction, eventSeriesId);
+
+    const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUpn);
+    const stored = await transaction.get(reference);
+
+    if (stored.exists) {
+      transaction.update(reference, { class: className });
+    } else {
+      transaction.set(reference, {
+        ...identity,
+        class: className,
+        event: null,
+        isIncomplete: isRegistrationIncomplete(EMPTY_REGISTRATION, questionsAsked(eventSeries)),
+        ...EMPTY_REGISTRATION,
+      });
+    }
+
+    if (!eventSeries.hasRegistrations) {
+      transaction.update(adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeries.id), {
+        hasRegistrations: true,
+      });
+    }
+  });
+}
 
 /**
  * Removes one registration and everything the student answered with it (US-28).

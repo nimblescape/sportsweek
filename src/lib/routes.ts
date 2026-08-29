@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import type { UserRole } from "@/lib/schemas/user";
+import type { AccountType } from "@/lib/schemas/user";
 
 export const ROUTES = {
   signIn: "/sign-in",
@@ -26,7 +26,7 @@ export function eventSeriesRoutes(eventSeriesId: string) {
   return {
     report: `${scope}/report`,
     assignment: `${scope}/assignment`,
-    overview: `${scope}/overview`,
+    registrations: `${scope}/registrations`,
     masterData: `${scope}/master-data`,
   };
 }
@@ -35,10 +35,25 @@ export function eventSeriesRoutes(eventSeriesId: string) {
  * A teacher lands on `/app`, which resolves the selection and sends them on, because which series
  * they were last in is not something the sign-in knows.
  */
-export function homeFor(role: UserRole): string {
-  return role === "teacher" ? ROUTES.appRoot : ROUTES.myRegistration;
+export function homeFor(accountType: AccountType): string {
+  return accountType === "teacher" ? ROUTES.appRoot : ROUTES.myRegistration;
 }
 
 export function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+/**
+ * Where a sign-in may send somebody afterwards. `next` comes out of the address bar, so it is a
+ * stranger's text however it got there — and navigating to it unchecked is the whole of an open
+ * redirect: a link to this application's own sign-in page that lands somewhere else entirely.
+ *
+ * Only a path within this application is kept. A scheme, an authority, or the `//` and `/\` that
+ * browsers read as one, all fall back.
+ */
+export function safeDestination(destination: string | null, fallback: string): string {
+  if (destination === null) return fallback;
+
+  const isOwnPath = destination.startsWith("/") && !/^\/[/\\]/.test(destination);
+  return isOwnPath ? destination : fallback;
 }
