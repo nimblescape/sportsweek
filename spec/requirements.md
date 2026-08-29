@@ -119,6 +119,8 @@ As a teacher holding `editUsers`, I grant and withdraw what my colleagues may do
 - Each teacher's permissions are shown as a row of tags, one per permission, pressed for what they hold. A teacher holding none says so.
 - Pressing a tag grants that permission; pressing a pressed one withdraws it. What travels with it is US-2's exclusivity rule, so pressing "Berichte bearbeiten" clears "Berichte ansehen" and pressing either clears the other.
 - The list updates live, so two admins working at once see each other's changes.
+- The list is headed by the same filter the report carries (see US-13): a name field, matching first name, surname or address, and one row of tags. The tags are alternatives rather than conditions met at once, as any single category on the report is.
+- That row offers one tag per permission, and last a "Keine Rechte" tag for whoever holds none — which is who the page is most often opened to find. "Alle" clears them all.
 - A holder of `editUsers` cannot withdraw that permission from themselves. Their own tag for it is shown pressed but carries no button, and the server refuses the change regardless. Every other permission of their own remains theirs to change.
 - This is what keeps at least one holder without counting them: only the last holder could be the last one, since anybody else withdrawing it would have to hold it themselves.
 - Permissions cannot be granted to a student, nor to somebody who has never signed in — there is no record to grant against.

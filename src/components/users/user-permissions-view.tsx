@@ -25,6 +25,7 @@ import {
   filterTeachers,
   hasNoFilter,
   togglePermissionTag,
+  toggleWithoutPermissions,
 } from "@/lib/users/teacher-filter";
 import { useTeachers, type Teacher } from "@/lib/users/use-teachers";
 
@@ -131,6 +132,14 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
                   />
                 </Tag>
               ))}
+              {/* Last, because it is not one of them: it asks who is waiting for access. */}
+              <Tag pressed={filter.withoutPermissions}>
+                <TagName
+                  label={`${FILTER_LABEL}: ${NO_PERMISSIONS_LABEL}`}
+                  text={NO_PERMISSIONS_LABEL}
+                  onPress={() => setFilter(toggleWithoutPermissions(filter))}
+                />
+              </Tag>
             </div>
           </CardContent>
         </Card>
