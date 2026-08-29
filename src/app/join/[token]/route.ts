@@ -32,12 +32,16 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
   const { token } = await context.params;
   const user = await getAuthenticatedUser();
 
-  const to = (destination: string) => NextResponse.redirect(new URL(destination, request.url));
+  // A relative Location, which the browser resolves against the address it asked for. An absolute
+  // one would have to name a host, and the only address a Route Handler can see behind a proxy is
+  // the container's own -- `request.url` here reads http://0.0.0.0:8080. Taking the host from a
+  // forwarded header instead would name it correctly and let a caller choose the destination.
+  const to = (destination: string) =>
+    new NextResponse(null, { status: 307, headers: { Location: destination } });
 
   if (user === null) {
-    const signIn = new URL(ROUTES.signIn, request.url);
-    signIn.searchParams.set("next", `/join/${token}`);
-    return NextResponse.redirect(signIn);
+    const query = new URLSearchParams({ next: `/join/${token}` });
+    return to(`${ROUTES.signIn}?${query}`);
   }
 
   const invitation = await resolveInvitation(token);

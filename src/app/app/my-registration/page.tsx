@@ -31,30 +31,28 @@ export default async function MyRegistrationPage() {
   if (joined.length === 1) redirect(`${ROUTES.myRegistration}/${joined[0].id}`);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 md:p-6">
-      <Card>
-        <CardContent className="flex flex-col gap-3">
-          {joined.length === 0 ? (
-            <p role="status">{REGISTRATION_NOT_OPEN_HINT}</p>
-          ) : (
-            <>
-              <p>{CHOOSE_EVENT_SERIES_LABEL}</p>
-              <ul className="flex flex-col gap-2">
-                {joined.map((eventSeries) => (
-                  <li key={eventSeries.id}>
-                    <Link
-                      href={`/app/my-registration/${eventSeries.id}`}
-                      className="text-primary underline underline-offset-4"
-                    >
-                      {eventSeries.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <Card>
+      <CardContent className="flex flex-col gap-3">
+        {joined.length === 0 ? (
+          <p role="status">{REGISTRATION_NOT_OPEN_HINT}</p>
+        ) : (
+          <>
+            <p>{CHOOSE_EVENT_SERIES_LABEL}</p>
+            <ul className="flex flex-col gap-2">
+              {joined.map((eventSeries) => (
+                <li key={eventSeries.id}>
+                  <Link
+                    href={`/app/my-registration/${eventSeries.id}`}
+                    className="text-primary underline underline-offset-4"
+                  >
+                    {eventSeries.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
