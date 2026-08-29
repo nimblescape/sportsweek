@@ -111,6 +111,25 @@ const MASTER_DATA_DEFAULTS = {
 /** The shape of the sports week as it is wanted in a test environment. */
 const STUDENTS_PER_CLASS = { min: 20, max: 25 };
 const ATTENDING_SHARE = { min: 0.7, max: 0.8 };
+/**
+ * How many registrations per class are left unfinished, so the report has both shapes of them to
+ * show: some who followed the link and answered nothing, some who took part and left a field
+ * blank. A count rather than a share — on a class of twenty a couple of per cent rounds to none.
+ */
+const INCOMPLETE_PER_CLASS = { min: 3, max: 6 };
+
+/**
+ * What a half-finished registration is missing. Never the program: the summary tallies by it,
+ * and a student with no program is not taking part rather than being half-way through.
+ */
+const UNFINISHED_ANSWERS = [
+  "skillLevel",
+  "busPickupPoint",
+  "seasonPassOption",
+  "foodOption",
+  "phoneNumber",
+  "hasMedication",
+] as const satisfies readonly (keyof RegistrationInput)[];
 const FEMALE_SHARE = 1 / 3;
 const AGE_RANGE = { min: 15, max: 16 };
 
@@ -287,12 +306,25 @@ type Lists = {
   seasonPassOptions: string[];
 };
 
-function registrationOf(person: Person, program: Program | null, lists: Lists): RegistrationInput {
+/** How far a seeded registration got: answered whole, left half-done, or never opened. */
+type Progress = "answered" | "unfinished" | "unanswered";
+
+function registrationOf(
+  person: Person,
+  program: Program | null,
+  lists: Lists,
+  progress: Progress,
+): RegistrationInput {
+  // Followed the link and never came back to it. Attendance stays null, which is what makes the
+  // record incomplete — the exception a teacher is left chasing (US-13, US-23).
+  if (progress === "unanswered") return { ...EMPTY_REGISTRATION };
+
   // Gender belongs to the person rather than to the sports week, so it is answered either way;
   // everything the form hides behind "Nimmst du teil?" stays unanswered for the rest.
   if (program === null) {
     return {
       ...EMPTY_REGISTRATION,
+      isAttendingSportsWeek: false,
       gender: person.gender,
       dateOfBirth: dateOfBirth(),
     };
@@ -301,7 +333,7 @@ function registrationOf(person: Person, program: Program | null, lists: Lists): 
   const rents = program.requiredEquipment.length > 0 && chance(RENTAL_SHARE);
   const wantsOtherFood = chance(OTHER_FOOD_SHARE);
 
-  return {
+  const answers: RegistrationInput = {
     isAttendingSportsWeek: true,
     program: program.name,
     skillLevel: pick(lists.skillLevels),
@@ -321,6 +353,12 @@ function registrationOf(person: Person, program: Program | null, lists: Lists): 
     heightCm: rents ? intBetween(155, 192) : null,
     weightKg: rents ? intBetween(45, 92) : null,
   };
+
+  if (progress === "answered") return answers;
+
+  // One blank is enough to be chased for, and leaves the rest of the row worth reading.
+  const blank = pick([...UNFINISHED_ANSWERS]);
+  return { ...answers, [blank]: null, ...(blank === "foodOption" ? { foodOtherText: null } : {}) };
 }
 
 async function inBatches(
@@ -508,6 +546,20 @@ async function main(): Promise<void> {
     const size = intBetween(STUDENTS_PER_CLASS.min, STUDENTS_PER_CLASS.max);
     const [attending, absent] = split(size, [between(ATTENDING_SHARE.min, ATTENDING_SHARE.max)]);
     const genders = deal(["female", "male"] as const, split(size, [FEMALE_SHARE]));
+    // Alternated rather than rolled, so a class always gets both kinds rather than three of one.
+    const unfinished = Math.min(
+      intBetween(INCOMPLETE_PER_CLASS.min, INCOMPLETE_PER_CLASS.max),
+      size,
+    );
+    const progress = shuffle<Progress>([
+      ...Array.from({ length: unfinished }, (_, at) =>
+        at % 2 === 0 ? "unanswered" : ("unfinished" as Progress),
+      ),
+      ...Array<Progress>(size - unfinished).fill("answered"),
+    ]);
+    // Counted from what was written rather than from `attending`: a student the plan meant to
+    // take part may have been left unanswered instead, and a summary that says otherwise lies.
+    const written = { attending: 0, incomplete: 0 };
     // Null is the absentee's "no program", which is why it is dealt alongside the real ones.
     const chosen = shuffle([
       ...deal<Program | null>(ordered, split(attending, programShares)),
@@ -516,7 +568,8 @@ async function main(): Promise<void> {
 
     for (let index = 0; index < size; index += 1) {
       const person = createPerson(genders[index], taken);
-      const registration = registrationOf(person, chosen[index], lists);
+      const registration = registrationOf(person, chosen[index], lists, progress[index]);
+      if (registration.isAttendingSportsWeek === true) written.attending += 1;
 
       const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, role: "student" }); // prettier-ignore
       const record = registrationSchema.parse({
@@ -533,6 +586,7 @@ async function main(): Promise<void> {
         isIncomplete: isRegistrationIncomplete(registration, questionsAsked(eventSeries)),
         ...registration,
       });
+      if (record.isIncomplete) written.incomplete += 1;
 
       const { id: userId, ...userFields } = user;
       const { id: recordId, ...recordFields } = record;
@@ -547,7 +601,8 @@ async function main(): Promise<void> {
       .map((program) => `${program.name} ${chosen.filter((c) => c === program).length}`)
       .join(", ");
     summary.push(
-      `  ${className}: ${size} students, ${attending} attending, ` +
+      `  ${className}: ${size} students, ${written.attending} attending, ` +
+        `${written.incomplete} incomplete, ` +
         `${size - female} male / ${female} female, ${perProgram}`,
     );
   }
