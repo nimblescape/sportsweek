@@ -15,7 +15,7 @@ import {
   signOut,
 } from "firebase/auth";
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
-import { ROUTES, homeFor } from "@/lib/routes";
+import { ROUTES, homeFor, safeDestination } from "@/lib/routes";
 import { userRoleSchema } from "@/lib/schemas/user";
 
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
@@ -103,8 +103,10 @@ export function useSignIn() {
         // Deliberately stays `checking`: there is a session now, so something is always
         // happening next — either navigating, or a step the caller puts in the way.
         setSession({
-          destination:
-            searchParams.get("next") ?? (role.success ? homeFor(role.data) : ROUTES.appRoot),
+          destination: safeDestination(
+            searchParams.get("next"),
+            role.success ? homeFor(role.data) : ROUTES.appRoot,
+          ),
           signInProvider,
         });
       } catch {

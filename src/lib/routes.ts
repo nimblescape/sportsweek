@@ -42,3 +42,18 @@ export function homeFor(role: UserRole): string {
 export function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
+
+/**
+ * Where a sign-in may send somebody afterwards. `next` comes out of the address bar, so it is a
+ * stranger's text however it got there — and navigating to it unchecked is the whole of an open
+ * redirect: a link to this application's own sign-in page that lands somewhere else entirely.
+ *
+ * Only a path within this application is kept. A scheme, an authority, or the `//` and `/\` that
+ * browsers read as one, all fall back.
+ */
+export function safeDestination(destination: string | null, fallback: string): string {
+  if (destination === null) return fallback;
+
+  const isOwnPath = destination.startsWith("/") && !/^\/[/\\]/.test(destination);
+  return isOwnPath ? destination : fallback;
+}
