@@ -58,7 +58,7 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
       events: true,
     },
   );
-  const { reports: savedReports } = useSavedReports(eventSeriesId);
+  const { reports: savedReports } = useSavedReports(eventSeriesId, eventSeries);
   const [filter, setFilter] = useState(EMPTY_FILTER);
   const [activeFields, setActiveFields] = useState<string[]>([]);
   const [outputError, setOutputError] = useState<string | null>(null);
