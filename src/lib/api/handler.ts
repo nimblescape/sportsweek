@@ -8,8 +8,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, ErrorCode } from "@/lib/errors";
 import { ServiceError, statusForCode } from "@/lib/service-error";
-import { getUserWithAccountType } from "@/lib/auth/guards";
-import type { AccountType } from "@/lib/schemas/user";
+import { getAuthenticatedUser } from "@/lib/auth/guards";
+import { may, type Permission } from "@/lib/auth/permissions";
+
+/** One refusal for every permission, so a caller learns nothing about which one was missing. */
+export const PERMISSION_DENIED_HINT = "Dafür fehlen dir die Rechte.";
 
 export function errorResponse(code: ErrorCode, message: string, details?: unknown) {
   return NextResponse.json(apiError(code, message, details), { status: statusForCode(code) });
@@ -17,15 +20,18 @@ export function errorResponse(code: ErrorCode, message: string, details?: unknow
 
 /**
  * The proxy already gates teacher routes, but that check is optimistic by design — the Edge
- * runtime cannot verify the session cookie. Every write re-verifies here (US-2, US-3).
+ * runtime cannot verify the session cookie, and it knows nothing of permissions. Every write
+ * re-verifies here, against the record rather than the token (US-2, US-3).
  */
-export async function requireTeacherOrResponse(): Promise<NextResponse | null> {
-  const user = await getUserWithAccountType();
+export async function requirePermissionOrResponse(
+  permission: Permission,
+): Promise<NextResponse | null> {
+  const user = await getAuthenticatedUser();
   if (!user) {
     return errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an.");
   }
-  if (user.accountType !== "teacher") {
-    return errorResponse(ErrorCode.PermissionDenied, "Dafür fehlen dir die Rechte.");
+  if (!may(user, permission)) {
+    return errorResponse(ErrorCode.PermissionDenied, PERMISSION_DENIED_HINT);
   }
   return null;
 }
@@ -37,33 +43,45 @@ type IdentifiedOutcome = { ok: true; userId: string } | { ok: false; response: N
  * than merely permitting it (US-13). Records are keyed by the UPN, so a session without an
  * address cannot be attributed and is not served.
  */
-async function requireIdentity(accountType: AccountType): Promise<IdentifiedOutcome> {
-  const user = await getUserWithAccountType();
+export async function requirePermissionIdentityOrResponse(
+  permission: Permission,
+): Promise<IdentifiedOutcome> {
+  const user = await getAuthenticatedUser();
   if (!user || !user.email) {
     return {
       ok: false,
       response: errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an."),
     };
   }
-  if (user.accountType !== accountType) {
+  if (!may(user, permission)) {
     return {
       ok: false,
-      response: errorResponse(ErrorCode.PermissionDenied, "Dafür fehlen dir die Rechte."),
+      response: errorResponse(ErrorCode.PermissionDenied, PERMISSION_DENIED_HINT),
     };
   }
   return { ok: true, userId: user.email.toLowerCase() };
 }
 
-export function requireTeacherIdentityOrResponse(): Promise<IdentifiedOutcome> {
-  return requireIdentity("teacher");
-}
-
 /**
- * Account types are hierarchical everywhere else, but not here: a teacher keeps no master data of their
- * own (US-15), so admitting one would create a record for an event series they are not registered in.
+ * A student is admitted by what they are rather than by what they hold: they carry no
+ * permissions, and a teacher keeps no master data of their own (US-15), so admitting one would
+ * create a record for an event series they are not registered in.
  */
-export function requireStudentOrResponse(): Promise<IdentifiedOutcome> {
-  return requireIdentity("student");
+export async function requireStudentOrResponse(): Promise<IdentifiedOutcome> {
+  const user = await getAuthenticatedUser();
+  if (!user || !user.email) {
+    return {
+      ok: false,
+      response: errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an."),
+    };
+  }
+  if (user.accountType !== "student") {
+    return {
+      ok: false,
+      response: errorResponse(ErrorCode.PermissionDenied, PERMISSION_DENIED_HINT),
+    };
+  }
+  return { ok: true, userId: user.email.toLowerCase() };
 }
 
 type ParseOutcome<T> = { ok: true; data: T } | { ok: false; response: NextResponse };

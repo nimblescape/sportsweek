@@ -5,7 +5,11 @@
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@/lib/api/handler";
+import {
+  handleServiceFailure,
+  parseJsonBody,
+  requirePermissionOrResponse,
+} from "@/lib/api/handler";
 import { orderSchema } from "@/lib/schemas/order";
 import { documentIdSchema } from "@/lib/schemas/common";
 import { eventSeriesSchema } from "@/lib/schemas/event-series";
@@ -23,7 +27,7 @@ const createEventSeriesSchema = z.strictObject({
 const reorderSchema = z.strictObject({ order: orderSchema });
 
 export async function POST(request: Request) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editMasterData");
   if (denied) return denied;
 
   const body = await parseJsonBody(request, createEventSeriesSchema);
@@ -39,7 +43,7 @@ export async function POST(request: Request) {
 
 /** Reorders the event series list (see Ordering); it changes no name or flag, so it needs no guard. */
 export async function PATCH(request: Request) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editMasterData");
   if (denied) return denied;
 
   const body = await parseJsonBody(request, reorderSchema);

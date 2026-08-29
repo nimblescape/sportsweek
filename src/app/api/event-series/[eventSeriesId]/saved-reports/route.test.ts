@@ -6,11 +6,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 
-const getUserWithAccountType = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const createSavedReport = vi.fn();
 const reorderSavedReports = vi.fn();
 
-vi.mock("@/lib/auth/guards", () => ({ getUserWithAccountType: () => getUserWithAccountType() }));
+vi.mock("@/lib/auth/guards", () => ({ getAuthenticatedUser: () => getAuthenticatedUser() }));
 vi.mock("@/lib/report/saved-report-service", () => ({
   createSavedReport: (...args: unknown[]) => createSavedReport(...args),
   reorderSavedReports: (...args: unknown[]) => reorderSavedReports(...args),
@@ -41,7 +41,12 @@ function patchRequest(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithAccountType.mockResolvedValue({ uid: "u1", email: TEACHER, accountType: "teacher" });
+  getAuthenticatedUser.mockResolvedValue({
+    uid: "u1",
+    email: TEACHER,
+    accountType: "teacher",
+    permissions: ["editReports"],
+  });
   createSavedReport.mockResolvedValue({ id: "r1", ...input, createdByUserId: TEACHER });
   reorderSavedReports.mockResolvedValue(undefined);
 });
@@ -70,7 +75,7 @@ describe("POST /api/event-series/[eventSeriesId]/saved-reports", () => {
   });
 
   it("rejects a student with 403, since the report is a teacher's (US-13)", async () => {
-    getUserWithAccountType.mockResolvedValue({
+    getAuthenticatedUser.mockResolvedValue({
       uid: "u2",
       email: "s@x.at",
       accountType: "student",
@@ -82,8 +87,23 @@ describe("POST /api/event-series/[eventSeriesId]/saved-reports", () => {
     expect(createSavedReport).not.toHaveBeenCalled();
   });
 
+  /** Saving a report is its own permission: seeing one does not grant keeping it for everybody. */
+  it("rejects a teacher who may only view reports", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u3",
+      email: "t2@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["viewReports", "editAssignments", "editMasterData"],
+    });
+
+    const response = await POST(postRequest(input), context);
+
+    expect(response.status).toBe(403);
+    expect(createSavedReport).not.toHaveBeenCalled();
+  });
+
   it("rejects an unauthenticated caller with 401", async () => {
-    getUserWithAccountType.mockResolvedValue(null);
+    getAuthenticatedUser.mockResolvedValue(null);
 
     expect((await POST(postRequest(input), context)).status).toBe(401);
   });
@@ -117,7 +137,7 @@ describe("PATCH /api/event-series/[eventSeriesId]/saved-reports", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
-    getUserWithAccountType.mockResolvedValue({
+    getAuthenticatedUser.mockResolvedValue({
       uid: "u2",
       email: "s@x.at",
       accountType: "student",

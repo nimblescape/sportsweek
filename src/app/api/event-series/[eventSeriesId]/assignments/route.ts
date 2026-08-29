@@ -5,7 +5,11 @@
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@/lib/api/handler";
+import {
+  handleServiceFailure,
+  parseJsonBody,
+  requirePermissionOrResponse,
+} from "@/lib/api/handler";
 import { assignStudents } from "@/lib/assignment/assignment-service";
 import { MAX_WRITES_PER_BATCH } from "@/lib/firebase/batch";
 import { documentIdSchema } from "@/lib/schemas/common";
@@ -27,7 +31,7 @@ const assignSchema = z.strictObject({
 type Context = { params: Promise<{ eventSeriesId: string }> };
 
 export async function PATCH(request: Request, { params }: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editAssignments");
   if (denied) return denied;
 
   const body = await parseJsonBody(request, assignSchema);

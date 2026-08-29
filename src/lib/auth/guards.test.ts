@@ -26,7 +26,8 @@ vi.mock("@/lib/session", () => ({ getSessionUser }));
 vi.mock("@/lib/firebase/admin", () => ({ adminDb: { collection } }));
 
 const {
-  getUserWithAccountType,
+  getAuthenticatedUser,
+  requirePermission,
   requireStudent,
   requireTeacher,
   requireUser,
@@ -150,18 +151,95 @@ describe("requireStudent", () => {
   });
 });
 
-describe("getUserWithAccountType", () => {
+describe("getAuthenticatedUser", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("returns null instead of redirecting, so handlers can emit the error envelope", async () => {
     getSessionUser.mockResolvedValue(null);
 
-    expect(await getUserWithAccountType()).toBeNull();
+    expect(await getAuthenticatedUser()).toBeNull();
   });
 
-  it("returns the user with the resolved role", async () => {
+  it("returns the user with the resolved account type", async () => {
     getSessionUser.mockResolvedValue(studentSession);
+    docGet.mockResolvedValue({ exists: true, data: () => ({ accountType: "student" }) });
 
-    expect(await getUserWithAccountType()).toMatchObject({ accountType: "student" });
+    expect(await getAuthenticatedUser()).toMatchObject({ accountType: "student" });
+  });
+
+  /**
+   * The account type may come from the claim, but a permission never does: it is granted and
+   * withdrawn while a session is live, so a token minted beforehand would go on admitting what
+   * an admin has just taken away (US-2).
+   */
+  it("reads the permissions from the record even when the claim answered the account type", async () => {
+    getSessionUser.mockResolvedValue(teacherSession);
+    docGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ accountType: "teacher", permissions: ["editMasterData"] }),
+    });
+
+    expect(await getAuthenticatedUser()).toMatchObject({ permissions: ["editMasterData"] });
+    expect(doc).toHaveBeenCalledWith("jane@htldornbirn.at");
+  });
+
+  it("reads a record written before permissions existed as holding none", async () => {
+    getSessionUser.mockResolvedValue(teacherSession);
+    docGet.mockResolvedValue({ exists: true, data: () => ({ accountType: "teacher" }) });
+
+    expect(await getAuthenticatedUser()).toMatchObject({ permissions: [] });
+  });
+
+  it("grants a student none, whatever their record lists", async () => {
+    getSessionUser.mockResolvedValue(studentSession);
+    docGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ accountType: "student", permissions: ["editUsers"] }),
+    });
+
+    expect(await getAuthenticatedUser()).toMatchObject({ permissions: [] });
+  });
+});
+
+describe("requirePermission", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns the teacher who holds it", async () => {
+    getSessionUser.mockResolvedValue(teacherSession);
+    docGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ accountType: "teacher", permissions: ["editMasterData"] }),
+    });
+
+    expect(await requirePermission("editMasterData")).toMatchObject({
+      permissions: ["editMasterData"],
+    });
+  });
+
+  it("sends a teacher holding a different one back to the landing route", async () => {
+    getSessionUser.mockResolvedValue(teacherSession);
+    docGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ accountType: "teacher", permissions: ["viewReports"] }),
+    });
+
+    await expectRedirect(requirePermission("editUsers"), "/app");
+  });
+
+  it("sends a teacher holding none back to the landing route", async () => {
+    getSessionUser.mockResolvedValue(teacherSession);
+    docGet.mockResolvedValue({ exists: true, data: () => ({ accountType: "teacher" }) });
+
+    await expectRedirect(requirePermission("viewReports"), "/app");
+  });
+
+  it("sends a student back, whatever their record lists", async () => {
+    getSessionUser.mockResolvedValue(studentSession);
+    docGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ accountType: "student", permissions: ["editUsers"] }),
+    });
+
+    await expectRedirect(requirePermission("editUsers"), "/app");
   });
 });

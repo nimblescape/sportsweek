@@ -5,11 +5,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithAccountType = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const createInvitation = vi.fn();
 const invitationsOf = vi.fn();
 
-vi.mock("@/lib/auth/guards", () => ({ getUserWithAccountType: () => getUserWithAccountType() }));
+vi.mock("@/lib/auth/guards", () => ({ getAuthenticatedUser: () => getAuthenticatedUser() }));
 vi.mock("@/lib/invitations/invitation-service", () => ({
   createInvitation: (...args: unknown[]) => createInvitation(...args),
   invitationsOf: (...args: unknown[]) => invitationsOf(...args),
@@ -18,7 +18,12 @@ vi.mock("@/lib/invitations/invitation-service", () => ({
 const { GET, POST } = await import("./route");
 const { ServiceError } = await import("@/lib/service-error");
 
-const TEACHER = { uid: "u1", email: "t@htldornbirn.at", accountType: "teacher" };
+const TEACHER = {
+  uid: "u1",
+  email: "t@htldornbirn.at",
+  accountType: "teacher",
+  permissions: ["editAssignments"],
+};
 const STUDENT = { uid: "u2", email: "s@student.htldornbirn.at", accountType: "student" };
 
 function request(body: unknown) {
@@ -32,7 +37,7 @@ const context = { params: Promise.resolve({ eventSeriesId: "s1" }) };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithAccountType.mockResolvedValue(TEACHER);
+  getAuthenticatedUser.mockResolvedValue(TEACHER);
   createInvitation.mockResolvedValue({ token: "tok", eventSeriesId: "s1", class: "3aWI" });
   invitationsOf.mockResolvedValue([]);
 });
@@ -50,7 +55,20 @@ describe("POST /api/event-series/[eventSeriesId]/invitations", () => {
 
   /** A student holding a link must not be able to mint one, least of all for another class. */
   it("refuses a student", async () => {
-    getUserWithAccountType.mockResolvedValue(STUDENT);
+    getAuthenticatedUser.mockResolvedValue(STUDENT);
+
+    const response = await POST(request({ class: "3aWI" }), context);
+
+    expect(response.status).toBe(403);
+    expect(createInvitation).not.toHaveBeenCalled();
+  });
+
+  /** Inviting a class is planning who takes part, which is not the same as reporting on them. */
+  it("refuses a teacher who may not edit assignments", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      ...TEACHER,
+      permissions: ["viewReports", "editReports", "editMasterData"],
+    });
 
     const response = await POST(request({ class: "3aWI" }), context);
 
@@ -59,7 +77,7 @@ describe("POST /api/event-series/[eventSeriesId]/invitations", () => {
   });
 
   it("refuses a caller with no session", async () => {
-    getUserWithAccountType.mockResolvedValue(null);
+    getAuthenticatedUser.mockResolvedValue(null);
 
     const response = await POST(request({ class: "3aWI" }), context);
 
@@ -109,7 +127,7 @@ describe("GET /api/event-series/[eventSeriesId]/invitations", () => {
 
   /** A token is what enrols somebody, so reading one is enrolling (US-23). */
   it("refuses a student", async () => {
-    getUserWithAccountType.mockResolvedValue(STUDENT);
+    getAuthenticatedUser.mockResolvedValue(STUDENT);
 
     const response = await GET(request({}), context);
 
@@ -118,7 +136,7 @@ describe("GET /api/event-series/[eventSeriesId]/invitations", () => {
   });
 
   it("refuses a caller with no session", async () => {
-    getUserWithAccountType.mockResolvedValue(null);
+    getAuthenticatedUser.mockResolvedValue(null);
 
     const response = await GET(request({}), context);
 

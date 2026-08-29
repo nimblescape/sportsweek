@@ -5,12 +5,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithAccountType = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const createEventSeries = vi.fn();
 const reorderEventSeries = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  getUserWithAccountType: () => getUserWithAccountType(),
+  getAuthenticatedUser: () => getAuthenticatedUser(),
 }));
 
 vi.mock("@/lib/event-series/event-series-service", () => ({
@@ -29,13 +29,14 @@ function postRequest(body: unknown) {
 }
 
 beforeEach(() => {
-  getUserWithAccountType.mockReset();
+  getAuthenticatedUser.mockReset();
   createEventSeries.mockReset();
   reorderEventSeries.mockReset();
-  getUserWithAccountType.mockResolvedValue({
+  getAuthenticatedUser.mockResolvedValue({
     uid: "u1",
     email: "t@htldornbirn.at",
     accountType: "teacher",
+    permissions: ["editMasterData"],
   });
   createEventSeries.mockResolvedValue({
     id: "s1",
@@ -75,7 +76,7 @@ describe("POST /api/event-series", () => {
   });
 
   it("rejects an anonymous caller with 401", async () => {
-    getUserWithAccountType.mockResolvedValue(null);
+    getAuthenticatedUser.mockResolvedValue(null);
 
     const response = await POST(postRequest({ name: "Winter 2026" }));
 
@@ -87,7 +88,7 @@ describe("POST /api/event-series", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot write", async () => {
-    getUserWithAccountType.mockResolvedValue({
+    getAuthenticatedUser.mockResolvedValue({
       uid: "u2",
       email: "s@student.htldornbirn.at",
       accountType: "student",
@@ -97,6 +98,21 @@ describe("POST /api/event-series", () => {
 
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ error: { code: "PERMISSION_DENIED" } });
+    expect(createEventSeries).not.toHaveBeenCalled();
+  });
+
+  /** An event series is master data; planning inside one is a different permission. */
+  it("rejects a teacher who may not edit master data", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u3",
+      email: "t2@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["viewReports", "editReports", "editAssignments"],
+    });
+
+    const response = await POST(postRequest({ name: "Winter 2026" }));
+
+    expect(response.status).toBe(403);
     expect(createEventSeries).not.toHaveBeenCalled();
   });
 
@@ -158,7 +174,7 @@ describe("PATCH /api/event-series", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
-    getUserWithAccountType.mockResolvedValue({
+    getAuthenticatedUser.mockResolvedValue({
       uid: "u2",
       email: "s@student.htldornbirn.at",
       accountType: "student",

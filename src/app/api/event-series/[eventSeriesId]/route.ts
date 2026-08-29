@@ -5,7 +5,11 @@
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { handleServiceFailure, parseJsonBody, requireTeacherOrResponse } from "@/lib/api/handler";
+import {
+  handleServiceFailure,
+  parseJsonBody,
+  requirePermissionOrResponse,
+} from "@/lib/api/handler";
 import { eventSeriesSchema } from "@/lib/schemas/event-series";
 import { deleteEventSeries, updateEventSeries } from "@/lib/event-series/event-series-service";
 
@@ -21,7 +25,7 @@ const updateEventSeriesSchema = z
 type Context = { params: Promise<{ eventSeriesId: string }> };
 
 export async function PATCH(request: Request, { params }: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editMasterData");
   if (denied) return denied;
 
   const body = await parseJsonBody(request, updateEventSeriesSchema);
@@ -38,7 +42,7 @@ export async function PATCH(request: Request, { params }: Context) {
 }
 
 export async function DELETE(_request: Request, { params }: Context) {
-  const denied = await requireTeacherOrResponse();
+  const denied = await requirePermissionOrResponse("editMasterData");
   if (denied) return denied;
 
   const { eventSeriesId } = await params;

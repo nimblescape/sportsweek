@@ -5,11 +5,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithAccountType = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const assignStudents = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  getUserWithAccountType: () => getUserWithAccountType(),
+  getAuthenticatedUser: () => getAuthenticatedUser(),
 }));
 
 vi.mock("@/lib/assignment/assignment-service", () => ({
@@ -31,10 +31,11 @@ function patch(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithAccountType.mockResolvedValue({
+  getAuthenticatedUser.mockResolvedValue({
     uid: "u1",
     email: "t@htldornbirn.at",
     accountType: "teacher",
+    permissions: ["editAssignments"],
   });
   assignStudents.mockResolvedValue(undefined);
 });
@@ -63,7 +64,7 @@ describe("PATCH /api/event-series/[eventSeriesId]/assignments", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot assign", async () => {
-    getUserWithAccountType.mockResolvedValue({
+    getAuthenticatedUser.mockResolvedValue({
       uid: "u2",
       email: "s@student.htldornbirn.at",
       accountType: "student",
@@ -75,8 +76,23 @@ describe("PATCH /api/event-series/[eventSeriesId]/assignments", () => {
     expect(assignStudents).not.toHaveBeenCalled();
   });
 
+  /** Planning is its own permission: reading the report that shows it grants nothing here. */
+  it("rejects a teacher who may only view reports", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u3",
+      email: "t2@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["viewReports", "editReports", "editMasterData"],
+    });
+
+    const response = await patch({ recordIds: ["r1"], event: "Woche 1" });
+
+    expect(response.status).toBe(403);
+    expect(assignStudents).not.toHaveBeenCalled();
+  });
+
   it("rejects a caller who is not signed in with 401", async () => {
-    getUserWithAccountType.mockResolvedValue(null);
+    getAuthenticatedUser.mockResolvedValue(null);
 
     const response = await patch({ recordIds: ["r1"], event: null });
 

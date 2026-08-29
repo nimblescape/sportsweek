@@ -5,11 +5,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithAccountType = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const saveRegistration = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  getUserWithAccountType: () => getUserWithAccountType(),
+  getAuthenticatedUser: () => getAuthenticatedUser(),
 }));
 
 vi.mock("@/lib/registration/registration-service", () => ({
@@ -61,7 +61,7 @@ const context = { params: Promise.resolve({ eventSeriesId: SERIES }) };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithAccountType.mockResolvedValue({ uid: "u1", email: STUDENT, accountType: "student" });
+  getAuthenticatedUser.mockResolvedValue({ uid: "u1", email: STUDENT, accountType: "student" });
   saveRegistration.mockResolvedValue({ id: STUDENT, class: "3AHME", ...body });
 });
 
@@ -84,7 +84,7 @@ describe("PUT /api/my-registration/[eventSeriesId]", () => {
   });
 
   it("rejects an anonymous caller with 401", async () => {
-    getUserWithAccountType.mockResolvedValue(null);
+    getAuthenticatedUser.mockResolvedValue(null);
 
     const response = await PUT(putRequest(body), context);
 
@@ -93,7 +93,7 @@ describe("PUT /api/my-registration/[eventSeriesId]", () => {
   });
 
   it("rejects a teacher with 403, since a teacher keeps no master data of their own", async () => {
-    getUserWithAccountType.mockResolvedValue({
+    getAuthenticatedUser.mockResolvedValue({
       uid: "u2",
       email: "t@htldornbirn.at",
       accountType: "teacher",
@@ -107,7 +107,7 @@ describe("PUT /api/my-registration/[eventSeriesId]", () => {
   });
 
   it("rejects a student whose session carries no address to key the record by", async () => {
-    getUserWithAccountType.mockResolvedValue({ uid: "u1", email: null, accountType: "student" });
+    getAuthenticatedUser.mockResolvedValue({ uid: "u1", email: null, accountType: "student" });
 
     const response = await PUT(putRequest(body), context);
 

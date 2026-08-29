@@ -5,12 +5,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithAccountType = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const updateEventSeries = vi.fn();
 const deleteEventSeries = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  getUserWithAccountType: () => getUserWithAccountType(),
+  getAuthenticatedUser: () => getAuthenticatedUser(),
 }));
 
 vi.mock("@/lib/event-series/event-series-service", () => ({
@@ -35,13 +35,14 @@ function deleteRequest() {
 }
 
 beforeEach(() => {
-  getUserWithAccountType.mockReset();
+  getAuthenticatedUser.mockReset();
   updateEventSeries.mockReset();
   deleteEventSeries.mockReset();
-  getUserWithAccountType.mockResolvedValue({
+  getAuthenticatedUser.mockResolvedValue({
     uid: "u1",
     email: "t@htldornbirn.at",
     accountType: "teacher",
+    permissions: ["editMasterData"],
   });
   updateEventSeries.mockResolvedValue({
     id: "s1",
@@ -92,14 +93,32 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
   });
 
   it("rejects an unknown field instead of silently dropping it", async () => {
-    const response = await PATCH(patchRequest({ accountType: "teacher" }), context);
+    const response = await PATCH(
+      patchRequest({ accountType: "teacher", permissions: ["editMasterData"] }),
+      context,
+    );
 
     expect(response.status).toBe(400);
     expect(updateEventSeries).not.toHaveBeenCalled();
   });
 
   it("rejects a student with 403", async () => {
-    getUserWithAccountType.mockResolvedValue({ uid: "u2", email: "s@x", accountType: "student" });
+    getAuthenticatedUser.mockResolvedValue({ uid: "u2", email: "s@x", accountType: "student" });
+
+    const response = await PATCH(patchRequest({ name: "X" }), context);
+
+    expect(response.status).toBe(403);
+    expect(updateEventSeries).not.toHaveBeenCalled();
+  });
+
+  /** The series and its lists are master data; planning inside one is a different permission. */
+  it("rejects a teacher who may not edit master data", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u3",
+      email: "t2@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["viewReports", "editReports", "editAssignments"],
+    });
 
     const response = await PATCH(patchRequest({ name: "X" }), context);
 
@@ -136,7 +155,7 @@ describe("DELETE /api/event-series/[eventSeriesId]", () => {
   });
 
   it("rejects a student with 403", async () => {
-    getUserWithAccountType.mockResolvedValue({ uid: "u2", email: "s@x", accountType: "student" });
+    getAuthenticatedUser.mockResolvedValue({ uid: "u2", email: "s@x", accountType: "student" });
 
     const response = await DELETE(deleteRequest(), context);
 

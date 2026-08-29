@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getUserWithAccountType = vi.fn();
+const getAuthenticatedUser = vi.fn();
 const createMasterDataItem = vi.fn();
 const updateMasterDataItem = vi.fn();
 const deleteMasterDataItem = vi.fn();
@@ -14,7 +14,7 @@ const readMasterDataItems = vi.fn();
 const usageReport = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  getUserWithAccountType: () => getUserWithAccountType(),
+  getAuthenticatedUser: () => getAuthenticatedUser(),
 }));
 
 vi.mock("@/lib/master-data/master-data-service", () => ({
@@ -48,10 +48,11 @@ function context(category: string, eventSeriesId = "s1") {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getUserWithAccountType.mockResolvedValue({
+  getAuthenticatedUser.mockResolvedValue({
     uid: "u1",
     email: "t@htldornbirn.at",
     accountType: "teacher",
+    permissions: ["editMasterData"],
   });
   createMasterDataItem.mockResolvedValue({ name: "3AHIT" });
   updateMasterDataItem.mockResolvedValue({ name: "3BHIT" });
@@ -88,7 +89,7 @@ describe("POST /api/master-data/[category]", () => {
   });
 
   it("rejects an anonymous caller with 401", async () => {
-    getUserWithAccountType.mockResolvedValue(null);
+    getAuthenticatedUser.mockResolvedValue(null);
 
     const response = await POST(request("POST", { name: "3AHIT" }), context("classes"));
 
@@ -97,12 +98,27 @@ describe("POST /api/master-data/[category]", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot write", async () => {
-    getUserWithAccountType.mockResolvedValue(STUDENT);
+    getAuthenticatedUser.mockResolvedValue(STUDENT);
 
     const response = await POST(request("POST", { name: "3AHIT" }), context("classes"));
 
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ error: { code: "PERMISSION_DENIED" } });
+    expect(createMasterDataItem).not.toHaveBeenCalled();
+  });
+
+  /** The lists are their own permission: planning with them is not the same as maintaining them. */
+  it("rejects a teacher who may not edit master data", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u3",
+      email: "t2@htldornbirn.at",
+      accountType: "teacher",
+      permissions: ["viewReports", "editReports", "editAssignments"],
+    });
+
+    const response = await POST(request("POST", { name: "3AHIT" }), context("classes"));
+
+    expect(response.status).toBe(403);
     expect(createMasterDataItem).not.toHaveBeenCalled();
   });
 
@@ -159,7 +175,7 @@ describe("PATCH /api/master-data/[category] — reordering", () => {
   });
 
   it("rejects a student with 403, so a bypassed client cannot reorder", async () => {
-    getUserWithAccountType.mockResolvedValue(STUDENT);
+    getAuthenticatedUser.mockResolvedValue(STUDENT);
 
     const response = await PATCH(request("PATCH", { order: ["3AHIT"] }), context("classes"));
 
@@ -265,7 +281,7 @@ describe("PATCH /api/master-data/[category] — editing one item", () => {
   });
 
   it("rejects a student with 403", async () => {
-    getUserWithAccountType.mockResolvedValue(STUDENT);
+    getAuthenticatedUser.mockResolvedValue(STUDENT);
 
     const response = await PATCH(
       request("PATCH", { item: "3AHIT", name: "3BHIT" }),
@@ -309,7 +325,7 @@ describe("DELETE /api/master-data/[category]", () => {
   });
 
   it("rejects a student with 403", async () => {
-    getUserWithAccountType.mockResolvedValue(STUDENT);
+    getAuthenticatedUser.mockResolvedValue(STUDENT);
 
     const response = await DELETE(request("DELETE", { item: "3AHIT" }), context("classes"));
 
@@ -343,7 +359,7 @@ describe("GET /api/master-data/[category]", () => {
   });
 
   it("rejects a student, since the answer is derived from data they cannot read", async () => {
-    getUserWithAccountType.mockResolvedValue(STUDENT);
+    getAuthenticatedUser.mockResolvedValue(STUDENT);
 
     const response = await GET(new Request("https://example.com"), context("classes"));
 
