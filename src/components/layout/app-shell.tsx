@@ -42,17 +42,13 @@ export function AppShell({
           </div>
         ) : null}
 
-        {/* Positioned, because the busy bar straddles the border at its foot rather than sitting
-            inside it — without this it has nothing nearer than the viewport to be placed against. */}
-        <header className="border-border bg-background relative col-start-2 row-start-1 flex items-center justify-between gap-4 border-b px-4 py-2 md:px-6">
+        <header className="border-border bg-background col-start-2 row-start-1 flex items-center justify-between gap-4 border-b px-4 py-2 md:px-6">
           {nav ? null : <Brand />}
           {/* The scope leads the header, because it says what every page below it is about. */}
           {scope}
           {/* Where there is a bar, signing out sits at the foot of it, under the person's own
               mark. A student has no bar, so it stays here. */}
           {nav ? null : <SignOutButton photo={photo} />}
-          {/* Last, and positioned against the header, whose bottom border it sits on. */}
-          <BusyBar />
         </header>
 
         <main className="bg-background col-start-2 row-start-2 flex min-h-0 flex-col overflow-y-auto">
@@ -60,6 +56,14 @@ export function AppShell({
           {nav ? <div className="border-border bg-sidebar border-b md:hidden">{nav}</div> : null}
           {children}
         </main>
+
+        {/* Spanning both columns, so the indicator is centred on the window rather than on the
+            content column — the navigation's width is its own business and must not move it. It
+            takes no height of its own and sits at the foot of the header's row, which is the
+            border it straddles, so the header may grow as the tags wrap without moving it. */}
+        <div className="pointer-events-none relative col-span-2 col-start-1 row-start-1 self-end">
+          <BusyBar />
+        </div>
       </div>
     </BusyProvider>
   );
