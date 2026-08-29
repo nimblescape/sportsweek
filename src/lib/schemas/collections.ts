@@ -24,6 +24,13 @@ export const COLLECTIONS = {
    * It lives here instead, where no client may read anything, and is resolved server-side.
    */
   invitations: "invitations",
+  /**
+   * The saved reports (US-13, US-25), beneath the series whose lists they filter on. Beneath
+   * rather than in its document for the reason above: a rule grants a whole document, and any
+   * signed-in user may read an event series — so a field would hand every student every
+   * teacher's reports. Firestore deletes no subcollection with its parent, so removing a series
+   * has to name these as well.
+   */
   savedReports: "savedReports",
 } as const;
 

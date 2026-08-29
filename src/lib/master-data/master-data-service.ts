@@ -10,6 +10,7 @@ import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { NO_SUCH_EVENT_SERIES } from "@/lib/event-series/event-series-state";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import {
   listItemNameSchema,
@@ -129,7 +130,7 @@ function eventSeriesDoc(eventSeriesId: string) {
 }
 
 function missing(): ServiceError {
-  return new ServiceError(ErrorCode.NotFound, "Diese Eventreihe gibt es nicht.");
+  return new ServiceError(ErrorCode.NotFound, NO_SUCH_EVENT_SERIES);
 }
 
 /**

@@ -281,7 +281,8 @@ describe("AssignmentBoard — what the figures count", () => {
 
     const heading = card("Nicht zugeteilt").getByRole("heading", { name: "Statistik" });
 
-    expect(heading.parentElement).toContainElement(toggleIn("Nicht zugeteilt"));
+    // The heading row itself, whatever the heading is wrapped in on the way up to it.
+    expect(heading.closest("div")).toContainElement(toggleIn("Nicht zugeteilt"));
   });
 
   it("carries the two genders, their sum and the share of everyone taking part in one table", () => {

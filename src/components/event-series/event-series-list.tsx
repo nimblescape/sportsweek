@@ -116,7 +116,7 @@ export function EventSeriesList({
                   <Tooltip label="Bearbeiten">
                     <Button
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon"
                       disabled={busy}
                       aria-label={`Eventreihe ${eventSeries.name} bearbeiten`}
                       onClick={() => onEdit(eventSeries)}
@@ -137,7 +137,7 @@ export function EventSeriesList({
                   <span className="inline-flex">
                     <Button
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon"
                       disabled={archivingDisabled || busy}
                       aria-label={
                         eventSeries.isArchived
@@ -168,7 +168,7 @@ export function EventSeriesList({
                   <span className="inline-flex">
                     <Button
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon"
                       disabled={deletingDisabled || busy}
                       aria-label={`Eventreihe ${eventSeries.name} löschen`}
                       aria-describedby={deletingDisabled ? deleteHintId : undefined}

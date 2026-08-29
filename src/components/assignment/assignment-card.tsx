@@ -14,9 +14,9 @@ import {
   type PointerEventHandler,
 } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { ChevronRight, GripVertical } from "lucide-react";
+import { GripVertical } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeading, CardTitle } from "@/components/ui/card";
 import {
   attendingCounts,
   type AssignmentGroup,
@@ -99,21 +99,15 @@ export function AssignmentCard({
       className={cn("transition-shadow", isOver && "ring-ring ring-2")}
     >
       <CardContent className="flex flex-col gap-4">
-        <CardTitle className="flex items-center gap-1.5">
-          <button
-            type="button"
-            aria-label={`Details zu ${group.title}`}
-            aria-expanded={expanded}
-            onClick={() => setExpanded((open) => !open)}
-            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-md p-0.5 transition-colors outline-none focus-visible:ring-3"
-          >
-            <ChevronRight
-              aria-hidden
-              className={cn("size-4 transition-transform", expanded && "rotate-90")}
-            />
-          </button>
-          {`${group.title}: ${group.students.length}`}
-        </CardTitle>
+        <CardHeading
+          fold={{
+            open: expanded,
+            label: `Details zu ${group.title}`,
+            onOpenChange: setExpanded,
+          }}
+        >
+          <CardTitle className="truncate">{`${group.title}: ${group.students.length}`}</CardTitle>
+        </CardHeading>
 
         {expanded && (
           <div className={AREAS}>

@@ -165,8 +165,14 @@ describe("/eventSeries/{id}/registrations", () => {
   });
 });
 
-/** Saved reports are shared among teachers (US-13) and are no business of a student's. */
-describe("/savedReports", () => {
+/**
+ * Saved reports are shared among teachers (US-13) and are no business of a student's. They sit
+ * beneath the series whose lists they filter on, which is what lets that be said: a rule grants
+ * a whole document or none of it, and a student reads the event series document to be asked its
+ * questions (US-11), so a field on it would have handed them every report of every series.
+ */
+describe("/eventSeries/{id}/savedReports", () => {
+  const SAVED_REPORTS = "eventSeries/eventSeries1/savedReports";
   const report = {
     createdByUserId: TEACHER_UPN,
     name: "5AHIF",
@@ -177,35 +183,39 @@ describe("/savedReports", () => {
     fields: ["class"],
   };
 
-  beforeEach(async () => await seed("savedReports", "report1", report));
+  beforeEach(async () => await seed(SAVED_REPORTS, "report1", report));
 
   it("lets a teacher read a report saved by another teacher, since they are shared", async () => {
-    await assertSucceeds(teacher().collection("savedReports").doc("report1").get());
+    await assertSucceeds(teacher().collection(SAVED_REPORTS).doc("report1").get());
   });
 
   it("lets a teacher query them, which is what the report's tag row does", async () => {
-    await assertSucceeds(teacher().collection("savedReports").get());
+    await assertSucceeds(teacher().collection(SAVED_REPORTS).get());
   });
 
   it("denies a student reading them", async () => {
-    await assertFails(student().collection("savedReports").doc("report1").get());
+    await assertFails(student().collection(SAVED_REPORTS).doc("report1").get());
+  });
+
+  it("denies a student querying them, which reading the series they registered for does not", async () => {
+    await assertFails(student().collection(SAVED_REPORTS).get());
   });
 
   it("denies an unauthenticated read", async () => {
-    await assertFails(anonymous().collection("savedReports").doc("report1").get());
+    await assertFails(anonymous().collection(SAVED_REPORTS).doc("report1").get());
   });
 
   it("denies a teacher writing one", async () => {
     await assertFails(
       teacher()
-        .collection("savedReports")
+        .collection(SAVED_REPORTS)
         .doc("report2")
         .set({ ...report, name: "5BHIF" }),
     );
   });
 
   it("denies a teacher deleting one", async () => {
-    await assertFails(teacher().collection("savedReports").doc("report1").delete());
+    await assertFails(teacher().collection(SAVED_REPORTS).doc("report1").delete());
   });
 });
 

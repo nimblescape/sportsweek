@@ -9,50 +9,47 @@ import { useEffect, useState } from "react";
 import { collection, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { subscribeWithRecovery } from "@/lib/firebase/live-query";
-import { COLLECTIONS } from "@/lib/schemas/collections";
 import { byPosition } from "@/lib/schemas/position";
+import { savedReportPath } from "@/lib/report/saved-reports";
 import { savedReportSchema, type SavedReport } from "@/lib/schemas/saved-report";
 
 /**
- * Every saved report, live. They are shared among all teachers (US-13), so there is nothing to
- * scope the query by — and one teacher's save shows up in another's tag row without either of
- * them reloading.
+ * One event series' saved reports, live. They are shared among all teachers (US-13), so one
+ * teacher's save shows up in another's tag row without either of them reloading — but only in
+ * the series it was saved in, whose lists it filters on.
  *
  * In the order the tags were dragged into (see Ordering): a teacher puts the reports they open
  * every week at the front, which no alphabet would have guessed.
  */
-export function useSavedReports() {
+export function useSavedReports(eventSeriesId: string) {
   const [reports, setReports] = useState<SavedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(
-    () =>
-      subscribeWithRecovery<SavedReport>({
-        label: COLLECTIONS.savedReports,
-        buildQuery: () => query(collection(db, COLLECTIONS.savedReports)),
-        parse: (id, data) => {
-          const parsed = savedReportSchema.safeParse({ id, ...data });
-          if (!parsed.success) {
-            console.error(
-              `${COLLECTIONS.savedReports}/${id} does not match the schema`,
-              parsed.error,
-            );
-            return null;
-          }
-          return parsed.data;
-        },
-        onData: (received) => {
-          setReports([...received].sort(byPosition));
-          setLoading(false);
-        },
-        onError: (message) => {
-          setError(message);
-          if (message !== null) setLoading(false);
-        },
-      }),
-    [],
-  );
+  useEffect(() => {
+    const path = savedReportPath(eventSeriesId);
+
+    return subscribeWithRecovery<SavedReport>({
+      label: path,
+      buildQuery: () => query(collection(db, path)),
+      parse: (id, data) => {
+        const parsed = savedReportSchema.safeParse({ id, ...data });
+        if (!parsed.success) {
+          console.error(`${path}/${id} does not match the schema`, parsed.error);
+          return null;
+        }
+        return parsed.data;
+      },
+      onData: (received) => {
+        setReports([...received].sort(byPosition));
+        setLoading(false);
+      },
+      onError: (message) => {
+        setError(message);
+        if (message !== null) setLoading(false);
+      },
+    });
+  }, [eventSeriesId]);
 
   return { reports, loading, error };
 }

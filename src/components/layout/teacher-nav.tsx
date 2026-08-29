@@ -8,10 +8,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, ChevronLeft, ChevronRight, Database, FileText, Shuffle } from "lucide-react";
+import { ChartColumn, Database, FileText, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { masterDataSections } from "@/lib/master-data/categories";
-import { selectedEventSeriesIdFrom } from "@/lib/event-series/event-series-selection";
+import { Brand } from "@/components/layout/brand";
+import { SignOutButton } from "@/components/auth/sign-out-button";
+import { masterDataSections, firstMasterDataPath } from "@/lib/master-data/categories";
+import { useEventSeries } from "@/lib/event-series/use-event-series";
+import {
+  sectionSelection,
+  selectedEventSeriesIdFrom,
+} from "@/lib/event-series/event-series-selection";
 import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
 
 function topLevel(eventSeriesId: string) {
@@ -27,7 +33,7 @@ function itemClasses(active: boolean) {
   return cn(
     // A fixed height, because collapsing takes the label out of the flow: without it every row
     // would shrink to its icon and the whole bar would shift as it closes.
-    "flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+    "flex min-h-9 w-full items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors",
     active ? "bg-accent text-accent-foreground font-medium" : "hover:bg-muted",
   );
 }
@@ -39,8 +45,10 @@ function itemClasses(active: boolean) {
  */
 export function TeacherNav({
   fallbackEventSeriesId = null,
+  photo = null,
 }: {
   fallbackEventSeriesId?: string | null;
+  photo?: string | null;
 }) {
   const pathname = usePathname();
   const inUrl = selectedEventSeriesIdFrom(pathname);
@@ -55,78 +63,65 @@ export function TeacherNav({
     pathname === ROUTES.eventSeries ||
     pathname.startsWith(`${ROUTES.eventSeries}/`) ||
     (masterData !== null && pathname.startsWith(masterData));
-  const [collapsed, setCollapsed] = useState(false);
 
-  // Collapsing is offered where the bar is a column; on a narrow screen it is a strip across the
-  // top, which is why the labels only go away from the same breakpoint the toggle appears at.
-  const labelClasses = cn(collapsed && "md:sr-only");
+  // Each section keeps the selection where it can be about it, and takes the first it can show
+  // where it cannot: master data can be about a template, the pages of registrations cannot.
+  const { eventSeries } = useEventSeries();
+  const seriesId = sectionSelection(eventSeries, eventSeriesId, "series");
+  const masterDataId = sectionSelection(eventSeries, eventSeriesId, "masterData");
+  const sections = masterDataSections(masterDataId);
 
   return (
-    <nav
-      aria-label="Hauptnavigation"
-      className={cn("flex flex-col gap-1 p-3", collapsed ? "md:w-16" : "md:w-56")}
-    >
-      {(eventSeriesId === null ? [] : topLevel(eventSeriesId)).map(({ href, label, Icon }) => {
+    <nav aria-label="Hauptnavigation" className="flex h-full flex-col gap-1 p-2 md:w-56">
+      {/* Heads the bar rather than the header, because the bar runs to the top of the window and
+          the column beside it is where a page begins. */}
+      <Brand />
+
+      {(seriesId === null ? [] : topLevel(seriesId)).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            title={collapsed ? label : undefined}
             className={itemClasses(active)}
           >
-            <Icon aria-hidden className="size-4 shrink-0" />
-            <span className={labelClasses}>{label}</span>
+            <Icon aria-hidden className="size-6 shrink-0" />
+            <span>{label}</span>
           </Link>
         );
       })}
 
-      <button
-        type="button"
-        // Its own section never folds, so the only thing left to ask of it is the width to read
-        // that section in.
-        onClick={() => setCollapsed(false)}
-        title={collapsed ? "Stammdaten" : undefined}
-        className={cn(itemClasses(inMasterData), "text-left")}
+      {/* The section has no view of its own, so it opens on the first list beneath it. */}
+      <Link
+        href={masterDataId === null ? ROUTES.eventSeries : firstMasterDataPath(masterDataId)}
+        className={itemClasses(inMasterData)}
       >
-        <Database aria-hidden className="size-4 shrink-0" />
-        <span className={labelClasses}>Stammdaten</span>
-      </button>
+        <Database aria-hidden className="size-6 shrink-0" />
+        <span>Stammdaten</span>
+      </Link>
 
-      {collapsed ? null : (
-        <ul className="flex flex-col gap-1">
-          {masterDataSections(eventSeriesId).map(({ href, label }) => (
-            <li key={href}>
-              <Link
-                href={href}
-                aria-current={pathname === href ? "page" : undefined}
-                className={itemClasses(pathname === href)}
-              >
-                {/* Stands in for the icon above it, so the text lines up by being laid out the
-                    same way rather than by a padding that has to add up to the same number. */}
-                <span aria-hidden className="size-4 shrink-0" />
-                {label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="flex flex-col gap-1">
+        {sections.map(({ href, label }) => (
+          <li key={href}>
+            <Link
+              href={href}
+              aria-current={pathname === href ? "page" : undefined}
+              className={itemClasses(pathname === href)}
+            >
+              {/* Stands in for the icon above it, so the text lines up by being laid out the
+                  same way rather than by a padding that has to add up to the same number. */}
+              <span aria-hidden className="size-6 shrink-0" />
+              {label}
+            </Link>
+          </li>
+        ))}
+      </ul>
 
-      <button
-        type="button"
-        onClick={() => setCollapsed((on) => !on)}
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
-        className={cn(itemClasses(false), "mt-auto hidden justify-end md:flex")}
-      >
-        {/* Points the way the bar is about to move. */}
-        {collapsed ? (
-          <ChevronRight aria-hidden className="size-4 shrink-0" />
-        ) : (
-          <ChevronLeft aria-hidden className="size-4 shrink-0" />
-        )}
-      </button>
+      {/* The foot of the bar: who is signed in. */}
+      <div className="mt-auto">
+        <SignOutButton className="min-h-9 w-full justify-start px-2 py-2" photo={photo} />
+      </div>
     </nav>
   );
 }

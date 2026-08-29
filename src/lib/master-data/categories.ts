@@ -5,6 +5,7 @@
  */
 import { z } from "zod";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { eventSeriesRoutes } from "@/lib/routes";
 
 /**
  * How an item is recognised as still in use (US-5 to US-10). A registration stores the name it
@@ -194,6 +195,12 @@ export function masterDataSections(eventSeriesId: string | null) {
       label: category.labels.title,
     })),
   ];
+}
+
+/** Where the section opens: its first category, the section itself having no view of its own. */
+export function firstMasterDataPath(eventSeriesId: string): string {
+  const [first] = Object.keys(MASTER_DATA_CATEGORIES);
+  return `${eventSeriesRoutes(eventSeriesId).masterData}/${first}`;
 }
 
 /**

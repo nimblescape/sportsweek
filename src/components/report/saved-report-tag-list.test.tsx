@@ -202,7 +202,7 @@ describe("telling an untouched saved report from a changed one", () => {
     change({ ...CURRENT, fields: [] });
 
     expect(tagBox("5AHIF")).not.toHaveClass("bg-primary");
-    expect(tagBox("5AHIF")).toHaveClass("bg-secondary");
+    expect(tagBox("5AHIF")).toHaveClass("bg-neutral");
   });
 
   /** Colour alone says nothing to a screen reader, so the tag is described as well. */

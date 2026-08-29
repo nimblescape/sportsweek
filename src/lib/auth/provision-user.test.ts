@@ -14,6 +14,7 @@ const doc = vi.fn(() => ({ get: docGet, set: docSet, update: docUpdate }));
 const collection = vi.fn(() => ({ doc }));
 const setCustomUserClaims = vi.fn();
 const fetchEntraName = vi.fn();
+const fetchEntraPhoto = vi.fn();
 
 /**
  * The user record stays a mock, so the tests below can stage a login that finds one or does
@@ -31,7 +32,7 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminAuth: { setCustomUserClaims },
 }));
 
-vi.mock("@/lib/auth/graph", () => ({ fetchEntraName }));
+vi.mock("@/lib/auth/graph", () => ({ fetchEntraName, fetchEntraPhoto }));
 
 // Whatever else a deployment refuses. Production refuses nothing, so the tests below say so
 // explicitly rather than leaning on which module the build happens to resolve.
@@ -129,6 +130,7 @@ describe("provisionUser", () => {
         lastName: "Doe",
         email: "jane.doe@htldornbirn.at",
         role: "teacher",
+        photo: null,
       },
     });
     expect(collection).toHaveBeenCalledWith("users");
@@ -199,6 +201,7 @@ describe("provisionUser", () => {
       firstName: "Jane",
       lastName: "Doe",
       email: "jane.doe@htldornbirn.at",
+      photo: null,
     });
   });
 
@@ -321,6 +324,73 @@ describe("provisionUser", () => {
     await provisionUser({ ...teacherClaims, email: "jane@gmail.com" }, "graph-token");
 
     expect(fetchEntraName).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Sign-in is the one moment the Graph token is held, so it is the one moment the photo can be
+ * read — the token is not kept afterwards, and the browser never had one of its own (US-1).
+ */
+describe("provisionUser — the Entra photo", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    refuseSignIn.mockReturnValue(null);
+    docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    fetchEntraName.mockResolvedValue(null);
+    fetchEntraPhoto.mockResolvedValue(null);
+  });
+
+  it("stores the photo Graph holds", async () => {
+    fetchEntraPhoto.mockResolvedValue("data:image/jpeg;base64,AAA");
+
+    const result = await provisionUser(teacherClaims, "graph-token");
+
+    expect(fetchEntraPhoto).toHaveBeenCalledWith("graph-token");
+    expect(docSet).toHaveBeenCalledWith(
+      expect.objectContaining({ photo: "data:image/jpeg;base64,AAA" }),
+    );
+    expect(result).toMatchObject({ ok: true, user: { photo: "data:image/jpeg;base64,AAA" } });
+  });
+
+  /** An account with no photo stores none, rather than a key holding nothing. */
+  it("stores null when there is no photo to store", async () => {
+    const result = await provisionUser(teacherClaims, "graph-token");
+
+    expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ photo: null }));
+    expect(result).toMatchObject({ ok: true, user: { photo: null } });
+  });
+
+  /** Removing it in Entra removes it here, which only a write on every login can do. */
+  it("clears a photo that Entra no longer has", async () => {
+    existingRecord({ role: "teacher", photo: "data:image/jpeg;base64,OLD" });
+
+    await provisionUser(teacherClaims, "graph-token");
+
+    expect(docUpdate).toHaveBeenCalledWith(expect.objectContaining({ photo: null }));
+  });
+
+  it("does not ask for one without a token to ask with", async () => {
+    await provisionUser(teacherClaims);
+
+    expect(fetchEntraPhoto).not.toHaveBeenCalled();
+    expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ photo: null }));
+  });
+
+  /** Two independent reads of the same profile; one waiting for the other only slows sign-in. */
+  it("asks for the name and the photo at the same time", async () => {
+    let namePending = false;
+    fetchEntraName.mockImplementation(async () => {
+      namePending = true;
+      return null;
+    });
+    fetchEntraPhoto.mockImplementation(async () => {
+      expect(namePending).toBe(true);
+      return null;
+    });
+
+    await provisionUser(teacherClaims, "graph-token");
+
+    expect(fetchEntraPhoto).toHaveBeenCalled();
   });
 });
 

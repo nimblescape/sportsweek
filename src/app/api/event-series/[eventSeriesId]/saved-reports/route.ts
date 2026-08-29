@@ -17,15 +17,19 @@ import { createSavedReport, reorderSavedReports } from "@/lib/report/saved-repor
 
 const reorderSchema = z.strictObject({ order: orderSchema });
 
-export async function POST(request: Request) {
+type Context = { params: Promise<{ eventSeriesId: string }> };
+
+export async function POST(request: Request, context: Context) {
   const teacher = await requireTeacherIdentityOrResponse();
   if (!teacher.ok) return teacher.response;
 
   const body = await parseJsonBody(request, savedReportInputSchema);
   if (!body.ok) return body.response;
 
+  const { eventSeriesId } = await context.params;
+
   try {
-    const report = await createSavedReport(body.data, teacher.userId);
+    const report = await createSavedReport(eventSeriesId, body.data, teacher.userId);
     return NextResponse.json({ report }, { status: 201 });
   } catch (error) {
     return handleServiceFailure(error, "Saving a report");
@@ -33,15 +37,17 @@ export async function POST(request: Request) {
 }
 
 /** Reorders the tag row (see Ordering); it changes nothing a report holds, so it needs no guard. */
-export async function PATCH(request: Request) {
+export async function PATCH(request: Request, context: Context) {
   const denied = await requireTeacherOrResponse();
   if (denied) return denied;
 
   const body = await parseJsonBody(request, reorderSchema);
   if (!body.ok) return body.response;
 
+  const { eventSeriesId } = await context.params;
+
   try {
-    await reorderSavedReports(body.data.order);
+    await reorderSavedReports(eventSeriesId, body.data.order);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return handleServiceFailure(error, "Reordering saved reports");

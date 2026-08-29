@@ -8,8 +8,15 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const pathname = vi.fn(() => "/app/s1/report");
+const eventSeries = vi.fn<() => { eventSeries: unknown[] }>(() => ({ eventSeries: [] }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => pathname() }));
+vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => eventSeries() }));
+
+// The bar carries it at its foot, and it reaches Firebase, which no test here has cause to start.
+vi.mock("@/components/auth/sign-out-button", () => ({
+  SignOutButton: () => <button type="button">Abmelden</button>,
+}));
 
 const { TeacherNav } = await import("@/components/layout/teacher-nav");
 
@@ -23,10 +30,21 @@ const SUB_ITEMS = [
   "Verpflegung",
 ];
 
+const series = (id: string, overrides = {}) => ({
+  id,
+  isTemplate: false,
+  isArchived: false,
+  ...overrides,
+});
+
+const showing = (...list: ReturnType<typeof series>[]) =>
+  eventSeries.mockReturnValue({ eventSeries: list });
+
 describe("TeacherNav", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pathname.mockReturnValue("/app/s1/report");
+    showing(series("s1"), series("s2"), series("s7"));
   });
 
   it("lists the top-level items in order", () => {
@@ -53,16 +71,50 @@ describe("TeacherNav", () => {
       expect(screen.getByRole("link", { name: label }).querySelector("svg")).toBeInTheDocument();
     }
     expect(
-      screen.getByRole("button", { name: /stammdaten/i }).querySelector("svg"),
+      screen.getByRole("link", { name: /stammdaten/i }).querySelector("svg"),
     ).toBeInTheDocument();
   });
 
+  /** Moving into the section is not a change of series, so it opens on the one already selected. */
+  it("opens Stammdaten on the selected series, at its first list", () => {
+    render(<TeacherNav />);
+
+    expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
+      "href",
+      "/app/s1/master-data/events",
+    );
+  });
+
+  /** Master data can be about a template, so it is where a selected one is kept (US-22). */
+  it("opens Stammdaten on the first template when nothing is selected", () => {
+    pathname.mockReturnValue("/app/event-series");
+    showing(series("s1"), series("t1", { isTemplate: true }));
+
+    render(<TeacherNav />);
+
+    expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
+      "href",
+      "/app/t1/master-data/events",
+    );
+  });
+
+  /** A template has no registrations, so the pages that read them take the first series instead. */
+  it("points the other sections past a selected template", () => {
+    pathname.mockReturnValue("/app/t1/master-data/classes");
+    showing(series("t1", { isTemplate: true }), series("s1"));
+
+    render(<TeacherNav />);
+
+    expect(screen.getByRole("link", { name: "Bericht" })).toHaveAttribute("href", "/app/s1/report");
+  });
+
   /**
-   * Every page but the event series list is about one series, so with none selected there is
+   * Every page but the event series list is about one series, so with none at all there is
    * nowhere for the other entries to point (US-20).
    */
-  it("offers only the event series list while nothing is selected", () => {
+  it("offers only the event series list while there is no series to be about", () => {
     pathname.mockReturnValue("/app/event-series");
+    showing();
 
     render(<TeacherNav />);
 
@@ -106,7 +158,7 @@ describe("TeacherNav", () => {
   it("leaves them there when Stammdaten is clicked, which folds nothing", async () => {
     render(<TeacherNav />);
 
-    await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
+    await userEvent.click(screen.getByRole("link", { name: /stammdaten/i }));
 
     for (const label of SUB_ITEMS) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
@@ -140,87 +192,33 @@ describe("TeacherNav", () => {
   });
 });
 
-describe("TeacherNav — collapsing", () => {
+/**
+ * The bar does not fold. It had a control on the logo and, before that, on whichever row you
+ * were already standing on; both are gone until the width is worth the second state.
+ */
+describe("TeacherNav — always open", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pathname.mockReturnValue("/app/s1/report");
+    showing(series("s1"), series("s2"), series("s7"));
   });
 
-  const toggle = () => screen.getByRole("button", { name: /navigation (ein|aus)klappen/i });
+  const openSubItems = () => screen.queryByRole("link", { name: "Klassen" });
 
-  it("starts open, and says which way its control goes", () => {
+  it("offers nothing that folds it", () => {
     render(<TeacherNav />);
 
-    expect(toggle()).toHaveAccessibleName("Navigation einklappen");
-    expect(toggle()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("button", { name: /navigation/i })).not.toBeInTheDocument();
   });
 
-  /** It is about the bar rather than a place to go, so it sits below everything that is. */
-  it("puts its own control below every destination", () => {
-    render(<TeacherNav />);
+  it.each(["Bericht", "\u00dcbersicht", "Stammdaten"])(
+    "stays open when %s is pressed, whether it is where you already are or not",
+    async (label) => {
+      render(<TeacherNav />);
 
-    const last = screen.getByRole("navigation").querySelectorAll("a, button");
+      await userEvent.click(screen.getByRole("link", { name: label }));
 
-    expect(last[last.length - 1]).toBe(toggle());
-  });
-
-  it("collapses and opens again", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(toggle());
-    expect(toggle()).toHaveAccessibleName("Navigation ausklappen");
-    expect(toggle()).toHaveAttribute("aria-expanded", "false");
-
-    await userEvent.click(toggle());
-    expect(toggle()).toHaveAccessibleName("Navigation einklappen");
-  });
-
-  it("keeps every destination reachable by name while collapsed", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(toggle());
-
-    for (const label of ["Bericht", "Zuteilung", "\u00dcbersicht"]) {
-      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
-    }
-  });
-
-  it("folds the sub-items away with the bar, since there is no width left to read them in", async () => {
-    pathname.mockReturnValue("/app/s1/master-data/classes");
-    render(<TeacherNav />);
-
-    await userEvent.click(toggle());
-
-    expect(screen.queryByRole("link", { name: "Klassen" })).not.toBeInTheDocument();
-  });
-
-  // The bar is collapsed because the teacher wants the width, so going somewhere must not take
-  // that decision back — only asking for something the rail has no room for may.
-  it("stays collapsed when a destination is chosen", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(toggle());
-    await userEvent.click(screen.getByRole("link", { name: "\u00dcbersicht" }));
-
-    expect(toggle()).toHaveAccessibleName("Navigation ausklappen");
-  });
-
-  it("opens the bar when the sub-items are asked for, there being no width to read them in", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(toggle());
-    await userEvent.click(screen.getByRole("button", { name: /stammdaten/i }));
-
-    expect(toggle()).toHaveAccessibleName("Navigation einklappen");
-    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
-  });
-
-  it("brings the sub-items back with the bar", async () => {
-    render(<TeacherNav />);
-
-    await userEvent.click(toggle());
-    await userEvent.click(toggle());
-
-    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
-  });
+      expect(openSubItems()).toBeInTheDocument();
+    },
+  );
 });

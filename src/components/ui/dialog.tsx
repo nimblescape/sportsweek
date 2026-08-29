@@ -21,6 +21,17 @@ type DialogProps = {
 };
 
 /**
+ * The dialog a popup has to be rendered into. `showModal()` puts the dialog in the top layer and
+ * makes everything outside it inert, so a listbox portalled to the body opens dead: visible,
+ * unclickable, and empty of anything the pointer can reach.
+ */
+const DialogContainerContext = React.createContext<HTMLElement | null>(null);
+
+export function useDialogContainer() {
+  return React.use(DialogContainerContext);
+}
+
+/**
  * Built on the native <dialog> element: the browser supplies the top layer, the focus trap
  * and Escape-to-close, so none of that has to be re-implemented (US-4).
  */
@@ -34,22 +45,22 @@ export function Dialog({
   tone = "default",
   className,
 }: DialogProps) {
-  const ref = React.useRef<HTMLDialogElement>(null);
+  // State rather than a ref, because what is portalled into it has to render again once it exists.
+  const [element, setElement] = React.useState<HTMLDialogElement | null>(null);
   const titleId = React.useId();
 
   React.useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
+    if (!element) return;
 
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
+    if (open && !element.open) element.showModal();
+    if (!open && element.open) element.close();
+  }, [open, element]);
 
   if (!open) return null;
 
   return (
     <dialog
-      ref={ref}
+      ref={setElement}
       aria-labelledby={titleId}
       onClose={onClose}
       onCancel={onClose}
@@ -82,7 +93,9 @@ export function Dialog({
         <div className="text-muted-foreground px-4 pt-2 text-sm">{description}</div>
       ) : null}
 
-      <div className="p-4">{children}</div>
+      <div className="p-4">
+        <DialogContainerContext value={element}>{children}</DialogContainerContext>
+      </div>
 
       {footer ? (
         <div className="bg-muted/50 flex items-center justify-end gap-2 border-t p-4">{footer}</div>

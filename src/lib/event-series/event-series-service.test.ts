@@ -4,9 +4,11 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import { FakeFirestore } from "@/test/fake-firestore";
 import { storedEventSeries } from "@/test/event-series";
 import { registrationPath } from "@/lib/registration/registration";
+import { savedReportPath } from "@/lib/report/saved-reports";
 
 const firestore = new FakeFirestore();
 
@@ -14,7 +16,7 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const { createEventSeries, updateEventSeries, deleteEventSeries } =
+const { createEventSeries, updateEventSeries, deleteEventSeries, resolveSelectedEventSeriesId } =
   await import("./event-series-service");
 const { ServiceError } = await import("@/lib/service-error");
 
@@ -80,6 +82,138 @@ describe("createEventSeries", () => {
   it("rejects a blank name", async () => {
     await expect(createEventSeries({ name: "   " })).rejects.toBeInstanceOf(ServiceError);
     expect(firestore.count("eventSeries")).toBe(0);
+  });
+
+  /** The kind is answered on its own, so it follows neither the source nor a default (US-22). */
+  it("makes a template when asked for one", async () => {
+    const template = await createEventSeries({ name: "Wintersportwochen", isTemplate: true });
+
+    expect(template.isTemplate).toBe(true);
+    expect(template.isOpenToStudents).toBe(false);
+  });
+});
+
+/**
+ * A new series begins with the setup a teacher keeps for exactly that purpose (US-22). Which of
+ * the four combinations it is — series or template, blank or copied — is answered by two
+ * questions that decide nothing about each other.
+ */
+describe("createEventSeries — from a source", () => {
+  const lists = {
+    events: ["Woche 1", "Woche 2"],
+    classOptions: ["5AHIF", "5BHIF"],
+    programs: [
+      { name: "Ski", requiredEquipment: ["Ski", "Helm"] },
+      { name: "Snowboard", requiredEquipment: [] },
+    ],
+    skillLevels: ["Anfänger:in", "Profi"],
+    seasonPassOptions: ["Kein Skipass"],
+    busPickupPoints: ["HTL Dornbirn"],
+    foodOptions: ["Esse alles"],
+  };
+
+  beforeEach(() => firestore.seed("eventSeries", "source", storedEventSeries({ ...lists })));
+
+  it("takes the seven lists whole, in their order, with each program's equipment", async () => {
+    const copy = await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "source" });
+
+    expect(copy).toMatchObject(lists);
+  });
+
+  it("takes no registrations, no archive state and no invitation link", async () => {
+    firestore.seed("eventSeries", "archived", storedEventSeries({ name: "Alt", isArchived: true }));
+    firestore.seed(registrationPath("archived"), "m1", { studentUpn: "u1" });
+    firestore.seed("invitations", "tok", { eventSeriesId: "archived", class: "5AHIF" });
+
+    const copy = await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "archived" });
+
+    expect(copy).toMatchObject({ isArchived: false, hasRegistrations: false });
+    expect(firestore.count(registrationPath(copy.id))).toBe(0);
+    expect(firestore.docs("invitations").tok).toMatchObject({ eventSeriesId: "archived" });
+  });
+
+  /** Archiving would be a one-way door otherwise: its master data could never come back. */
+  it("copies from an archived series, which is how its lists come back into a live one", async () => {
+    firestore.seed(
+      "eventSeries",
+      "old",
+      storedEventSeries({ name: "Alt", isArchived: true, classOptions: ["4AHIF"] }),
+    );
+
+    const copy = await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "old" });
+
+    expect(copy.classOptions).toEqual(["4AHIF"]);
+  });
+
+  it("is a series copied from a template unless a template was asked for", async () => {
+    firestore.seed("eventSeries", "tpl", storedEventSeries({ name: "Vorlage", isTemplate: true }));
+
+    const asSeries = await createEventSeries({ name: "Winter 2027", sourceId: "tpl" });
+    const asTemplate = await createEventSeries({
+      name: "Sommer",
+      sourceId: "tpl",
+      isTemplate: true,
+    });
+
+    expect(asSeries.isTemplate).toBe(false);
+    expect(asTemplate.isTemplate).toBe(true);
+  });
+
+  it("refuses a source that is not there rather than making a blank one", async () => {
+    await expect(
+      createEventSeries({ name: "Wintersportwoche 2027", sourceId: "gone" }),
+    ).rejects.toBeInstanceOf(ServiceError);
+    expect(firestore.count("eventSeries")).toBe(1);
+  });
+
+  it("takes the saved reports of its source", async () => {
+    firestore.seed(savedReportPath("source"), "r1", {
+      name: "5AHIF",
+      filter: toggleTag(EMPTY_FILTER, "class", "5AHIF"),
+      fields: ["class"],
+      createdByUserId: "jane.doe@htldornbirn.at",
+      position: 0,
+    });
+
+    const copy = await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "source" });
+
+    const reports = Object.values(firestore.docs(savedReportPath(copy.id)));
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({ name: "5AHIF", position: 0 });
+  });
+
+  /**
+   * A tag the copied lists do not offer is dropped as it is copied, exactly as US-25 drops one
+   * when an item is removed — so the copy is consistent with its own lists from the moment it
+   * exists, rather than opening as changed the first time anybody looks at it.
+   */
+  it("drops a tag its own lists do not offer, in the same write", async () => {
+    firestore.seed(savedReportPath("source"), "r1", {
+      name: "Alte Klasse",
+      filter: toggleTag(toggleTag(EMPTY_FILTER, "class", "5AHIF"), "class", "4AHIF"),
+      fields: ["class"],
+      createdByUserId: "jane.doe@htldornbirn.at",
+      position: 0,
+    });
+
+    const copy = await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "source" });
+
+    const [report] = Object.values(firestore.docs(savedReportPath(copy.id)));
+    expect(report.filter).toMatchObject({ tags: expect.objectContaining({ class: ["5AHIF"] }) });
+  });
+
+  it("leaves the source's own reports where they are", async () => {
+    firestore.seed(savedReportPath("source"), "r1", {
+      name: "5AHIF",
+      filter: EMPTY_FILTER,
+      fields: [],
+      createdByUserId: "jane.doe@htldornbirn.at",
+      position: 0,
+    });
+
+    await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "source" });
+
+    expect(firestore.count(savedReportPath("source"))).toBe(1);
   });
 });
 
@@ -303,16 +437,72 @@ describe("deleteEventSeries", () => {
     expect(firestore.count(registrationPath("s1"))).toBe(0);
   });
 
+  /**
+   * A token names its series by a field, so nothing about the series' own removal reaches it.
+   * Left behind it resolves to a series that is not there, which is a link that looks live.
+   */
+  it("deletes every invitation of the event series", async () => {
+    seedEventSeries("s1", { isArchived: true });
+    firestore.seed("invitations", "tok1", { eventSeriesId: "s1", class: "5AHIF" });
+    firestore.seed("invitations", "tok2", { eventSeriesId: "s1", class: "5BHIF" });
+
+    await deleteEventSeries("s1");
+
+    expect(firestore.count("invitations")).toBe(0);
+  });
+
+  /** Firestore deletes no subcollection with its parent, so the reports have to be taken too. */
+  it("deletes every saved report of the event series", async () => {
+    seedEventSeries("s1", { isArchived: true });
+    firestore.seed(savedReportPath("s1"), "r1", { name: "5AHIF" });
+
+    await deleteEventSeries("s1");
+
+    expect(firestore.count(savedReportPath("s1"))).toBe(0);
+  });
+
+  /**
+   * A teacher may save a report right up to the moment the series goes, and that save reads a
+   * series still standing, so it succeeds. Sweeping once before the parent leaves it behind;
+   * sweeping again after, when nothing further can be written, is what makes the delete total.
+   */
+  it("sweeps again after the series is gone, catching what was written while it ran", async () => {
+    seedEventSeries("s1", { isArchived: true });
+    const removeDoc = firestore.deleteDoc.bind(firestore);
+    const spy = vi.spyOn(firestore, "deleteDoc").mockImplementation((path: string, id: string) => {
+      if (path === "eventSeries" && id === "s1") {
+        firestore.seed(savedReportPath("s1"), "late", { name: "Spät" });
+        firestore.seed("invitations", "late", { eventSeriesId: "s1", class: "5AHIF" });
+      }
+      removeDoc(path, id);
+    });
+
+    try {
+      await deleteEventSeries("s1");
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(firestore.count(savedReportPath("s1"))).toBe(0);
+    expect(firestore.count("invitations")).toBe(0);
+  });
+
   it("leaves documents of other event series untouched", async () => {
     seedEventSeries("s1", { isArchived: true, events: ["Montafon"] });
     seedEventSeries("s2", { events: ["Behalten"] });
     firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
     firestore.seed(registrationPath("s2"), "keep", { studentUpn: "u2" });
+    firestore.seed("invitations", "tok1", { eventSeriesId: "s1", class: "5AHIF" });
+    firestore.seed("invitations", "keep", { eventSeriesId: "s2", class: "5AHIF" });
+    firestore.seed(savedReportPath("s1"), "r1", { name: "5AHIF" });
+    firestore.seed(savedReportPath("s2"), "keep", { name: "5AHIF" });
 
     await deleteEventSeries("s1");
 
     expect(firestore.get("eventSeries", "s2")).toMatchObject({ events: ["Behalten"] });
     expect(Object.keys(firestore.docs(registrationPath("s2")))).toEqual(["keep"]);
+    expect(Object.keys(firestore.docs("invitations"))).toEqual(["keep"]);
+    expect(Object.keys(firestore.docs(savedReportPath("s2")))).toEqual(["keep"]);
   });
 
   it("chunks the cascade into batches no larger than the Firestore limit", async () => {
@@ -500,5 +690,48 @@ describe("updateEventSeries — opening needs a class to invite", () => {
     await updateEventSeries("s1", { isOpenToStudents: false });
 
     expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
+  });
+});
+
+/**
+ * What `/app` opens on, and what the navigation points at from a page that names no series (Q8).
+ * Both are pages about registrations, which is exactly what a template has none of (US-22).
+ */
+describe("resolveSelectedEventSeriesId", () => {
+  it("takes the remembered series when it is still selectable", async () => {
+    seedEventSeries("s1", { position: 0 });
+    seedEventSeries("s2", { position: 1 });
+
+    expect(await resolveSelectedEventSeriesId("s2")).toBe("s2");
+  });
+
+  it("falls back to the first in the teacher's order", async () => {
+    seedEventSeries("s2", { position: 1 });
+    seedEventSeries("s1", { position: 0 });
+
+    expect(await resolveSelectedEventSeriesId()).toBe("s1");
+  });
+
+  it.each([{ isArchived: true }, { isTemplate: true }])(
+    "passes over a remembered %o, which no longer has the pages that would be opened",
+    async (state) => {
+      seedEventSeries("remembered", { position: 0, ...state });
+      seedEventSeries("s1", { position: 1 });
+
+      expect(await resolveSelectedEventSeriesId("remembered")).toBe("s1");
+    },
+  );
+
+  it("skips a template when picking the first, however early it sorts", async () => {
+    seedEventSeries("t1", { position: 0, isTemplate: true });
+    seedEventSeries("s1", { position: 1 });
+
+    expect(await resolveSelectedEventSeriesId()).toBe("s1");
+  });
+
+  it("selects nothing when only templates remain, there being no series to run", async () => {
+    seedEventSeries("t1", { position: 0, isTemplate: true });
+
+    expect(await resolveSelectedEventSeriesId()).toBeNull();
   });
 });

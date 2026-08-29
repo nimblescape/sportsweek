@@ -4,30 +4,60 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { ReactNode } from "react";
-import Image from "next/image";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { Brand } from "@/components/layout/brand";
 import { BusyProvider } from "@/lib/api/busy";
 import { BusyBar } from "@/components/layout/busy-bar";
 
-/** Header row shared by the teacher dashboard (US-14) and the student view (US-15). */
-export function AppShell({ children, scope }: { children: ReactNode; scope?: ReactNode }) {
+/**
+ * The frame both roles share (US-14, US-15). One grid rather than a header above a row of
+ * columns, because the tags in the header and the heading of the page beneath them have to line
+ * up: sharing a grid column is what makes that true at any width the bar happens to be, and the
+ * bar's width is its own business — it decides whether it is collapsed.
+ *
+ * The bar spans both rows, so it runs to the top of the window and carries the brand itself.
+ * A student is given none, and the brand sits in the header instead.
+ *
+ * A grid track is also a definite height, which is what lets the bar reach the foot of the
+ * window — Safari will not resolve that from flex-grow. The header track sizes to its content,
+ * so it grows when the tags wrap.
+ */
+export function AppShell({
+  children,
+  nav,
+  scope,
+  photo = null,
+}: {
+  children: ReactNode;
+  nav?: ReactNode;
+  scope?: ReactNode;
+  photo?: string | null;
+}) {
   return (
     <BusyProvider>
-      {/* A fixed height rather than a minimum, so the columns below can be as tall as the window
-          and no taller — which is what lets the navigation bar reach the foot of the screen. */}
-      <div className="flex h-dvh flex-col">
-        <header className="border-border bg-background sticky top-0 z-10 flex h-[var(--header-height)] shrink-0 items-center justify-between gap-4 border-b px-4 md:px-6">
-          <span className="flex shrink-0 items-center gap-2">
-            <Image src="/htl-logo.svg" alt="HTL Dornbirn Logo" width={24} height={28} priority />
-            <span className="font-heading text-xl font-semibold tracking-tight">Sportsweek</span>
-          </span>
-          {/* The scope sits immediately after the title, because it says what every page is about. */}
+      <div className="grid h-dvh grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)]">
+        {nav ? (
+          <div className="border-border bg-sidebar col-start-1 row-span-2 row-start-1 hidden shrink-0 border-r md:block">
+            {nav}
+          </div>
+        ) : null}
+
+        <header className="border-border bg-background col-start-2 row-start-1 flex items-center justify-between gap-4 border-b px-4 py-2 md:px-6">
+          {nav ? null : <Brand />}
+          {/* The scope leads the header, because it says what every page below it is about. */}
           {scope}
-          <SignOutButton />
+          {/* Where there is a bar, signing out sits at the foot of it, under the person's own
+              mark. A student has no bar, so it stays here. */}
+          {nav ? null : <SignOutButton photo={photo} />}
           {/* Last, and positioned against the header, whose bottom border it sits on. */}
           <BusyBar />
         </header>
-        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</main>
+
+        <main className="bg-background col-start-2 row-start-2 flex min-h-0 flex-col overflow-y-auto">
+          {/* Narrow screens have no column for the bar, so it goes above what it points at. */}
+          {nav ? <div className="border-border bg-sidebar border-b md:hidden">{nav}</div> : null}
+          {children}
+        </main>
       </div>
     </BusyProvider>
   );

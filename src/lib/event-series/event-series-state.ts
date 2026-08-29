@@ -22,6 +22,9 @@ export const NO_EVENT_SERIES_HINT =
 export const ARCHIVED_IS_READ_ONLY_HINT =
   "Eine archivierte Eventreihe kann nicht bearbeitet werden. Bitte zuerst aus dem Archiv holen.";
 
+/** What every write refuses with when the series it names has been deleted meanwhile. */
+export const NO_SUCH_EVENT_SERIES = "Diese Eventreihe gibt es nicht.";
+
 /**
  * Why the last template stays. Everything a teacher sees is scoped to a selection, so a school
  * with no event series at all has a header offering nothing and a navigation bar pointing nowhere.

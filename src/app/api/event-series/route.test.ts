@@ -48,7 +48,29 @@ describe("POST /api/event-series", () => {
     expect(await response.json()).toEqual({
       eventSeries: { id: "s1", name: "Winter 2026", isArchived: false },
     });
-    expect(createEventSeries).toHaveBeenCalledWith({ name: "Winter 2026" });
+    expect(createEventSeries).toHaveBeenCalledWith({
+      name: "Winter 2026",
+      isTemplate: false,
+      sourceId: null,
+    });
+  });
+
+  /** Both are answered at creation and neither has a bearing on the other (US-22). */
+  it("carries the kind and the source through as they were asked for", async () => {
+    await POST(postRequest({ name: "Vorlage", isTemplate: true, sourceId: "s9" }));
+
+    expect(createEventSeries).toHaveBeenCalledWith({
+      name: "Vorlage",
+      isTemplate: true,
+      sourceId: "s9",
+    });
+  });
+
+  it("refuses a field creation does not ask for, rather than dropping it", async () => {
+    const response = await POST(postRequest({ name: "Winter 2026", isArchived: true }));
+
+    expect(response.status).toBe(400);
+    expect(createEventSeries).not.toHaveBeenCalled();
   });
 
   it("rejects an anonymous caller with 401", async () => {

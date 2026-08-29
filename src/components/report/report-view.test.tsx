@@ -453,7 +453,7 @@ describe("the saved reports", () => {
     await userEvent.type(screen.getByRole("textbox", { name: "Name des Berichts" }), "Nur 5BHIF");
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports", {
+    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/saved-reports", {
       method: "POST",
       body: {
         name: "Nur 5BHIF",
@@ -478,7 +478,7 @@ describe("the saved reports", () => {
     await userEvent.type(field, "5BHIF");
     await userEvent.click(screen.getByRole("button", { name: "Umbenennen" }));
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", {
+    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/saved-reports/r1", {
       method: "PATCH",
       body: {
         name: "5BHIF",
@@ -490,7 +490,9 @@ describe("the saved reports", () => {
     await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF löschen" }));
     await userEvent.click(screen.getByRole("button", { name: "Löschen von Nur 5BHIF bestätigen" }));
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", { method: "DELETE" });
+    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/saved-reports/r1", {
+      method: "DELETE",
+    });
   });
 
   it("brings the opened report up to date with the report as it now stands", async () => {
@@ -502,7 +504,7 @@ describe("the saved reports", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Bericht Nur 5BHIF aktualisieren" }));
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/saved-reports/r1", {
+    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/saved-reports/r1", {
       method: "PATCH",
       body: {
         name: saved.name,

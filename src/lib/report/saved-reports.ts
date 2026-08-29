@@ -4,7 +4,21 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { sameFilter } from "@/lib/filters/student-filter";
+import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
+
+/**
+ * A saved report filters on the lists of one event series, so it lives beneath that series
+ * rather than beside it — which is what keeps a report of a Wintersportwoche out of a
+ * Kulturwoche's tag row, and what lets a copy take its source's reports along (US-22).
+ *
+ * Beneath rather than inside: a rule grants a whole document or none of it, and a student reads
+ * the event series document to be asked its questions (US-11). A field would hand them every
+ * report of every series; a subcollection has a rule of its own.
+ */
+export function savedReportPath(eventSeriesId: string): string {
+  return `${COLLECTIONS.eventSeries}/${eventSeriesId}/${COLLECTIONS.savedReports}`;
+}
 
 /** Which order the tags were pressed in is no part of what a report shows (US-13). */
 function sameFields(left: readonly string[], right: readonly string[]): boolean {

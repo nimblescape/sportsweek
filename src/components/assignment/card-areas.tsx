@@ -4,7 +4,8 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { ReactNode } from "react";
-import { Tag } from "@/components/ui/tag";
+import { CardHeading } from "@/components/ui/card";
+import { Tag, TagName } from "@/components/ui/tag";
 
 /**
  * Each area gets a surface of its own, so three columns of content read as three areas rather
@@ -21,14 +22,11 @@ export const AREA = "border-border bg-muted/40 flex min-h-0 min-w-0 flex-col rou
 /** The aside sits at the far end of the title line — a tally on one area, a toggle on another. */
 export function AreaTitle({ children, aside }: { children: string; aside?: ReactNode }) {
   return (
-    // Floored at the height of the tallest aside, or an area carrying a tag would sit lower than
-    // one carrying plain text and the three headings would stop lining up.
-    <div className="mb-2 flex min-h-7 items-center justify-between gap-3">
-      <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+    <CardHeading control={aside} className="mb-2">
+      <h3 className="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
         {children}
       </h3>
-      {aside}
-    </div>
+    </CardHeading>
   );
 }
 
@@ -49,11 +47,8 @@ export function FilteredTag({
   onPress: () => void;
 }) {
   return (
-    <Tag
-      label={`${card}: ${FILTERED_LABEL}`}
-      text={FILTERED_LABEL}
-      pressed={pressed}
-      onPress={onPress}
-    />
+    <Tag pressed={pressed}>
+      <TagName label={`${card}: ${FILTERED_LABEL}`} text={FILTERED_LABEL} onPress={onPress} />
+    </Tag>
   );
 }

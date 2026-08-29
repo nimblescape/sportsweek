@@ -336,6 +336,9 @@ async function inBatches(
 /**
  * Collections are discovered rather than taken from COLLECTIONS: a purge that only removes the
  * names the code still knows about leaves the ones a rename or a deletion orphaned.
+ *
+ * `recursiveDelete` takes each collection's subcollections with it, which a document delete does
+ * not — so the counts below are of top-level documents and undercount what actually goes.
  */
 async function purgeFirestore(db: Firestore): Promise<[string, number][]> {
   const collections = await db.listCollections();
