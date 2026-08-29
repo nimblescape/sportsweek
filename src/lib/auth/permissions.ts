@@ -28,7 +28,7 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
-  editRegistrations: "Registrierungen bearbeiten",
+  editRegistrations: "Registrierungen",
   editAssignments: "Zuteilung",
   viewReports: "Berichte ansehen",
   editReports: "Berichte bearbeiten",

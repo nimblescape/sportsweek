@@ -85,7 +85,7 @@ As the system, I tell apart what a person _is_ from what they _may do_, so that 
 - User records can be stored in the database, 1:1 with a logged-in user.
 - Each record stores exactly one account type, either teacher or student. It says which population somebody belongs to, is derived once at creation (US-3) and is granted by nobody.
 - Each record stores a set of permissions, which says what that person may do.
-- The permissions are `editRegistrations`, `editAssignments`, `viewReports`, `editReports`, `editMasterData` and `editUsers`. Labels shown are "Registrierungen bearbeiten", "Zuteilung", "Berichte ansehen", "Berichte bearbeiten", "Stammdaten" and "Benutzerrechte".
+- The permissions are `editRegistrations`, `editAssignments`, `viewReports`, `editReports`, `editMasterData` and `editUsers`. Labels shown are "Registrierungen", "Zuteilung", "Berichte ansehen", "Berichte bearbeiten", "Stammdaten" and "Benutzerrechte". Each names the page it opens; only the two report ones carry a verb, there being two ways into that one page.
 - A permission is asked for by name and none stands in for another: the set is not a rank, and holding one grants nothing else. Only `editUsers` grants the management of permissions.
 - `viewReports` and `editReports` exclude each other, both being ways into the same report page. Pressing either clears the other, and a record naming both is refused rather than quietly reduced.
 - `editRegistrations` covers the registrations page: handing out invitation links, removing a registration, and opening or closing the event series to students. Opening it is what lets registrations arrive, so it goes with the permission that edits them rather than with the one that maintains the series.
