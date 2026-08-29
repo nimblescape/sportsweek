@@ -206,7 +206,7 @@ describe("AssignmentView", () => {
 
     render(<AssignmentView />);
 
-    expect(screen.getByText(/noch keine Events/)).toBeInTheDocument();
+    expect(screen.getByText(/keine Events angelegt/)).toBeInTheDocument();
   });
 
   it("keeps a card's filter when another card is filtered", async () => {
