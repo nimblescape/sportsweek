@@ -12,9 +12,26 @@ import {
   MASTER_DATA_CATEGORIES,
   masterDataSections,
   masterDataCategorySchema,
+  type AnswerField,
   type MasterDataCategory,
   type MasterDataCategoryKey,
 } from "./categories";
+
+/**
+ * Every category and the registration field it is matched against, so the in-use rule covers all
+ * of them alike. A full `Record` of the key union rather than a handful named by hand: a category
+ * left out of the list this way does not compile, which is what kept `events` out of the rule
+ * while it read as covered.
+ */
+const SNAPSHOT_FIELDS: Record<MasterDataCategoryKey, AnswerField> = {
+  events: "event",
+  classes: "class",
+  programs: "program",
+  "skill-levels": "skillLevel",
+  "season-pass-options": "seasonPassOption",
+  "bus-pickup-points": "busPickupPoint",
+  "food-options": "foodOption",
+};
 
 describe("MASTER_DATA_CATEGORIES", () => {
   it("points every category at a list the event series document holds", () => {
@@ -26,26 +43,15 @@ describe("MASTER_DATA_CATEGORIES", () => {
     }
   });
 
-  it("matches each category against the field registration snapshots it into", () => {
-    expect(MASTER_DATA_CATEGORIES.classes.usage).toEqual({ kind: "masterData", field: "class" });
-    expect(MASTER_DATA_CATEGORIES.programs.usage).toEqual({ kind: "masterData", field: "program" });
-    expect(MASTER_DATA_CATEGORIES["skill-levels"].usage).toEqual({
-      kind: "masterData",
-      field: "skillLevel",
-    });
-    expect(MASTER_DATA_CATEGORIES["bus-pickup-points"].usage).toEqual({
-      kind: "masterData",
-      field: "busPickupPoint",
-    });
-    expect(MASTER_DATA_CATEGORIES["food-options"].usage).toEqual({
-      kind: "masterData",
-      field: "foodOption",
-    });
-    expect(MASTER_DATA_CATEGORIES["season-pass-options"].usage).toEqual({
-      kind: "masterData",
-      field: "seasonPassOption",
-    });
-  });
+  it.each(Object.entries(SNAPSHOT_FIELDS))(
+    "matches %s against the registration field it snapshots into",
+    (key, field) => {
+      expect(MASTER_DATA_CATEGORIES[key as MasterDataCategoryKey].usage).toEqual({
+        kind: "masterData",
+        field,
+      });
+    },
+  );
 
   it("names the field a program keeps its required equipment in, and gives nothing else one", () => {
     const programs: MasterDataCategory = MASTER_DATA_CATEGORIES.programs;
