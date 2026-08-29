@@ -99,11 +99,10 @@ export function Dialog({
       </div>
 
       {footer ? (
-        <div className="bg-muted/50 relative flex items-center justify-end gap-2 border-t p-4">
+        <div className="bg-muted/50 flex items-center justify-end gap-2 border-t p-4">
           {/* The one in the header is behind the backdrop while this is open, and a dialog is
-              where the slowest writes are started. Same indicator, on the line above the
-              controls that started it. */}
-          <BusyBar className="-top-1.5 bottom-auto" />
+              where the slowest writes are started. At the near end, away from the controls. */}
+          <BusyBar className="mr-auto" />
           {footer}
         </div>
       ) : null}

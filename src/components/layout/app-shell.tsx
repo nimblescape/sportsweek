@@ -49,6 +49,9 @@ export function AppShell({
           {/* Where there is a bar, signing out sits at the foot of it, under the person's own
               mark. A student has no bar, so it stays here. */}
           {nav ? null : <SignOutButton photo={photo} />}
+          {/* Last, so the row's own space-between puts it at the far end — the one part of the
+              header nothing else occupies, whatever the tags do. */}
+          <BusyBar />
         </header>
 
         <main className="bg-background col-start-2 row-start-2 flex min-h-0 flex-col overflow-y-auto">
@@ -56,14 +59,6 @@ export function AppShell({
           {nav ? <div className="border-border bg-sidebar border-b md:hidden">{nav}</div> : null}
           {children}
         </main>
-
-        {/* Spanning both columns, so the indicator is centred on the window rather than on the
-            content column — the navigation's width is its own business and must not move it. It
-            takes no height of its own and sits at the foot of the header's row, which is the
-            border it straddles, so the header may grow as the tags wrap without moving it. */}
-        <div className="pointer-events-none relative col-span-2 col-start-1 row-start-1 self-end">
-          <BusyBar />
-        </div>
       </div>
     </BusyProvider>
   );

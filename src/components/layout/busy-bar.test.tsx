@@ -127,21 +127,19 @@ describe("BusyBar — where it reports from", () => {
     expect(new Set(delays).size).toBe(delays.length);
   });
 
-  it("sits on the header's own line, centred across it", async () => {
+  /** An item in the row it is placed in, so whoever places it decides where it sits. */
+  it("takes no position of its own", async () => {
     const bar = await busyShell();
 
-    expect(bar.className).toContain("absolute");
-    expect(bar.className).toContain("inset-x-0");
-    expect(bar.className).toContain("justify-center");
+    expect(bar.className).not.toContain("absolute");
+    expect(bar.className).not.toContain("fixed");
   });
 
-  /** Short, so it stays on the line rather than reaching up into the event series tags (US-20). */
-  it("keeps the bars shorter than the header's own row", async () => {
+  /** A control's height, so the row it ends does not grow to hold it. */
+  it("stands as tall as the controls beside it", async () => {
     const bar = await busyShell();
 
-    for (const one of bar.querySelectorAll("[data-busy-bar]")) {
-      expect(one.className).toContain("h-2");
-    }
+    expect(bar.className).toContain("h-(--control-height)");
   });
 
   /** Grey, but darker than the line it sits on, which was too faint to notice at a glance. */

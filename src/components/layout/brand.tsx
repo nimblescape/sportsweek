@@ -14,7 +14,9 @@ import Image from "next/image";
  */
 export function Brand() {
   return (
-    <span className="flex min-h-9 shrink-0 items-center gap-3 px-2 py-2">
+    // A control's height, so the name lines up with the tags across the header: both sit one
+    // step in from the top of the window, and a taller row here would drop it below them.
+    <span className="flex h-(--control-height) shrink-0 items-center gap-3 px-2">
       <span className="flex w-6 shrink-0 items-center justify-center">
         <Image
           src="/htl-logo.svg"

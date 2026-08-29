@@ -12,13 +12,12 @@ import { cn } from "@/lib/utils";
 const BARS = [0, 0.15, 0.3, 0.45];
 
 /**
- * One indicator for the whole app, on the line between the header and the content (US-14, US-15).
+ * One indicator for the whole app (US-14, US-15).
  *
- * Not in the header's middle: that is where the event series tags are (US-20), and an indicator
- * drawn over them cannot be read. It straddles the border instead — centred across the width,
- * centred on the line itself — which is space nothing else occupies, and one place always
- * answering "the app is working on it" is easier to learn than an indicator that appears
- * somewhere new each time.
+ * At the end of the row it is placed in rather than over anything: the header's own row already
+ * ends in space nothing else occupies, and an indicator drawn over the event series tags (US-20)
+ * cannot be read. One place always answering "the app is working on it" is easier to learn than
+ * an indicator that appears somewhere new each time.
  *
  * Bars rather than a bar that travels: most writes are answered before a sweep has crossed even
  * once, so it looked like nothing was happening. These cycle several times a second, which is
@@ -33,24 +32,20 @@ export function BusyBar({ className }: { className?: string } = {}) {
     <div
       role="status"
       aria-label="Wird gespeichert"
-      // Centred on the border rather than above it: half its height sits either side of the line.
       className={cn(
-        "pointer-events-none absolute inset-x-0 -bottom-1.5 z-20 flex justify-center",
+        "pointer-events-none flex h-(--control-height) shrink-0 items-center gap-0.5",
         className,
       )}
     >
-      <div className="bg-background flex h-3 items-center gap-0.5 px-1.5">
-        {BARS.map((delay) => (
-          <span
-            key={delay}
-            data-busy-bar
-            style={{ animationDelay: `${delay}s` }}
-            // Short on purpose, so it stays on the line instead of reaching up into the tags.
-            // Darker than the line it sits on: in the line's own grey it went unnoticed.
-            className="bg-muted-foreground animate-busy-bar block h-2 w-0.5 rounded-full"
-          />
-        ))}
-      </div>
+      {BARS.map((delay) => (
+        <span
+          key={delay}
+          data-busy-bar
+          style={{ animationDelay: `${delay}s` }}
+          // Taller than they are wide, so four of them read as an indicator rather than as text.
+          className="bg-muted-foreground animate-busy-bar block h-3 w-0.5 rounded-full"
+        />
+      ))}
     </div>
   );
 }
