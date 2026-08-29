@@ -11,6 +11,7 @@ import { usePathname } from "next/navigation";
 import { ClipboardList, Database, FileText, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Brand } from "@/components/layout/brand";
+import { BuildInfo } from "@/components/layout/build-info";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { masterDataSections } from "@/lib/master-data/categories";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
@@ -141,9 +142,15 @@ export function TeacherNav({
         </>
       )}
 
-      {/* The foot of the bar: who is signed in. */}
+      {/* The foot of the bar: who is signed in, and which build they are signed in to. The rule
+          is what makes the line read as the bar's footer rather than as something left under
+          the button; it runs the full width by undoing the bar's own padding. */}
       <div className="mt-auto">
         <SignOutButton className="min-h-9 w-full justify-start px-2 py-2" photo={photo} />
+        {/* The rule is pulled out to the bar's edges, so the line pays back everything between
+            that edge and the button's label: the bar's 2, the button's 2, its 6-wide mark, its
+            gap-3. */}
+        <BuildInfo className="border-border -mx-2 mt-2 border-t pt-2 pr-2 pl-13" />
       </div>
     </nav>
   );

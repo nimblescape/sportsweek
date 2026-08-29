@@ -5,9 +5,11 @@
  */
 import type { NextConfig } from "next";
 import { parse } from "yaml";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveAuthMode } from "./src/lib/auth/auth-mode";
+import { resolveCommitHash, SHORT_COMMIT_LENGTH } from "./src/lib/build-info";
 import {
   envFromApphostingYaml,
   preferProcessEnv,
@@ -45,8 +47,33 @@ const env = requireFirebaseProject(
 // /api/auth/fake is emitted.
 const fakeLogin = resolveAuthMode(env.AUTH_MODE, env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) === "fake";
 
+// Only asked once no build variable has named the commit, and answers nothing where there is no
+// repository to ask -- which is what a build from a source archive looks like.
+function commitFromGit(): string | undefined {
+  try {
+    return execFileSync("git", ["rev-parse", `--short=${SHORT_COMMIT_LENGTH}`, "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+const { version } = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+) as {
+  version: string;
+};
+
 const nextConfig: NextConfig = {
-  env,
+  env: {
+    ...env,
+    // Read back by src/lib/build-info.ts, which spells both names out again because Next
+    // substitutes a literal `process.env.X` and nothing a constant could stand in for.
+    NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_COMMIT_HASH: resolveCommitHash(process.env, commitFromGit),
+  },
   pageExtensions: ["ts", "tsx", ...(fakeLogin ? ["fake.ts", "fake.tsx"] : [])],
   // The rest of it hangs off two facades, which resolve to the production implementation
   // unless a build opts in here. Aliasing the fake login *in* rather than stubbing it out

@@ -5,7 +5,7 @@
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const pathname = vi.fn(() => "/app/s1/report");
 const eventSeries = vi.fn<() => { eventSeries: unknown[] }>(() => ({ eventSeries: [] }));
@@ -46,6 +46,22 @@ describe("TeacherNav", () => {
     vi.clearAllMocks();
     pathname.mockReturnValue("/app/s1/report");
     showing(series("s1"), series("s2"), series("s7"));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("says which build this is, under the sign-out at the foot of the bar", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_VERSION", "1.2.3");
+    vi.stubEnv("NEXT_PUBLIC_COMMIT_HASH", "a1b2c3d");
+
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
+
+    const signOut = screen.getByRole("button", { name: "Abmelden" });
+    const stamp = screen.getByText("v1.2.3 · a1b2c3d");
+
+    expect(signOut.compareDocumentPosition(stamp) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("lists the top-level items in order", () => {

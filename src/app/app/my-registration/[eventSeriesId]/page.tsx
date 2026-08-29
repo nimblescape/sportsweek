@@ -7,6 +7,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { requireStudent } from "@/lib/auth/guards";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { userSchema } from "@/lib/schemas/user";
+import { BuildInfo } from "@/components/layout/build-info";
 import { MyRegistrationView } from "@/components/my-registration/my-registration-view";
 
 /**
@@ -42,6 +43,8 @@ export default async function RegistrationPage({
         studentUpn={studentUpn}
         studentName={studentName}
       />
+      {/* A student has no navigation bar to carry it, so it closes their one page instead. */}
+      <BuildInfo className="border-border border-t pt-4 text-center" />
     </div>
   );
 }
