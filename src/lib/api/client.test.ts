@@ -178,4 +178,20 @@ describe("apiRequest — reporting itself busy", () => {
     await two;
     expect(requestsInFlight()).toBe(0);
   });
+
+  /**
+   * A read reports nothing. The indicator answers for what the teacher started, and the pages of
+   * a series fetch as they are opened — so reporting reads lit it on every navigation, which says
+   * the app is busy rather than that anything is being waited for.
+   */
+  it("stays idle through a read", async () => {
+    let resolve: (value: Response) => void = () => {};
+    stubFetch(() => new Promise<Response>((keep) => (resolve = keep)));
+
+    const pending = apiRequest("/api/anything", { method: "GET" });
+    expect(requestsInFlight()).toBe(0);
+
+    resolve(answered());
+    await pending;
+  });
 });
