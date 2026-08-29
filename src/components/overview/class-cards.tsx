@@ -6,10 +6,12 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Link, QrCode } from "lucide-react";
+import { Copy, Link, QrCode, Trash2 } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeading, CardTitle } from "@/components/ui/card";
+import { Tag, TagAction, TagName } from "@/components/ui/tag";
+import { DeleteRegistrationDialog } from "@/components/overview/delete-registration-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ApiRequestError } from "@/lib/api/client";
@@ -50,6 +52,8 @@ type ClassCardsProps = {
   columns: readonly SkillColumn[];
   filterGroups: readonly FilterGroup[];
   invitations: InvitationControls | null;
+  /** The series to remove a registration from, or null where it cannot be written to (US-28). */
+  removableEventSeriesId: string | null;
   /** Shown beside the class on the QR surface, so a projected code names what it enrols into. */
   eventSeriesName: string;
 };
@@ -66,6 +70,7 @@ export function ClassCards({
   columns,
   filterGroups,
   invitations,
+  removableEventSeriesId,
   eventSeriesName,
 }: ClassCardsProps) {
   // A card is one class already, so offering the class tags would only let it empty itself.
@@ -82,6 +87,7 @@ export function ClassCards({
           columns={columns}
           filterGroups={groups}
           invitations={invitations}
+          removableEventSeriesId={removableEventSeriesId}
           eventSeriesName={eventSeriesName}
         />
       ))}
@@ -96,6 +102,7 @@ function ClassCard({
   columns,
   filterGroups,
   invitations,
+  removableEventSeriesId,
   eventSeriesName,
 }: Omit<ClassCardsProps, "rows"> & { row: ClassGroup }) {
   const [expanded, setExpanded] = useState(true);
@@ -104,6 +111,9 @@ function ClassCard({
   const [linkError, setLinkError] = useState<string | null>(null);
   const [shownCode, setShownCode] = useState<string | null>(null);
   const [confirmingRegenerate, setConfirmingRegenerate] = useState(false);
+  // One across both clouds, because one student is being acted on at a time.
+  const [markedId, setMarkedId] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<RosterStudent | null>(null);
 
   const shown = filterStudents(row.students, filter);
   const figures = countFiltered ? classFigures(shown, columns) : row;
@@ -255,11 +265,17 @@ function ClassCard({
                   className={row.class}
                   label={ATTENDING_LABEL}
                   students={shown.filter((student) => student.isAttending)}
+                  markedId={markedId}
+                  onMark={setMarkedId}
+                  onRemove={removableEventSeriesId === null ? null : setRemoving}
                 />
                 <Cloud
                   className={row.class}
                   label={NOT_ATTENDING_LABEL}
                   students={shown.filter((student) => !student.isAttending)}
+                  markedId={markedId}
+                  onMark={setMarkedId}
+                  onRemove={removableEventSeriesId === null ? null : setRemoving}
                 />
               </div>
             </section>
@@ -291,6 +307,19 @@ function ClassCard({
             </section>
           </div>
         )}
+
+        {removing !== null && removableEventSeriesId !== null ? (
+          <DeleteRegistrationDialog
+            open
+            eventSeriesId={removableEventSeriesId}
+            student={removing}
+            onClose={() => setRemoving(null)}
+            onDeleted={() => {
+              setRemoving(null);
+              setMarkedId(null);
+            }}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -300,10 +329,17 @@ function Cloud({
   className,
   label,
   students,
+  markedId,
+  onMark,
+  onRemove,
 }: {
   className: string;
   label: string;
   students: readonly RosterStudent[];
+  markedId: string | null;
+  onMark: (id: string | null) => void;
+  /** Absent where the series cannot be written to, which is what takes the control away. */
+  onRemove: ((student: RosterStudent) => void) | null;
 }) {
   // A heading over an empty space would say a class answered nothing; the tally already does.
   if (students.length === 0) return null;
@@ -312,14 +348,26 @@ function Cloud({
     <div className="flex flex-col gap-1.5">
       <p className="text-muted-foreground text-xs font-medium">{label}</p>
       <ul aria-label={`${className}: ${label}`} className="flex flex-wrap gap-1.5">
-        {students.map((student) => (
-          <li
-            key={student.id}
-            className="border-border bg-background rounded-md border px-2 py-1 text-sm"
-          >
-            {`${student.lastName} ${student.firstName}`}
-          </li>
-        ))}
+        {students.map((student) => {
+          const name = `${student.lastName} ${student.firstName}`;
+          const marked = student.id === markedId;
+          return (
+            <li key={student.id}>
+              <Tag pressed={marked} variant="neutral">
+                <TagName label={name} onPress={() => onMark(marked ? null : student.id)} />
+                {/* On the marked tag only, as a saved report's controls are (US-13, US-28). */}
+                {marked && onRemove ? (
+                  <TagAction
+                    label={`Anmeldung von ${name} löschen`}
+                    onClick={() => onRemove(student)}
+                  >
+                    <Trash2 aria-hidden />
+                  </TagAction>
+                ) : null}
+              </Tag>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

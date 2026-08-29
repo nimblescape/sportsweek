@@ -50,6 +50,7 @@ export function OverviewView({ eventSeriesId }: { eventSeriesId: string }) {
           columns={columns}
           filterGroups={filterGroups}
           invitations={openable ? invitations : null}
+          removableEventSeriesId={openable ? eventSeriesId : null}
           eventSeriesName={eventSeries.name}
         />
       )}

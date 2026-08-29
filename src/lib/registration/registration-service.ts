@@ -19,6 +19,10 @@ import {
   type RegistrationInput,
 } from "@/lib/schemas/registration";
 import { userSchema } from "@/lib/schemas/user";
+import {
+  ARCHIVED_IS_READ_ONLY_HINT,
+  NO_SUCH_EVENT_SERIES,
+} from "@/lib/event-series/event-series-state";
 import { isRegistrationIncomplete } from "./completeness";
 import {
   ANSWER_NO_LONGER_OFFERED_HINT,
@@ -190,5 +194,42 @@ export async function saveRegistration(
     }
 
     return record;
+  });
+}
+
+export const NO_SUCH_REGISTRATION = "Diese Anmeldung gibt es nicht.";
+
+/**
+ * Removes one registration and everything the student answered with it (US-28).
+ *
+ * A teacher's doing, never a student's: a student who is not coming answers "no" (US-11), which
+ * keeps them in the figures. Closing governs students only, so a closed series still allows it;
+ * an archived one is read-only and does not.
+ *
+ * One transaction, because `hasRegistrations` is recomputed from what is left — the first time
+ * that mirror has ever had to go back down (Q5), and it is what US-19's archive and delete
+ * controls read.
+ */
+export async function deleteRegistration(eventSeriesId: string, studentUpn: string): Promise<void> {
+  const row = adminDb.collection(registrationPath(eventSeriesId));
+  const seriesRef = adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId);
+
+  await adminDb.runTransaction(async (transaction) => {
+    const series = await transaction.get(seriesRef);
+    if (!series.exists) throw new ServiceError(ErrorCode.NotFound, NO_SUCH_EVENT_SERIES);
+    if (series.data()?.isArchived === true) {
+      throw new ServiceError(ErrorCode.Conflict, ARCHIVED_IS_READ_ONLY_HINT);
+    }
+
+    const reference = row.doc(studentUpn);
+    const stored = await transaction.get(reference);
+    if (!stored.exists) throw new ServiceError(ErrorCode.NotFound, NO_SUCH_REGISTRATION);
+
+    // Read inside the transaction, so a registration arriving while this one is removed keeps the
+    // mirror true rather than being counted away by a stale total.
+    const remaining = await transaction.get(row);
+
+    transaction.delete(reference);
+    if (remaining.size <= 1) transaction.update(seriesRef, { hasRegistrations: false });
   });
 }
