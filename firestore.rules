@@ -90,6 +90,23 @@ service cloud.firestore {
     }
 
     /**
+     * When somebody signed in, one document per sign-in, written by provisionUser through the
+     * Admin SDK. Closed to everybody in both directions: nothing in the app reads it, so
+     * nothing opens it -- not even the person it is about, and not the rights page, which is
+     * about what somebody may do rather than when they were last here.
+     *
+     * It is a subcollection rather than a field for that reason. A rule grants a whole
+     * document, and the record above is read by whoever hands out the permissions.
+     *
+     * No rule would match this path anyway, since the one below reaches only top-level
+     * collections. This says so out loud, so that opening it reads as the decision it would be.
+     */
+    match /users/{uid}/logins/{loginId} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    /**
      * A student's own registration (US-11), stored beneath the event series it belongs to so
      * that which series it is in is its path rather than a field it carries (US-26). Its id is
      * the student's UPN, so ownership is the document's own name and a read needs no query.
