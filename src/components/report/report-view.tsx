@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { EMPTY_FILTER, filterStudents, filterSummary, scopeFilterToGroups } from "@/lib/filters/student-filter"; // prettier-ignore
-import { offeredFieldTags, reportFieldsOf } from "@/lib/report/report-fields";
+import { fieldTagsFor, offeredFieldTags, reportFieldsOf } from "@/lib/report/report-fields";
 import {
   downloadReportPdf,
   downloadReportWorkbook,
@@ -75,11 +75,17 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
     [filter, activeFields],
   );
 
+  const offeredTags = useMemo(
+    () => (eventSeries === null ? [] : fieldTagsFor(eventSeries)),
+    [eventSeries],
+  );
+
   function openReport(saved: ReportSelection) {
     // What the lists no longer offer is dropped rather than silently restricting the report to
-    // nobody: a class renamed since the report was saved is a tag nothing can show or unpress.
+    // nobody: a class renamed since the report was saved is a tag nothing can show or unpress,
+    // and a list emptied since is a field that would print "keine Angabe" for everybody (US-21).
     setFilter(scopeFilterToGroups(saved.filter, filterGroups));
-    setActiveFields(offeredFieldTags(saved.fields));
+    setActiveFields(offeredFieldTags(saved.fields, offeredTags));
   }
 
   // Writes go through handlers because the author is the session's, not the request's (US-13);
@@ -217,7 +223,7 @@ export function ReportView({ eventSeriesId }: { eventSeriesId: string }) {
           <Card>
             <CardContent>
               <CardHeading>Datenfelder</CardHeading>
-              <FieldTagList value={activeFields} onChange={setActiveFields} />
+              <FieldTagList tags={offeredTags} value={activeFields} onChange={setActiveFields} />
             </CardContent>
           </Card>
 

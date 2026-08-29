@@ -101,7 +101,9 @@ export function useEventSeriesRoster(
         {
           attendance,
           completeness,
-          equipmentRental,
+          // Asked only where some program requires something, which is US-21 one step further off.
+          equipmentRental:
+            equipmentRental && programs.some((one) => one.requiredEquipment.length > 0),
           health,
           busPickupPoint: answerLists,
           seasonPassOption: answerLists,

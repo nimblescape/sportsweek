@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   ANSWER_LABELS,
   MASTER_DATA_CATEGORIES,
+  rentsEquipment,
   type EventSeriesListField,
 } from "@/lib/master-data/categories";
 import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
@@ -189,7 +190,8 @@ export function scopeFilterToGroups(
  * What a saved report keeps when it is copied into a new series (US-22, Q10). It differs from
  * `scopeFilterToGroups` in what it is told: the lists themselves rather than the categories a
  * view happens to offer, so a category no list backs — attendance, gender, health, completeness
- * — is never in question and its tags always survive.
+ * — is never in question and its tags always survive. Renting is the exception among those: its
+ * list is the equipment the programs require, one step further off than the rest.
  *
  * Dropping at copy time rather than at read time is what keeps a copied report from opening as
  * changed before anybody has changed anything: the report on screen would otherwise differ from
@@ -207,6 +209,9 @@ export function prunedToLists(
     const answer = category.usage.field;
     tags[answer] = tags[answer].filter((value) => offered.has(value));
   }
+
+  // Renting has a list behind it too, one step further off: the equipment the programs require.
+  if (!rentsEquipment(eventSeries)) tags.equipmentRental = [];
 
   return { ...filter, tags };
 }
