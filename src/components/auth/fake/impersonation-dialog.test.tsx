@@ -15,11 +15,17 @@ vi.mock("@/lib/firebase/client", () => ({ auth: {} }));
 const { ImpersonationDialog } = await import("@/components/auth/fake/impersonation-dialog");
 
 const KNOWN_USERS = [
-  { upn: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", accountType: "teacher" },
+  { email: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", accountType: "teacher" },
   {
-    upn: "zoe.zimmer@student.htldornbirn.at",
+    email: "zoe.zimmer@student.htldornbirn.at",
     firstName: "Zoe",
     lastName: "Zimmer",
+    accountType: "student",
+  },
+  {
+    email: "max.mustermann@student.htldornbirn.at",
+    firstName: "Max",
+    lastName: "Mustermann",
     accountType: "student",
   },
 ];
@@ -58,14 +64,68 @@ describe("ImpersonationDialog", () => {
     stubApi();
   });
 
-  it("offers the already known users by UPN alone", async () => {
+  const options = async () =>
+    [...(await screen.findByLabelText("Bestehende Benutzer:innen")).querySelectorAll("option")].map(
+      (option) => option.textContent,
+    );
+
+  /** The document id is an opaque uid now, so people are named by their address (US-31). */
+  it("offers the already known users by address alone", async () => {
     renderDialog();
 
-    const dropdown = await screen.findByLabelText("Bestehende Benutzer:innen");
-    expect([...dropdown.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
+    expect(await options()).toEqual(["Neue Person", ...KNOWN_USERS.map((entry) => entry.email)]);
+  });
+
+  /** Seventy students and a handful of teachers is too long a list to read through. */
+  it("narrows the list to the name that was typed", async () => {
+    const { user } = renderDialog();
+    await options();
+
+    await user.type(screen.getByLabelText("Suchen"), "zimmer");
+
+    expect(await options()).toEqual(["Neue Person", "zoe.zimmer@student.htldornbirn.at"]);
+  });
+
+  it("searches the address as well as the name", async () => {
+    const { user } = renderDialog();
+    await options();
+
+    await user.type(screen.getByLabelText("Suchen"), "jane.doe@");
+
+    expect(await options()).toEqual(["Neue Person", "jane.doe@htldornbirn.at"]);
+  });
+
+  it("shows only teachers when asked for them", async () => {
+    const { user } = renderDialog();
+    await options();
+
+    await user.click(screen.getByRole("radio", { name: "Nur Lehrpersonen" }));
+
+    expect(await options()).toEqual(["Neue Person", "jane.doe@htldornbirn.at"]);
+  });
+
+  it("shows only students when asked for them", async () => {
+    const { user } = renderDialog();
+    await options();
+
+    await user.click(screen.getByRole("radio", { name: "Nur Schüler:innen" }));
+
+    expect(await options()).toEqual([
       "Neue Person",
-      ...KNOWN_USERS.map((entry) => entry.upn),
+      "zoe.zimmer@student.htldornbirn.at",
+      "max.mustermann@student.htldornbirn.at",
     ]);
+  });
+
+  /** The two narrow together, so a name is searched within whichever population is shown. */
+  it("combines the two, searching a name within the population shown", async () => {
+    const { user } = renderDialog();
+    await options();
+
+    await user.click(screen.getByRole("radio", { name: "Nur Schüler:innen" }));
+    await user.type(screen.getByLabelText("Suchen"), "doe");
+
+    expect(await options()).toEqual(["Neue Person"]);
   });
 
   it("fills the form from the picked user", async () => {

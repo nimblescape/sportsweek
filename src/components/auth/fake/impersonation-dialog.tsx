@@ -25,7 +25,7 @@ const NOT_ALLOWED = "Dafür ist eine Anmeldung als Lehrperson über Office 365 n
 
 const knownUsersSchema = z.array(
   z.object({
-    upn: z.string(),
+    email: z.string(),
     firstName: z.string(),
     lastName: z.string(),
     accountType: accountTypeSchema,
@@ -41,6 +41,25 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const ROLE_LABELS: Record<AccountType, string> = { teacher: "Lehrperson", student: "Schüler:in" };
+
+/** Which population the picker offers. A seeded school holds seventy students and three staff. */
+const POPULATIONS = [
+  { value: "all", label: "Alle" },
+  { value: "teacher", label: "Nur Lehrpersonen" },
+  { value: "student", label: "Nur Schüler:innen" },
+] as const;
+type Population = (typeof POPULATIONS)[number]["value"];
+
+function matching(users: KnownUser[], population: Population, search: string): KnownUser[] {
+  const needle = search.trim().toLowerCase();
+
+  return users.filter(
+    (entry) =>
+      (population === "all" || entry.accountType === population) &&
+      (needle === "" ||
+        `${entry.firstName} ${entry.lastName} ${entry.email}`.toLowerCase().includes(needle)),
+  );
+}
 
 // A native <select> rather than the design system's portalled one: this dialog never ships,
 // so it is not worth the weight to render a list of UPNs.
@@ -63,8 +82,12 @@ export function ImpersonationDialog({
   onImpersonated: () => void;
 }) {
   const [known, setKnown] = React.useState<KnownUser[]>([]);
+  const [population, setPopulation] = React.useState<Population>("all");
+  const [search, setSearch] = React.useState("");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const knownId = React.useId();
+  const searchId = React.useId();
+  const populationId = React.useId();
   const firstNameId = React.useId();
   const lastNameId = React.useId();
   const upnId = React.useId();
@@ -112,9 +135,10 @@ export function ImpersonationDialog({
   // Whether the name yields a school address is a separate question, and one the dialog answers
   // in words on the press — a control that refuses without saying why explains nothing.
   const named = firstName?.trim() !== "" && lastName?.trim() !== "";
+  const shown = matching(known, population, search);
 
-  function pickKnown(pickedUpn: string) {
-    const picked = known.find((entry) => entry.upn === pickedUpn);
+  function pickKnown(pickedEmail: string) {
+    const picked = known.find((entry) => entry.email === pickedEmail);
     if (!picked) return;
 
     setValue("firstName", picked.firstName);
@@ -154,6 +178,34 @@ export function ImpersonationDialog({
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <div className="flex flex-col gap-1.5">
+          <Label htmlFor={searchId}>Suchen</Label>
+          <Input
+            id={searchId}
+            type="text"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="text-sm font-medium">Wer</legend>
+          <div className="flex gap-4" id={populationId}>
+            {POPULATIONS.map((option) => (
+              <label key={option.value} className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name={populationId}
+                  value={option.value}
+                  checked={population === option.value}
+                  onChange={() => setPopulation(option.value)}
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor={knownId}>Bestehende Benutzer:innen</Label>
           <select
             id={knownId}
@@ -162,9 +214,9 @@ export function ImpersonationDialog({
             onChange={(event) => pickKnown(event.target.value)}
           >
             <option value="">Neue Person</option>
-            {known.map((entry) => (
-              <option key={entry.upn} value={entry.upn}>
-                {entry.upn}
+            {shown.map((entry) => (
+              <option key={entry.email} value={entry.email}>
+                {entry.email}
               </option>
             ))}
           </select>

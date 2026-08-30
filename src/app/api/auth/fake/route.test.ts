@@ -159,14 +159,15 @@ describe("/api/auth/fake", () => {
   });
 
   describe("GET", () => {
-    it("lists the known users by UPN so an existing one can be picked", async () => {
-      firestore.seed("users", "zoe.zimmer@student.htldornbirn.at", {
+    /** Named by the record's address: the document id is an opaque uid now (US-31). */
+    it("lists the known users by address so an existing one can be picked", async () => {
+      firestore.seed("users", "uid-of-zoe", {
         firstName: "Zoe",
         lastName: "Zimmer",
         email: "zoe.zimmer@student.htldornbirn.at",
         accountType: "student",
       });
-      firestore.seed("users", "jane.doe@htldornbirn.at", {
+      firestore.seed("users", "uid-of-jane", {
         firstName: "Jane",
         lastName: "Doe",
         email: "jane.doe@htldornbirn.at",
@@ -179,13 +180,13 @@ describe("/api/auth/fake", () => {
       expect(await response.json()).toEqual({
         users: [
           {
-            upn: "jane.doe@htldornbirn.at",
+            email: "jane.doe@htldornbirn.at",
             firstName: "Jane",
             lastName: "Doe",
             accountType: "teacher",
           },
           {
-            upn: "zoe.zimmer@student.htldornbirn.at",
+            email: "zoe.zimmer@student.htldornbirn.at",
             firstName: "Zoe",
             lastName: "Zimmer",
             accountType: "student",

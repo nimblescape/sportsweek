@@ -79,28 +79,28 @@ const bodySchema = z.object({
   accountType: accountTypeSchema,
 });
 
-// Whom to sign in as, which is a name and which domain issues the UPN. What that person may do
+// Whom to sign in as, which is a name and the address the school issued. What that person may do
 // once signed in is the record's business, not the picker's.
 const listedUserSchema = userSchema.omit({
   id: true,
-  email: true,
   photo: true,
   permissions: true,
 });
 
-/** The UPNs already in Firestore, so a known user can be picked instead of retyped. */
+/** The addresses already in Firestore, so a known user can be picked instead of retyped. */
 export async function GET() {
   if (currentAuthMode() !== "fake") return notFound();
   if (!(await entraTeacherCookie())) return forbidden();
 
   try {
     const snapshot = await adminDb.collection(COLLECTIONS.users).get();
+    // Named by the record's address rather than by its id, which is an opaque uid (US-31).
     const users = snapshot.docs
       .flatMap((doc) => {
         const parsed = listedUserSchema.safeParse(doc.data());
-        return parsed.success ? [{ upn: doc.id, ...parsed.data }] : [];
+        return parsed.success ? [parsed.data] : [];
       })
-      .sort((a, b) => a.upn.localeCompare(b.upn));
+      .sort((a, b) => a.email.localeCompare(b.email));
 
     return NextResponse.json({ users });
   } catch (err) {
