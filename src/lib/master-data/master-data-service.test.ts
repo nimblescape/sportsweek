@@ -43,7 +43,7 @@ function storedList(field: keyof Omit<EventSeries, "id">) {
 
 /** A registration holds the plain text it selected (US-11), which is what the in-use rule reads. */
 function seedRegistration(id: string, answers: Record<string, unknown>) {
-  firestore.seed(registrationPath(SERIES), id, { studentUpn: id, ...answers });
+  firestore.seed(registrationPath(SERIES), id, { studentUid: id, ...answers });
 }
 
 describe("createMasterDataItem", () => {
@@ -319,7 +319,7 @@ describe("updateMasterDataItem", () => {
 
   it("leaves an item alone that only another event series' registrations select", async () => {
     seedActiveEventSeries({ classOptions: ["3AHIT"] });
-    firestore.seed(registrationPath("s2"), "other", { studentUpn: "other", class: "3AHIT" });
+    firestore.seed(registrationPath("s2"), "other", { studentUid: "other", class: "3AHIT" });
 
     await updateMasterDataItem("classes", "3AHIT", { name: "3BHIT" });
 

@@ -23,6 +23,7 @@ const PROVENANCE: ReportProvenance = {
   reportName: null,
   filterSummary: null,
   exportedAt: new Date(2026, 7, 27, 14, 35),
+  build: "v1.2.3 \u00b7 abc1234",
 };
 const A4: ContextPageSize = { width: 595, height: 842, orientation: "portrait" };
 
@@ -115,6 +116,12 @@ describe("reportDocument", () => {
 
   it("states in the footer when the copy was taken", () => {
     expect(footerOf()).toContain("Erstellt am 27.08.2026, 14:35");
+  });
+
+  /** A printout outlives the deployment that made it, and "which version is this?" is asked of
+   * the paper rather than of the screen (US-17). */
+  it("states in the footer which build made the copy, after the moment it was taken", () => {
+    expect(footerOf()).toContain("Erstellt am 27.08.2026, 14:35 \u00b7 v1.2.3 \u00b7 abc1234");
   });
 
   it("names the saved filter under the title rather than in the footer", () => {

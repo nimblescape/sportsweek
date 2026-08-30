@@ -159,14 +159,15 @@ describe("/api/auth/fake", () => {
   });
 
   describe("GET", () => {
-    it("lists the known users by UPN so an existing one can be picked", async () => {
-      firestore.seed("users", "zoe.zimmer@student.htldornbirn.at", {
+    /** Named by the record's address: the document id is an opaque uid now (US-31). */
+    it("lists the known users by address so an existing one can be picked", async () => {
+      firestore.seed("users", "uid-of-zoe", {
         firstName: "Zoe",
         lastName: "Zimmer",
         email: "zoe.zimmer@student.htldornbirn.at",
         accountType: "student",
       });
-      firestore.seed("users", "jane.doe@htldornbirn.at", {
+      firestore.seed("users", "uid-of-jane", {
         firstName: "Jane",
         lastName: "Doe",
         email: "jane.doe@htldornbirn.at",
@@ -179,13 +180,13 @@ describe("/api/auth/fake", () => {
       expect(await response.json()).toEqual({
         users: [
           {
-            upn: "jane.doe@htldornbirn.at",
+            email: "jane.doe@htldornbirn.at",
             firstName: "Jane",
             lastName: "Doe",
             accountType: "teacher",
           },
           {
-            upn: "zoe.zimmer@student.htldornbirn.at",
+            email: "zoe.zimmer@student.htldornbirn.at",
             firstName: "Zoe",
             lastName: "Zimmer",
             accountType: "student",
@@ -204,7 +205,7 @@ describe("/api/auth/fake", () => {
   });
 
   describe("POST", () => {
-    it("derives the UPN from the name and the chosen role", async () => {
+    it("derives the address from the name and the chosen role", async () => {
       const response = await POST(
         postRequest({ firstName: "Jürgen", lastName: "Müller", accountType: "student" }),
       );
@@ -212,7 +213,7 @@ describe("/api/auth/fake", () => {
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({
         customToken: "custom-token",
-        upn: "juergen.mueller@student.htldornbirn.at",
+        email: "juergen.mueller@student.htldornbirn.at",
       });
       expect(createUser).toHaveBeenCalledWith({
         email: "juergen.mueller@student.htldornbirn.at",
@@ -221,7 +222,7 @@ describe("/api/auth/fake", () => {
       });
     });
 
-    // The UPN provisionUser otherwise falls back to spells umlauts out and loses the spaces,
+    // The address provisionUser otherwise falls back to spells umlauts out and loses the spaces,
     // so carrying the parts as claims keeps the record exactly as it was typed.
     it("passes the typed names through as token claims", async () => {
       await POST(
@@ -234,7 +235,7 @@ describe("/api/auth/fake", () => {
       });
     });
 
-    it("reuses the auth account when the UPN is already known", async () => {
+    it("reuses the auth account when the address is already known", async () => {
       getUserByEmail.mockResolvedValue({ uid: "existing-uid" });
 
       await POST(postRequest({ firstName: "Jane", lastName: "Doe", accountType: "teacher" }));
@@ -255,7 +256,7 @@ describe("/api/auth/fake", () => {
       expect(createCustomToken).not.toHaveBeenCalled();
     });
 
-    it("returns 400 when the name yields no UPN the tenant could issue", async () => {
+    it("returns 400 when the name yields no address the tenant could issue", async () => {
       const response = await POST(
         postRequest({ firstName: "字", lastName: "字", accountType: "teacher" }),
       );

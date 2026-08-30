@@ -7,14 +7,20 @@ import type { Registration } from "@/lib/schemas/registration";
 import type { RosterStudent } from "@/lib/students/roster";
 
 /**
+ * Shaped like what Firebase mints rather than like an address: opaque, and mixed case, so a
+ * caller that folds a uid names nobody and the test says so.
+ */
+const ANNA = "uidAnnaMuster";
+
+/**
  * A registration with every answer given, so a test states only the answers it is about.
  * Twenty-four fields is too many to repeat per test file, and a fixture that drifts from the
  * schema fails as a type error in one place rather than in five.
  */
 export function studentRecord(overrides: Partial<Registration> = {}): Registration {
   return {
-    id: "anna@student.htldornbirn.at",
-    studentUpn: "anna@student.htldornbirn.at",
+    id: ANNA,
+    studentUid: ANNA,
     firstName: "Anna",
     lastName: "Muster",
     email: "anna@student.htldornbirn.at",
@@ -58,8 +64,8 @@ export function rosterStudent(
   answers: Partial<Registration> = {},
 ): RosterStudent {
   const row = {
-    id: "anna@student.htldornbirn.at",
-    studentUpn: "anna@student.htldornbirn.at",
+    id: ANNA,
+    studentUid: ANNA,
     email: "anna@student.htldornbirn.at",
     firstName: "Anna",
     lastName: "Muster",
@@ -83,7 +89,7 @@ export function rosterStudent(
     ...row,
     record: studentRecord({
       id: row.id,
-      studentUpn: row.studentUpn,
+      studentUid: row.studentUid,
       firstName: row.firstName,
       lastName: row.lastName,
       email: row.email,

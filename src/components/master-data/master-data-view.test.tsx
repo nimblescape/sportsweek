@@ -8,6 +8,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { stubRowLayout } from "@/test/stub-row-layout";
 import { CHILD_IN_USE_HINT, IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
+import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 const useMasterData = vi.fn();
 const useUsageReport = vi.fn();
@@ -204,6 +205,15 @@ describe("MasterDataView — deleting", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("3AHIT")).toBeInTheDocument();
+  });
+
+  it("warns that the deletion cannot be undone", async () => {
+    stubFetch(created);
+    renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT löschen" }));
+
+    expect(screen.getByRole("dialog")).toHaveTextContent(IRREVERSIBLE_HINT);
   });
 
   it("deletes only once the teacher confirms", async () => {

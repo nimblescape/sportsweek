@@ -39,6 +39,14 @@ export const COLLECTIONS = {
    * this one at all -- it is written by the Admin SDK and closed to every client.
    */
   logins: "logins",
+  /**
+   * The administrators a school starts with, before any of them has ever signed in. Their
+   * accounts belong to the directory, so there is no uid to key a `users` record by until the
+   * first sign-in produces one — and pre-creating an account here would collide with the one
+   * Entra issues for the same address. Keyed by that address, claimed once and then deleted
+   * (US-2, US-31). Closed to every client; drained by provisionUser.
+   */
+  invitedTeachers: "invitedTeachers",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

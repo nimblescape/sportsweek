@@ -73,11 +73,11 @@ function header(logo: string | null, provenance: ReportProvenance): Content {
   return { columns, columnGap: 10, margin: [PAGE_MARGIN, 20, PAGE_MARGIN, 0] };
 }
 
-function footer({ exportedAt }: ReportProvenance): DynamicContent {
+function footer({ exportedAt, build }: ReportProvenance): DynamicContent {
   return (currentPage, pageCount) => ({
     margin: [PAGE_MARGIN, 12, PAGE_MARGIN, 0],
     columns: [
-      { text: exportedAtLine(exportedAt), style: "meta" },
+      { text: `${exportedAtLine(exportedAt)} \u00b7 ${build}`, style: "meta" },
       { text: pageLabel(currentPage, pageCount), style: "meta", alignment: "right" },
     ],
   });

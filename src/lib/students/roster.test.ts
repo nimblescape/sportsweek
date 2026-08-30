@@ -13,14 +13,14 @@ function record(
   lastName: string,
   overrides: Partial<Registration> = {},
 ): Registration {
-  const upn = `${firstName}.${lastName}@student.htldornbirn.at`.toLowerCase();
+  const uid = `uid-${firstName}-${lastName}`;
 
   return studentRecord({
-    id: upn,
-    studentUpn: upn,
+    id: uid,
+    studentUid: uid,
     firstName,
     lastName,
-    email: upn,
+    email: `${firstName}.${lastName}@student.htldornbirn.at`.toLowerCase(),
     ...overrides,
   });
 }
@@ -33,7 +33,7 @@ describe("toRoster", () => {
 
     expect(student).toMatchObject({
       id: ANNA.id,
-      studentUpn: ANNA.studentUpn,
+      studentUid: ANNA.studentUid,
       firstName: "Anna",
       lastName: "Muster",
       class: "5AHIF",

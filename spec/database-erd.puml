@@ -10,13 +10,13 @@ hide circle
 skinparam linetype ortho
 
 entity "User" as user {
-  PK id : string  ' Entra ID UPN (US-1)
+  PK id : string  ' Firebase Auth uid (US-1, US-31)
   --
   firstName : string
   lastName : string
-  email : string
-  accountType : enum(teacher, student)  ' what they are: auto-assigned from the UPN domain at
-                                        ' creation, granted by nobody, never client-writable (US-3)
+  email : string  ' the address the school issued; a field, never the key
+  accountType : enum(teacher, student)  ' what they are: auto-assigned from the address's domain
+                                        ' at creation, granted by nobody, never client-writable (US-3)
   permissions : string[]  ' what they may do: a set, not a rank, granted through the rights page
                           ' by a holder of editUsers. Empty for every student, and for a teacher
                           ' until granted — the school's first teacher excepted (US-2, US-30)

@@ -1,0 +1,209 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+ * Licensed under the MIT License. See LICENSE in the repository root for details.
+ */
+import { readFileSync } from "node:fs";
+import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
+import {
+  assertFails,
+  assertSucceeds,
+  initializeTestEnvironment,
+  type RulesTestEnvironment,
+} from "@firebase/rules-unit-testing";
+
+let testEnv: RulesTestEnvironment;
+
+beforeAll(async () => {
+  testEnv = await initializeTestEnvironment({
+    projectId: "sportsweek-identity-rules-test",
+    firestore: { rules: readFileSync("firestore.rules", "utf8") },
+  });
+});
+
+afterAll(async () => await testEnv.cleanup());
+
+const TEACHER_EMAIL = "lehrperson@htldornbirn.at";
+const STUDENT_EMAIL = "schuelerin@student.htldornbirn.at";
+/** A guest of the tenant, or anyone else holding an account this school did not issue. */
+const OUTSIDER_EMAIL = "outsider@example.com";
+
+/** Entra ID, the school's own directory. */
+const ENTRA = "microsoft.com";
+/** A token signed with the project's service account, which is what the fake login mints. */
+const SERVER = "custom";
+/** An e-mail sign-up, which asserts whatever address it was handed. */
+const SELF_SERVICE = "password";
+
+type SignInProvider = typeof ENTRA | typeof SERVER | typeof SELF_SERVICE;
+
+const REGISTRATIONS = "eventSeries/eventSeries1/registrations";
+
+/** Records are keyed by the Firebase uid (US-31); the address is a field, and a different one. */
+const uidOf = (email: string) => `uid-of-${email}`;
+
+function signInAs(email: string | null, signInProvider: SignInProvider) {
+  return testEnv
+    .authenticatedContext(uidOf(email ?? "nobody"), {
+      ...(email ? { email } : {}),
+      firebase: { sign_in_provider: signInProvider, identities: {} },
+    })
+    .firestore();
+}
+
+/** What provisioning mints once it has found the address to be the school's (US-3). */
+function signInWithClaim(email: string, accountType: "teacher" | "student") {
+  return testEnv
+    .authenticatedContext(uidOf(email), {
+      email,
+      accountType,
+      firebase: { sign_in_provider: ENTRA, identities: {} },
+    })
+    .firestore();
+}
+
+beforeEach(async () => {
+  await testEnv.clearFirestore();
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db
+      .collection("users")
+      .doc(uidOf(TEACHER_EMAIL))
+      .set({
+        accountType: "teacher",
+        email: TEACHER_EMAIL,
+        permissions: ["editRegistrations", "editUsers"],
+      });
+    await db
+      .collection("users")
+      .doc(uidOf(STUDENT_EMAIL))
+      .set({ accountType: "student", email: STUDENT_EMAIL });
+    await db.collection("eventSeries").doc("eventSeries1").set({
+      name: "Winter 2026",
+      nameKey: "winter 2026",
+      isOpenToStudents: true,
+      isArchived: false,
+    });
+    await db
+      .collection(REGISTRATIONS)
+      .doc(uidOf(STUDENT_EMAIL))
+      .set({ studentUid: uidOf(STUDENT_EMAIL), firstName: "Erika", lastName: "Musterfrau" });
+  });
+});
+
+/**
+ * Every rule below this line asks who the caller is, and the answer is the token's e-mail
+ * address. That makes the question of which provider was allowed to put it there the first
+ * one — an e-mail sign-up asserts whatever address it is handed, so a project with that
+ * provider switched on would hand a stranger a teacher's reach (US-1, US-3).
+ */
+describe("only the school's own identity provider is trusted", () => {
+  it("denies an e-mail sign-up claiming a teacher's address", async () => {
+    const impostor = signInAs(TEACHER_EMAIL, SELF_SERVICE);
+
+    await assertFails(impostor.collection(REGISTRATIONS).get());
+    await assertFails(impostor.collection("users").doc(uidOf(STUDENT_EMAIL)).get());
+    await assertFails(impostor.collection("eventSeries").doc("eventSeries1").get());
+  });
+
+  it("denies an e-mail sign-up claiming a student's address", async () => {
+    const impostor = signInAs(STUDENT_EMAIL, SELF_SERVICE);
+
+    await assertFails(impostor.collection(REGISTRATIONS).doc(uidOf(STUDENT_EMAIL)).get());
+    await assertFails(impostor.collection("users").doc(uidOf(STUDENT_EMAIL)).get());
+  });
+
+  it("lets the school's own directory in", async () => {
+    const teacher = signInAs(TEACHER_EMAIL, ENTRA);
+
+    await assertSucceeds(teacher.collection(REGISTRATIONS).get());
+    await assertSucceeds(teacher.collection("eventSeries").doc("eventSeries1").get());
+  });
+
+  /** The fake login of the test environments goes through a token the server itself signed. */
+  it("lets a token this project's own server signed in", async () => {
+    const teacher = signInAs(TEACHER_EMAIL, SERVER);
+
+    await assertSucceeds(teacher.collection(REGISTRATIONS).get());
+  });
+});
+
+/**
+ * Membership is not a string test here. `provisionUser` refuses an address off the school's
+ * domains before it writes anything, so a record or the `accountType` claim it mints is proof
+ * that trusted server code has already asked the question (US-3, US-32). The rules ask for that
+ * answer rather than repeating the test, which is what lets the domains be asked of the
+ * directory later without touching a rule.
+ */
+describe("membership is what provisioning established", () => {
+  it("admits somebody the claim vouches for, before any record exists", async () => {
+    const newcomer = signInWithClaim("neu@htldornbirn.at", "teacher");
+
+    await assertSucceeds(newcomer.collection("eventSeries").doc("eventSeries1").get());
+  });
+
+  it("admits somebody whose record was written before their token carried the claim", async () => {
+    await assertSucceeds(
+      signInAs(TEACHER_EMAIL, ENTRA).collection("eventSeries").doc("eventSeries1").get(),
+    );
+  });
+
+  /**
+   * The school's own domain is no longer enough on its own. Provisioning is what admits somebody,
+   * and until it has run there is neither a claim nor a record to show for it.
+   */
+  it("denies a school address that provisioning has never seen", async () => {
+    const unprovisioned = signInAs("niemand@htldornbirn.at", ENTRA);
+
+    await assertFails(unprovisioned.collection("eventSeries").doc("eventSeries1").get());
+    await assertFails(unprovisioned.collection("eventSeries").get());
+  });
+
+  /** A claim is minted by the Admin SDK alone, so an account type it never assigned is nothing. */
+  it("denies a claim naming an account type that is not one", async () => {
+    const forged = testEnv
+      .authenticatedContext("uid-of-forger", {
+        email: OUTSIDER_EMAIL,
+        accountType: "admin",
+        firebase: { sign_in_provider: ENTRA, identities: {} },
+      })
+      .firestore();
+
+    await assertFails(forged.collection("eventSeries").doc("eventSeries1").get());
+  });
+});
+
+/**
+ * The domains the school issues addresses from are what tells a member from an outsider — the same
+ * rule `accountTypeFromEmail` applies when a record is provisioned (US-3). A directory admits
+ * guests, and a guest is not somebody this application knows.
+ */
+describe("only an address the school issued counts as a member", () => {
+  it("denies a guest of the tenant reading the event series", async () => {
+    const guest = signInAs(OUTSIDER_EMAIL, ENTRA);
+
+    await assertFails(guest.collection("eventSeries").doc("eventSeries1").get());
+    await assertFails(guest.collection("eventSeries").get());
+  });
+
+  it("denies a guest of the tenant reading the record they would have", async () => {
+    const guest = signInAs(OUTSIDER_EMAIL, ENTRA);
+
+    await assertFails(guest.collection("users").doc(uidOf(OUTSIDER_EMAIL)).get());
+  });
+
+  it("denies a token carrying no address at all", async () => {
+    const nameless = signInAs(null, ENTRA);
+
+    await assertFails(nameless.collection("eventSeries").doc("eventSeries1").get());
+  });
+
+  it("lets a teacher and a student of the school read the series they select from", async () => {
+    await assertSucceeds(
+      signInAs(TEACHER_EMAIL, ENTRA).collection("eventSeries").doc("eventSeries1").get(),
+    );
+    await assertSucceeds(
+      signInAs(STUDENT_EMAIL, ENTRA).collection("eventSeries").doc("eventSeries1").get(),
+    );
+  });
+});

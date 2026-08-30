@@ -59,7 +59,7 @@ function student(
 ): RosterStudent {
   return rosterStudent({
     id: `record-${lastName}`,
-    studentUpn: `${lastName.toLowerCase()}@student.htldornbirn.at`,
+    studentUid: `uid-${lastName}`,
     email: `${lastName.toLowerCase()}@student.htldornbirn.at`,
     firstName,
     lastName,
@@ -365,7 +365,7 @@ describe("the saved reports", () => {
   const saved = {
     id: "r1",
     name: "Nur 5BHIF",
-    createdByUserId: "jane.doe@htldornbirn.at",
+    createdByUserId: "uidJaneDoe",
     filter: toggleTag(EMPTY_FILTER, "class", "5BHIF"),
     fields: ["class"],
   };
@@ -598,6 +598,17 @@ describe("exporting", () => {
     expect(reportName).toBeNull();
     expect(filterSummary).toBeNull();
     expect(exportedAt).toBeInstanceOf(Date);
+  });
+
+  /** The copy is read after the deployment that made it is gone, so it carries what made it. */
+  it("hands the export the build the page was served by", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_VERSION", "1.2.3");
+    vi.stubEnv("NEXT_PUBLIC_COMMIT_HASH", "abc1234");
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "PDF" }));
+
+    expect(pressed(downloadReportPdf).provenance.build).toBe("v1.2.3 · abc1234");
   });
 
   it("describes the filter alongside it, so a copy says which slice of the event series it holds", async () => {

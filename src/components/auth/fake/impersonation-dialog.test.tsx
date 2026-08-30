@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,11 +15,17 @@ vi.mock("@/lib/firebase/client", () => ({ auth: {} }));
 const { ImpersonationDialog } = await import("@/components/auth/fake/impersonation-dialog");
 
 const KNOWN_USERS = [
-  { upn: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", accountType: "teacher" },
+  { email: "jane.doe@htldornbirn.at", firstName: "Jane", lastName: "Doe", accountType: "teacher" },
   {
-    upn: "zoe.zimmer@student.htldornbirn.at",
+    email: "zoe.zimmer@student.htldornbirn.at",
     firstName: "Zoe",
     lastName: "Zimmer",
+    accountType: "student",
+  },
+  {
+    email: "max.mustermann@student.htldornbirn.at",
+    firstName: "Max",
+    lastName: "Mustermann",
     accountType: "student",
   },
 ];
@@ -58,50 +64,164 @@ describe("ImpersonationDialog", () => {
     stubApi();
   });
 
-  it("offers the already known users by UPN alone", async () => {
+  const listed = async () =>
+    within(await screen.findByRole("list", { name: "Bestehende Benutzer:innen" }))
+      .getAllByRole("listitem")
+      .map((item) => item.textContent);
+
+  /** The document id is an opaque uid now, so people are named by their address (US-31). */
+  it("offers the already known users by address alone", async () => {
     renderDialog();
 
-    const dropdown = await screen.findByLabelText("Bestehende Benutzer:innen");
-    expect([...dropdown.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
-      "Neue Person",
-      ...KNOWN_USERS.map((entry) => entry.upn),
+    expect(await listed()).toEqual(KNOWN_USERS.map((entry) => entry.email));
+  });
+
+  it("shows only teachers when asked for them", async () => {
+    const { user } = renderDialog();
+    await listed();
+
+    await user.click(screen.getByRole("radio", { name: "Nur Lehrpersonen" }));
+
+    expect(await listed()).toEqual(["jane.doe@htldornbirn.at"]);
+  });
+
+  it("shows only students when asked for them", async () => {
+    const { user } = renderDialog();
+    await listed();
+
+    await user.click(screen.getByRole("radio", { name: "Nur Schüler:innen" }));
+
+    expect(await listed()).toEqual([
+      "zoe.zimmer@student.htldornbirn.at",
+      "max.mustermann@student.htldornbirn.at",
     ]);
+  });
+
+  // The dropdown this replaced kept its choice on show. A list has to say so itself, and it
+  // answers for a typed name too, since the address is what either one produces.
+  it("marks whoever the form now names", async () => {
+    const { user } = renderDialog();
+    const jane = await screen.findByRole("button", { name: "jane.doe@htldornbirn.at" });
+    expect(jane).not.toHaveAttribute("aria-current");
+
+    await user.click(jane);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "jane.doe@htldornbirn.at" })).toHaveAttribute(
+        "aria-current",
+        "true",
+      ),
+    );
+  });
+
+  /** Seventy students and a handful of teachers is too long a list to read through, and the
+   * name is already being typed — so it is what narrows the list. */
+  it("narrows the list to the first name being typed", async () => {
+    const { user } = renderDialog();
+    await listed();
+
+    await user.type(screen.getByLabelText("Vorname"), "Zo");
+
+    await waitFor(async () =>
+      expect(await listed()).toEqual(["zoe.zimmer@student.htldornbirn.at"]),
+    );
+  });
+
+  it("narrows the list to the surname being typed", async () => {
+    const { user } = renderDialog();
+    await listed();
+
+    await user.type(screen.getByLabelText("Nachname"), "Muster");
+
+    await waitFor(async () =>
+      expect(await listed()).toEqual(["max.mustermann@student.htldornbirn.at"]),
+    );
+  });
+
+  /** The two narrow together, so a name is searched within whichever population is shown. */
+  it("searches the name within the population shown", async () => {
+    const { user } = renderDialog();
+    await listed();
+
+    await user.click(screen.getByRole("radio", { name: "Nur Lehrpersonen" }));
+    await user.type(screen.getByLabelText("Nachname"), "Zimmer");
+
+    expect(await screen.findByText("Keine Treffer")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Bestehende Benutzer:innen" })).toBeNull();
   });
 
   it("fills the form from the picked user", async () => {
     const { user } = renderDialog();
 
-    const dropdown = await screen.findByLabelText("Bestehende Benutzer:innen");
-    await user.selectOptions(dropdown, "zoe.zimmer@student.htldornbirn.at");
+    await user.click(
+      await screen.findByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" }),
+    );
 
     expect(screen.getByLabelText("Vorname")).toHaveValue("Zoe");
     expect(screen.getByLabelText("Nachname")).toHaveValue("Zimmer");
     expect(screen.getByLabelText("Schüler:in")).toBeChecked();
   });
 
-  it("compiles the UPN from the name and the role while typing", async () => {
+  /**
+   * An address is a name and a role together, so a typed name with the role left at its default
+   * would mint a second person rather than reaching the one who bears it.
+   */
+  it("takes the role from the person whose name was typed", async () => {
+    const { user } = renderDialog();
+    await screen.findByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" });
+
+    await typeName(user, "Zoe", "Zimmer");
+
+    await waitFor(() => expect(screen.getByLabelText("Schüler:in")).toBeChecked());
+    expect(screen.getByLabelText("E-Mail")).toHaveTextContent("zoe.zimmer@student.htldornbirn.at");
+    expect(
+      screen.getByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" }),
+    ).toHaveAttribute("aria-current", "true");
+  });
+
+  it("leaves the role alone for a name that is nobody's", async () => {
+    const { user } = renderDialog();
+    await screen.findByRole("button", { name: "jane.doe@htldornbirn.at" });
+
+    await typeName(user, "Erika", "Musterfrau");
+
+    expect(screen.getByLabelText("Lehrperson")).toBeChecked();
+  });
+
+  // Only until it is contradicted: a new teacher who happens to share a student's name is a
+  // person the tenant could issue, and the role is where that is said.
+  it("still lets the role be changed after it followed a name", async () => {
+    const { user } = renderDialog();
+    await screen.findByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" });
+
+    await typeName(user, "Zoe", "Zimmer");
+    await waitFor(() => expect(screen.getByLabelText("Schüler:in")).toBeChecked());
+    await user.click(screen.getByLabelText("Lehrperson"));
+
+    expect(screen.getByLabelText("Lehrperson")).toBeChecked();
+  });
+
+  it("compiles the address from the name and the role while typing", async () => {
     const { user } = renderDialog();
 
     await typeName(user, "Jürgen", "Müller");
-    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent(
-      "juergen.mueller@htldornbirn.at",
-    );
+    expect(screen.getByLabelText("E-Mail")).toHaveTextContent("juergen.mueller@htldornbirn.at");
 
     await user.click(screen.getByLabelText("Schüler:in"));
-    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent(
+    expect(screen.getByLabelText("E-Mail")).toHaveTextContent(
       "juergen.mueller@student.htldornbirn.at",
     );
   });
 
   // It is derived from the two names, so offering somewhere to type would invite editing it
   // into something the tenant would never issue.
-  it("presents the UPN as a result rather than a field", async () => {
+  it("presents the address as a result rather than a field", async () => {
     const { user } = renderDialog();
 
     await typeName(user, "Jane", "Doe");
 
-    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent("jane.doe@htldornbirn.at");
-    expect(screen.queryByRole("textbox", { name: "E-Mail / UPN" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("E-Mail")).toHaveTextContent("jane.doe@htldornbirn.at");
+    expect(screen.queryByRole("textbox", { name: "E-Mail" })).not.toBeInTheDocument();
   });
 
   it("signs in with the token the server minted", async () => {
@@ -180,12 +300,8 @@ describe("ImpersonationDialog — which of the two is offered", () => {
 
   it("offers it once somebody is picked from the list", async () => {
     const { user } = renderDialog();
-    await screen.findByRole("option", { name: "jane.doe@htldornbirn.at" });
 
-    await user.selectOptions(
-      screen.getByLabelText("Bestehende Benutzer:innen"),
-      "jane.doe@htldornbirn.at",
-    );
+    await user.click(await screen.findByRole("button", { name: "jane.doe@htldornbirn.at" }));
 
     await waitFor(() => expect(asOther()).toBeEnabled());
   });

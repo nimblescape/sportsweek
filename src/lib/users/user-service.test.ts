@@ -14,15 +14,15 @@ const { grantPermissions, SELF_DEMOTION_HINT, NOT_A_TEACHER_HINT } =
   await import("@/lib/users/user-service");
 
 const USERS = "users";
-const ADMIN = "ada@htldornbirn.at";
-const OTHER = "bob@htldornbirn.at";
-const STUDENT = "sam@student.htldornbirn.at";
+const ADMIN = "uidAda";
+const OTHER = "uidBob";
+const STUDENT = "uidSam";
 
-function seedTeacher(upn: string, permissions: string[]) {
-  firestore.seed(USERS, upn, {
+function seedTeacher(uid: string, permissions: string[]) {
+  firestore.seed(USERS, uid, {
     firstName: "T",
-    lastName: upn,
-    email: upn,
+    lastName: uid,
+    email: `${uid}@htldornbirn.at`,
     accountType: "teacher",
     permissions,
   });
@@ -53,7 +53,7 @@ describe("grantPermissions", () => {
     await grantPermissions(OTHER, ["viewReports"], ADMIN);
 
     expect(firestore.get(USERS, OTHER)).toMatchObject({
-      email: OTHER,
+      email: `${OTHER}@htldornbirn.at`,
       accountType: "teacher",
       firstName: "T",
     });

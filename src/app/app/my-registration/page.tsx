@@ -24,9 +24,8 @@ export const CHOOSE_EVENT_SERIES_LABEL = "Welche Registrierung möchtest du bear
  */
 export default async function MyRegistrationPage() {
   const user = await requireStudent();
-  const studentUpn = (user.email ?? "").toLowerCase();
 
-  const joined = await openSeriesOfStudent(studentUpn);
+  const joined = await openSeriesOfStudent(user.uid);
   // One is not a choice, so it is not put as one.
   if (joined.length === 1) redirect(`${ROUTES.myRegistration}/${joined[0].id}`);
 

@@ -800,7 +800,7 @@ reached them by mistake does not stay in the series for good.
   refused a moment ago may be allowed afterwards (US-24). The guard is asked again on every
   write, so nothing has to be told that this changed.
 
-### US-29: The overview page is where an event series is run from
+### US-29: The registrations page is where an event series is run from
 
 As a teacher, I open one page that shows me the classes of the series I am working in, hands out
 the invitation links for them and says whether students may register at all, so that setting a
@@ -808,10 +808,13 @@ series up is one place rather than three.
 
 **Acceptance criteria:**
 
-- **The statistics page becomes the overview page.** `/app/statistics` becomes `/app/overview`,
-  `ROUTES.statistics` becomes `ROUTES.overview`, and the navigation entry reads "Übersicht"
-  rather than "Statistik". The rename is the point rather than a tidy-up: the page stopped being a
-  set of figures the moment it became where a series is opened and where its classes are invited.
+- **The statistics page becomes the registrations page.** `/app/statistics` and
+  `ROUTES.statistics` are gone; the page lives at `/app/{eventSeriesId}/registrations`, scoped
+  like every other teacher view, and the navigation entry reads "Registrierungen" rather than
+  "Statistik". The rename is the point rather than a tidy-up: the page stopped being a set of
+  figures the moment it became where a series is opened and where its classes are invited. It is
+  named once — the heading says what the navigation item says, and "Übersicht" is not a name this
+  application uses.
 - It is scoped like every other teacher view — by the header tag row (US-20) — and chooses nothing
   itself. Which series it is about is settled above it, and selecting another re-scopes it.
 - It lists **one card per class** of the selected series, as it does today: the students of that
@@ -870,9 +873,9 @@ series up is one place rather than three.
 | US-4                    | Rewritten as US-19 and US-21. The active season, its transaction and its empty states go; the delete and archive rules survive, the archive gate loosens.                                                                                                                                                               |
 | US-5 to US-10           | Kept as descriptions of the seven lists. The in-use restriction preceding them is narrowed to one series and one item (US-24). Storage moves (US-21).                                                                                                                                                                   |
 | US-11                   | The season becomes the event series the invitation named, and the class comes from that invitation rather than being answered (US-23). **A question whose list is empty is not asked at all** (US-21). List values stop being snapshots and become references the server keeps in step (Q4). Self-containment is US-26. |
-| US-12                   | Scoped to the selected event series rather than the active season. `eventId` becomes `event`. Otherwise unchanged.                                                                                                                                                                                                      |
+| US-12                   | Scoped to the selected event series rather than the active season. `eventId` becomes `event`. The per-class cards move to the registrations page (US-29), so US-12 keeps the assignment cards alone and stops describing a page that holds both.                                                                        |
 | US-13                   | Scoped to the selected event series. Saved reports become per series (US-25). The tolerance on opening a saved report is kept.                                                                                                                                                                                          |
-| US-14                   | The header gains the event series tag row (US-20). Master data gains an "Events" sub-item, and the seasons sub-item becomes the event series list — the one page under it that is not scoped. The "Statistik" entry becomes "Übersicht" (US-29).                                                                        |
+| US-14                   | The header gains the event series tag row (US-20). Master data gains an "Events" sub-item, and the seasons sub-item becomes the event series list — the one page under it that is not scoped. The "Statistik" entry becomes "Registrierungen" (US-29).                                                                  |
 | US-15                   | A student may hold registrations in several series, but is asked to choose only when more than one is **open**; otherwise they go straight in (Q7).                                                                                                                                                                     |
 | US-16                   | Unchanged. It substitutes the identity provider and touches nothing this refactoring moves.                                                                                                                                                                                                                             |
 | US-17, US-18            | Unchanged in shape; both read a registration that no longer needs a join.                                                                                                                                                                                                                                               |

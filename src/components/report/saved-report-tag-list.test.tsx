@@ -24,7 +24,7 @@ const saved = (
   filter,
   fields,
   position: 0,
-  createdByUserId: "jane.doe@htldornbirn.at",
+  createdByUserId: "uidJaneDoe",
 });
 
 const REPORTS = [saved("r1", "5AHIF"), saved("r2", "Alle Mädchen")];

@@ -21,13 +21,15 @@ const { ANSWER_NO_LONGER_OFFERED_HINT, REGISTRATION_NOT_OPEN_HINT, registrationP
 const { FOOD_OPTION_OTHER } = await import("@/lib/schemas/master-data");
 const { ServiceError } = await import("@/lib/service-error");
 
-const STUDENT = "jane.doe@student.htldornbirn.at";
+const STUDENT = "uidJaneDoe";
+/** The address that student's record carries, which is a field and never the key (US-31). */
+const STUDENT_EMAIL = "jane.doe@student.htldornbirn.at";
 const REGISTRATIONS = registrationPath("s1");
 
 /** Where the save is aimed — the one thing the body cannot say. */
-function target(overrides: { studentUpn?: string; eventSeriesId?: string } = {}) {
+function target(overrides: { studentUid?: string; eventSeriesId?: string } = {}) {
   return {
-    studentUpn: STUDENT,
+    studentUid: STUDENT,
     eventSeriesId: "s1",
     ...overrides,
   };
@@ -47,7 +49,7 @@ const unanswered = () => firestore.get(REGISTRATIONS, STUDENT)?.isAttendingSport
 /** What following the invitation link leaves behind, which is what a save then amends. */
 function seedJoined(className = "3AHME", eventSeriesId = "s1") {
   firestore.seed(registrationPath(eventSeriesId), STUDENT, {
-    studentUpn: STUDENT,
+    studentUid: STUDENT,
     class: className,
   });
 }
@@ -57,8 +59,12 @@ afterEach(() => vi.restoreAllMocks());
  * The name a registration carries is read from the user record rather than sent (US-26), so a
  * student who can save is one the directory has already provisioned (US-1).
  */
-function seedStudent(upn: string, name: { firstName: string; lastName: string }) {
-  firestore.seed("users", upn, { ...name, email: upn, accountType: "student" });
+function seedStudent(uid: string, name: { firstName: string; lastName: string }) {
+  firestore.seed("users", uid, {
+    ...name,
+    email: `${name.firstName}.${name.lastName}@student.htldornbirn.at`.toLowerCase(),
+    accountType: "student",
+  });
 }
 
 /**
@@ -122,7 +128,7 @@ describe("saveRegistration", () => {
     await saveRegistration(target(), attending);
 
     expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({
-      studentUpn: STUDENT,
+      studentUid: STUDENT,
       class: "3AHME",
       program: "Ski",
     });
@@ -134,11 +140,11 @@ describe("saveRegistration", () => {
 
     const record = await saveRegistration(target(), attending);
 
-    expect(record).toMatchObject({ firstName: "Jane", lastName: "Doe", email: STUDENT });
+    expect(record).toMatchObject({ firstName: "Jane", lastName: "Doe", email: STUDENT_EMAIL });
     expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({
       firstName: "Jane",
       lastName: "Doe",
-      email: STUDENT,
+      email: STUDENT_EMAIL,
     });
   });
 
@@ -146,7 +152,7 @@ describe("saveRegistration", () => {
     seedEventSeries("s1");
 
     await expect(
-      saveRegistration(target({ studentUpn: "ghost@student.htldornbirn.at" }), attending),
+      saveRegistration(target({ studentUid: "uidGhost" }), attending),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(unanswered()).toBe(true);
   });
@@ -156,7 +162,7 @@ describe("saveRegistration", () => {
 
     const record = await saveRegistration(target(), attending);
 
-    expect(record).toMatchObject({ id: STUDENT, studentUpn: STUDENT });
+    expect(record).toMatchObject({ id: STUDENT, studentUid: STUDENT });
   });
 
   /** Which series a registration is in is where it is stored, not a field it carries (US-26). */
@@ -183,14 +189,11 @@ describe("saveRegistration", () => {
 
   it("keeps one record per student per event series", async () => {
     seedEventSeries("s1");
-    seedStudent("john@student.htldornbirn.at", { firstName: "John", lastName: "Doe" });
-    firestore.seed(REGISTRATIONS, "john@student.htldornbirn.at", {
-      studentUpn: "john@student.htldornbirn.at",
-      class: "3AHME",
-    });
+    seedStudent("uidJohnDoe", { firstName: "John", lastName: "Doe" });
+    firestore.seed(REGISTRATIONS, "uidJohnDoe", { studentUid: "uidJohnDoe", class: "3AHME" });
 
     await saveRegistration(target(), attending);
-    await saveRegistration(target({ studentUpn: "john@student.htldornbirn.at" }), attending);
+    await saveRegistration(target({ studentUid: "uidJohnDoe" }), attending);
 
     expect(firestore.count(REGISTRATIONS)).toBe(2);
   });
@@ -372,7 +375,7 @@ describe("saveRegistration", () => {
     seedEventSeries("s1");
     const smuggled = {
       ...attending,
-      studentUpn: "someone.else@htldornbirn.at",
+      studentUid: "uidSomeoneElse",
       firstName: "Someone",
     };
 
@@ -487,13 +490,13 @@ describe("saveRegistration", () => {
  * for — and without this, one stray registration would stay in the series for good (US-28).
  */
 describe("deleteRegistration", () => {
-  const OTHER = "max.mustermann@student.htldornbirn.at";
+  const OTHER = "uidMaxMustermann";
 
-  function seedRegistration(upn: string, eventSeriesId = "s1") {
-    firestore.seed(registrationPath(eventSeriesId), upn, {
+  function seedRegistration(uid: string, eventSeriesId = "s1") {
+    firestore.seed(registrationPath(eventSeriesId), uid, {
       firstName: "Jane",
       lastName: "Doe",
-      email: upn,
+      email: "jane.doe@student.htldornbirn.at",
       class: "3AHME",
       isAttendingSportsWeek: true,
       isIncomplete: false,
@@ -592,7 +595,7 @@ describe("joinEventSeries", () => {
     await joinEventSeries("s1", STUDENT, "3AHME");
 
     expect(firestore.get(registrationPath("s1"), STUDENT)).toMatchObject({
-      studentUpn: STUDENT,
+      studentUid: STUDENT,
       firstName: "Jane",
       lastName: "Doe",
       class: "3AHME",

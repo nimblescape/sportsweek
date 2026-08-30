@@ -53,7 +53,7 @@ function matchesName(teacher: Teacher, name: string): boolean {
   const wanted = name.trim().toLocaleLowerCase("de-AT");
   if (wanted === "") return true;
 
-  return [teacher.firstName, teacher.lastName, teacher.upn].some((field) =>
+  return [teacher.firstName, teacher.lastName, teacher.email].some((field) =>
     field.toLocaleLowerCase("de-AT").includes(wanted),
   );
 }

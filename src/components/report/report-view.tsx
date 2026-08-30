@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import { FileDown, FileSpreadsheet } from "lucide-react";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
+import { buildInfo } from "@/lib/build-info";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { EMPTY_FILTER, filterStudents, filterSummary, scopeFilterToGroups } from "@/lib/filters/student-filter"; // prettier-ignore
 import { fieldTagsFor, offeredFieldTags, reportFieldsOf } from "@/lib/report/report-fields";
@@ -144,6 +145,7 @@ export function ReportView({
           reportName: savedReportName,
           filterSummary: filterDescription,
           exportedAt: new Date(),
+          build: buildInfo(),
         },
       });
     } catch {

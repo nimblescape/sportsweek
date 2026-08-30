@@ -64,6 +64,13 @@ describe("DeleteEventSeriesDialog", () => {
     expect(screen.getByRole("dialog")).toHaveTextContent(/Registrierungen/);
   });
 
+  it("states that the master data and the reports go with it too", () => {
+    stubFetch(noContent);
+    renderDialog();
+
+    expect(screen.getByRole("dialog")).toHaveTextContent(/allen Events, Stammdaten und Berichten/);
+  });
+
   it("warns that the deletion cannot be undone", () => {
     stubFetch(noContent);
     renderDialog();
@@ -206,6 +213,15 @@ describe("DeleteEventSeriesDialog — with nothing registered", () => {
     renderEmpty();
 
     expect(screen.queryByLabelText(/Name der Eventreihe/)).not.toBeInTheDocument();
+  });
+
+  it("still names the master data and the reports it takes", () => {
+    stubFetch(noContent);
+    renderEmpty();
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent(/allen Events, Stammdaten und Berichten/);
+    expect(dialog).not.toHaveTextContent(/Registrierungen/);
   });
 
   it("offers the deletion straight away", () => {

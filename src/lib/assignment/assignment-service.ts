@@ -64,7 +64,7 @@ function eventOfEventSeries(eventSeries: EventSeries, event: string): string {
  */
 export async function assignStudents(
   eventSeriesId: string,
-  studentUpns: readonly string[],
+  studentUids: readonly string[],
   event: string | null,
 ): Promise<void> {
   const eventSeries = await requireEventSeries(eventSeriesId);
@@ -72,8 +72,8 @@ export async function assignStudents(
 
   // Beneath that series by construction, so "is this registration one of ours?" is the path
   // rather than a field a caller could point elsewhere (US-26).
-  const references = studentUpns.map((studentUpn) =>
-    adminDb.collection(registrationPath(eventSeries.id)).doc(studentUpn),
+  const references = studentUids.map((studentUid) =>
+    adminDb.collection(registrationPath(eventSeries.id)).doc(studentUid),
   );
 
   // All in flight together. Read one after the other, moving a class was as many round trips as

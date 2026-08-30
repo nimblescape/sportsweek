@@ -20,7 +20,7 @@ const { PUT } = await import("./route");
 const { ServiceError } = await import("@/lib/service-error");
 const { REGISTRATION_NOT_OPEN_HINT } = await import("@/lib/registration/registration");
 
-const STUDENT = "jane.doe@student.htldornbirn.at";
+const STUDENT = "uidJaneDoe";
 const SERIES = "s1";
 
 const body = {
@@ -78,7 +78,7 @@ describe("PUT /api/my-registration/[eventSeriesId]", () => {
     await PUT(putRequest(body), context);
 
     expect(saveRegistration).toHaveBeenCalledWith(
-      { studentUpn: STUDENT, eventSeriesId: SERIES },
+      { studentUid: "u1", eventSeriesId: SERIES },
       expect.objectContaining(body),
     );
   });
@@ -106,13 +106,17 @@ describe("PUT /api/my-registration/[eventSeriesId]", () => {
     expect(saveRegistration).not.toHaveBeenCalled();
   });
 
-  it("rejects a student whose session carries no address to key the record by", async () => {
+  /** The record is keyed by the uid, so an address is no longer needed to write one (US-31). */
+  it("serves a student whose session carries no address", async () => {
     getAuthenticatedUser.mockResolvedValue({ uid: "u1", email: null, accountType: "student" });
 
     const response = await PUT(putRequest(body), context);
 
-    expect(response.status).toBe(401);
-    expect(saveRegistration).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(saveRegistration).toHaveBeenCalledWith(
+      { studentUid: "u1", eventSeriesId: SERIES },
+      expect.objectContaining(body),
+    );
   });
 
   it("returns the shared validation envelope for a malformed answer", async () => {

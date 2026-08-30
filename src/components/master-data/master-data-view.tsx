@@ -14,6 +14,7 @@ import {
   type MasterDataCategoryKey,
 } from "@/lib/master-data/categories";
 import { useMasterData, useUsageReport } from "@/lib/master-data/use-master-data";
+import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 type MasterDataViewProps = {
   category: MasterDataCategoryKey;
@@ -70,7 +71,7 @@ export function MasterDataView({
       }
       deleteNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird aus der Liste entfernt.
+          <strong>{item.name}</strong> wird aus der Liste entfernt. {IRREVERSIBLE_HINT}
         </>
       )}
       editNote={(item) => (

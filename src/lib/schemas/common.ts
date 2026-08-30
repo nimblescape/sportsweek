@@ -23,10 +23,14 @@ export const requiredText = (max = 200) =>
 export const optionalText = (max = 2000) =>
   z.string().trim().max(max, `Höchstens ${max} Zeichen.`).nullable();
 
+/**
+ * An id as it is stored, never repaired: trimming or folding one is how a caller's identifier
+ * comes to name a document that is not theirs, or none at all.
+ */
 export const documentIdSchema = z
   .string()
-  .trim()
   .min(1, "Pflichtfeld.")
+  .refine((value) => value.trim() === value, "Eine Dokument-ID hat keine Leerzeichen am Rand.")
   .refine((value) => !value.includes("/"), "Eine Dokument-ID darf keinen Pfad enthalten.");
 
 /**

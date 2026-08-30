@@ -29,7 +29,7 @@ const report = {
   name: "5BHIF",
   filter: selection,
   fields: ["class"],
-  createdByUserId: TEACHER,
+  createdByUserId: "u1",
 };
 
 function patchRequest(body: unknown) {

@@ -3,7 +3,7 @@
   "fieldOverrides": [
     {
       "collectionGroup": "registrations",
-      "fieldPath": "studentUpn",
+      "fieldPath": "studentUid",
       "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }]
     }
   ]

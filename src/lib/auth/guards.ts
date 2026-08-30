@@ -28,9 +28,8 @@ export function satisfiesAccountType(actual: AccountType, required: AccountType)
  */
 export async function resolveAccountType(user: SessionUser): Promise<AccountType | null> {
   if (user.accountType) return user.accountType;
-  if (!user.email) return null;
 
-  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(user.email.toLowerCase()).get();
+  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(user.uid).get();
   if (!snapshot.exists) return null;
 
   const parsed = accountTypeSchema.safeParse(snapshot.data()?.accountType);
@@ -45,12 +44,12 @@ export async function resolveAccountType(user: SessionUser): Promise<AccountType
  * A student holds none whatever their record lists, being refused by what they are (US-3).
  */
 async function resolvePermissions(
-  email: string | null,
+  uid: string,
   accountType: AccountType,
 ): Promise<readonly Permission[]> {
-  if (accountType !== "teacher" || !email) return [];
+  if (accountType !== "teacher") return [];
 
-  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(email.toLowerCase()).get();
+  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(uid).get();
   const parsed = permissionsSchema.safeParse(snapshot.data()?.permissions);
   return parsed.success ? parsed.data : [];
 }
@@ -63,7 +62,7 @@ export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> 
   const accountType = await resolveAccountType(user);
   if (!accountType) return null;
 
-  return { ...user, accountType, permissions: await resolvePermissions(user.email, accountType) };
+  return { ...user, accountType, permissions: await resolvePermissions(user.uid, accountType) };
 }
 
 export async function requireUser(): Promise<AuthenticatedUser> {
@@ -107,10 +106,8 @@ export async function requireStudent(): Promise<AuthenticatedUser> {
  * The Entra photo kept on the record at sign-in (US-1), for the mark the person is shown by.
  * Null for most accounts, which have none, and for anything that fails to parse as one.
  */
-export async function fetchUserPhoto(email: string | null): Promise<string | null> {
-  if (!email) return null;
-
-  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(email.toLowerCase()).get();
+export async function fetchUserPhoto(uid: string): Promise<string | null> {
+  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(uid).get();
   const parsed = userSchema.shape.photo.safeParse(snapshot.data()?.photo);
   return parsed.success ? (parsed.data ?? null) : null;
 }

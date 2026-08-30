@@ -46,7 +46,11 @@ vi.mock("next/image", () => ({
   default: (props: Record<string, unknown>) => <img {...props} />,
 }));
 
-const { SignInCard } = await import("@/components/auth/sign-in-card");
+/**
+ * Imported per test rather than once: the redirect result is claimed once per page load, which
+ * a module remembers, and one test's token would otherwise still be in hand in the next.
+ */
+let SignInCard: (typeof import("@/components/auth/sign-in-card"))["SignInCard"];
 
 /** `signInProvider` is how the card tells a real sign-in from an impersonated one. */
 function userSignedInVia(provider: string) {
@@ -69,14 +73,16 @@ function respondWith(status: number, body: unknown) {
 }
 
 describe("SignInCard", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
     getRedirectResult.mockResolvedValue(null);
     credentialFromResult.mockReturnValue(null);
     onIdTokenChanged.mockImplementation((_auth: unknown, callback: (u: unknown) => void) => {
       callback(signedInUser);
       return () => {};
     });
+    ({ SignInCard } = await import("@/components/auth/sign-in-card"));
   });
 
   it("sends the Microsoft access token so the server can ask Graph for the name", async () => {
@@ -99,6 +105,28 @@ describe("SignInCard", () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.idToken).toBe("id-token");
     expect(body.msAccessToken).toBeUndefined();
+  });
+
+  /**
+   * Firebase hands the redirect result to whoever asks first and answers null after that, and
+   * React mounts an effect twice in development. Asking once per mount therefore threw the token
+   * away exactly where the second mount is the one that posts — the reason a photo reached the
+   * record in production and never in `next dev`.
+   */
+  it("keeps the access token when the redirect result is claimed only once", async () => {
+    const fetchMock = respondWith(200, { status: "ok" });
+    getRedirectResult
+      .mockResolvedValueOnce({ user: signedInUser })
+      .mockResolvedValue(null as unknown as { user: unknown });
+    credentialFromResult.mockReturnValue({ accessToken: "graph-token" });
+
+    const { unmount } = render(<SignInCard />);
+    unmount();
+    render(<SignInCard />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const posted = fetchMock.mock.calls.map((call) => JSON.parse(call[1].body).msAccessToken);
+    expect(posted).not.toContain(undefined);
   });
 
   // Impersonating reaches the same listener with somebody else's session, while the Graph

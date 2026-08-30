@@ -51,7 +51,7 @@ function student(
 ): RosterStudent {
   return rosterStudent({
     id: `record-${lastName}`,
-    studentUpn: `${lastName}@student.htldornbirn.at`,
+    studentUid: `uid-${lastName}`,
     firstName: "Vorname",
     lastName,
     ...overrides,
@@ -95,8 +95,9 @@ describe("RegistrationsView", () => {
   it("titles the page", () => {
     render(<RegistrationsView />);
 
-    // Level 1: every card has a "Statistik" area heading of its own further down.
-    expect(screen.getByRole("heading", { name: "Übersicht", level: 1 })).toBeInTheDocument();
+    // Level 1: every card has a "Statistik" area heading of its own further down. The page is
+    // named once, so the heading says what the navigation item says.
+    expect(screen.getByRole("heading", { name: "Registrierungen", level: 1 })).toBeInTheDocument();
   });
 
   it("shows a card per maintained class, counting the registrations of the active event series", () => {

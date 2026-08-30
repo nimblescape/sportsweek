@@ -14,15 +14,17 @@ import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
 import type { Permission } from "@/lib/auth/permissions";
 
 export type Teacher = {
-  upn: string;
+  uid: string;
   firstName: string;
   lastName: string;
+  email: string;
   permissions: readonly Permission[];
 };
 
 const teacherSchema = userSchema.pick({
   firstName: true,
   lastName: true,
+  email: true,
   permissions: true,
 });
 
@@ -51,7 +53,7 @@ export function useTeachers() {
             console.error(`User ${id} does not match the schema`, parsed.error);
             return null;
           }
-          return { upn: id, ...parsed.data };
+          return { uid: id, ...parsed.data };
         },
         onData: (items) => {
           setTeachers([...items].sort(byName));

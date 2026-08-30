@@ -19,7 +19,7 @@ const { ServiceError } = await import("@/lib/service-error");
 
 const SERIES = "s1";
 const PATH = savedReportPath(SERIES);
-const TEACHER = "jane.doe@htldornbirn.at";
+const TEACHER = "uidJaneDoe";
 const selection = toggleTag(EMPTY_FILTER, "class", "5AHIF");
 const FIELDS = ["class", "contact"];
 const stored = {
@@ -159,7 +159,7 @@ describe("updateSavedReport", () => {
   });
 
   it("refuses the author, which the session decides and no request may claim", async () => {
-    const edit = { ...replacement, createdByUserId: "someone.else@htldornbirn.at" } as never;
+    const edit = { ...replacement, createdByUserId: "uidSomeoneElse" } as never;
 
     await expect(updateSavedReport(SERIES, "r1", edit)).rejects.toBeInstanceOf(ServiceError);
     expect(firestore.get(PATH, "r1")).toEqual(stored);

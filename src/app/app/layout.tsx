@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
     ? ((await cookies()).get(EVENT_SERIES_COOKIE_NAME)?.value ?? undefined)
     : undefined;
   const fallbackEventSeriesId = isTeacher ? await resolveSelectedEventSeriesId(remembered) : null;
-  const photo = await fetchUserPhoto(user.email);
+  const photo = await fetchUserPhoto(user.uid);
 
   // Students manage no event series and reach their registration through a link (US-20, US-23).
   return (

@@ -25,7 +25,7 @@ import {
 import { filterStudents, type FilterGroup, type StudentFilter } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { cn } from "@/lib/utils";
-import { AREA, AREAS, AreaTitle, FilteredTag } from "./card-areas";
+import { AREA, AREAS, AreaTitle, FIGURES_AREA, FilteredTag } from "./card-areas";
 import { GenderTable } from "./gender-table";
 import { SkillMatrix } from "./skill-matrix";
 
@@ -163,7 +163,7 @@ export function AssignmentCard({
               </ul>
             </section>
 
-            <section className={AREA}>
+            <section className={FIGURES_AREA}>
               <AreaTitle
                 aside={
                   <FilteredTag

@@ -114,7 +114,7 @@ describe("createEventSeries — from a source", () => {
 
   it("takes no registrations, no archive state and no invitation link", async () => {
     firestore.seed("eventSeries", "archived", storedEventSeries({ name: "Alt", isArchived: true }));
-    firestore.seed(registrationPath("archived"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("archived"), "m1", { studentUid: "u1" });
     firestore.seed("invitations", "tok", { eventSeriesId: "archived", class: "5AHIF" });
 
     const copy = await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "archived" });
@@ -252,7 +252,7 @@ describe("updateEventSeries", () => {
 describe("updateEventSeries — archiving", () => {
   it("archives an event series with registrations", async () => {
     seedEventSeries("s1");
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await updateEventSeries("s1", { isArchived: true });
 
@@ -261,7 +261,7 @@ describe("updateEventSeries — archiving", () => {
 
   it("self-heals a stale hasRegistrations flag while archiving, since the client relies on it", async () => {
     seedEventSeries("s1", { hasRegistrations: false });
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await updateEventSeries("s1", { isArchived: true });
 
@@ -284,7 +284,7 @@ describe("updateEventSeries — archiving", () => {
    */
   it("refuses to archive an event series that is still open to students", async () => {
     seedEventSeries("s1", { isOpenToStudents: true });
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await expect(updateEventSeries("s1", { isArchived: true })).rejects.toMatchObject({
       code: "CONFLICT",
@@ -298,7 +298,7 @@ describe("updateEventSeries — archiving", () => {
 
   it("archives it once it has been closed", async () => {
     seedEventSeries("s1", { isOpenToStudents: false });
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await updateEventSeries("s1", { isArchived: true });
 
@@ -311,7 +311,7 @@ describe("updateEventSeries — archiving", () => {
   /** Closing and archiving in one call is the teacher doing both, in the order that makes sense. */
   it("archives an open series when the same call closes it", async () => {
     seedEventSeries("s1", { isOpenToStudents: true });
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await updateEventSeries("s1", { isArchived: true, isOpenToStudents: false });
 
@@ -337,7 +337,7 @@ describe("updateEventSeries — archiving", () => {
 describe("deleteEventSeries", () => {
   it("refuses to delete an unarchived event series that still has registrations", async () => {
     seedEventSeries("s1");
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await expect(deleteEventSeries("s1")).rejects.toMatchObject({ code: "CONFLICT" });
     expect(firestore.get("eventSeries", "s1")).toBeDefined();
@@ -345,7 +345,7 @@ describe("deleteEventSeries", () => {
 
   it("refuses to delete an open event series that still has registrations", async () => {
     seedEventSeries("s1", { isOpenToStudents: true });
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await expect(deleteEventSeries("s1")).rejects.toMatchObject({ code: "CONFLICT" });
   });
@@ -420,7 +420,7 @@ describe("deleteEventSeries", () => {
 
   it("deletes an archived event series that still has registrations", async () => {
     seedEventSeries("s1", { isArchived: true });
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await deleteEventSeries("s1");
 
@@ -439,7 +439,7 @@ describe("deleteEventSeries", () => {
   it("deletes every registration of the event series", async () => {
     seedEventSeries("s1", { isArchived: true });
     firestore.seed(registrationPath("s1"), "m1", {
-      studentUpn: "u1",
+      studentUid: "u1",
       emergencyContact: { firstName: "Maria", lastName: "Muster" },
       rentedEquipment: ["Ski"],
     });
@@ -502,8 +502,8 @@ describe("deleteEventSeries", () => {
   it("leaves documents of other event series untouched", async () => {
     seedEventSeries("s1", { isArchived: true, events: ["Montafon"] });
     seedEventSeries("s2", { events: ["Behalten"] });
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
-    firestore.seed(registrationPath("s2"), "keep", { studentUpn: "u2" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
+    firestore.seed(registrationPath("s2"), "keep", { studentUid: "u2" });
     firestore.seed("invitations", "tok1", { eventSeriesId: "s1", class: "5AHIF" });
     firestore.seed("invitations", "keep", { eventSeriesId: "s2", class: "5AHIF" });
     firestore.seed(savedReportPath("s1"), "r1", { name: "5AHIF" });
@@ -520,7 +520,7 @@ describe("deleteEventSeries", () => {
   it("chunks the cascade into batches no larger than the Firestore limit", async () => {
     seedEventSeries("s1", { isArchived: true });
     for (let index = 0; index < 1200; index += 1) {
-      firestore.seed(registrationPath("s1"), `m${index}`, { studentUpn: `u${index}` });
+      firestore.seed(registrationPath("s1"), `m${index}`, { studentUid: `u${index}` });
     }
 
     await deleteEventSeries("s1");
@@ -532,11 +532,11 @@ describe("deleteEventSeries", () => {
 
   it("is retry-safe: deleting the leftovers of a half-finished cascade still succeeds", async () => {
     seedEventSeries("s1", { isArchived: true });
-    firestore.seed(registrationPath("s1"), "orphan", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "orphan", { studentUid: "u1" });
 
     await deleteEventSeries("s1");
     seedEventSeries("s1", { isArchived: true });
-    firestore.seed(registrationPath("s1"), "orphan", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "orphan", { studentUid: "u1" });
 
     await expect(deleteEventSeries("s1")).resolves.toBeUndefined();
     expect(firestore.count(registrationPath("s1"))).toBe(0);
@@ -544,7 +544,7 @@ describe("deleteEventSeries", () => {
 
   it("removes the event series only after its dependants are gone", async () => {
     seedEventSeries("s1", { isArchived: true });
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await deleteEventSeries("s1");
 
@@ -591,7 +591,7 @@ describe("event series names are unique", () => {
 
   it("lets an event series keep its own name while another field changes", async () => {
     seedEventSeries("s1", { name: "Winter 2026" });
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await expect(
       updateEventSeries("s1", { name: "Winter 2026", isArchived: true }),
@@ -647,7 +647,7 @@ describe("updateEventSeries — opening to students", () => {
   /** Archiving closes, and it wins: the two cannot be argued into disagreeing in one call. */
   it("refuses to open and archive in the same call", async () => {
     seedEventSeries("s1");
-    firestore.seed(registrationPath("s1"), "m1", { studentUpn: "u1" });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await expect(
       updateEventSeries("s1", { isOpenToStudents: true, isArchived: true }),

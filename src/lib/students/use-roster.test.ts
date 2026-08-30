@@ -23,7 +23,7 @@ vi.mock("@/lib/firebase/client", () => ({ auth: {}, db: {} }));
 
 const { useRoster } = await import("./use-roster");
 
-const ANNA = "anna@student.htldornbirn.at";
+const ANNA = "uidAnna";
 const REGISTRATIONS = "eventSeries/s1/registrations";
 
 const emit = (docs: Doc[]) =>
@@ -32,7 +32,7 @@ const emit = (docs: Doc[]) =>
 const doc = (id: string, data: unknown): Doc => ({ id, data: () => data });
 
 const storedRecord = (overrides: Record<string, unknown> = {}) => ({
-  studentUpn: ANNA,
+  studentUid: ANNA,
   firstName: "Anna",
   lastName: "Muster",
   email: ANNA,
@@ -124,7 +124,7 @@ describe("useRoster", () => {
     const { result } = renderHook(() => useRoster("s1"));
     signIn();
 
-    emit([doc("broken", { studentUpn: ANNA }), doc(ANNA, storedRecord())]);
+    emit([doc("broken", { studentUid: ANNA }), doc(ANNA, storedRecord())]);
 
     expect(result.current.students).toHaveLength(1);
   });

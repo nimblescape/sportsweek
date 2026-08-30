@@ -22,10 +22,19 @@ const doc = vi.fn(() => ({
 const teachersGet = vi.fn();
 const limit = vi.fn(() => ({ get: teachersGet }));
 const where = vi.fn(() => ({ limit }));
-const collection = vi.fn(() => ({ doc, where }));
 const setCustomUserClaims = vi.fn();
+// The administrators a school starts with, waiting for whoever signs in at that address (US-2).
+const invitationGet = vi.fn();
+const invitationDelete = vi.fn();
+const invitationDoc = vi.fn(() => ({ get: invitationGet, delete: invitationDelete }));
+const collection = vi.fn((name: string) =>
+  name === "invitedTeachers" ? { doc: invitationDoc } : { doc, where },
+);
 const fetchEntraName = vi.fn();
 const fetchEntraPhoto = vi.fn();
+
+// Nobody is expected, unless a test says otherwise.
+invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
 
 // A school that already has one, so a test says so itself when it means to be the first.
 teachersGet.mockResolvedValue({ empty: false });
@@ -86,6 +95,7 @@ describe("the deployment's own sign-in policy", () => {
     vi.clearAllMocks();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
   });
 
@@ -111,7 +121,7 @@ describe("the deployment's own sign-in policy", () => {
     expect(loginAdd).not.toHaveBeenCalled();
   });
 
-  // The role has been derived by then, so the policy never has to parse a UPN itself.
+  // The role has been derived by then, so the policy never has to parse an address itself.
   it("asks with the derived role and the provider Firebase reported", async () => {
     await provisionUser({ ...studentClaims, ...ENTRA });
 
@@ -139,7 +149,9 @@ describe("provisionUser", () => {
     vi.clearAllMocks();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
+    fetchEntraPhoto.mockResolvedValue(null);
   });
 
   /**
@@ -168,13 +180,14 @@ describe("provisionUser", () => {
     expect(docSet).not.toHaveBeenCalled();
   });
 
-  it("creates the record on first login using the UPN as the document id", async () => {
+  /** The uid, not the address: a directory rename then updates this record instead of forking. */
+  it("creates the record on first login using the uid as the document id", async () => {
     const result = await provisionUser(teacherClaims);
 
     expect(result).toEqual({
       ok: true,
       user: {
-        id: "jane.doe@htldornbirn.at",
+        id: "firebase-uid-1",
         firstName: "Jane",
         lastName: "Doe",
         email: "jane.doe@htldornbirn.at",
@@ -184,7 +197,7 @@ describe("provisionUser", () => {
       },
     });
     expect(collection).toHaveBeenCalledWith("users");
-    expect(doc).toHaveBeenCalledWith("jane.doe@htldornbirn.at");
+    expect(doc).toHaveBeenCalledWith("firebase-uid-1");
     expect(docSet).toHaveBeenCalledWith(
       expect.objectContaining({ firstName: "Jane", lastName: "Doe", accountType: "teacher" }),
     );
@@ -216,8 +229,58 @@ describe("provisionUser", () => {
   it("rejects a token without an email claim", async () => {
     const result = await provisionUser({ uid: "firebase-uid-1" });
 
-    expect(result).toEqual({ ok: false, reason: "missing-upn" });
+    expect(result).toEqual({ ok: false, reason: "missing-email" });
     expect(docSet).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A school's starting administrators are written before anybody has signed in, so there is no
+   * uid to key their record by. The invitation waits at their address and the first sign-in
+   * claims it, which is the one way a record is created holding anything (US-2).
+   */
+  it("takes the permissions an invitation was left holding, and claims it", async () => {
+    invitationGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ permissions: ["editUsers", "editMasterData"] }),
+    });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(collection).toHaveBeenCalledWith("invitedTeachers");
+    expect(invitationDoc).toHaveBeenCalledWith("jane.doe@htldornbirn.at");
+    expect(result).toMatchObject({
+      ok: true,
+      user: { permissions: ["editUsers", "editMasterData"] },
+    });
+    expect(docSet).toHaveBeenCalledWith(
+      expect.objectContaining({ permissions: ["editUsers", "editMasterData"] }),
+    );
+    expect(invitationDelete).toHaveBeenCalled();
+  });
+
+  /** Claimed once: a second sign-in finds nothing waiting, and is granted nothing. */
+  it("grants nothing where no invitation is waiting", async () => {
+    const result = await provisionUser(teacherClaims);
+
+    expect(result).toMatchObject({ ok: true, user: { permissions: [] } });
+    expect(invitationDelete).not.toHaveBeenCalled();
+  });
+
+  /** An invitation is for a first sign-in; somebody who already has a record is past that. */
+  it("leaves an invitation alone once a record exists", async () => {
+    existingRecord({
+      firstName: "Jane",
+      lastName: "Doe",
+      email: "jane.doe@htldornbirn.at",
+      accountType: "teacher",
+      permissions: [],
+    });
+    invitationGet.mockResolvedValue({ exists: true, data: () => ({ permissions: ["editUsers"] }) });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(result).toMatchObject({ ok: true, user: { permissions: [] } });
+    expect(invitationDelete).not.toHaveBeenCalled();
   });
 
   it("keeps the stored role on a later login instead of recomputing it", async () => {
@@ -237,7 +300,7 @@ describe("provisionUser", () => {
     );
   });
 
-  it("refreshes the profile fields on a later login", async () => {
+  it("refreshes the profile fields on a later login that can ask Graph", async () => {
     existingRecord({
       firstName: "Old",
       lastName: "Name",
@@ -245,7 +308,7 @@ describe("provisionUser", () => {
       accountType: "teacher",
     });
 
-    await provisionUser(teacherClaims);
+    await provisionUser(teacherClaims, "graph-token");
 
     expect(docUpdate).toHaveBeenCalledWith({
       firstName: "Jane",
@@ -276,9 +339,9 @@ describe("provisionUser", () => {
 
   /**
    * The display name is deliberately ignored: this tenant writes "Mustermann Erika", so
-   * splitting it stored the name the wrong way round. The UPN is `firstname.lastname`.
+   * splitting it stored the name the wrong way round. The address is `firstname.lastname`.
    */
-  it("reads the name from the UPN when given/family names are absent", async () => {
+  it("reads the name from the address when given/family names are absent", async () => {
     const result = await provisionUser({
       uid: "firebase-uid-1",
       email: "jane.doe@htldornbirn.at",
@@ -288,7 +351,7 @@ describe("provisionUser", () => {
     expect(result).toMatchObject({ ok: true, user: { firstName: "Jane", lastName: "Doe" } });
   });
 
-  it("capitalises what the UPN spells in lower case", async () => {
+  it("capitalises what the address spells in lower case", async () => {
     const result = await provisionUser({
       uid: "firebase-uid-1",
       email: "anna.stauss-mueller@htldornbirn.at",
@@ -331,7 +394,7 @@ describe("provisionUser", () => {
     expect(fetchEntraName).toHaveBeenCalledWith("graph-token");
   });
 
-  it("falls back to the UPN when Graph cannot supply a name", async () => {
+  it("falls back to the address when Graph cannot supply a name", async () => {
     fetchEntraName.mockResolvedValue(null);
 
     const result = await provisionUser(
@@ -387,6 +450,7 @@ describe("the permissions a new teacher is provisioned with", () => {
     vi.clearAllMocks();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
   });
 
@@ -452,6 +516,7 @@ describe("provisionUser — the Entra photo", () => {
     vi.clearAllMocks();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
     fetchEntraPhoto.mockResolvedValue(null);
   });
@@ -492,6 +557,42 @@ describe("provisionUser — the Entra photo", () => {
     expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ photo: null }));
   });
 
+  /**
+   * The token only exists in the redirect result, so every later login — a reload, an hourly
+   * token refresh — arrives without one. Writing null then would wipe the photo minutes after
+   * storing it: an answer Graph never gave is not an answer of "none".
+   */
+  it("keeps the stored photo when there was no token to ask with", async () => {
+    existingRecord({ accountType: "teacher", photo: "data:image/jpeg;base64,OLD" });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(docUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ photo: null }));
+    expect(result).toMatchObject({ ok: true, user: { photo: "data:image/jpeg;base64,OLD" } });
+  });
+
+  /** Same for the name, which Graph is likewise the authority on (US-1). */
+  it("keeps the stored name when there was no token to ask with", async () => {
+    existingRecord({ accountType: "teacher", firstName: "Jane-Marie", lastName: "Doe-Smith" });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(result).toMatchObject({
+      ok: true,
+      user: { firstName: "Jane-Marie", lastName: "Doe-Smith" },
+    });
+    expect(docUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ firstName: "Jane" }));
+  });
+
+  /** The address is the token's to state, so it is the one field such a login still carries. */
+  it("still follows a directory rename without a token", async () => {
+    existingRecord({ accountType: "teacher", firstName: "Jane", lastName: "Doe" });
+
+    await provisionUser({ ...teacherClaims, email: "jane.roe@htldornbirn.at" });
+
+    expect(docUpdate).toHaveBeenCalledWith({ email: "jane.roe@htldornbirn.at" });
+  });
+
   /** Two independent reads of the same profile; one waiting for the other only slows sign-in. */
   it("asks for the name and the photo at the same time", async () => {
     let namePending = false;
@@ -515,7 +616,7 @@ describe("provisionUser — the Entra photo", () => {
  * can never be more than one login out of date.
  */
 describe("the login refresh of a student's registrations", () => {
-  const STUDENT = studentClaims.email;
+  const STUDENT = studentClaims.uid;
 
   function seedEventSeries(id: string, isArchived = false) {
     firestore.seed("eventSeries", id, storedEventSeries({ name: `Eventreihe ${id}`, isArchived }));
@@ -523,8 +624,8 @@ describe("the login refresh of a student's registrations", () => {
 
   function seedRegistration(eventSeriesId: string, name: Record<string, unknown>) {
     firestore.seed(registrationPath(eventSeriesId), STUDENT, {
-      studentUpn: STUDENT,
-      email: STUDENT,
+      studentUid: STUDENT,
+      email: studentClaims.email,
       class: "3AHME",
       ...name,
     });
@@ -537,6 +638,7 @@ describe("the login refresh of a student's registrations", () => {
     firestore.reset();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
   });
 
@@ -597,7 +699,7 @@ describe("the login refresh of a student's registrations", () => {
   it("leaves somebody else's registration alone", async () => {
     seedEventSeries("s1");
     firestore.seed(registrationPath("s1"), "other@student.htldornbirn.at", {
-      studentUpn: "other@student.htldornbirn.at",
+      studentUid: "uidSomebodyElse",
       firstName: "Maks",
       lastName: "Mustermann",
       email: "other@student.htldornbirn.at",

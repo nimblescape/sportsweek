@@ -25,11 +25,22 @@ const {
   NONE_MATCHING_HINT,
 } = await import("@/components/users/user-permissions-view");
 
-const ADA = { upn: "ada@htldornbirn.at", firstName: "Ada", lastName: "Auer" };
-const BOB = { upn: "bob@htldornbirn.at", firstName: "Bob", lastName: "Berger" };
+const ADA = { uid: "uid-of-ada", email: "ada@htldornbirn.at", firstName: "Ada", lastName: "Auer" };
+const BOB = {
+  uid: "uid-of-bob",
+  email: "bob@htldornbirn.at",
+  firstName: "Bob",
+  lastName: "Berger",
+};
 
 function teachers(
-  ...rows: { upn: string; firstName: string; lastName: string; permissions?: string[] }[]
+  ...rows: {
+    uid: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    permissions?: string[];
+  }[]
 ) {
   useTeachers.mockReturnValue({
     teachers: rows.map((row) => ({ ...row, permissions: row.permissions ?? [] })),
@@ -47,7 +58,7 @@ beforeEach(() => {
   teachers({ ...ADA, permissions: ["editUsers"] }, BOB);
 });
 
-function show(signedInAs = ADA.upn) {
+function show(signedInAs = ADA.uid) {
   return render(<UserPermissionsView signedInAs={signedInAs} />);
 }
 
@@ -97,9 +108,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(`/api/users/${encodeURIComponent(BOB.upn)}`, {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["editAssignments"] },
+        body: { uid: BOB.uid, permissions: ["editAssignments"] },
       }),
     );
   });
@@ -111,9 +122,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["viewReports"] },
+        body: { uid: BOB.uid, permissions: ["viewReports"] },
       }),
     );
   });
@@ -126,9 +137,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editReports));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["editReports"] },
+        body: { uid: BOB.uid, permissions: ["editReports"] },
       }),
     );
   });
@@ -140,9 +151,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.viewReports));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["viewReports"] },
+        body: { uid: BOB.uid, permissions: ["viewReports"] },
       }),
     );
   });
@@ -166,9 +177,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["editMasterData", "editUsers"] },
+        body: { uid: ADA.uid, permissions: ["editMasterData", "editUsers"] },
       }),
     );
   });
@@ -236,7 +247,7 @@ describe("UserPermissionsView — filtering", () => {
     teachers(
       { ...ADA, permissions: ["editUsers"] },
       { ...BOB, permissions: ["editMasterData"] },
-      { upn: "cla@htldornbirn.at", firstName: "Clara", lastName: "Cerny" },
+      { uid: "uid-of-clara", email: "cla@htldornbirn.at", firstName: "Clara", lastName: "Cerny" },
     );
   });
 

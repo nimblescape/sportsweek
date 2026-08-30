@@ -10,11 +10,13 @@ import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Registration } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema, type User } from "@/lib/schemas/user";
+// By the aliased specifier, not "./sign-in-policy": next.config.ts swaps this module for a
+// build with a fake login, and the swap matches how it is named rather than where it lives.
+import { refuseSignIn } from "@/lib/auth/sign-in-policy";
 import { permissionsSchema, type Permission } from "./permissions";
 import { fetchEntraName, fetchEntraPhoto } from "./graph";
-import { localTimestamp } from "./login-time";
-import { refuseSignIn } from "./sign-in-policy";
-import { accountTypeFromUpn } from "./upn";
+import { localTimestamp, LOGIN_TIME_FIELD } from "./login-time";
+import { accountTypeFromEmail } from "./school-email";
 
 export type EntraClaims = {
   uid: string;
@@ -29,7 +31,7 @@ export type EntraClaims = {
 export type ProvisionOutcome =
   { ok: true; user: User } | { ok: false; reason: string; message?: string };
 
-/** Capitalises a UPN segment: "stauss-mueller" becomes "Stauss-Mueller". */
+/** Capitalises a local-part segment: "stauss-mueller" becomes "Stauss-Mueller". */
 function titleCase(segment: string): string {
   return segment.replace(/(^|[-'])(\p{Ll})/gu, (_, lead: string, letter: string) =>
     lead.concat(letter.toLocaleUpperCase("de-AT")),
@@ -42,22 +44,22 @@ function titleCase(segment: string): string {
  * `given_name` and `family_name` are used when Entra sends them, each for what it says it is.
  * The display name is not used at all: its word order is the tenant's choice — this school
  * writes "Stauss Hannes" — so splitting it is a coin toss, and it landed the wrong way up. The
- * UPN's local part is `firstname.lastname` by the tenant's own convention (US-3, US-16), which
- * makes it the better guess, umlauts spelled out and all.
+ * address's local part is `firstname.lastname` by the tenant's own convention (US-3, US-16),
+ * which makes it the better guess, umlauts spelled out and all.
  */
 function resolveName(claims: EntraClaims, localPart: string) {
   const given = claims.given_name?.trim();
   const family = claims.family_name?.trim();
 
   const [first, ...rest] = localPart.split(".").filter(Boolean);
-  const fromUpn =
+  const fromAddress =
     first && rest.length > 0
       ? { firstName: titleCase(first), lastName: rest.map(titleCase).join(" ") }
       : { firstName: localPart, lastName: localPart };
 
   return {
-    firstName: given || fromUpn.firstName,
-    lastName: family || fromUpn.lastName,
+    firstName: given || fromAddress.firstName,
+    lastName: family || fromAddress.lastName,
   };
 }
 
@@ -76,10 +78,10 @@ type StoredIdentity = Pick<Registration, "firstName" | "lastName" | "email">;
  * alone, because an archived series is read-only in everything it holds (US-19) — a name in last
  * year's report is a record of what was true then.
  */
-async function refreshRegistrations(upn: string, identity: StoredIdentity): Promise<void> {
+async function refreshRegistrations(uid: string, identity: StoredIdentity): Promise<void> {
   const held = await adminDb
     .collectionGroup(COLLECTIONS.registrations)
-    .where("studentUpn", "==", upn)
+    .where("studentUid", "==", uid)
     .get();
   if (held.empty) return;
 
@@ -117,10 +119,10 @@ export async function provisionUser(
   claims: EntraClaims,
   graphAccessToken?: string,
 ): Promise<ProvisionOutcome> {
-  const upn = claims.email?.trim().toLowerCase();
-  if (!upn) return { ok: false, reason: "missing-upn" };
+  const email = claims.email?.trim().toLowerCase();
+  if (!email) return { ok: false, reason: "missing-email" };
 
-  const derivedAccountType = accountTypeFromUpn(upn);
+  const derivedAccountType = accountTypeFromEmail(email);
   if (!derivedAccountType) return { ok: false, reason: "unsupported-domain" };
 
   // Whatever else this deployment refuses. Production refuses nothing here.
@@ -130,17 +132,21 @@ export async function provisionUser(
   });
   if (refusal) return { ok: false, ...refusal };
 
-  const localPart = upn.slice(0, upn.indexOf("@"));
+  const localPart = email.slice(0, email.indexOf("@"));
   // Graph is the authoritative source, field by field: its `givenName` is the first name and
   // its `surname` the last one, so neither can be mistaken for the other. Whichever it cannot
   // supply falls back below.
-  const [fromGraph, photo] = graphAccessToken
+  const [fromGraph, fromGraphPhoto] = graphAccessToken
     ? await Promise.all([fetchEntraName(graphAccessToken), fetchEntraPhoto(graphAccessToken)])
     : [null, null];
   const fallback = resolveName(claims, localPart);
-  const firstName = fromGraph?.firstName ?? fallback.firstName;
-  const lastName = fromGraph?.lastName ?? fallback.lastName;
-  const ref = adminDb.collection(COLLECTIONS.users).doc(upn);
+  let firstName = fromGraph?.firstName ?? fallback.firstName;
+  let lastName = fromGraph?.lastName ?? fallback.lastName;
+  let photo = fromGraphPhoto;
+  // Keyed by the uid, which Firebase mints and nothing can move. A directory rename therefore
+  // updates this record rather than forking a second one, and no address reaches a document
+  // path (US-31).
+  const ref = adminDb.collection(COLLECTIONS.users).doc(claims.uid);
   const snapshot = await ref.get();
 
   let accountType = derivedAccountType;
@@ -153,22 +159,45 @@ export async function provisionUser(
     // they existed reads as holding none.
     const held = permissionsSchema.safeParse(snapshot.data()?.permissions);
     permissions = held.success ? held.data : [];
-    // The photo is written even when there is none, so removing it in Entra removes it here.
-    await ref.update({ firstName, lastName, email: upn, photo });
+
+    if (graphAccessToken) {
+      // The photo is written even when there is none, so removing it in Entra removes it here.
+      await ref.update({ firstName, lastName, email, photo });
+    } else {
+      // Only the login that follows the redirect holds a token; a reload or a token refresh
+      // arrives without one. What Graph was never asked it did not answer "none" to, so the
+      // record keeps what it has and only the address, which the token states, is written.
+      const keptFirstName = userSchema.shape.firstName.safeParse(snapshot.data()?.firstName);
+      const keptLastName = userSchema.shape.lastName.safeParse(snapshot.data()?.lastName);
+      const keptPhoto = userSchema.shape.photo.safeParse(snapshot.data()?.photo);
+      if (keptFirstName.success) firstName = keptFirstName.data;
+      if (keptLastName.success) lastName = keptLastName.data;
+      photo = keptPhoto.success ? (keptPhoto.data ?? null) : null;
+      await ref.update({ email });
+    }
   } else {
-    // Nobody is granted anything by signing in. The administrators a school starts with are
-    // written by the seeding script, so there is no race to be the first through the door.
-    await ref.set({ firstName, lastName, email: upn, accountType, photo, permissions });
+    // Nobody is granted anything by signing in — except where the school left an invitation at
+    // this address, which is how a purged school gets its first administrators (US-2). Their
+    // accounts are the directory's to create, so a record cannot be keyed by a uid until now.
+    const invitationRef = adminDb.collection(COLLECTIONS.invitedTeachers).doc(email);
+    const invitation = await invitationRef.get();
+    if (invitation.exists) {
+      const invited = permissionsSchema.safeParse(invitation.data()?.permissions);
+      permissions = invited.success ? invited.data : [];
+    }
+    await ref.set({ firstName, lastName, email, accountType, photo, permissions });
+    // Claimed once: a second sign-in finds nothing waiting.
+    if (invitation.exists) await invitationRef.delete();
   }
 
   // Recorded only now, once the sign-in is one: a refusal above returns without writing.
-  await ref.collection(COLLECTIONS.logins).add({ at: localTimestamp(new Date()) });
+  await ref.collection(COLLECTIONS.logins).add({ [LOGIN_TIME_FIELD]: localTimestamp(new Date()) });
 
   const user = userSchema.parse({
-    id: upn,
+    id: claims.uid,
     firstName,
     lastName,
-    email: upn,
+    email,
     accountType,
     permissions,
     photo,
@@ -176,7 +205,7 @@ export async function provisionUser(
 
   // Only a student holds registrations: a teacher keeps none of their own (US-15).
   if (accountType === accountTypeSchema.enum.student) {
-    await refreshRegistrations(upn, { firstName, lastName, email: upn });
+    await refreshRegistrations(claims.uid, { firstName, lastName, email });
   }
 
   if (claims.accountType !== accountType) {

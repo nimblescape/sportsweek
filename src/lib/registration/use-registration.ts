@@ -35,7 +35,7 @@ type RegistrationState = {
  * yet — where every student starts — since the rule owns them by the document's name rather
  * than by a field only an existing document would have.
  */
-export function useRegistration(eventSeriesId: string, studentUpn: string): RegistrationState {
+export function useRegistration(eventSeriesId: string, studentUid: string): RegistrationState {
   const { eventSeries, loading: eventSeriesLoading, error: eventSeriesError } = useEventSeries();
   // Undefined while the read is still outstanding, which is what null cannot say: null is the
   // answer for a student who has not registered yet.
@@ -46,8 +46,8 @@ export function useRegistration(eventSeriesId: string, studentUpn: string): Regi
     const path = registrationPath(eventSeriesId);
 
     return subscribeToDocument<Registration>({
-      label: `${path}/${studentUpn}`,
-      buildReference: () => doc(db, path, studentUpn),
+      label: `${path}/${studentUid}`,
+      buildReference: () => doc(db, path, studentUid),
       parse: (id, data) => {
         const parsed = registrationSchema.safeParse({ id, ...data });
         if (!parsed.success) {
@@ -59,7 +59,7 @@ export function useRegistration(eventSeriesId: string, studentUpn: string): Regi
       onData: setRecord,
       onError: setRecordError,
     });
-  }, [eventSeriesId, studentUpn]);
+  }, [eventSeriesId, studentUid]);
 
   return {
     eventSeries: eventSeries.find((one) => one.id === eventSeriesId) ?? null,
