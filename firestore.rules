@@ -106,20 +106,16 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isSelf(uid) || may('editUsers');
 
-      // Records are provisioned on first login by the Admin SDK, which bypasses these rules.
-      allow create: if false;
-
       /**
-       * Nothing on the record is the person's to write. Every field is written by provisionUser
-       * from the directory at each login, so an edit here would be overwritten at the next
-       * sign-in — and until then copied into the teacher's report, because a registration takes
-       * its name and address from this record (US-26). What a profile editor would have to
-       * reconcile is beyond what a rule can express, so it would be a Route Handler like every
-       * other write (US-35).
+       * Records are provisioned on first login by the Admin SDK, which bypasses these rules, and
+       * nothing on one is the person's to write afterwards. Every field is written from the
+       * directory at each login, so an edit here would be overwritten at the next sign-in — and
+       * until then copied into the teacher's report, because a registration takes its name and
+       * address from this record (US-26). What a profile editor would have to reconcile is
+       * beyond what a rule can express, so it would be a Route Handler like every other write
+       * (US-35).
        */
-      allow update: if false;
-
-      allow delete: if false;
+      allow write: if false;
     }
 
     /**
