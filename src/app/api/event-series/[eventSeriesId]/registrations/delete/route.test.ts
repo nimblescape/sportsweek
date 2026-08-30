@@ -51,11 +51,14 @@ describe("POST /api/event-series/[eventSeriesId]/registrations/delete", () => {
     expect(deleteRegistration).toHaveBeenCalledWith("s1", STUDENT);
   });
 
-  /** Registrations are keyed by the lower-cased address, so that is what is removed. */
-  it("lower-cases the address it was given", async () => {
-    await post({ studentUid: "Max.Mustermann@Student.HTLDornbirn.at" });
+  /**
+   * A uid is case-sensitive, and Firebase mints them mixed-case. Folding one is not a kindness
+   * to the caller, it names a document that does not exist (US-31).
+   */
+  it("passes the uid on exactly as it was given", async () => {
+    await post({ studentUid: "AbCdEf0123456789" });
 
-    expect(deleteRegistration).toHaveBeenCalledWith("s1", STUDENT);
+    expect(deleteRegistration).toHaveBeenCalledWith("s1", "AbCdEf0123456789");
   });
 
   it("refuses a body naming nobody", async () => {

@@ -39,7 +39,7 @@ export async function POST(request: Request, { params }: Context) {
   const { eventSeriesId } = await params;
 
   try {
-    await deleteRegistration(eventSeriesId, body.data.studentUid.toLowerCase());
+    await deleteRegistration(eventSeriesId, body.data.studentUid);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return handleServiceFailure(error, "Deleting a registration");
