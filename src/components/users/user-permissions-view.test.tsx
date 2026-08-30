@@ -70,6 +70,14 @@ describe("UserPermissionsView", () => {
     expect(screen.getByText("Berger Bob")).toBeInTheDocument();
   });
 
+  /** Two teachers can share a name, and the address is what tells a reader which one this is. */
+  it("names each teacher by their address rather than by the uid keying them", () => {
+    show();
+
+    expect(screen.getByText(ADA.email)).toBeInTheDocument();
+    expect(screen.queryByText(ADA.uid)).not.toBeInTheDocument();
+  });
+
   it("offers every permission as a tag against each teacher", () => {
     show();
 
