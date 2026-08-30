@@ -9,14 +9,18 @@ import { Tag, TagName } from "@/components/ui/tag";
 
 /**
  * Each area gets a surface of its own, so three columns of content read as three areas rather
- * than as one crowded block. Side by side from the small breakpoint up — the card is what the
- * teacher works across, so keeping it one column any longer than necessary costs more than the
- * width it saves.
+ * than as one crowded block.
+ *
+ * Side by side only once all three fit, which takes more room than it looks: the filter asks for
+ * 15rem and the figures are a table as wide as the programs make it, so from the small breakpoint
+ * the two of them left the students nothing — the middle area collapsed and its tally spilled
+ * across the one beside it. Below the breakpoint the areas stack, which is what a narrow window
+ * can show anyway, and the floor on the middle track keeps a squeezed column legible.
  *
  * The figures track is a plain `auto`: `minmax(0,auto)` reads as the same thing and Chrome
  * treats it as one, but Safari laid the areas out in a single column with it.
  */
-export const AREAS = "grid gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto]";
+export const AREAS = "grid gap-3 xl:grid-cols-[minmax(0,15rem)_minmax(12rem,1fr)_auto]";
 export const AREA = "border-border bg-muted/40 flex min-h-0 min-w-0 flex-col rounded-lg border p-3";
 
 /** The aside sits at the far end of the title line — a tally on one area, a toggle on another. */
