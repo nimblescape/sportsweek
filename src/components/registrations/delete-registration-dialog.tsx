@@ -47,10 +47,10 @@ export function DeleteRegistrationDialog({
     setDeleting(true);
     setError(null);
     try {
-      await apiRequest(
-        `/api/event-series/${eventSeriesId}/registrations/${encodeURIComponent(student.id)}`,
-        { method: "DELETE" },
-      );
+      await apiRequest(`/api/event-series/${eventSeriesId}/registrations/delete`, {
+        method: "POST",
+        body: { studentUpn: student.id },
+      });
       onDeleted();
     } catch (caught) {
       setError(

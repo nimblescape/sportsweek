@@ -19,6 +19,19 @@ export function errorResponse(code: ErrorCode, message: string, details?: unknow
 }
 
 /**
+ * Only that somebody is signed in, for a handler whose required permission depends on what its
+ * body asks for. Read the body after this, so a stranger is refused rather than shown which
+ * fields a valid one would name.
+ */
+export async function requireSignInOrResponse(): Promise<NextResponse | null> {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an.");
+  }
+  return null;
+}
+
+/**
  * The proxy already gates teacher routes, but that check is optimistic by design — the Edge
  * runtime cannot verify the session cookie, and it knows nothing of permissions. Every write
  * re-verifies here, against the record rather than the token (US-2, US-3).

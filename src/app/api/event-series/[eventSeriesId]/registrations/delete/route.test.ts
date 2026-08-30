@@ -13,15 +13,24 @@ vi.mock("@/lib/registration/registration-service", () => ({
   deleteRegistration: (...args: unknown[]) => deleteRegistration(...args),
 }));
 
-const { DELETE } = await import("./route");
+const { POST } = await import("./route");
 const { ServiceError } = await import("@/lib/service-error");
 const { ErrorCode } = await import("@/lib/errors");
 
 const TEACHER = "jane.doe@htldornbirn.at";
 const STUDENT = "max.mustermann@student.htldornbirn.at";
 
-const request = new Request("https://example.com/api/event-series/s1/registrations/max");
-const paramsFor = (studentUpn: string) => Promise.resolve({ eventSeriesId: "s1", studentUpn });
+const params = Promise.resolve({ eventSeriesId: "s1" });
+
+const post = (body: unknown) =>
+  POST(
+    new Request("https://example.com/api/event-series/s1/registrations/delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+    { params },
+  );
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -34,26 +43,49 @@ beforeEach(() => {
   deleteRegistration.mockResolvedValue(undefined);
 });
 
-describe("DELETE /api/event-series/[eventSeriesId]/registrations/[studentUpn]", () => {
-  it("removes the registration the address names", async () => {
-    const response = await DELETE(request, { params: paramsFor(STUDENT) });
+describe("POST /api/event-series/[eventSeriesId]/registrations/delete", () => {
+  it("removes the registration the body names", async () => {
+    const response = await post({ studentUpn: STUDENT });
 
     expect(response.status).toBe(204);
     expect(deleteRegistration).toHaveBeenCalledWith("s1", STUDENT);
   });
 
-  /** A UPN is an address, and an address in a path arrives encoded. */
-  it("decodes the student the path names", async () => {
-    await DELETE(request, { params: paramsFor(encodeURIComponent(STUDENT)) });
+  /** Registrations are keyed by the lower-cased address, so that is what is removed. */
+  it("lower-cases the address it was given", async () => {
+    await post({ studentUpn: "Max.Mustermann@Student.HTLDornbirn.at" });
 
     expect(deleteRegistration).toHaveBeenCalledWith("s1", STUDENT);
+  });
+
+  it("refuses a body naming nobody", async () => {
+    const response = await post({});
+
+    expect(response.status).toBe(400);
+    expect(deleteRegistration).not.toHaveBeenCalled();
+  });
+
+  /** An address is a document id once stored, and a path separator would fork the path. */
+  it("refuses an address that could not be a document id", async () => {
+    const response = await post({ studentUpn: "a/b@student.htldornbirn.at" });
+
+    expect(response.status).toBe(400);
+    expect(deleteRegistration).not.toHaveBeenCalled();
+  });
+
+  /** Strict, so a body reaching for the series it deletes from fails rather than being dropped. */
+  it("refuses a body naming the event series, which the path decides", async () => {
+    const response = await post({ studentUpn: STUDENT, eventSeriesId: "other" });
+
+    expect(response.status).toBe(400);
+    expect(deleteRegistration).not.toHaveBeenCalled();
   });
 
   /** A student who is not coming answers "no" (US-11); removing one is a teacher's doing. */
   it("refuses a student, and writes nothing", async () => {
     getAuthenticatedUser.mockResolvedValue({ uid: "u2", email: STUDENT, accountType: "student" });
 
-    const response = await DELETE(request, { params: paramsFor(STUDENT) });
+    const response = await post({ studentUpn: STUDENT });
 
     expect(response.status).toBe(403);
     expect(deleteRegistration).not.toHaveBeenCalled();
@@ -68,7 +100,7 @@ describe("DELETE /api/event-series/[eventSeriesId]/registrations/[studentUpn]", 
       permissions: ["viewReports", "editAssignments", "editMasterData"],
     });
 
-    const response = await DELETE(request, { params: paramsFor(STUDENT) });
+    const response = await post({ studentUpn: STUDENT });
 
     expect(response.status).toBe(403);
     expect(deleteRegistration).not.toHaveBeenCalled();
@@ -77,7 +109,7 @@ describe("DELETE /api/event-series/[eventSeriesId]/registrations/[studentUpn]", 
   it("refuses a caller with no session at all", async () => {
     getAuthenticatedUser.mockResolvedValue(null);
 
-    const response = await DELETE(request, { params: paramsFor(STUDENT) });
+    const response = await post({ studentUpn: STUDENT });
 
     expect(response.status).toBe(401);
     expect(deleteRegistration).not.toHaveBeenCalled();
@@ -88,7 +120,7 @@ describe("DELETE /api/event-series/[eventSeriesId]/registrations/[studentUpn]", 
       new ServiceError(ErrorCode.Conflict, "Archiviert ist schreibgeschützt."),
     );
 
-    const response = await DELETE(request, { params: paramsFor(STUDENT) });
+    const response = await post({ studentUpn: STUDENT });
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({

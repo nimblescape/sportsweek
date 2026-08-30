@@ -128,6 +128,23 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
     expect((await PATCH(patchRequest({ name: "X" }), context)).status).toBe(200);
   });
 
+  /**
+   * Which permission this needs depends on what the body changes, so the body is read before the
+   * permission is known — but not before the caller is. A stranger is answered 401 rather than
+   * shown which fields a valid body would name.
+   */
+  it("refuses a caller with no session before reading their body", async () => {
+    getAuthenticatedUser.mockResolvedValue(null);
+
+    const response = await PATCH(patchRequest({ nonsense: true }), context);
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { message: expect.not.stringContaining("isOpenToStudents") },
+    });
+    expect(updateEventSeries).not.toHaveBeenCalled();
+  });
+
   it("archives the event series", async () => {
     await PATCH(patchRequest({ isArchived: true }), context);
 
