@@ -178,10 +178,15 @@ const RANDOM_SEED = 20260826;
  * indistinguishable from real students at a glance — and with a pool that size, some of the
  * addresses would belong to actual ones. These cannot be mistaken for anybody.
  *
- * They are spelling-alphabet words — NATO's, the German-language ones and the French one — and
- * each list holds those that read as that gender. A name is not what makes a student one gender
- * or the other, the field is; the split is only so that a seeded person does not read as a
- * mistake. Umlauts and accents are kept so the address transliteration is still exercised.
+ * The first names are spelling-alphabet words — NATO's, the German-language ones and the French
+ * one — and each list holds those that read as that gender. A name is not what makes a student
+ * one gender or the other, the field is; the split is only so that a seeded person does not read
+ * as a mistake. Umlauts and accents are kept so the address transliteration is still exercised.
+ *
+ * The surnames are ordinary Austrian ones on a stem that says what they are, the way
+ * "Mustermann" does. An earlier set named specimens — Prüfstück, Attrappe, Blindprobe — which is
+ * unmistakable but calls the person an object, and a teacher reading a class list should not
+ * find that. A seeded student is a stand-in, not a sample.
  */
 // prettier-ignore
 const MALE_FIRST_NAMES = [
@@ -199,10 +204,11 @@ const FEMALE_FIRST_NAMES = [
 
 // prettier-ignore
 const LAST_NAMES = [
-  "Musterfall", "Prüffall", "Testfall", "Beispielfall", "Übungsfall", "Demofall", "Modellfall",
-  "Musterakte", "Prüfmuster", "Testmuster", "Blindprobe", "Nullprobe", "Großprobe", "Stichprobe",
-  "Platzhalter", "Schablone", "Attrappe", "Vorlage", "Musterzeile", "Prüfstück", "Testreihe",
-  "Fallbeispiel", "Musterbogen", "Prüfbogen",
+  "Musterhofer", "Musteregger", "Mustergruber", "Mustermüller", "Musterbauer", "Musterlechner",
+  "Musterwinkler", "Musterjäger", "Musterberger", "Musterwalder", "Musterfelder", "Musterkrämer",
+  "Beispielhofer", "Beispielegger", "Beispielgruber", "Beispielmüller", "Beispielbauer",
+  "Beispielsteiner", "Beispielwinkler", "Beispieljäger", "Beispielberger", "Beispielwalder",
+  "Beispielreiter", "Beispielkrämer",
 ];
 
 const OTHER_RELATIONSHIPS = ["Tante", "Onkel", "Schwester", "Bruder", "Großmutter", "Stiefvater"];
