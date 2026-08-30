@@ -5,7 +5,6 @@
  */
 import { z } from "zod";
 import {
-  documentIdSchema,
   genderSchema,
   hasUniqueNames,
   isoDateSchema,
@@ -13,6 +12,7 @@ import {
   phoneNumberSchema,
   requiredText,
   snapshotValueSchema,
+  uidSchema,
 } from "./common";
 import { MAX_EQUIPMENT_ITEMS } from "./master-data";
 
@@ -55,14 +55,14 @@ export const rentedEquipmentSchema = z
   .refine(hasUniqueNames, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
 
 const registrationFields = z.object({
-  id: documentIdSchema,
+  id: uidSchema,
   /**
    * The one reference this record keeps, and the reason it keeps it: the access rules have to be
    * able to say "yours" about a registration, and a record naming nobody could be owned by
    * nobody (US-26). It is also the document's own id, so a student's registration in a series is
    * reached without a query.
    */
-  studentUid: documentIdSchema,
+  studentUid: uidSchema,
   /**
    * Copied from the session on every save and refreshed at every login (US-1, US-26), so a
    * reader needs no join: the report, the board, the overview and both exports read the name

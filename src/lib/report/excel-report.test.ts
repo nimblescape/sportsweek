@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import {
   OVERVIEW_SHEET,
   REPORT_SHEET,
@@ -15,9 +16,9 @@ import type { ReportProvenance } from "./report-export";
 import { reportFieldsOf } from "./report-fields";
 import { rosterStudent } from "@/test/roster-student";
 
-const ANNA = rosterStudent({ id: "r1", firstName: "Anna", lastName: "Muster" });
+const ANNA = rosterStudent({ id: asUid("r1"), firstName: "Anna", lastName: "Muster" });
 const BENE = rosterStudent({
-  id: "r2",
+  id: asUid("r2"),
   firstName: "Bene",
   lastName: "Berger",
   email: "bene@student.htldornbirn.at",

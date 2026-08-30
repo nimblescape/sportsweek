@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import type { Registration } from "@/lib/schemas/registration";
 import { studentRecord } from "@/test/roster-student";
 import { toRoster } from "./roster";
@@ -13,7 +14,7 @@ function record(
   lastName: string,
   overrides: Partial<Registration> = {},
 ): Registration {
-  const uid = `uid-${firstName}-${lastName}`;
+  const uid = asUid(`uid-${firstName}-${lastName}`);
 
   return studentRecord({
     id: uid,

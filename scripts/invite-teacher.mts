@@ -24,7 +24,7 @@ import {
   permissionsInputSchema,
   type Permission,
 } from "@/lib/auth/permissions";
-import { accountTypeFromEmail, TEACHER_DOMAIN } from "@/lib/auth/school-email";
+import { accountTypeFromEmail, invitationKey, TEACHER_DOMAIN } from "@/lib/auth/school-email";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { userSchema } from "@/lib/schemas/user";
 import { apphostingValue, ENVIRONMENTS, fail, type Environment } from "./environment.mjs";
@@ -104,16 +104,14 @@ async function main(): Promise<void> {
 
   console.log(`Inviting into ${projectId}.\n`);
 
-  const email = (
+  const email = invitationKey(
     await input({
       message: "E-Mail-Adresse der Lehrperson:",
       validate: (value) =>
         accountTypeFromEmail(value) === "teacher" ||
         `Nur eine Adresse auf @${TEACHER_DOMAIN} kann eingeladen werden.`,
-    })
-  )
-    .trim()
-    .toLowerCase();
+    }),
+  );
 
   if (await alreadyProvisioned(db, email)) {
     fail(

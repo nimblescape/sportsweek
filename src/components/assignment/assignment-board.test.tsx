@@ -6,6 +6,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { assignmentGroups, skillColumns } from "@/lib/assignment/statistics";
 import { filterGroups } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
@@ -32,8 +33,8 @@ function student(
   overrides: Partial<Omit<RosterStudent, "record">> = {},
 ): RosterStudent {
   return rosterStudent({
-    id: `record-${lastName}`,
-    studentUid: `uid-${lastName}`,
+    id: asUid(`record-${lastName}`),
+    studentUid: asUid(`uid-${lastName}`),
     firstName,
     lastName,
     ...overrides,

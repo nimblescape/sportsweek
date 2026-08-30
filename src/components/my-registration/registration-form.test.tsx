@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ANSWER_LABELS, questionsAsked } from "@/lib/master-data/categories";
 import { storedEventSeries } from "@/test/event-series";
+import { asUid } from "@/lib/schemas/common";
 import type { Registration } from "@/lib/schemas/registration";
 
 const apiRequest = vi.fn();
@@ -32,8 +33,8 @@ const LISTS = {
 };
 
 const storedRecord: Registration = {
-  id: "uidJane",
-  studentUid: "uidJane",
+  id: asUid("uidJane"),
+  studentUid: asUid("uidJane"),
   firstName: "Jane",
   lastName: "Doe",
   email: "jane@student.htldornbirn.at",

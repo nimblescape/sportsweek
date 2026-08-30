@@ -3,6 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
+import { asUid } from "@/lib/schemas/common";
 import type { Registration } from "@/lib/schemas/registration";
 import type { RosterStudent } from "@/lib/students/roster";
 
@@ -10,7 +11,7 @@ import type { RosterStudent } from "@/lib/students/roster";
  * Shaped like what Firebase mints rather than like an address: opaque, and mixed case, so a
  * caller that folds a uid names nobody and the test says so.
  */
-const ANNA = "uidAnnaMuster";
+const ANNA = asUid("uidAnnaMuster");
 
 /**
  * A registration with every answer given, so a test states only the answers it is about.

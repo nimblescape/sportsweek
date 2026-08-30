@@ -27,6 +27,7 @@ import {
   type FilterGroup,
   type StudentFilter,
 } from "@/lib/filters/student-filter";
+import type { Uid } from "@/lib/schemas/common";
 import type { RosterStudent } from "@/lib/students/roster";
 import { DraggingCursor } from "@/components/ui/dragging-cursor";
 import { ALL_LABEL, AssignmentCard, DraggedTag, studentTagName } from "./assignment-card";
@@ -72,7 +73,7 @@ type AssignmentBoardProps = {
   registered: readonly RosterStudent[];
   filterGroups: readonly FilterGroup[];
   /** Given the students to move and the week to move them to, or null to take the week away. */
-  onMove: (recordIds: string[], event: string | null) => Promise<void>;
+  onMove: (recordIds: Uid[], event: string | null) => Promise<void>;
 };
 
 /**
@@ -92,7 +93,7 @@ export function AssignmentBoard({
   onMove,
 }: AssignmentBoardProps) {
   const [filters, setFilters] = useState<Readonly<Record<string, StudentFilter>>>({});
-  const [picked, setPicked] = useState<readonly string[]>([]);
+  const [picked, setPicked] = useState<readonly Uid[]>([]);
   const [error, setError] = useState<string | null>(null);
   // What a drag is carrying: the ids to fade where they stand, and the tags to draw under the
   // pointer. The tag that was grabbed is one of them, "Alle" included — it travels too.
@@ -110,7 +111,7 @@ export function AssignmentBoard({
     useSensor(KeyboardSensor, { coordinateGetter: crossToNextCard }),
   );
 
-  const togglePicked = (recordId: string) =>
+  const togglePicked = (recordId: Uid) =>
     setPicked((current) =>
       current.includes(recordId) ? current.filter((id) => id !== recordId) : [...current, recordId],
     );
@@ -123,7 +124,7 @@ export function AssignmentBoard({
         : [...current, ...shown.filter((id) => !current.includes(id))];
     });
 
-  async function move(recordIds: string[], target: AssignmentGroup) {
+  async function move(recordIds: Uid[], target: AssignmentGroup) {
     setError(null);
     try {
       await onMove(recordIds, target.event);
@@ -246,7 +247,7 @@ function carriedBy(
   active: DragEndEvent["active"],
   source: AssignmentGroup,
   filter: StudentFilter | undefined,
-  picked: readonly string[],
+  picked: readonly Uid[],
 ): RosterStudent[] {
   const shown = filterStudentsOf(source, filter);
   if (active.data.current?.all === true) return shown;

@@ -5,6 +5,7 @@
  */
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { INVITATION_LINK_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -50,8 +51,8 @@ function student(
   overrides: Partial<Omit<RosterStudent, "record">> = {},
 ): RosterStudent {
   return rosterStudent({
-    id: `record-${lastName}`,
-    studentUid: `uid-${lastName}`,
+    id: asUid(`record-${lastName}`),
+    studentUid: asUid(`uid-${lastName}`),
     firstName: "Vorname",
     lastName,
     ...overrides,
