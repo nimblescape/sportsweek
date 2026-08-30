@@ -13,31 +13,18 @@ import type { SignInAttempt, SignInRefusal } from "../sign-in-policy";
 const SERVER_SIGNED = "custom";
 
 /**
- * A test environment holds invented people and unfinished work, so a student's own account is
- * turned away — while an impersonated student is exactly what the environment is for.
+ * A test environment trusts one provider more than production does: the token this project's own
+ * server signs, which is the whole of what a fake login can mint.
  *
- * `signInProvider` separates the two: Firebase sets it during the token exchange, so a caller
- * cannot assert `microsoft.com` without having been through Entra ID.
- *
- * Everything the production policy refuses is still refused here; this adds the one provider
- * that a fake login needs and asks one further question. Tightening production therefore
- * tightens these environments too, and cannot be forgotten in one of them.
+ * Everything the production policy refuses is still refused here, so tightening production
+ * tightens these environments too and cannot be forgotten in one of them. Who signed in is not
+ * this policy's business — a student reaches the app by following an invitation link and signing
+ * in as themselves (US-23), so turning that account away made the one flow with strangers in it
+ * the one flow nobody could rehearse.
  *
  * There is no check here for which project this is. The build already decided that by
  * resolving this module at all, and `resolveAuthMode` never resolves it for production.
  */
 export function refuseSignIn(attempt: SignInAttempt): SignInRefusal | null {
-  if (attempt.signInProvider !== SERVER_SIGNED) {
-    const refusal = secureDefault(attempt);
-    if (refusal) return refusal;
-  }
-
-  if (attempt.accountType === "student" && attempt.signInProvider === "microsoft.com") {
-    return {
-      reason: "students-excluded",
-      message: "Diese Umgebung steht nur Lehrpersonen offen.",
-    };
-  }
-
-  return null;
+  return attempt.signInProvider === SERVER_SIGNED ? null : secureDefault(attempt);
 }

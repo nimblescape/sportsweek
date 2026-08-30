@@ -11,7 +11,8 @@ import { ImpersonationDialog } from "./impersonation-dialog";
 import { useSignIn } from "@/lib/auth/use-sign-in";
 
 /**
- * Signing in to a test environment: Entra ID as a gate, and then a choice of who to be.
+ * Signing in to a test environment: Entra ID as a gate, and then — for a teacher — a choice of
+ * who to be.
  *
  * A separate screen from the production one on purpose. It says where you are — the two are
  * otherwise indistinguishable, and a form that invents people should never be one careless
@@ -21,9 +22,10 @@ function FakeSignInCard() {
   const { checking, error, session, signIn, enter } = useSignIn();
   const [handedOver, setHandedOver] = useState(false);
 
-  // Only a real sign-in earns the choice. A `custom` session came *from* the dialog below,
-  // so asking again would loop.
-  const atGate = session?.signInProvider === "microsoft.com";
+  // Only a teacher is asked, because impersonation is a teacher's tool: a student arrives by
+  // following an invitation link and is here to walk their own way through it. A `custom`
+  // session came *from* the dialog below, so asking again would loop.
+  const atGate = session?.signInProvider === "microsoft.com" && session.accountType === "teacher";
 
   useEffect(() => {
     if (session && !atGate) enter();
@@ -35,8 +37,8 @@ function FakeSignInCard() {
         subtitle="Testumgebung"
         note={
           <p className="text-muted-foreground mt-4 text-center text-sm text-balance">
-            Erfundene Daten, keine echten Schüler:innen. Nach der Anmeldung können Sie als beliebige
-            Person fortfahren.
+            Erfundene Daten — was hier eingetragen wird, gilt nicht. Lehrpersonen können nach der
+            Anmeldung als beliebige Person fortfahren.
           </p>
         }
         action="Anmelden über Office 365"

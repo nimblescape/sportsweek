@@ -100,41 +100,39 @@ describe("the deployment's own sign-in policy", () => {
   });
 
   it("refuses the sign-in the policy refuses, and writes nothing", async () => {
-    refuseSignIn.mockReturnValue({ reason: "students-excluded", message: "Nur Lehrpersonen." });
+    refuseSignIn.mockReturnValue({ reason: "untrusted-provider", message: "Nur über Office 365." });
 
     const result = await provisionUser({ ...studentClaims, ...ENTRA });
 
     expect(result).toEqual({
       ok: false,
-      reason: "students-excluded",
-      message: "Nur Lehrpersonen.",
+      reason: "untrusted-provider",
+      message: "Nur über Office 365.",
     });
     expect(docSet).not.toHaveBeenCalled();
   });
 
   // A sign-in that was turned away is not a sign-in, so the record of one would be untrue.
   it("records no sign-in for somebody the policy turned away", async () => {
-    refuseSignIn.mockReturnValue({ reason: "students-excluded", message: "Nur Lehrpersonen." });
+    refuseSignIn.mockReturnValue({ reason: "untrusted-provider", message: "Nur über Office 365." });
 
     await provisionUser({ ...studentClaims, ...ENTRA });
 
     expect(loginAdd).not.toHaveBeenCalled();
   });
 
-  // The role has been derived by then, so the policy never has to parse an address itself.
-  it("asks with the derived role and the provider Firebase reported", async () => {
+  // Firebase sets it during the token exchange, so the policy decides on something no caller
+  // could have asserted for itself.
+  it("asks with the provider Firebase reported", async () => {
     await provisionUser({ ...studentClaims, ...ENTRA });
 
-    expect(refuseSignIn).toHaveBeenCalledWith({
-      accountType: "student",
-      signInProvider: "microsoft.com",
-    });
+    expect(refuseSignIn).toHaveBeenCalledWith({ signInProvider: "microsoft.com" });
   });
 
   it("passes on an impersonated provider unchanged, so the policy can tell them apart", async () => {
     await provisionUser({ ...studentClaims, ...IMPERSONATED });
 
-    expect(refuseSignIn).toHaveBeenCalledWith({ accountType: "student", signInProvider: "custom" });
+    expect(refuseSignIn).toHaveBeenCalledWith({ signInProvider: "custom" });
   });
 
   it("provisions as usual when nothing is refused", async () => {

@@ -7,25 +7,19 @@ import { describe, expect, it } from "vitest";
 import { refuseSignIn } from "@/lib/auth/fake/sign-in-policy";
 
 /**
- * A test environment holds invented people and unfinished work. A student's real account has
- * no business there — but an impersonated student is exactly what it is for.
+ * A test environment holds invented people and unfinished work, and impersonation is what it
+ * exists for. It does not decide who may come in: a student's own path through Entra ID is
+ * following an invitation link (US-23), and turning that account away left the flow with the
+ * most strangers in it as the one flow nobody could rehearse.
  */
 describe("refuseSignIn in a test environment", () => {
-  it("turns away a student signing in with their real account", () => {
-    expect(refuseSignIn({ accountType: "student", signInProvider: "microsoft.com" })).toEqual({
-      reason: "students-excluded",
-      message: "Diese Umgebung steht nur Lehrpersonen offen.",
-    });
+  it("admits the school's own directory, as production does", () => {
+    expect(refuseSignIn({ signInProvider: "microsoft.com" })).toBeNull();
   });
 
-  // Which is the whole point of the environment.
-  it("admits a student the fake login is standing in for", () => {
-    expect(refuseSignIn({ accountType: "student", signInProvider: "custom" })).toBeNull();
-  });
-
-  it("leaves teachers alone either way", () => {
-    expect(refuseSignIn({ accountType: "teacher", signInProvider: "microsoft.com" })).toBeNull();
-    expect(refuseSignIn({ accountType: "teacher", signInProvider: "custom" })).toBeNull();
+  /** The one thing this environment trusts that production does not. */
+  it("admits a token this project's own server signed", () => {
+    expect(refuseSignIn({ signInProvider: "custom" })).toBeNull();
   });
 
   /**
@@ -35,7 +29,7 @@ describe("refuseSignIn in a test environment", () => {
   it.each(["password", "google.com", "anonymous", undefined])(
     "refuses a sign-in through %s",
     (signInProvider) => {
-      expect(refuseSignIn({ accountType: "teacher", signInProvider })).toMatchObject({
+      expect(refuseSignIn({ signInProvider })).toMatchObject({
         reason: "untrusted-provider",
       });
     },
