@@ -299,11 +299,11 @@ describe("/users/{uid} create and delete", () => {
  * SDK, and no client has a use for it -- so the rule grants none, and these say so.
  */
 describe("/users/{uid}/logins", () => {
-  async function seedLogin(upn: string) {
+  async function seedLogin(uid: string) {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await context
         .firestore()
-        .collection(`users/${upn}/logins`)
+        .collection(`users/${uid}/logins`)
         .doc("login1")
         .set({ at: "2026-08-29T17:04:05+02:00" });
     });
@@ -378,13 +378,13 @@ describe("/users/{uid} has no admin role", () => {
  */
 describe("identity resolution with a realistic uid", () => {
   const UID = "6Xk2p9QwErTyUiOpAsDf";
-  const UPN = "erika.mustermann@htldornbirn.at";
+  const EMAIL = "erika.mustermann@htldornbirn.at";
 
   const signedIn = (claims: Record<string, unknown> = {}) =>
-    testEnv.authenticatedContext(UID, { email: UPN, ...claims }).firestore();
+    testEnv.authenticatedContext(UID, { email: EMAIL, ...claims }).firestore();
 
   it("lets a user read their own record, which is keyed by their uid", async () => {
-    await seedUser(UID, student({ email: UPN }));
+    await seedUser(UID, student({ email: EMAIL }));
 
     await assertSucceeds(signedIn().collection("users").doc(UID).get());
   });
@@ -397,13 +397,13 @@ describe("identity resolution with a realistic uid", () => {
 
   /** The address is not the id, so the record it names is nobody's to reach by naming it. */
   it("denies reading a record at the address rather than the uid", async () => {
-    await seedUser(UID, student({ email: UPN }));
+    await seedUser(UID, student({ email: EMAIL }));
 
-    await assertFails(signedIn().collection("users").doc(UPN).get());
+    await assertFails(signedIn().collection("users").doc(EMAIL).get());
   });
 
   it("recognises a teacher whose record is keyed by their uid", async () => {
-    await seedUser(UID, teacher({ email: UPN, permissions: ["editRegistrations"] }));
+    await seedUser(UID, teacher({ email: EMAIL, permissions: ["editRegistrations"] }));
     await seedRegistration("uid-of-pupil");
 
     await assertSucceeds(signedIn().collection(REGISTRATIONS).doc("uid-of-pupil").get());
@@ -426,7 +426,7 @@ describe("identity resolution with a realistic uid", () => {
   });
 
   it("does not grant teacher rights to a student who forges nothing but a uid", async () => {
-    await seedUser(UID, student({ email: UPN }));
+    await seedUser(UID, student({ email: EMAIL }));
     await seedRegistration("uid-of-pupil");
 
     await assertFails(signedIn().collection(REGISTRATIONS).doc("uid-of-pupil").get());
@@ -437,7 +437,7 @@ describe("identity resolution with a realistic uid", () => {
    * rename, or a client moving its own account's address, reaches the same record as before.
    */
   it("resolves the same record whatever address the token carries", async () => {
-    await seedUser(UID, student({ email: UPN }));
+    await seedUser(UID, student({ email: EMAIL }));
 
     await assertSucceeds(
       testEnv

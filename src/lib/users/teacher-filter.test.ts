@@ -14,7 +14,7 @@ import {
 } from "./teacher-filter";
 
 const teacher = (firstName: string, lastName: string, ...permissions: string[]): Teacher => ({
-  uid: `uid-of-${firstName}-${lastName}`.toLowerCase(),
+  uid: `uid-of-${firstName}-${lastName}`,
   email: `${firstName}.${lastName}@htldornbirn.at`.toLowerCase(),
   firstName,
   lastName,

@@ -15,7 +15,7 @@ const { assignStudents } = await import("./assignment-service");
 const { registrationPath } = await import("@/lib/registration/registration");
 const { ServiceError } = await import("@/lib/service-error");
 
-const ANNA = "anna@student.htldornbirn.at";
+const ANNA = "uidAnna";
 const BENE = "bene@student.htldornbirn.at";
 const REGISTRATIONS = registrationPath("s1");
 

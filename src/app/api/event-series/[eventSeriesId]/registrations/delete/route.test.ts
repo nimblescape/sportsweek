@@ -18,7 +18,7 @@ const { ServiceError } = await import("@/lib/service-error");
 const { ErrorCode } = await import("@/lib/errors");
 
 const TEACHER = "jane.doe@htldornbirn.at";
-const STUDENT = "max.mustermann@student.htldornbirn.at";
+const STUDENT = "uidMaxMustermann";
 
 const params = Promise.resolve({ eventSeriesId: "s1" });
 
@@ -70,7 +70,7 @@ describe("POST /api/event-series/[eventSeriesId]/registrations/delete", () => {
 
   /** An address is a document id once stored, and a path separator would fork the path. */
   it("refuses an address that could not be a document id", async () => {
-    const response = await post({ studentUid: "a/b@student.htldornbirn.at" });
+    const response = await post({ studentUid: "a/b" });
 
     expect(response.status).toBe(400);
     expect(deleteRegistration).not.toHaveBeenCalled();

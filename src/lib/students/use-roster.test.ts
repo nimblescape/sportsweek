@@ -23,7 +23,7 @@ vi.mock("@/lib/firebase/client", () => ({ auth: {}, db: {} }));
 
 const { useRoster } = await import("./use-roster");
 
-const ANNA = "anna@student.htldornbirn.at";
+const ANNA = "uidAnna";
 const REGISTRATIONS = "eventSeries/s1/registrations";
 
 const emit = (docs: Doc[]) =>

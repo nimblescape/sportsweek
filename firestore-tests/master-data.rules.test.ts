@@ -24,25 +24,25 @@ beforeAll(async () => {
 afterAll(async () => await testEnv.cleanup());
 
 /**
- * `/users` is keyed by UPN, not by the Firebase uid, so the two are kept distinct here —
- * reusing one value for both would let a broken rule pass in tests and fail in production.
+ * `/users` is keyed by the Firebase uid (US-31), so these are uids and the address is derived
+ * from one only to fill a claim that no rule here reads.
  */
-const TEACHER_UPN = "uid-of-lehrperson";
-const STUDENT_UPN = "uid-of-schuelerin";
+const TEACHER_UID = "uid-of-lehrperson";
+const STUDENT_UID = "uid-of-schuelerin";
 
-const signInAs = (upn: string) =>
-  testEnv.authenticatedContext(upn, { email: `${upn}@htldornbirn.at` }).firestore();
+const signInAs = (uid: string) =>
+  testEnv.authenticatedContext(uid, { email: `${uid}@htldornbirn.at` }).firestore();
 
-const teacher = () => signInAs(TEACHER_UPN);
-const student = () => signInAs(STUDENT_UPN);
+const teacher = () => signInAs(TEACHER_UID);
+const student = () => signInAs(STUDENT_UID);
 const anonymous = () => testEnv.unauthenticatedContext().firestore();
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
-    await db.collection("users").doc(TEACHER_UPN).set({ accountType: "teacher" });
-    await db.collection("users").doc(STUDENT_UPN).set({ accountType: "student" });
+    await db.collection("users").doc(TEACHER_UID).set({ accountType: "teacher" });
+    await db.collection("users").doc(STUDENT_UID).set({ accountType: "student" });
   });
 });
 

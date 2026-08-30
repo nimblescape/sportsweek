@@ -18,7 +18,7 @@ const without = (category: string) =>
 
 const saved = {
   id: "report-1",
-  createdByUserId: "jane.doe@htldornbirn.at",
+  createdByUserId: "uidJaneDoe",
   name: "Anwesende Skifahrer",
   position: 2,
   filter: selection,

@@ -62,7 +62,7 @@ describe("POST /api/event-series/[eventSeriesId]/saved-reports", () => {
   });
 
   it("attributes it to the session rather than to anything the request says", async () => {
-    await POST(postRequest({ ...input, createdByUserId: "someone@else.at" }), context);
+    await POST(postRequest({ ...input, createdByUserId: "uidSomeoneElse" }), context);
 
     expect(createSavedReport).not.toHaveBeenCalled();
   });

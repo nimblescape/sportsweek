@@ -80,7 +80,7 @@ const report = (tags: string[], fields: string[]) => ({
     name: "5AHIF",
     filter: { ...EMPTY_FILTER, tags: { ...EMPTY_FILTER.tags, class: tags } },
     fields,
-    createdByUserId: "jane.doe@htldornbirn.at",
+    createdByUserId: "uidJaneDoe",
     position: 0,
   },
 });

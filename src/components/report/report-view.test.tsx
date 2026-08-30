@@ -59,7 +59,7 @@ function student(
 ): RosterStudent {
   return rosterStudent({
     id: `record-${lastName}`,
-    studentUid: `${lastName.toLowerCase()}@student.htldornbirn.at`,
+    studentUid: `uid-${lastName}`,
     email: `${lastName.toLowerCase()}@student.htldornbirn.at`,
     firstName,
     lastName,
@@ -365,7 +365,7 @@ describe("the saved reports", () => {
   const saved = {
     id: "r1",
     name: "Nur 5BHIF",
-    createdByUserId: "jane.doe@htldornbirn.at",
+    createdByUserId: "uidJaneDoe",
     filter: toggleTag(EMPTY_FILTER, "class", "5BHIF"),
     fields: ["class"],
   };

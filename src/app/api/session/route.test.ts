@@ -40,7 +40,7 @@ describe("POST /api/session", () => {
     cookieStore.delete.mockReset();
     provisionUser.mockResolvedValue({
       ok: true,
-      user: { id: "jane@htldornbirn.at", accountType: "teacher" },
+      user: { id: "uidJane", accountType: "teacher" },
     });
   });
 

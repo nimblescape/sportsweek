@@ -21,8 +21,8 @@ const validContact = {
 };
 
 const validRecord = {
-  id: "jane.doe@student.htldornbirn.at",
-  studentUid: "jane.doe@student.htldornbirn.at",
+  id: "uidJaneDoe",
+  studentUid: "uidJaneDoe",
   firstName: "Jane",
   lastName: "Doe",
   email: "jane.doe@student.htldornbirn.at",

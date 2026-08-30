@@ -20,7 +20,7 @@ const { PUT } = await import("./route");
 const { ServiceError } = await import("@/lib/service-error");
 const { REGISTRATION_NOT_OPEN_HINT } = await import("@/lib/registration/registration");
 
-const STUDENT = "jane.doe@student.htldornbirn.at";
+const STUDENT = "uidJaneDoe";
 const SERIES = "s1";
 
 const body = {

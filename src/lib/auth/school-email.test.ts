@@ -18,8 +18,8 @@ describe("accountTypeFromEmail", () => {
   it.each([
     ["Jane.Doe@HTLDornbirn.at", "teacher"],
     ["Jane.Doe@Student.HTLDornbirn.AT", "student"],
-  ])("matches %s case-insensitively", (upn, expected) => {
-    expect(accountTypeFromEmail(upn)).toBe(expected);
+  ])("matches %s case-insensitively", (email, expected) => {
+    expect(accountTypeFromEmail(email)).toBe(expected);
   });
 
   it("trims surrounding whitespace", () => {
@@ -38,7 +38,7 @@ describe("accountTypeFromEmail", () => {
     ["a missing local part", "@htldornbirn.at"],
     ["a missing domain", "jane@"],
     ["two at signs", "jane@evil.com@htldornbirn.at"],
-  ])("rejects %s", (_case, upn) => {
-    expect(accountTypeFromEmail(upn)).toBeNull();
+  ])("rejects %s", (_case, email) => {
+    expect(accountTypeFromEmail(email)).toBeNull();
   });
 });

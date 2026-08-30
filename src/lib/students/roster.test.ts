@@ -13,14 +13,14 @@ function record(
   lastName: string,
   overrides: Partial<Registration> = {},
 ): Registration {
-  const upn = `${firstName}.${lastName}@student.htldornbirn.at`.toLowerCase();
+  const uid = `uid-${firstName}-${lastName}`;
 
   return studentRecord({
-    id: upn,
-    studentUid: upn,
+    id: uid,
+    studentUid: uid,
     firstName,
     lastName,
-    email: upn,
+    email: `${firstName}.${lastName}@student.htldornbirn.at`.toLowerCase(),
     ...overrides,
   });
 }

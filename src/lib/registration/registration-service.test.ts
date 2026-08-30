@@ -21,7 +21,9 @@ const { ANSWER_NO_LONGER_OFFERED_HINT, REGISTRATION_NOT_OPEN_HINT, registrationP
 const { FOOD_OPTION_OTHER } = await import("@/lib/schemas/master-data");
 const { ServiceError } = await import("@/lib/service-error");
 
-const STUDENT = "jane.doe@student.htldornbirn.at";
+const STUDENT = "uidJaneDoe";
+/** The address that student's record carries, which is a field and never the key (US-31). */
+const STUDENT_EMAIL = "jane.doe@student.htldornbirn.at";
 const REGISTRATIONS = registrationPath("s1");
 
 /** Where the save is aimed — the one thing the body cannot say. */
@@ -57,8 +59,12 @@ afterEach(() => vi.restoreAllMocks());
  * The name a registration carries is read from the user record rather than sent (US-26), so a
  * student who can save is one the directory has already provisioned (US-1).
  */
-function seedStudent(upn: string, name: { firstName: string; lastName: string }) {
-  firestore.seed("users", upn, { ...name, email: upn, accountType: "student" });
+function seedStudent(uid: string, name: { firstName: string; lastName: string }) {
+  firestore.seed("users", uid, {
+    ...name,
+    email: `${name.firstName}.${name.lastName}@student.htldornbirn.at`.toLowerCase(),
+    accountType: "student",
+  });
 }
 
 /**
@@ -134,11 +140,11 @@ describe("saveRegistration", () => {
 
     const record = await saveRegistration(target(), attending);
 
-    expect(record).toMatchObject({ firstName: "Jane", lastName: "Doe", email: STUDENT });
+    expect(record).toMatchObject({ firstName: "Jane", lastName: "Doe", email: STUDENT_EMAIL });
     expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({
       firstName: "Jane",
       lastName: "Doe",
-      email: STUDENT,
+      email: STUDENT_EMAIL,
     });
   });
 
@@ -146,7 +152,7 @@ describe("saveRegistration", () => {
     seedEventSeries("s1");
 
     await expect(
-      saveRegistration(target({ studentUid: "ghost@student.htldornbirn.at" }), attending),
+      saveRegistration(target({ studentUid: "uidGhost" }), attending),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(unanswered()).toBe(true);
   });
@@ -183,14 +189,11 @@ describe("saveRegistration", () => {
 
   it("keeps one record per student per event series", async () => {
     seedEventSeries("s1");
-    seedStudent("john@student.htldornbirn.at", { firstName: "John", lastName: "Doe" });
-    firestore.seed(REGISTRATIONS, "john@student.htldornbirn.at", {
-      studentUid: "john@student.htldornbirn.at",
-      class: "3AHME",
-    });
+    seedStudent("uidJohnDoe", { firstName: "John", lastName: "Doe" });
+    firestore.seed(REGISTRATIONS, "uidJohnDoe", { studentUid: "uidJohnDoe", class: "3AHME" });
 
     await saveRegistration(target(), attending);
-    await saveRegistration(target({ studentUid: "john@student.htldornbirn.at" }), attending);
+    await saveRegistration(target({ studentUid: "uidJohnDoe" }), attending);
 
     expect(firestore.count(REGISTRATIONS)).toBe(2);
   });
@@ -372,7 +375,7 @@ describe("saveRegistration", () => {
     seedEventSeries("s1");
     const smuggled = {
       ...attending,
-      studentUid: "someone.else@htldornbirn.at",
+      studentUid: "uidSomeoneElse",
       firstName: "Someone",
     };
 
@@ -487,13 +490,13 @@ describe("saveRegistration", () => {
  * for — and without this, one stray registration would stay in the series for good (US-28).
  */
 describe("deleteRegistration", () => {
-  const OTHER = "max.mustermann@student.htldornbirn.at";
+  const OTHER = "uidMaxMustermann";
 
-  function seedRegistration(upn: string, eventSeriesId = "s1") {
-    firestore.seed(registrationPath(eventSeriesId), upn, {
+  function seedRegistration(uid: string, eventSeriesId = "s1") {
+    firestore.seed(registrationPath(eventSeriesId), uid, {
       firstName: "Jane",
       lastName: "Doe",
-      email: upn,
+      email: "jane.doe@student.htldornbirn.at",
       class: "3AHME",
       isAttendingSportsWeek: true,
       isIncomplete: false,

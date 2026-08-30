@@ -51,7 +51,7 @@ function student(
 ): RosterStudent {
   return rosterStudent({
     id: `record-${lastName}`,
-    studentUid: `${lastName}@student.htldornbirn.at`,
+    studentUid: `uid-${lastName}`,
     firstName: "Vorname",
     lastName,
     ...overrides,

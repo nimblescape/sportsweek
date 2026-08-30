@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { userLockedFields, accountTypeSchema, userSchema } from "@/lib/schemas/user";
 
 const validUser = {
-  id: "jane.doe@htldornbirn.at",
+  id: "uidJaneDoe",
   firstName: "Jane",
   lastName: "Doe",
   email: "jane.doe@htldornbirn.at",
@@ -30,8 +30,12 @@ describe("userSchema", () => {
     expect(userSchema.parse(validUser)).toEqual(validUser);
   });
 
-  it("uses the address as the document id", () => {
-    expect(userSchema.parse(validUser).id).toBe("jane.doe@htldornbirn.at");
+  /** The uid Firebase minted, not the address — which is a field of the record (US-31). */
+  it("uses the account's uid as the document id", () => {
+    const parsed = userSchema.parse(validUser);
+
+    expect(parsed.id).toBe("uidJaneDoe");
+    expect(parsed.email).toBe("jane.doe@htldornbirn.at");
   });
 
   it("rejects a malformed email address", () => {

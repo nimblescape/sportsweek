@@ -57,8 +57,8 @@ describe("isSchoolEmail", () => {
     ["jane.doe@htldornbirn.at"],
     ["jane.doe@student.htldornbirn.at"],
     ["anna-maria.bauer-fink@student.htldornbirn.at"],
-  ])("accepts %s", (upn) => {
-    expect(isSchoolEmail(upn)).toBe(true);
+  ])("accepts %s", (email) => {
+    expect(isSchoolEmail(email)).toBe(true);
   });
 
   it.each([
@@ -74,7 +74,7 @@ describe("isSchoolEmail", () => {
     ["a student domain with the dot substituted", "jane.doe@studentXhtldornbirn.at"],
     ["a dangling hyphen", "jane-.doe@htldornbirn.at"],
     ["an empty string", ""],
-  ])("rejects %s", (_case, upn) => {
-    expect(isSchoolEmail(upn)).toBe(false);
+  ])("rejects %s", (_case, email) => {
+    expect(isSchoolEmail(email)).toBe(false);
   });
 });

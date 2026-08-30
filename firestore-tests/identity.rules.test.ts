@@ -23,10 +23,10 @@ beforeAll(async () => {
 
 afterAll(async () => await testEnv.cleanup());
 
-const TEACHER_UPN = "lehrperson@htldornbirn.at";
-const STUDENT_UPN = "schuelerin@student.htldornbirn.at";
+const TEACHER_EMAIL = "lehrperson@htldornbirn.at";
+const STUDENT_EMAIL = "schuelerin@student.htldornbirn.at";
 /** A guest of the tenant, or anyone else holding an account this school did not issue. */
-const OUTSIDER_UPN = "outsider@example.com";
+const OUTSIDER_EMAIL = "outsider@example.com";
 
 /** Entra ID, the school's own directory. */
 const ENTRA = "microsoft.com";
@@ -40,22 +40,22 @@ type SignInProvider = typeof ENTRA | typeof SERVER | typeof SELF_SERVICE;
 const REGISTRATIONS = "eventSeries/eventSeries1/registrations";
 
 /** Records are keyed by the Firebase uid (US-31); the address is a field, and a different one. */
-const uidOf = (upn: string) => `uid-of-${upn}`;
+const uidOf = (email: string) => `uid-of-${email}`;
 
-function signInAs(upn: string | null, signInProvider: SignInProvider) {
+function signInAs(email: string | null, signInProvider: SignInProvider) {
   return testEnv
-    .authenticatedContext(uidOf(upn ?? "nobody"), {
-      ...(upn ? { email: upn } : {}),
+    .authenticatedContext(uidOf(email ?? "nobody"), {
+      ...(email ? { email } : {}),
       firebase: { sign_in_provider: signInProvider, identities: {} },
     })
     .firestore();
 }
 
 /** What provisioning mints once it has found the address to be the school's (US-3). */
-function signInWithClaim(upn: string, accountType: "teacher" | "student") {
+function signInWithClaim(email: string, accountType: "teacher" | "student") {
   return testEnv
-    .authenticatedContext(uidOf(upn), {
-      email: upn,
+    .authenticatedContext(uidOf(email), {
+      email,
       accountType,
       firebase: { sign_in_provider: ENTRA, identities: {} },
     })
@@ -68,16 +68,16 @@ beforeEach(async () => {
     const db = context.firestore();
     await db
       .collection("users")
-      .doc(uidOf(TEACHER_UPN))
+      .doc(uidOf(TEACHER_EMAIL))
       .set({
         accountType: "teacher",
-        email: TEACHER_UPN,
+        email: TEACHER_EMAIL,
         permissions: ["editRegistrations", "editUsers"],
       });
     await db
       .collection("users")
-      .doc(uidOf(STUDENT_UPN))
-      .set({ accountType: "student", email: STUDENT_UPN });
+      .doc(uidOf(STUDENT_EMAIL))
+      .set({ accountType: "student", email: STUDENT_EMAIL });
     await db.collection("eventSeries").doc("eventSeries1").set({
       name: "Winter 2026",
       nameKey: "winter 2026",
@@ -86,8 +86,8 @@ beforeEach(async () => {
     });
     await db
       .collection(REGISTRATIONS)
-      .doc(uidOf(STUDENT_UPN))
-      .set({ studentUid: uidOf(STUDENT_UPN), firstName: "Erika", lastName: "Musterfrau" });
+      .doc(uidOf(STUDENT_EMAIL))
+      .set({ studentUid: uidOf(STUDENT_EMAIL), firstName: "Erika", lastName: "Musterfrau" });
   });
 });
 
@@ -99,22 +99,22 @@ beforeEach(async () => {
  */
 describe("only the school's own identity provider is trusted", () => {
   it("denies an e-mail sign-up claiming a teacher's address", async () => {
-    const impostor = signInAs(TEACHER_UPN, SELF_SERVICE);
+    const impostor = signInAs(TEACHER_EMAIL, SELF_SERVICE);
 
     await assertFails(impostor.collection(REGISTRATIONS).get());
-    await assertFails(impostor.collection("users").doc(uidOf(STUDENT_UPN)).get());
+    await assertFails(impostor.collection("users").doc(uidOf(STUDENT_EMAIL)).get());
     await assertFails(impostor.collection("eventSeries").doc("eventSeries1").get());
   });
 
   it("denies an e-mail sign-up claiming a student's address", async () => {
-    const impostor = signInAs(STUDENT_UPN, SELF_SERVICE);
+    const impostor = signInAs(STUDENT_EMAIL, SELF_SERVICE);
 
-    await assertFails(impostor.collection(REGISTRATIONS).doc(uidOf(STUDENT_UPN)).get());
-    await assertFails(impostor.collection("users").doc(uidOf(STUDENT_UPN)).get());
+    await assertFails(impostor.collection(REGISTRATIONS).doc(uidOf(STUDENT_EMAIL)).get());
+    await assertFails(impostor.collection("users").doc(uidOf(STUDENT_EMAIL)).get());
   });
 
   it("lets the school's own directory in", async () => {
-    const teacher = signInAs(TEACHER_UPN, ENTRA);
+    const teacher = signInAs(TEACHER_EMAIL, ENTRA);
 
     await assertSucceeds(teacher.collection(REGISTRATIONS).get());
     await assertSucceeds(teacher.collection("eventSeries").doc("eventSeries1").get());
@@ -122,7 +122,7 @@ describe("only the school's own identity provider is trusted", () => {
 
   /** The fake login of the test environments goes through a token the server itself signed. */
   it("lets a token this project's own server signed in", async () => {
-    const teacher = signInAs(TEACHER_UPN, SERVER);
+    const teacher = signInAs(TEACHER_EMAIL, SERVER);
 
     await assertSucceeds(teacher.collection(REGISTRATIONS).get());
   });
@@ -144,7 +144,7 @@ describe("membership is what provisioning established", () => {
 
   it("admits somebody whose record was written before their token carried the claim", async () => {
     await assertSucceeds(
-      signInAs(TEACHER_UPN, ENTRA).collection("eventSeries").doc("eventSeries1").get(),
+      signInAs(TEACHER_EMAIL, ENTRA).collection("eventSeries").doc("eventSeries1").get(),
     );
   });
 
@@ -163,7 +163,7 @@ describe("membership is what provisioning established", () => {
   it("denies a claim naming an account type that is not one", async () => {
     const forged = testEnv
       .authenticatedContext("uid-of-forger", {
-        email: OUTSIDER_UPN,
+        email: OUTSIDER_EMAIL,
         accountType: "admin",
         firebase: { sign_in_provider: ENTRA, identities: {} },
       })
@@ -180,16 +180,16 @@ describe("membership is what provisioning established", () => {
  */
 describe("only an address the school issued counts as a member", () => {
   it("denies a guest of the tenant reading the event series", async () => {
-    const guest = signInAs(OUTSIDER_UPN, ENTRA);
+    const guest = signInAs(OUTSIDER_EMAIL, ENTRA);
 
     await assertFails(guest.collection("eventSeries").doc("eventSeries1").get());
     await assertFails(guest.collection("eventSeries").get());
   });
 
   it("denies a guest of the tenant reading the record they would have", async () => {
-    const guest = signInAs(OUTSIDER_UPN, ENTRA);
+    const guest = signInAs(OUTSIDER_EMAIL, ENTRA);
 
-    await assertFails(guest.collection("users").doc(uidOf(OUTSIDER_UPN)).get());
+    await assertFails(guest.collection("users").doc(uidOf(OUTSIDER_EMAIL)).get());
   });
 
   it("denies a token carrying no address at all", async () => {
@@ -200,10 +200,10 @@ describe("only an address the school issued counts as a member", () => {
 
   it("lets a teacher and a student of the school read the series they select from", async () => {
     await assertSucceeds(
-      signInAs(TEACHER_UPN, ENTRA).collection("eventSeries").doc("eventSeries1").get(),
+      signInAs(TEACHER_EMAIL, ENTRA).collection("eventSeries").doc("eventSeries1").get(),
     );
     await assertSucceeds(
-      signInAs(STUDENT_UPN, ENTRA).collection("eventSeries").doc("eventSeries1").get(),
+      signInAs(STUDENT_EMAIL, ENTRA).collection("eventSeries").doc("eventSeries1").get(),
     );
   });
 });

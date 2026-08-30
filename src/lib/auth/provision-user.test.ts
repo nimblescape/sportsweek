@@ -699,7 +699,7 @@ describe("the login refresh of a student's registrations", () => {
   it("leaves somebody else's registration alone", async () => {
     seedEventSeries("s1");
     firestore.seed(registrationPath("s1"), "other@student.htldornbirn.at", {
-      studentUid: "other@student.htldornbirn.at",
+      studentUid: "uidSomebodyElse",
       firstName: "Maks",
       lastName: "Mustermann",
       email: "other@student.htldornbirn.at",

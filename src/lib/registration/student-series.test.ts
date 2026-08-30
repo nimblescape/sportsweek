@@ -14,7 +14,7 @@ vi.mock("@/lib/firebase/admin", () => ({ adminDb: firestore }));
 
 const { openSeriesOfStudent } = await import("./student-series");
 
-const STUDENT = "schuelerin@student.htldornbirn.at";
+const STUDENT = "uidSchuelerin";
 
 function seedSeries(id: string, overrides: Partial<Omit<EventSeries, "id" | "nameKey">> = {}) {
   firestore.seed(
@@ -54,7 +54,7 @@ describe("openSeriesOfStudent", () => {
   it("leaves out a registration belonging to somebody else", async () => {
     seedSeries("winter");
     firestore.seed("eventSeries/winter/registrations", "andere@student.htldornbirn.at", {
-      studentUid: "andere@student.htldornbirn.at",
+      studentUid: "uidAndere",
     });
 
     await expect(openSeriesOfStudent(STUDENT)).resolves.toEqual([]);

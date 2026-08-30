@@ -27,7 +27,7 @@ vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => us
 
 const { useRegistration } = await import("./use-registration");
 
-const STUDENT = "jane.doe@student.htldornbirn.at";
+const STUDENT = "uidJaneDoe";
 
 function eventSeries(id: string): EventSeries {
   return { id, ...storedEventSeries({ name: `Eventreihe ${id}`, isOpenToStudents: true }) };
