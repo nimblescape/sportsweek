@@ -28,8 +28,16 @@ describe("refuseSignIn in a test environment", () => {
     expect(refuseSignIn({ accountType: "teacher", signInProvider: "custom" })).toBeNull();
   });
 
-  // Only `microsoft.com` means the account is real, so anything else is not that case.
-  it("does not turn away a student whose provider is unknown", () => {
-    expect(refuseSignIn({ accountType: "student" })).toBeNull();
-  });
+  /**
+   * The fake login adds one provider to the two this environment trusts; it does not open the
+   * rest. An e-mail sign-up still asserts whatever address it is handed.
+   */
+  it.each(["password", "google.com", "anonymous", undefined])(
+    "refuses a sign-in through %s",
+    (signInProvider) => {
+      expect(refuseSignIn({ accountType: "teacher", signInProvider })).toMatchObject({
+        reason: "untrusted-provider",
+      });
+    },
+  );
 });

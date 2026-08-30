@@ -4,7 +4,14 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import "server-only";
-import type { SignInAttempt, SignInRefusal } from "@/lib/auth/sign-in-policy";
+import {
+  UNTRUSTED_PROVIDER,
+  type SignInAttempt,
+  type SignInRefusal,
+} from "@/lib/auth/sign-in-policy";
+
+/** The directory, and the token this project's own server signs — which is what fakes a login. */
+const TRUSTED_PROVIDERS = ["microsoft.com", "custom"];
 
 /**
  * A test environment holds invented people and unfinished work, so a student's own account is
@@ -17,6 +24,10 @@ import type { SignInAttempt, SignInRefusal } from "@/lib/auth/sign-in-policy";
  * resolving this module at all, and `resolveAuthMode` never resolves it for production.
  */
 export function refuseSignIn({ accountType, signInProvider }: SignInAttempt): SignInRefusal | null {
+  if (!signInProvider || !TRUSTED_PROVIDERS.includes(signInProvider)) {
+    return UNTRUSTED_PROVIDER;
+  }
+
   if (accountType === "student" && signInProvider === "microsoft.com") {
     return {
       reason: "students-excluded",

@@ -14,13 +14,27 @@ export type SignInAttempt = {
   signInProvider?: string;
 };
 
+/** Entra ID, the school's own directory, and in production the only identity that counts. */
+const ENTRA_ID = "microsoft.com";
+
+/** What a caller hears whichever policy turned them away, so the two cannot word it apart. */
+export const UNTRUSTED_PROVIDER: SignInRefusal = {
+  reason: "untrusted-provider",
+  message: "Anmeldung nur über Office 365 möglich.",
+};
+
 /**
  * Whether a provisioning attempt is refused for reasons particular to this environment.
  *
- * Production admits everyone the address's domain already allows, so this always returns null.
+ * Production admits the school's directory and nothing else. The address a token asserts is
+ * what decides whether somebody is staff, and every other provider Firebase offers lets the
+ * account choose its own — an e-mail sign-up above all. Which of them a project has switched
+ * on is settled in a console rather than in this repository, so the sign-in names the one it
+ * trusts instead of assuming the rest are off.
+ *
  * `next.config.ts` swaps the module for the test-environment rules where they apply — which
  * keeps `provisionUser` free of conditions that can only ever be false in production.
  */
-export function refuseSignIn(_attempt: SignInAttempt): SignInRefusal | null {
-  return null;
+export function refuseSignIn({ signInProvider }: SignInAttempt): SignInRefusal | null {
+  return signInProvider === ENTRA_ID ? null : UNTRUSTED_PROVIDER;
 }

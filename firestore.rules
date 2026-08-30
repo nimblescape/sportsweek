@@ -14,10 +14,14 @@ service cloud.firestore {
      * Which providers may sign somebody in, given the record branch below admits whoever holds
      * one. Entra ID is the school's own directory. A custom token is signed with this project's
      * service account, so only this application's own server can mint one — which is what the
-     * fake login of a test environment does.
+     * fake login of a test environment does. Production has no fake login, and the entry costs
+     * it nothing: minting a custom token there needs credentials that bypass these rules
+     * altogether, so it grants no reach that was not already had.
      *
      * Anything else a project has switched on, an e-mail sign-up above all, would arrive as an
-     * ordinary account; provisioning refuses it, so it holds neither claim nor record.
+     * ordinary account asserting whatever address it was handed. `refuseSignIn` turns those
+     * away before provisioning writes anything, so they hold neither claim nor record — and
+     * this denies the token itself, which is what stands between one and a direct read.
      */
     function isTrustedProvider() {
       return request.auth.token.firebase.sign_in_provider in ['microsoft.com', 'custom'];
