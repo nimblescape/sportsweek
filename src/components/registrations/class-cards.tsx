@@ -30,7 +30,13 @@ import {
 } from "@/lib/filters/student-filter";
 import { ATTENDANCE_LABELS } from "@/lib/registration/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
-import { AREA, AREAS, AreaTitle, FilteredTag } from "@/components/assignment/card-areas";
+import {
+  AREA,
+  AREAS,
+  AreaTitle,
+  FIGURES_AREA,
+  FilteredTag,
+} from "@/components/assignment/card-areas";
 import { GenderTable } from "@/components/assignment/gender-table";
 import { SkillMatrix } from "@/components/assignment/skill-matrix";
 
@@ -296,7 +302,7 @@ function ClassCard({
               </div>
             </section>
 
-            <section className={AREA}>
+            <section className={FIGURES_AREA}>
               <AreaTitle
                 aside={
                   <FilteredTag
