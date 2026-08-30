@@ -207,6 +207,17 @@ describe("AssignmentBoard", () => {
     );
   });
 
+  /** What travels is what the card is showing, which is what the tally beside the list counts. */
+  it("leaves behind a picked student the filter is hiding", async () => {
+    setup();
+
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Alle auswählen" }));
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
+    await dragTo(handleIn("Nicht zugeteilt", "Berger Bene"), "{ArrowDown}");
+
+    await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Berger"], "Montafon"));
+  });
+
   it("leaves a student picked in another card where they are", async () => {
     setup();
 
