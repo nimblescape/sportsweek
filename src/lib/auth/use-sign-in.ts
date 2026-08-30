@@ -21,6 +21,27 @@ import { accountTypeSchema } from "@/lib/schemas/user";
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
 const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.";
 
+/**
+ * The Graph access token, which exists only in the redirect result and only right after a
+ * sign-in — an already-signed-in visitor simply has none.
+ *
+ * Held for the page rather than for the effect, because Firebase hands the result to whoever
+ * asks first and answers null to everyone after. React mounts an effect twice in development,
+ * so asking once per mount gave the token to a listener that had already been torn down and
+ * left the one doing the posting with nothing.
+ */
+let claimed: Promise<string | undefined> | null = null;
+
+function graphAccessTokenOfRedirect(): Promise<string | undefined> {
+  claimed ??= getRedirectResult(auth)
+    .then((result) =>
+      result ? (OAuthProvider.credentialFromResult(result)?.accessToken ?? undefined) : undefined,
+    )
+    .catch(() => undefined);
+
+  return claimed;
+}
+
 export type SignInSession = {
   destination: string;
   /** `microsoft.com` for a real sign-in, `custom` for an impersonated one. */
@@ -45,16 +66,7 @@ export function useSignIn() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // The Graph access token exists only in the redirect result, and only right after a
-    // sign-in — an already-signed-in visitor simply posts without it.
-    let graphAccessToken: string | undefined;
-    const redirectSettled = getRedirectResult(auth)
-      .then((result) => {
-        if (result) {
-          graphAccessToken = OAuthProvider.credentialFromResult(result)?.accessToken ?? undefined;
-        }
-      })
-      .catch(() => undefined);
+    const redirectSettled = graphAccessTokenOfRedirect();
 
     // Tokens rather than sign-in state: impersonating yourself keeps the same uid, and
     // onAuthStateChanged only reports a *change* of user — it would stay silent exactly
@@ -70,7 +82,7 @@ export function useSignIn() {
       setChecking(true);
 
       try {
-        await redirectSettled;
+        const graphAccessToken = await redirectSettled;
         const { token, signInProvider } = await user.getIdTokenResult();
         const response = await fetch("/api/session", {
           method: "POST",
