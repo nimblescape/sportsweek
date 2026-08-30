@@ -49,8 +49,18 @@ describe("the production sign-in policy", () => {
   });
 });
 
-/** The two modules next.config.ts swaps for a build that opts into the fake login. */
-const ALIASED = ["sign-in-policy", "sign-in-view"];
+/** The specifiers next.config.ts swaps for a build that opts into the fake login. */
+const ALIASED = ["@/lib/auth/sign-in-policy", "@/components/auth/sign-in-view"];
+const moduleName = (specifier: string) => specifier.slice(specifier.lastIndexOf("/") + 1);
+
+/** Where the replacements live. */
+const REPLACEMENTS = [
+  join("src", "lib", "auth", "fake"),
+  join("src", "components", "auth", "fake"),
+];
+
+const isReplacement = (path: string) =>
+  REPLACEMENTS.some((directory) => path.startsWith(directory));
 
 function* sourceFiles(directory: string): Generator<string> {
   for (const entry of readdirSync(directory)) {
@@ -60,19 +70,30 @@ function* sourceFiles(directory: string): Generator<string> {
   }
 }
 
+const importers = (matches: (source: string) => boolean, within: (path: string) => boolean) =>
+  [...sourceFiles("src")].filter((path) => within(path) && matches(readFileSync(path, "utf8")));
+
 /**
- * The swap matches the specifier, not the file. A relative import resolves to the same module,
- * reads identically, and passes every test — while leaving the production implementation in a
- * build that meant to replace it, where only running the app would show it.
+ * The swap matches the specifier, not the file, and both ways of getting that wrong are quiet:
+ * every import resolves to a module that reads correctly and passes every test, and only
+ * running the built app would show which one was loaded.
  */
 describe("the modules a fake-login build swaps", () => {
   it("are imported by the specifier next.config.ts aliases", () => {
-    const relative = ALIASED.map((name) => new RegExp(`from "\\.[^"]*/${name}"`));
-    const offenders = [...sourceFiles("src")].filter((path) => {
-      const source = readFileSync(path, "utf8");
-      return relative.some((pattern) => pattern.test(source));
-    });
+    const relative = ALIASED.map((one) => new RegExp(`from "\\.[^"]*/${moduleName(one)}"`));
 
-    expect(offenders).toEqual([]);
+    expect(
+      importers(
+        (source) => relative.some((pattern) => pattern.test(source)),
+        (path) => !isReplacement(path),
+      ),
+    ).toEqual([]);
+  });
+
+  /** That specifier is what points here, so a replacement using it would import itself. */
+  it("reach what they replace by its real path", () => {
+    expect(
+      importers((source) => ALIASED.some((one) => source.includes(`from "${one}"`)), isReplacement),
+    ).toEqual([]);
   });
 });

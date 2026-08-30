@@ -17,8 +17,8 @@ export type SignInAttempt = {
 /** Entra ID, the school's own directory, and in production the only identity that counts. */
 const ENTRA_ID = "microsoft.com";
 
-/** What a caller hears whichever policy turned them away, so the two cannot word it apart. */
-export const UNTRUSTED_PROVIDER: SignInRefusal = {
+/** What a caller hears when their provider is not one this deployment trusts. */
+const UNTRUSTED_PROVIDER: SignInRefusal = {
   reason: "untrusted-provider",
   message: "Anmeldung nur über Office 365 möglich.",
 };
