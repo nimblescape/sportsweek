@@ -58,8 +58,8 @@ beforeEach(() => {
   teachers({ ...ADA, permissions: ["editUsers"] }, BOB);
 });
 
-function show(signedInAs = ADA.uid) {
-  return render(<UserPermissionsView signedInAs={signedInAs} />);
+function show(signedInUid = ADA.uid) {
+  return render(<UserPermissionsView signedInUid={signedInUid} />);
 }
 
 describe("UserPermissionsView", () => {
@@ -228,6 +228,22 @@ describe("UserPermissionsView", () => {
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The one it is given is a uid, and a record is keyed by one. Handed an address it matched
+   * nobody, so neither the refresh nor the guard on your own row ever fired (US-31).
+   */
+  it("recognises nobody as itself when given something that is not a uid", async () => {
+    show(ADA.email);
+
+    await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalled());
+    expect(refresh).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: `Auer Ada: ${PERMISSION_LABELS.editUsers}` }),
+    ).toBeInTheDocument();
   });
 
   it("does not re-run it when the change was refused", async () => {

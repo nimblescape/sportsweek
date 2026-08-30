@@ -53,7 +53,7 @@ const nameOf = (teacher: Teacher) => `${teacher.lastName} ${teacher.firstName}`;
  * dependency rule's to decide and that rule lives in one place: pressing "Berichte bearbeiten"
  * presses "Berichte ansehen" with it, and releasing the latter releases the former.
  */
-export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
+export function UserPermissionsView({ signedInUid }: { signedInUid: string }) {
   const { teachers, loading, error } = useTeachers();
   const [failure, setFailure] = useState<string | null>(null);
   const { busyId, run } = useRowAction();
@@ -74,7 +74,7 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
         });
         // The navigation bar comes from a server layout above this page, which does not run
         // again on its own — so what you may reach would go on saying what it said before.
-        if (teacher.uid === signedInAs) router.refresh();
+        if (teacher.uid === signedInUid) router.refresh();
       } catch (thrown) {
         setFailure(thrown instanceof Error ? thrown.message : "Das hat leider nicht geklappt.");
       }
@@ -174,7 +174,7 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
                       permission={permission}
                       // Withdrawing this one from yourself is what would leave nobody able to
                       // grant it, so the tag states it instead of offering the press.
-                      fixed={permission === "editUsers" && teacher.uid === signedInAs}
+                      fixed={permission === "editUsers" && teacher.uid === signedInUid}
                       disabled={busyId === teacher.uid}
                       onPress={() => grant(teacher, permission)}
                     />
