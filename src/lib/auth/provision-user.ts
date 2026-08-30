@@ -12,7 +12,7 @@ import type { Registration } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema, type User } from "@/lib/schemas/user";
 import { permissionsSchema, type Permission } from "./permissions";
 import { fetchEntraName, fetchEntraPhoto } from "./graph";
-import { localTimestamp } from "./login-time";
+import { localTimestamp, LOGIN_TIME_FIELD } from "./login-time";
 import { refuseSignIn } from "./sign-in-policy";
 import { accountTypeFromUpn } from "./upn";
 
@@ -162,7 +162,7 @@ export async function provisionUser(
   }
 
   // Recorded only now, once the sign-in is one: a refusal above returns without writing.
-  await ref.collection(COLLECTIONS.logins).add({ at: localTimestamp(new Date()) });
+  await ref.collection(COLLECTIONS.logins).add({ [LOGIN_TIME_FIELD]: localTimestamp(new Date()) });
 
   const user = userSchema.parse({
     id: upn,

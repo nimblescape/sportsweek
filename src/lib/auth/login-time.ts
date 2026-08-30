@@ -7,6 +7,9 @@
 /** The one clock these records are read against: the school's own, wherever the server runs. */
 export const SCHOOL_TIME_ZONE = "Europe/Vienna";
 
+/** Where a login document keeps the value below; a query names it as a path, not as a key. */
+export const LOGIN_TIME_FIELD = "at";
+
 const FORMAT = new Intl.DateTimeFormat("en-GB", {
   timeZone: SCHOOL_TIME_ZONE,
   year: "numeric",

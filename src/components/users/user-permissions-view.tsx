@@ -68,9 +68,9 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
 
     await run(teacher.upn, async () => {
       try {
-        await apiRequest(`/api/users/${encodeURIComponent(teacher.upn)}`, {
+        await apiRequest("/api/users", {
           method: "PATCH",
-          body: { permissions },
+          body: { upn: teacher.upn, permissions },
         });
         // The navigation bar comes from a server layout above this page, which does not run
         // again on its own — so what you may reach would go on saying what it said before.

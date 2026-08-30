@@ -33,7 +33,7 @@ export function RegistrationsView({ eventSeriesId }: { eventSeriesId: string }) 
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <PageHeading>Übersicht</PageHeading>
+      <PageHeading>Registrierungen</PageHeading>
 
       {(error ?? invitations.error) !== null && (
         <p role="alert" className="text-destructive text-sm">

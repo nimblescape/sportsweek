@@ -11,28 +11,30 @@ import {
   requirePermissionIdentityOrResponse,
 } from "@/lib/api/handler";
 import { permissionsInputSchema } from "@/lib/auth/permissions";
+import { documentIdSchema } from "@/lib/schemas/common";
 import { grantPermissions } from "@/lib/users/user-service";
 
-type Context = { params: Promise<{ upn: string }> };
-
 /**
+ * Whose rights are being changed travels in the body, because a path segment is recorded in the
+ * platform's log of every request and an address is nobody's to leave there (US-33).
+ *
  * Strict, so a body naming who is doing the granting fails rather than being quietly dropped:
  * that comes from the session, and there is nothing here for a caller to point at somebody else.
  */
-const grantSchema = z.object({ permissions: permissionsInputSchema }).strict();
+const grantSchema = z
+  .object({ upn: documentIdSchema, permissions: permissionsInputSchema })
+  .strict();
 
-export async function PATCH(request: Request, context: Context) {
+export async function PATCH(request: Request) {
   const admin = await requirePermissionIdentityOrResponse("editUsers");
   if (!admin.ok) return admin.response;
 
   const body = await parseJsonBody(request, grantSchema);
   if (!body.ok) return body.response;
 
-  const { upn } = await context.params;
-
   try {
     const permissions = await grantPermissions(
-      decodeURIComponent(upn).toLowerCase(),
+      body.data.upn.toLowerCase(),
       body.data.permissions,
       admin.userId,
     );

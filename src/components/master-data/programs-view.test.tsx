@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IN_USE_HINT } from "@/lib/master-data/categories";
+import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 const useMasterData = vi.fn();
 const useProgram = vi.fn();
@@ -211,6 +212,17 @@ describe("ProgramEquipmentView", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(bodyOf(fetchMock)).toEqual({ item: "Ski", requiredEquipment: ["Stöcke"] });
+  });
+
+  it("warns that removing an entry cannot be undone", async () => {
+    stubFetch();
+    render(<ProgramEquipmentView program="Ski" />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Ausrüstungsgegenstand Helm löschen" }),
+    );
+
+    expect(screen.getByRole("dialog")).toHaveTextContent(IRREVERSIBLE_HINT);
   });
 
   /** The report is keyed by program name, since a name is what identifies a program (US-21). */

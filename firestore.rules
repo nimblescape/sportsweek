@@ -11,11 +11,39 @@ service cloud.firestore {
     }
 
     /**
+     * Which providers may put an e-mail address into a token, given every rule below decides
+     * what a caller reaches by that address alone. Entra ID is the school's own directory. A
+     * custom token is signed with this project's service account, so only this application's
+     * own server can mint one — which is what the fake login of a test environment does.
+     *
+     * Anything else a project has switched on, an e-mail sign-up above all, asserts whatever
+     * address it is handed: a stranger who signs up as a teacher would arrive holding that
+     * teacher's reach. `email_verified` cannot stand in for this — Entra leaves it false.
+     */
+    function isTrustedProvider() {
+      return request.auth.token.firebase.sign_in_provider in ['microsoft.com', 'custom'];
+    }
+
+    /**
+     * The two domains the school issues UPNs from, which is what tells a member of it from a
+     * guest of the directory. A copy of TEACHER_DOMAIN and STUDENT_DOMAIN in src/lib/auth/upn.ts,
+     * which this language cannot import, and the same rule provisioning applies (US-3).
+     */
+    function isSchoolUpn(email) {
+      return email.matches('^[^@]+@(htldornbirn[.]at|student[.]htldornbirn[.]at)$');
+    }
+
+    /**
      * `/users` is keyed by UPN (see provisionUser), not by the opaque Firebase uid, so every
      * identity check has to go through the token's e-mail. Lowercased to match the stored id.
+     * Empty for anybody this school did not issue an account to, and that empty string is what
+     * closes every rule below to an outsider.
      */
     function upn() {
-      return isSignedIn() && request.auth.token.email != null
+      return isSignedIn()
+        && isTrustedProvider()
+        && request.auth.token.email is string
+        && isSchoolUpn(request.auth.token.email.lower())
         ? request.auth.token.email.lower()
         : '';
     }
@@ -165,8 +193,9 @@ service cloud.firestore {
 
     /**
      * The event series, and with it every list a teacher maintains — its events among them
-     * (US-21). Anyone signed in may read, because a registration selects from those lists
-     * (US-11) and the teacher views subscribe to them live.
+     * (US-21). Anyone the school issued an account to may read, because a registration selects
+     * from those lists (US-11) and the teacher views subscribe to them live. Not anyone signed
+     * in: a guest of the directory is nobody here, and the class list is the school's own.
      *
      * Writes are closed rather than merely restricted to teachers, because the invariants this
      * document carries cannot be expressed here at all. Rules can `get()` a known path but cannot
@@ -180,7 +209,7 @@ service cloud.firestore {
      * COLLECTIONS in src/lib/schemas/collections.ts and has to be kept in step by hand.
      */
     match /{collection}/{itemId} {
-      allow read: if isSignedIn() && collection in ['eventSeries'];
+      allow read: if upn() != '' && collection in ['eventSeries'];
 
       allow write: if false;
     }

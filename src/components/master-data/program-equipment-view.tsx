@@ -11,6 +11,7 @@ import { CrudList, type CrudItem } from "@/components/master-data/crud-list";
 import { apiRequest } from "@/lib/api/client";
 import { EQUIPMENT_LABELS } from "@/lib/master-data/categories";
 import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
+import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 /**
  * A program's required equipment on the same CRUD list every category uses (US-5). The entries
@@ -60,7 +61,8 @@ export function ProgramEquipmentView({
       onReorder={(order) => save(order)}
       deleteNote={(item) => (
         <>
-          <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.
+          <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.{" "}
+          {IRREVERSIBLE_HINT}
         </>
       )}
       editNote={(item) => (

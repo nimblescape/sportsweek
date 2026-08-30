@@ -62,6 +62,9 @@ const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
  * These are records rather than accounts: they sign in through Entra ID like anybody else, and
  * provisioning then fills in the name and the photo it finds. What it does not touch is what a
  * record already holds, which is what makes these survive their first login.
+ *
+ * Who administers a school later on is a question for the records — `npm run logins:<environment>`
+ * asks it — since a permission granted or withdrawn since is not visible from here.
  */
 const ADMINISTRATORS = [
   { firstName: "Hannes", lastName: "Stauss", email: "hannes.stauss@htldornbirn.at" },
@@ -170,31 +173,36 @@ const MEDICATION_SHARE = 0.1;
  */
 const RANDOM_SEED = 20260826;
 
+/**
+ * Deliberately synthetic. Plausible Vorarlberg names on the school's own domain would be
+ * indistinguishable from real students at a glance — and with a pool that size, some of the
+ * addresses would belong to actual ones. These cannot be mistaken for anybody.
+ *
+ * They are spelling-alphabet words — NATO's, the German-language ones and the French one — and
+ * each list holds those that read as that gender. A name is not what makes a student one gender
+ * or the other, the field is; the split is only so that a seeded person does not read as a
+ * mistake. Umlauts and accents are kept so the UPN transliteration is still exercised.
+ */
 // prettier-ignore
 const MALE_FIRST_NAMES = [
-  "Lukas", "Maximilian", "Tobias", "Fabian", "David", "Jonas", "Simon", "Elias", "Felix",
-  "Julian", "Moritz", "Paul", "Samuel", "Noah", "Jakob", "Leon", "Matthias", "Philipp",
-  "Sebastian", "Andreas", "Michael", "Thomas", "Stefan", "Daniel", "Florian", "Christoph",
-  "Manuel", "Marcel", "Patrick", "Dominik", "Raphael", "Benjamin", "Alexander", "Valentin",
+  "Albert", "Anton", "Cäsar", "Charlie", "Daniel", "David", "Emil", "Friedrich", "Gustav",
+  "Heinrich", "Isidor", "Jakob", "Julius", "Konrad", "Leopold", "Ludwig", "Mike", "Moritz",
+  "Nathan", "Niklaus", "Oscar", "Otto", "Richard", "Romeo", "Samuel", "Siegfried", "Theodor",
+  "Ulrich", "Viktor", "Wilhelm", "Xaver", "Zacharias",
 ];
 
 // prettier-ignore
 const FEMALE_FIRST_NAMES = [
-  "Anna", "Lena", "Sarah", "Julia", "Laura", "Magdalena", "Hannah", "Sophie", "Lisa", "Marie",
-  "Elena", "Katharina", "Johanna", "Theresa", "Verena", "Nina", "Vanessa", "Melanie", "Carina",
-  "Selina", "Jasmin", "Larissa", "Isabella", "Valentina", "Emma", "Nora", "Clara", "Elisa",
-  "Franziska", "Alina", "Chiara", "Leonie", "Amelie", "Victoria",
+  "Anna", "Berta", "Dora", "Ida", "India", "Irma", "Juliett", "Marie", "Martha", "Paula", "Rosa",
+  "Sierra", "Sophie", "Suzanne", "Thérèse", "Ursule", "Xanthippe", "Yvonne", "Zoé",
 ];
 
 // prettier-ignore
 const LAST_NAMES = [
-  "Gruber", "Huber", "Bauer", "Wagner", "Müller", "Pichler", "Steiner", "Moser", "Mayer",
-  "Hofer", "Leitner", "Berger", "Fuchs", "Eder", "Fischer", "Schmid", "Winkler", "Weber",
-  "Schwarz", "Maier", "Schneider", "Reiter", "Wimmer", "Egger", "Brunner", "Lang", "Auer",
-  "Binder", "Lechner", "Wolf", "Wallner", "Aigner", "Ebner", "Koller", "Lehner", "Haas",
-  "Schuster", "Riedl", "Höller", "Sailer", "Kaufmann", "Feurstein", "Bösch", "Fessler",
-  "Amann", "Nachbaur", "Konzett", "Vonbank", "Sutterlüty", "Metzler", "Rüscher", "Ströhle",
-  "Bertsch", "Hämmerle", "Bilgeri", "Ölz", "Baumgartner", "Dür", "Fritsch", "Rhomberg",
+  "Musterfall", "Prüffall", "Testfall", "Beispielfall", "Übungsfall", "Demofall", "Modellfall",
+  "Musterakte", "Prüfmuster", "Testmuster", "Blindprobe", "Nullprobe", "Großprobe", "Stichprobe",
+  "Platzhalter", "Schablone", "Attrappe", "Vorlage", "Musterzeile", "Prüfstück", "Testreihe",
+  "Fallbeispiel", "Musterbogen", "Prüfbogen",
 ];
 
 const OTHER_RELATIONSHIPS = ["Tante", "Onkel", "Schwester", "Bruder", "Großmutter", "Stiefvater"];

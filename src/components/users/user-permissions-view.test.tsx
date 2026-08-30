@@ -97,9 +97,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(`/api/users/${encodeURIComponent(BOB.upn)}`, {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["editAssignments"] },
+        body: { upn: BOB.upn, permissions: ["editAssignments"] },
       }),
     );
   });
@@ -111,9 +111,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["viewReports"] },
+        body: { upn: BOB.upn, permissions: ["viewReports"] },
       }),
     );
   });
@@ -126,9 +126,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editReports));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["editReports"] },
+        body: { upn: BOB.upn, permissions: ["editReports"] },
       }),
     );
   });
@@ -140,9 +140,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.viewReports));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["viewReports"] },
+        body: { upn: BOB.upn, permissions: ["viewReports"] },
       }),
     );
   });
@@ -166,9 +166,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["editMasterData", "editUsers"] },
+        body: { upn: ADA.upn, permissions: ["editMasterData", "editUsers"] },
       }),
     );
   });

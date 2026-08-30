@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 type DeleteEventSeriesDialogProps = {
   open: boolean;
@@ -70,11 +71,11 @@ export function DeleteEventSeriesDialog({
           <TriangleAlert aria-hidden className="text-destructive mt-0.5 size-4 shrink-0" />
           <span>
             Die Eventreihe <strong className="text-foreground">{eventSeries.name}</strong> wird mit
-            allen Events
+            allen Events, Stammdaten und Berichten
             {eventSeries.hasRegistrations
-              ? " und allen Registrierungen der Schüler:innen"
+              ? " sowie allen Registrierungen der Schüler:innen"
               : ""}{" "}
-            gelöscht. Das kann nicht rückgängig gemacht werden.
+            gelöscht. {IRREVERSIBLE_HINT}
           </span>
         </span>
       }
