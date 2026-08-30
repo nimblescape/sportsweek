@@ -3,6 +3,8 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { refuseSignIn } from "@/lib/auth/sign-in-policy";
 
@@ -44,5 +46,33 @@ describe("the production sign-in policy", () => {
     expect(refuseSignIn({ accountType: "teacher", signInProvider: "custom" })).toMatchObject({
       reason: "untrusted-provider",
     });
+  });
+});
+
+/** The two modules next.config.ts swaps for a build that opts into the fake login. */
+const ALIASED = ["sign-in-policy", "sign-in-view"];
+
+function* sourceFiles(directory: string): Generator<string> {
+  for (const entry of readdirSync(directory)) {
+    const path = join(directory, entry);
+    if (statSync(path).isDirectory()) yield* sourceFiles(path);
+    else if (/\.tsx?$/.test(path)) yield path;
+  }
+}
+
+/**
+ * The swap matches the specifier, not the file. A relative import resolves to the same module,
+ * reads identically, and passes every test — while leaving the production implementation in a
+ * build that meant to replace it, where only running the app would show it.
+ */
+describe("the modules a fake-login build swaps", () => {
+  it("are imported by the specifier next.config.ts aliases", () => {
+    const relative = ALIASED.map((name) => new RegExp(`from "\\.[^"]*/${name}"`));
+    const offenders = [...sourceFiles("src")].filter((path) => {
+      const source = readFileSync(path, "utf8");
+      return relative.some((pattern) => pattern.test(source));
+    });
+
+    expect(offenders).toEqual([]);
   });
 });

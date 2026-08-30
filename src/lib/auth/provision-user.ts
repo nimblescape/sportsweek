@@ -10,10 +10,12 @@ import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Registration } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema, type User } from "@/lib/schemas/user";
+// By the aliased specifier, not "./sign-in-policy": next.config.ts swaps this module for a
+// build with a fake login, and the swap matches how it is named rather than where it lives.
+import { refuseSignIn } from "@/lib/auth/sign-in-policy";
 import { permissionsSchema, type Permission } from "./permissions";
 import { fetchEntraName, fetchEntraPhoto } from "./graph";
 import { localTimestamp, LOGIN_TIME_FIELD } from "./login-time";
-import { refuseSignIn } from "./sign-in-policy";
 import { accountTypeFromEmail } from "./school-email";
 
 export type EntraClaims = {
