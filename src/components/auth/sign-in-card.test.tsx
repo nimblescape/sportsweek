@@ -174,7 +174,7 @@ describe("SignInCard", () => {
 
     render(<SignInCard />);
 
-    const subtitle = screen.getByText(/Sportwochen-Verwaltung/i, { selector: "p" });
+    const subtitle = screen.getByText(/Veranstaltungsverwaltung/i, { selector: "p" });
     expect(subtitle).toBeInTheDocument();
     expect(subtitle).not.toHaveTextContent(/HTL Dornbirn/i);
   });

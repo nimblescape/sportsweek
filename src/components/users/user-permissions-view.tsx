@@ -156,7 +156,7 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
               <CardContent className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-baseline gap-x-2">
                   <span className="font-medium">{nameOf(teacher)}</span>
-                  <span className="text-muted-foreground text-sm">{teacher.uid}</span>
+                  <span className="text-muted-foreground text-sm">{teacher.email}</span>
                   {teacher.permissions.length === 0 ? (
                     <span className="text-muted-foreground text-sm">{NO_PERMISSIONS_LABEL}</span>
                   ) : null}

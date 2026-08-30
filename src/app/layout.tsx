@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Sportsweek",
-  description: "Sportwochen-Verwaltung der HTL Dornbirn",
+  description: "Veranstaltungsverwaltung der HTL Dornbirn",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
