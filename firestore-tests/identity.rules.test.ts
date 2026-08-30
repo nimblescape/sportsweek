@@ -48,6 +48,17 @@ function signInAs(upn: string | null, signInProvider: SignInProvider) {
     .firestore();
 }
 
+/** What provisioning mints once it has found the address to be the school's (US-3). */
+function signInWithClaim(upn: string, accountType: "teacher" | "student") {
+  return testEnv
+    .authenticatedContext(`uid-of-${upn}`, {
+      email: upn,
+      accountType,
+      firebase: { sign_in_provider: ENTRA, identities: {} },
+    })
+    .firestore();
+}
+
 beforeEach(async () => {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -108,8 +119,53 @@ describe("only the school's own identity provider is trusted", () => {
 });
 
 /**
- * The domains the school issues UPNs from are what tells a member from an outsider — the same
- * rule `accountTypeFromUpn` applies when a record is provisioned (US-3). A directory admits
+ * Membership is not a string test here. `provisionUser` refuses an address off the school's
+ * domains before it writes anything, so a record or the `accountType` claim it mints is proof
+ * that trusted server code has already asked the question (US-3, US-32). The rules ask for that
+ * answer rather than repeating the test, which is what lets the domains be asked of the
+ * directory later without touching a rule.
+ */
+describe("membership is what provisioning established", () => {
+  it("admits somebody the claim vouches for, before any record exists", async () => {
+    const newcomer = signInWithClaim("neu@htldornbirn.at", "teacher");
+
+    await assertSucceeds(newcomer.collection("eventSeries").doc("eventSeries1").get());
+  });
+
+  it("admits somebody whose record was written before their token carried the claim", async () => {
+    await assertSucceeds(
+      signInAs(TEACHER_UPN, ENTRA).collection("eventSeries").doc("eventSeries1").get(),
+    );
+  });
+
+  /**
+   * The school's own domain is no longer enough on its own. Provisioning is what admits somebody,
+   * and until it has run there is neither a claim nor a record to show for it.
+   */
+  it("denies a school address that provisioning has never seen", async () => {
+    const unprovisioned = signInAs("niemand@htldornbirn.at", ENTRA);
+
+    await assertFails(unprovisioned.collection("eventSeries").doc("eventSeries1").get());
+    await assertFails(unprovisioned.collection("eventSeries").get());
+  });
+
+  /** A claim is minted by the Admin SDK alone, so an account type it never assigned is nothing. */
+  it("denies a claim naming an account type that is not one", async () => {
+    const forged = testEnv
+      .authenticatedContext("uid-of-forger", {
+        email: OUTSIDER_UPN,
+        accountType: "admin",
+        firebase: { sign_in_provider: ENTRA, identities: {} },
+      })
+      .firestore();
+
+    await assertFails(forged.collection("eventSeries").doc("eventSeries1").get());
+  });
+});
+
+/**
+ * The domains the school issues addresses from are what tells a member from an outsider — the same
+ * rule `accountTypeFromEmail` applies when a record is provisioned (US-3). A directory admits
  * guests, and a guest is not somebody this application knows.
  */
 describe("only an address the school issued counts as a member", () => {

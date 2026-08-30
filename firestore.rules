@@ -25,49 +25,59 @@ service cloud.firestore {
     }
 
     /**
-     * The two domains the school issues UPNs from, which is what tells a member of it from a
-     * guest of the directory. A copy of TEACHER_DOMAIN and STUDENT_DOMAIN in src/lib/auth/school-email.ts,
-     * which this language cannot import, and the same rule provisioning applies (US-3).
+     * The address the caller's token carries, lower-cased to match the stored id. It says who is
+     * asking, not whether they belong — `isSchoolMember()` answers that. Empty where there is
+     * none, and an empty string cannot name a document, so every use below is guarded.
      */
-    function isSchoolUpn(email) {
-      return email.matches('^[^@]+@(htldornbirn[.]at|student[.]htldornbirn[.]at)$');
-    }
-
-    /**
-     * `/users` is keyed by UPN (see provisionUser), not by the opaque Firebase uid, so every
-     * identity check has to go through the token's e-mail. Lowercased to match the stored id.
-     * Empty for anybody this school did not issue an account to, and that empty string is what
-     * closes every rule below to an outsider.
-     */
-    function upn() {
-      return isSignedIn()
-        && isTrustedProvider()
-        && request.auth.token.email is string
-        && isSchoolUpn(request.auth.token.email.lower())
+    function callerId() {
+      return isSignedIn() && request.auth.token.email is string
         ? request.auth.token.email.lower()
         : '';
     }
 
-    function recordAccountType() {
-      return get(/databases/$(database)/documents/users/$(upn())).data.accountType;
+    function callerRecord() {
+      return /databases/$(database)/documents/users/$(callerId());
     }
 
     /**
-     * An account type says which population somebody belongs to, derived once from the UPN
+     * Whether the school issued this account (US-32), asked once and answered by what
+     * provisioning already established rather than by testing the address again here.
+     *
+     * `provisionUser` refuses an address outside the school's domains before it writes anything,
+     * so the `accountType` claim it mints is that refusal having been passed — and a claim is
+     * written by the Admin SDK alone, which no client can reach. The record covers the first
+     * session, whose token was issued before the claim was set.
+     *
+     * The domains are therefore named in one place, `accountTypeFromEmail`, and in no rule. When
+     * membership becomes a directory question, provisioning changes and nothing here does.
+     */
+    function isSchoolMember() {
+      return callerId() != ''
+        && isTrustedProvider()
+        && (request.auth.token.accountType in ['teacher', 'student'] || exists(callerRecord()));
+    }
+
+    function recordAccountType() {
+      return get(callerRecord()).data.accountType;
+    }
+
+    /**
+     * An account type says which population somebody belongs to, derived once from the address's
      * domain and granted by nobody (US-3). The claim is checked first so the common case costs
      * no document read; it is missing on the very first login, which is what the fallback
      * covers (see resolveAccountType in guards.ts).
      */
     function isTeacher() {
-      return upn() != ''
+      return isSchoolMember()
         && (request.auth.token.accountType == 'teacher'
-          || (exists(/databases/$(database)/documents/users/$(upn())) && recordAccountType() == 'teacher'));
+          || (exists(callerRecord()) && recordAccountType() == 'teacher'));
     }
 
     /**
      * What a teacher may do, as against what they are (US-2). Read from the record rather than
      * the token: permissions are granted and withdrawn while a session is live, and a claim
-     * minted before the change would go on admitting what an admin has just taken away.
+     * minted before the change would go on admitting what an admin has just taken away. That is
+     * the whole reason these do not travel as a claim the way the account type does.
      *
      * A record carrying none reaches nothing, and a student is refused by isTeacher() ahead of
      * whatever their own record happens to list. The names used below are a copy of PERMISSIONS
@@ -75,9 +85,8 @@ service cloud.firestore {
      */
     function mayAny(permissions) {
       return isTeacher()
-        && exists(/databases/$(database)/documents/users/$(upn()))
-        && get(/databases/$(database)/documents/users/$(upn())).data
-             .get('permissions', []).hasAny(permissions);
+        && exists(callerRecord())
+        && get(callerRecord()).data.get('permissions', []).hasAny(permissions);
     }
 
     function may(permission) {
@@ -85,7 +94,7 @@ service cloud.firestore {
     }
 
     function isSelf(uid) {
-      return upn() != '' && upn() == uid;
+      return isSchoolMember() && callerId() == uid;
     }
 
     /**
@@ -104,15 +113,14 @@ service cloud.firestore {
       allow create: if false;
 
       /**
-       * Neither what somebody is nor what they may do is theirs to write (US-3). The account
-       * type is assigned once from the UPN domain; the permissions are an admin's to grant,
-       * through the Route Handler that owns the refusals a rule cannot express — that a
-       * dependent permission travels with the one it needs, and that nobody takes editUsers
-       * off themselves.
+       * Nothing on the record is the person's to write. Every field is written by provisionUser
+       * from the directory at each login, so an edit here would be overwritten at the next
+       * sign-in — and until then copied into the teacher's report, because a registration takes
+       * its name and address from this record (US-26). What a profile editor would have to
+       * reconcile is beyond what a rule can express, so it would be a Route Handler like every
+       * other write (US-35).
        */
-      allow update: if isSelf(uid)
-        && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['accountType', 'permissions']);
+      allow update: if false;
 
       allow delete: if false;
     }
@@ -209,7 +217,7 @@ service cloud.firestore {
      * COLLECTIONS in src/lib/schemas/collections.ts and has to be kept in step by hand.
      */
     match /{collection}/{itemId} {
-      allow read: if upn() != '' && collection in ['eventSeries'];
+      allow read: if isSchoolMember() && collection in ['eventSeries'];
 
       allow write: if false;
     }

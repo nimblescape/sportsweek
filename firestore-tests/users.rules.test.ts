@@ -180,11 +180,21 @@ describe("/users/{uid} account type and permission immutability", () => {
     await assertFails(db.collection("users").doc(ALICE).update({ accountType: "teacher" }));
   });
 
-  it("allows a user to update their own remaining fields", async () => {
+  /**
+   * Nothing about the record is the person's to write. Every field on it is written by
+   * provisionUser from the directory at each login, so an edit here would be overwritten at the
+   * next sign-in -- and until then copied into the teacher's report, since a registration takes
+   * its name and address from this record (US-26).
+   */
+  it("denies a user updating even the fields that are about them", async () => {
     await seedUser(ALICE, student({ firstName: "Alice" }));
     const db = signInAs(ALICE);
 
-    await assertSucceeds(db.collection("users").doc(ALICE).update({ firstName: "Alicia" }));
+    await assertFails(db.collection("users").doc(ALICE).update({ firstName: "Alicia" }));
+    await assertFails(db.collection("users").doc(ALICE).update({ email: BOB }));
+    await assertFails(
+      db.collection("users").doc(ALICE).update({ photo: "data:image/png;base64,A" }),
+    );
   });
 
   it("denies a student updating another user's document", async () => {

@@ -13,6 +13,7 @@ import { resolveCommitHash, SHORT_COMMIT_LENGTH } from "./src/lib/build-info";
 import {
   envFromApphostingYaml,
   preferProcessEnv,
+  requireEntraTenant,
   requireFirebaseProject,
 } from "./src/lib/apphosting-env";
 
@@ -30,15 +31,17 @@ function readEnv(fileName: string): Record<string, string> {
 // the base alone applies, which names no AUTH_MODE and so resolves to Entra ID. On App Hosting
 // the injected values are the ones that count.
 const environment = process.env.APP_HOSTING_ENV;
-const env = requireFirebaseProject(
-  preferProcessEnv(
-    {
-      ...readEnv("apphosting.yaml"),
-      ...(environment ? readEnv(`apphosting.${environment}.yaml`) : {}),
-    },
-    process.env,
+const env = requireEntraTenant(
+  requireFirebaseProject(
+    preferProcessEnv(
+      {
+        ...readEnv("apphosting.yaml"),
+        ...(environment ? readEnv(`apphosting.${environment}.yaml`) : {}),
+      },
+      process.env,
+    ),
+    environment,
   ),
-  environment,
 );
 
 // Whether the fake login is part of this build at all, rather than merely disabled in it.

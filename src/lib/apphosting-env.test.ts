@@ -13,6 +13,7 @@ import {
   LOCAL_ONLY_VARIABLES,
   preferProcessEnv,
   requireFirebaseProject,
+  requireEntraTenant,
 } from "@/lib/apphosting-env";
 import {
   DEVELOPMENT_PROJECT_ID,
@@ -242,5 +243,26 @@ describe("requireFirebaseProject", () => {
 
   it("names APP_HOSTING_ENV when no environment was selected at all", () => {
     expect(() => requireFirebaseProject({}, undefined)).toThrow(/APP_HOSTING_ENV/);
+  });
+});
+
+/**
+ * Unset, the Microsoft provider falls back to Entra's own default, which admits every tenant
+ * and every personal account. That is a widening no error reports, so the build refuses instead.
+ */
+describe("requireEntraTenant", () => {
+  it("passes the environment through once a tenant is named", () => {
+    const env = { NEXT_PUBLIC_ENTRA_ID_TENANT_ID: "a-tenant-guid" };
+
+    expect(requireEntraTenant(env)).toBe(env);
+  });
+
+  it.each([[{}], [{ NEXT_PUBLIC_ENTRA_ID_TENANT_ID: "" }]])("refuses %o", (env) => {
+    expect(() => requireEntraTenant(env)).toThrow(/NEXT_PUBLIC_ENTRA_ID_TENANT_ID/);
+  });
+
+  /** The reason has to be in the message: an unpinned build looks exactly like a working one. */
+  it("says what an unpinned build would admit", () => {
+    expect(() => requireEntraTenant({})).toThrow(/every Microsoft tenant/);
   });
 });
