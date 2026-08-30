@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -64,54 +64,53 @@ describe("ImpersonationDialog", () => {
     stubApi();
   });
 
-  const options = async () =>
-    [...(await screen.findByLabelText("Bestehende Benutzer:innen")).querySelectorAll("option")].map(
-      (option) => option.textContent,
-    );
+  const listed = async () =>
+    within(await screen.findByRole("list", { name: "Bestehende Benutzer:innen" }))
+      .getAllByRole("listitem")
+      .map((item) => item.textContent);
 
   /** The document id is an opaque uid now, so people are named by their address (US-31). */
   it("offers the already known users by address alone", async () => {
     renderDialog();
 
-    expect(await options()).toEqual(["Neue Person", ...KNOWN_USERS.map((entry) => entry.email)]);
+    expect(await listed()).toEqual(KNOWN_USERS.map((entry) => entry.email));
   });
 
   /** Seventy students and a handful of teachers is too long a list to read through. */
   it("narrows the list to the name that was typed", async () => {
     const { user } = renderDialog();
-    await options();
+    await listed();
 
     await user.type(screen.getByLabelText("Suchen"), "zimmer");
 
-    expect(await options()).toEqual(["Neue Person", "zoe.zimmer@student.htldornbirn.at"]);
+    expect(await listed()).toEqual(["zoe.zimmer@student.htldornbirn.at"]);
   });
 
   it("searches the address as well as the name", async () => {
     const { user } = renderDialog();
-    await options();
+    await listed();
 
     await user.type(screen.getByLabelText("Suchen"), "jane.doe@");
 
-    expect(await options()).toEqual(["Neue Person", "jane.doe@htldornbirn.at"]);
+    expect(await listed()).toEqual(["jane.doe@htldornbirn.at"]);
   });
 
   it("shows only teachers when asked for them", async () => {
     const { user } = renderDialog();
-    await options();
+    await listed();
 
     await user.click(screen.getByRole("radio", { name: "Nur Lehrpersonen" }));
 
-    expect(await options()).toEqual(["Neue Person", "jane.doe@htldornbirn.at"]);
+    expect(await listed()).toEqual(["jane.doe@htldornbirn.at"]);
   });
 
   it("shows only students when asked for them", async () => {
     const { user } = renderDialog();
-    await options();
+    await listed();
 
     await user.click(screen.getByRole("radio", { name: "Nur Schüler:innen" }));
 
-    expect(await options()).toEqual([
-      "Neue Person",
+    expect(await listed()).toEqual([
       "zoe.zimmer@student.htldornbirn.at",
       "max.mustermann@student.htldornbirn.at",
     ]);
@@ -120,19 +119,39 @@ describe("ImpersonationDialog", () => {
   /** The two narrow together, so a name is searched within whichever population is shown. */
   it("combines the two, searching a name within the population shown", async () => {
     const { user } = renderDialog();
-    await options();
+    await listed();
 
     await user.click(screen.getByRole("radio", { name: "Nur Schüler:innen" }));
     await user.type(screen.getByLabelText("Suchen"), "doe");
 
-    expect(await options()).toEqual(["Neue Person"]);
+    expect(await screen.findByText("Keine Treffer")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Bestehende Benutzer:innen" })).toBeNull();
+  });
+
+  // The dropdown this replaced kept its choice on show. A list has to say so itself, and it
+  // answers for a typed name too, since the address is what either one produces.
+  it("marks whoever the form now names", async () => {
+    const { user } = renderDialog();
+
+    await user.click(await screen.findByRole("button", { name: "jane.doe@htldornbirn.at" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "jane.doe@htldornbirn.at" })).toHaveAttribute(
+        "aria-current",
+        "true",
+      ),
+    );
+    expect(
+      screen.getByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" }),
+    ).not.toHaveAttribute("aria-current");
   });
 
   it("fills the form from the picked user", async () => {
     const { user } = renderDialog();
 
-    const dropdown = await screen.findByLabelText("Bestehende Benutzer:innen");
-    await user.selectOptions(dropdown, "zoe.zimmer@student.htldornbirn.at");
+    await user.click(
+      await screen.findByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" }),
+    );
 
     expect(screen.getByLabelText("Vorname")).toHaveValue("Zoe");
     expect(screen.getByLabelText("Nachname")).toHaveValue("Zimmer");
@@ -240,12 +259,8 @@ describe("ImpersonationDialog — which of the two is offered", () => {
 
   it("offers it once somebody is picked from the list", async () => {
     const { user } = renderDialog();
-    await screen.findByRole("option", { name: "jane.doe@htldornbirn.at" });
 
-    await user.selectOptions(
-      screen.getByLabelText("Bestehende Benutzer:innen"),
-      "jane.doe@htldornbirn.at",
-    );
+    await user.click(await screen.findByRole("button", { name: "jane.doe@htldornbirn.at" }));
 
     await waitFor(() => expect(asOther()).toBeEnabled());
   });

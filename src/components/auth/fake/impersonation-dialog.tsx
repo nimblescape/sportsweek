@@ -61,11 +61,6 @@ function matching(users: KnownUser[], population: Population, search: string): K
   );
 }
 
-// A native <select> rather than the design system's portalled one: this dialog never ships,
-// so it is not worth the weight to render a list of UPNs.
-const SELECT_CLASS =
-  "border-input focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-lg border bg-transparent px-3 text-sm outline-none focus-visible:ring-3";
-
 /**
  * Impersonation, reached only after a real Entra ID sign-in (see the route's Entra gate).
  * The name and role compile into the UPN the tenant would issue, the server hands back a
@@ -206,20 +201,32 @@ export function ImpersonationDialog({
         </fieldset>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={knownId}>Bestehende Benutzer:innen</Label>
-          <select
-            id={knownId}
-            className={SELECT_CLASS}
-            defaultValue=""
-            onChange={(event) => pickKnown(event.target.value)}
-          >
-            <option value="">Neue Person</option>
-            {shown.map((entry) => (
-              <option key={entry.email} value={entry.email}>
-                {entry.email}
-              </option>
-            ))}
-          </select>
+          <span id={knownId} className="text-sm leading-none font-medium">
+            Bestehende Benutzer:innen
+          </span>
+          {shown.length === 0 ? (
+            <p className="text-muted-foreground text-sm">Keine Treffer</p>
+          ) : (
+            <ul
+              aria-labelledby={knownId}
+              className="border-input max-h-40 divide-y overflow-y-auto rounded-lg border"
+            >
+              {shown.map((entry) => (
+                <li key={entry.email}>
+                  {/* Marked from the address the form derives, so typing a name out picks the
+                      matching person in the list just as clicking one does. */}
+                  <button
+                    type="button"
+                    aria-current={entry.email === upn ? "true" : undefined}
+                    onClick={() => pickKnown(entry.email)}
+                    className="hover:bg-muted aria-[current]:bg-muted w-full truncate px-3 py-1.5 text-left text-sm aria-[current]:font-medium"
+                  >
+                    {entry.email}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">
