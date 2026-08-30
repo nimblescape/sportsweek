@@ -26,7 +26,7 @@ export const NO_CLASSES_HINT = noneMaintainedHint(MASTER_DATA_CATEGORIES.classes
  */
 export function RegistrationsView({ eventSeriesId }: { eventSeriesId: string }) {
   const { eventSeries, missing, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
-  const invitations = useInvitations(eventSeriesId);
+  const invitations = useInvitations(eventSeriesId, eventSeries?.isOpenToStudents);
 
   // An archived series is read-only, so it has nobody left to invite (US-19).
   const openable = eventSeries !== null && !eventSeries.isArchived;

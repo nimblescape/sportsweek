@@ -26,8 +26,15 @@ type InvitationState = {
  * Read through a handler rather than a subscription, because nothing may read the collection
  * they live in: a rule grants a whole document to everyone it grants it to, and a token is the
  * enrolment itself. So they arrive once, and every mint keeps this copy in step.
+ *
+ * Closing the series is the other thing that changes them — it withdraws them all — so the open
+ * state is asked again rather than mirrored here, and `undefined` means the series has not said
+ * yet.
  */
-export function useInvitations(eventSeriesId: string): InvitationState {
+export function useInvitations(
+  eventSeriesId: string,
+  isOpenToStudents: boolean | undefined,
+): InvitationState {
   const [tokens, setTokens] = useState<ReadonlyMap<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +42,7 @@ export function useInvitations(eventSeriesId: string): InvitationState {
   const endpoint = `/api/event-series/${eventSeriesId}/invitations`;
 
   useEffect(() => {
+    if (isOpenToStudents === undefined) return;
     let current = true;
 
     apiRequest<{ invitations: Invitation[] }>(endpoint, { method: "GET" })
@@ -56,7 +64,7 @@ export function useInvitations(eventSeriesId: string): InvitationState {
     return () => {
       current = false;
     };
-  }, [endpoint]);
+  }, [endpoint, isOpenToStudents]);
 
   const mint = useCallback(
     async (className: string) => {

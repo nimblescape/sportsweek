@@ -243,6 +243,15 @@ export async function updateEventSeries(
       ? false
       : (update.isOpenToStudents ?? current.isOpenToStudents);
 
+    // Closing withdraws the links, so reopening hands out none (US-23). Leaving them dormant
+    // made closing look like a remedy for a link that got out, when it only suspended one.
+    if (current.isOpenToStudents && !isOpenToStudents) {
+      const handedOut = await transaction.get(
+        adminDb.collection(COLLECTIONS.invitations).where("eventSeriesId", "==", id),
+      );
+      for (const invitation of handedOut.docs) transaction.delete(invitation.ref);
+    }
+
     // `update` rather than `set`: the document also carries the seven maintained lists (US-21),
     // and naming them here only to preserve them would drop the next one somebody adds.
     const changed = {

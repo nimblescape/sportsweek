@@ -616,7 +616,8 @@ describe("event series names are unique", () => {
 
 /**
  * Pressing the overview page's tag is the whole of opening and closing registration (US-19,
- * US-29). The invitation link opens a series too, but closing it again needs no new link.
+ * US-29). The invitation link opens a series too, and closing withdraws every link it handed
+ * out, so reopening is a fresh start rather than a resurrection.
  */
 describe("updateEventSeries — opening to students", () => {
   it("opens a series to students", async () => {
@@ -627,12 +628,51 @@ describe("updateEventSeries — opening to students", () => {
     expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: true });
   });
 
-  it("closes it again without touching the links it handed out", async () => {
+  /**
+   * Closing is the only remedy a teacher has for a link that got out beyond one class, and it
+   * was a loan rather than a remedy: the token survived, and reopening handed it back armed.
+   */
+  it("withdraws every link it handed out", async () => {
     seedEventSeries("s1", { isOpenToStudents: true });
+    firestore.seed("invitations", "tokenA", { eventSeriesId: "s1", class: "3aWI" });
+    firestore.seed("invitations", "tokenB", { eventSeriesId: "s1", class: "3bWI" });
 
     await updateEventSeries("s1", { isOpenToStudents: false });
 
     expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
+    expect(firestore.get("invitations", "tokenA")).toBeUndefined();
+    expect(firestore.get("invitations", "tokenB")).toBeUndefined();
+  });
+
+  it("leaves another series' links alone", async () => {
+    seedEventSeries("s1", { isOpenToStudents: true });
+    seedEventSeries("s2", { isOpenToStudents: true });
+    firestore.seed("invitations", "tokenOther", { eventSeriesId: "s2", class: "3aWI" });
+
+    await updateEventSeries("s1", { isOpenToStudents: false });
+
+    expect(firestore.get("invitations", "tokenOther")).toBeDefined();
+  });
+
+  /** Archiving closes, so it withdraws them too rather than filing a series with live links. */
+  it("withdraws them when the same call closes and archives", async () => {
+    seedEventSeries("s1", { isOpenToStudents: true });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
+    firestore.seed("invitations", "tokenA", { eventSeriesId: "s1", class: "3aWI" });
+
+    await updateEventSeries("s1", { isArchived: true, isOpenToStudents: false });
+
+    expect(firestore.get("invitations", "tokenA")).toBeUndefined();
+  });
+
+  /** A rename is not a closing, and an already-closed series has nothing left to withdraw. */
+  it("withdraws nothing when the series was not open to begin with", async () => {
+    seedEventSeries("s1", { isOpenToStudents: false });
+    firestore.seed("invitations", "tokenA", { eventSeriesId: "s1", class: "3aWI" });
+
+    await updateEventSeries("s1", { name: "Neuer Name" });
+
+    expect(firestore.get("invitations", "tokenA")).toBeDefined();
   });
 
   it("refuses to open an archived series, which cannot even be selected", async () => {

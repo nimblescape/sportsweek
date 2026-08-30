@@ -593,8 +593,12 @@ everybody at once.
 - **Closing a series to students is how registration is closed** (US-19), not a separate
   "withdraw the link" action. A closed series refuses every student write, a first registration
   included, so the link stops working for that reason and no second mechanism is needed. Two
-  controls for one decision would be two answers to the same question. Opening it again needs no
-  new link.
+  controls for one decision would be two answers to the same question.
+- **Closing withdraws every link the series handed out**, so opening it again hands out none and
+  the teacher generates the ones they still want. Leaving them dormant made closing look like a
+  remedy for a link that got out beyond the class it was for, when it only suspended one: the
+  token survived being closed and came back armed. It is also what makes closing the whole-series
+  counterpart of regenerating a single class's link.
 - A link that leads nowhere — mistyped, superseded by a regenerated one, naming a series that is
   closed, archived or deleted — is refused with one German message for all of those cases, so
   that a caller cannot tell which of them applies:
