@@ -125,6 +125,24 @@ export function ImpersonationDialog({
     control,
     name: ["firstName", "lastName", "accountType"],
   });
+
+  // An address is a name and a role together, so the role follows a name the school already
+  // knows — otherwise typing a student's name would mint a teacher who merely shares it. Held
+  // to the moment the name changes, so it is a suggestion the reader can still overrule.
+  const answeredFor = React.useRef("");
+  React.useEffect(() => {
+    const typed = `${firstName ?? ""} ${lastName ?? ""}`.trim().toLowerCase();
+    if (typed === answeredFor.current) return;
+    answeredFor.current = typed;
+
+    const bearers = known.filter(
+      (entry) => `${entry.firstName} ${entry.lastName}`.toLowerCase() === typed,
+    );
+    if (bearers.length > 0 && !bearers.some((entry) => entry.accountType === role)) {
+      setValue("accountType", bearers[0].accountType);
+    }
+  }, [firstName, lastName, role, known, setValue]);
+
   const derived = buildEmail(firstName, lastName, role);
   const upn = derived && isSchoolEmail(derived) ? derived : null;
   // Whether the name yields a school address is a separate question, and one the dialog answers

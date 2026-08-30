@@ -158,6 +158,47 @@ describe("ImpersonationDialog", () => {
     expect(screen.getByLabelText("Schüler:in")).toBeChecked();
   });
 
+  /**
+   * An address is a name and a role together, so a typed name with the role left at its default
+   * would mint a second person rather than reaching the one who bears it.
+   */
+  it("takes the role from the person whose name was typed", async () => {
+    const { user } = renderDialog();
+    await screen.findByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" });
+
+    await typeName(user, "Zoe", "Zimmer");
+
+    await waitFor(() => expect(screen.getByLabelText("Schüler:in")).toBeChecked());
+    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent(
+      "zoe.zimmer@student.htldornbirn.at",
+    );
+    expect(
+      screen.getByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" }),
+    ).toHaveAttribute("aria-current", "true");
+  });
+
+  it("leaves the role alone for a name that is nobody's", async () => {
+    const { user } = renderDialog();
+    await screen.findByRole("button", { name: "jane.doe@htldornbirn.at" });
+
+    await typeName(user, "Erika", "Musterfrau");
+
+    expect(screen.getByLabelText("Lehrperson")).toBeChecked();
+  });
+
+  // Only until it is contradicted: a new teacher who happens to share a student's name is a
+  // person the tenant could issue, and the role is where that is said.
+  it("still lets the role be changed after it followed a name", async () => {
+    const { user } = renderDialog();
+    await screen.findByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" });
+
+    await typeName(user, "Zoe", "Zimmer");
+    await waitFor(() => expect(screen.getByLabelText("Schüler:in")).toBeChecked());
+    await user.click(screen.getByLabelText("Lehrperson"));
+
+    expect(screen.getByLabelText("Lehrperson")).toBeChecked();
+  });
+
   it("compiles the UPN from the name and the role while typing", async () => {
     const { user } = renderDialog();
 
