@@ -600,6 +600,17 @@ describe("exporting", () => {
     expect(exportedAt).toBeInstanceOf(Date);
   });
 
+  /** The copy is read after the deployment that made it is gone, so it carries what made it. */
+  it("hands the export the build the page was served by", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_VERSION", "1.2.3");
+    vi.stubEnv("NEXT_PUBLIC_COMMIT_HASH", "abc1234");
+
+    render(<ReportView />);
+    await userEvent.click(screen.getByRole("button", { name: "PDF" }));
+
+    expect(pressed(downloadReportPdf).provenance.build).toBe("v1.2.3 · abc1234");
+  });
+
   it("describes the filter alongside it, so a copy says which slice of the event series it holds", async () => {
     render(<ReportView />);
     await userEvent.click(screen.getByRole("button", { name: "Klasse: 5BHIF" }));

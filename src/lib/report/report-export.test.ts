@@ -25,7 +25,7 @@ describe("the lines both exports share", () => {
 });
 
 describe("subtitleLines", () => {
-  const provenance = { reportName: null, filterSummary: null, exportedAt: AT };
+  const provenance = { reportName: null, filterSummary: null, exportedAt: AT, build: "v1.2.3" };
 
   it("names the saved report first and the filter that produced it below", () => {
     const named = { ...provenance, reportName: "Nur 5BHIF", filterSummary: "5BHIF" };
