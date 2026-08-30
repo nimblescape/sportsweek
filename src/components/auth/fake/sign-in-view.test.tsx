@@ -12,7 +12,11 @@ const enter = vi.fn();
 const state: {
   checking: boolean;
   error: string | null;
-  session: { destination: string; signInProvider: string | null } | null;
+  session: {
+    destination: string;
+    signInProvider: string | null;
+    accountType: "teacher" | "student" | null;
+  } | null;
 } = { checking: false, error: null, session: null };
 
 vi.mock("@/lib/auth/use-sign-in", () => ({
@@ -68,7 +72,11 @@ describe("the test environment's sign-in screen", () => {
   });
 
   it("offers a choice of who to be once the real sign-in produced a session", () => {
-    state.session = { destination: "/app", signInProvider: "microsoft.com" };
+    state.session = {
+      destination: "/app",
+      signInProvider: "microsoft.com",
+      accountType: "teacher",
+    };
 
     render(<SignInView />);
 
@@ -76,9 +84,24 @@ describe("the test environment's sign-in screen", () => {
     expect(enter).not.toHaveBeenCalled();
   });
 
+  // Impersonation is a teacher's tool, and a student following an invitation link is here to
+  // walk their own way through — which is the flow worth rehearsing (US-23).
+  it("sends a student who signed in as themselves straight on", async () => {
+    state.session = {
+      destination: "/my-registration",
+      signInProvider: "microsoft.com",
+      accountType: "student",
+    };
+
+    render(<SignInView />);
+
+    await waitFor(() => expect(enter).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   // The impersonated session arrived here from that dialog, so asking again would loop.
   it("goes straight into the app for a session it produced itself", async () => {
-    state.session = { destination: "/app", signInProvider: "custom" };
+    state.session = { destination: "/app", signInProvider: "custom", accountType: "teacher" };
 
     render(<SignInView />);
 
@@ -87,7 +110,11 @@ describe("the test environment's sign-in screen", () => {
   });
 
   it("carries on as the real user when the choice is declined", async () => {
-    state.session = { destination: "/app", signInProvider: "microsoft.com" };
+    state.session = {
+      destination: "/app",
+      signInProvider: "microsoft.com",
+      accountType: "teacher",
+    };
     render(<SignInView />);
 
     await userEvent.click(screen.getByRole("button", { name: "Mich selbst anmelden" }));
@@ -98,7 +125,11 @@ describe("the test environment's sign-in screen", () => {
   // The new session takes a moment to come back around; leaving the dialog up meanwhile
   // would show a form that has already done its work.
   it("closes the choice as soon as it has signed somebody in", async () => {
-    state.session = { destination: "/app", signInProvider: "microsoft.com" };
+    state.session = {
+      destination: "/app",
+      signInProvider: "microsoft.com",
+      accountType: "teacher",
+    };
     render(<SignInView />);
 
     await userEvent.click(screen.getByRole("button", { name: "Als andere Person anmelden" }));

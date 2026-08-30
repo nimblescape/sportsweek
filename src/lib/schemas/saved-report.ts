@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { studentFilterSchema } from "@/lib/filters/student-filter";
 import { REPORT_FIELD_TAGS } from "@/lib/report/report-fields";
-import { documentIdSchema, requiredText, snapshotValueSchema } from "./common";
+import { documentIdSchema, requiredText, snapshotValueSchema, uidSchema } from "./common";
 import { positionSchema } from "./position";
 
 /**
@@ -17,7 +17,7 @@ import { positionSchema } from "./position";
  */
 export const savedReportSchema = z.object({
   id: documentIdSchema,
-  createdByUserId: documentIdSchema,
+  createdByUserId: uidSchema,
   name: requiredText(120),
   /** Where its tag sits in the row the teachers dragged it into (see Ordering). */
   position: positionSchema,

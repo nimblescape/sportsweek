@@ -23,6 +23,7 @@ import {
   type SkillColumn,
 } from "@/lib/assignment/statistics";
 import { filterStudents, type FilterGroup, type StudentFilter } from "@/lib/filters/student-filter";
+import type { Uid } from "@/lib/schemas/common";
 import type { RosterStudent } from "@/lib/students/roster";
 import { cn } from "@/lib/utils";
 import { AREA, AREAS, AreaTitle, FIGURES_AREA, FilteredTag } from "./card-areas";
@@ -49,10 +50,10 @@ type AssignmentCardProps = {
   filterGroups: readonly FilterGroup[];
   filter: StudentFilter;
   onFilterChange: (next: StudentFilter) => void;
-  picked: readonly string[];
+  picked: readonly Uid[];
   /** The ids a drag is currently carrying, all of which are faded where they stand. */
   carried: ReadonlySet<string>;
-  onToggle: (recordId: string) => void;
+  onToggle: (recordId: Uid) => void;
   onToggleAll: (students: readonly RosterStudent[], allPicked: boolean) => void;
 };
 

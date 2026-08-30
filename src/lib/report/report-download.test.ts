@@ -5,6 +5,7 @@
  */
 import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { downloadReportPdf, downloadReportWorkbook, type ReportExport } from "./report-download";
 import { reportFieldsOf } from "./report-fields";
 import { rosterStudent } from "@/test/roster-student";
@@ -12,7 +13,7 @@ import { rosterStudent } from "@/test/roster-student";
 const logo = await readFile("public/htl-logo.png");
 
 const REPORT: ReportExport = {
-  students: [rosterStudent({ id: "r1", firstName: "Anna", lastName: "Müller-Groß" })],
+  students: [rosterStudent({ id: asUid("r1"), firstName: "Anna", lastName: "Müller-Groß" })],
   fields: reportFieldsOf(["class", "contact"]),
   provenance: {
     reportName: null,

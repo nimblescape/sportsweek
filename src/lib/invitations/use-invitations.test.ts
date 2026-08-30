@@ -23,7 +23,10 @@ beforeEach(() => {
 });
 
 async function loaded(eventSeriesId = SERIES) {
-  const rendered = renderHook(() => useInvitations(eventSeriesId));
+  const rendered = renderHook(
+    ({ open }: { open: boolean | undefined }) => useInvitations(eventSeriesId, open),
+    { initialProps: { open: true as boolean | undefined } },
+  );
   await waitFor(() => expect(rendered.result.current.loading).toBe(false));
   return rendered;
 }
@@ -46,6 +49,29 @@ describe("useInvitations", () => {
     const { result } = await loaded();
 
     expect(result.current.tokenFor("3aWI")).toBeNull();
+  });
+
+  /**
+   * Closing the series withdraws its links (US-23), so the copy held here would outlive them —
+   * and go on handing out a token the server has already forgotten.
+   */
+  it("reads the links again when the series is closed", async () => {
+    apiRequest.mockResolvedValue({
+      invitations: [{ token: "tok", eventSeriesId: SERIES, class: "3aWI" }],
+    });
+    const { result, rerender } = await loaded();
+    apiRequest.mockResolvedValue({ invitations: [] });
+
+    rerender({ open: false });
+
+    await waitFor(() => expect(result.current.tokenFor("3aWI")).toBeNull());
+  });
+
+  /** Nothing is worth asking for until the series has arrived and said whether it is open. */
+  it("asks for nothing while the series is still loading", () => {
+    renderHook(() => useInvitations(SERIES, undefined));
+
+    expect(apiRequest).not.toHaveBeenCalled();
   });
 
   /** Copying a link twice has to copy the same link (US-29), so an existing one is not replaced. */

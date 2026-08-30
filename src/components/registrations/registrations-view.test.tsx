@@ -5,6 +5,7 @@
  */
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { INVITATION_LINK_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -19,7 +20,8 @@ const useInvitations = vi.fn();
 
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
 vi.mock("@/lib/invitations/use-invitations", () => ({
-  useInvitations: (id: string) => useInvitations(id),
+  useInvitations: (id: string, isOpenToStudents: boolean | undefined) =>
+    useInvitations(id, isOpenToStudents),
 }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
@@ -50,8 +52,8 @@ function student(
   overrides: Partial<Omit<RosterStudent, "record">> = {},
 ): RosterStudent {
   return rosterStudent({
-    id: `record-${lastName}`,
-    studentUid: `uid-${lastName}`,
+    id: asUid(`record-${lastName}`),
+    studentUid: asUid(`uid-${lastName}`),
     firstName: "Vorname",
     lastName,
     ...overrides,
@@ -165,10 +167,12 @@ describe("RegistrationsView — no second registration control", () => {
 });
 
 describe("RegistrationsView — handing out links", () => {
+  // With the open state, because closing withdraws the links and a page holding the old ones
+  // would go on offering a token the server has forgotten (US-23).
   it("gives each class card the series' own links", async () => {
     render(<RegistrationsView />);
 
-    expect(useInvitations).toHaveBeenCalledWith("s1");
+    expect(useInvitations).toHaveBeenCalledWith("s1", true);
     expect(
       within(screen.getByRole("group", { name: "5AHIF" })).getByRole("button", {
         name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren`,

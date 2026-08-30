@@ -4,15 +4,16 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import type { ContextPageSize, DynamicContent } from "pdfmake/interfaces";
 import { pageLabel, reportDocument } from "./pdf-report";
 import type { ReportProvenance } from "./report-export";
 import { reportFieldsOf } from "./report-fields";
 import { rosterStudent } from "@/test/roster-student";
 
-const ANNA = rosterStudent({ id: "r1", firstName: "Anna", lastName: "Muster" });
+const ANNA = rosterStudent({ id: asUid("r1"), firstName: "Anna", lastName: "Muster" });
 const BENE = rosterStudent({
-  id: "r2",
+  id: asUid("r2"),
   firstName: "Bene",
   lastName: "Berger",
   email: "bene@student.htldornbirn.at",
@@ -76,7 +77,7 @@ describe("reportDocument", () => {
   });
 
   it("marks a registration that is still missing answers", () => {
-    const chasing = rosterStudent({ id: "r3", lastName: "Cerny" }, { isIncomplete: true });
+    const chasing = rosterStudent({ id: asUid("r3"), lastName: "Cerny" }, { isIncomplete: true });
 
     expect(textOf(document([chasing]).content)).toContain("Registrierung unvollständig");
     expect(textOf(document([ANNA]).content)).not.toContain("Registrierung unvollständig");

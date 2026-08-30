@@ -27,6 +27,7 @@ import { initializeApp } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore, type WriteBatch } from "firebase-admin/firestore";
 import { buildEmail } from "@/lib/auth/fake/email-builder";
+import { invitationKey } from "@/lib/auth/school-email";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Gender } from "@/lib/schemas/common";
 import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
@@ -520,7 +521,7 @@ async function inviteAdministrators(db: Firestore): Promise<void> {
     ADMINISTRATORS.map((person) =>
       db
         .collection(COLLECTIONS.invitedTeachers)
-        .doc(person.email)
+        .doc(invitationKey(person.email))
         .set({
           firstName: person.firstName,
           lastName: person.lastName,

@@ -16,7 +16,7 @@ import { refuseSignIn } from "@/lib/auth/sign-in-policy";
 import { permissionsSchema, type Permission } from "./permissions";
 import { fetchEntraName, fetchEntraPhoto } from "./graph";
 import { localTimestamp, LOGIN_TIME_FIELD } from "./login-time";
-import { accountTypeFromEmail } from "./school-email";
+import { accountTypeFromEmail, invitationKey } from "./school-email";
 
 export type EntraClaims = {
   uid: string;
@@ -126,10 +126,7 @@ export async function provisionUser(
   if (!derivedAccountType) return { ok: false, reason: "unsupported-domain" };
 
   // Whatever else this deployment refuses. Production refuses nothing here.
-  const refusal = refuseSignIn({
-    accountType: derivedAccountType,
-    signInProvider: claims.firebase?.sign_in_provider,
-  });
+  const refusal = refuseSignIn({ signInProvider: claims.firebase?.sign_in_provider });
   if (refusal) return { ok: false, ...refusal };
 
   const localPart = email.slice(0, email.indexOf("@"));
@@ -179,7 +176,7 @@ export async function provisionUser(
     // Nobody is granted anything by signing in — except where the school left an invitation at
     // this address, which is how a purged school gets its first administrators (US-2). Their
     // accounts are the directory's to create, so a record cannot be keyed by a uid until now.
-    const invitationRef = adminDb.collection(COLLECTIONS.invitedTeachers).doc(email);
+    const invitationRef = adminDb.collection(COLLECTIONS.invitedTeachers).doc(invitationKey(email));
     const invitation = await invitationRef.get();
     if (invitation.exists) {
       const invited = permissionsSchema.safeParse(invitation.data()?.permissions);

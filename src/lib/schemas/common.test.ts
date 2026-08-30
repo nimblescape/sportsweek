@@ -5,12 +5,14 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  asUid,
   documentIdSchema,
   genderSchema,
   optionalText,
   phoneNumberSchema,
   requiredText,
   snapshotValueSchema,
+  uidSchema,
 } from "@/lib/schemas/common";
 
 describe("phoneNumberSchema", () => {
@@ -74,6 +76,28 @@ describe("documentIdSchema", () => {
     ["an id that is nothing but spaces", "   "],
   ])("rejects %s", (_case, value) => {
     expect(documentIdSchema.safeParse(value).success).toBe(false);
+  });
+});
+
+/**
+ * A uid and an address are both strings, and the compiler let one stand where the other belonged
+ * until a comparison quietly stopped matching. The brand is what makes that a type error; it is
+ * a fiction of the type system, so what is carried is still exactly the id that was given.
+ */
+describe("uidSchema", () => {
+  it("carries the uid through unchanged", () => {
+    expect(uidSchema.parse("6Xk2p9QwErTyUiOpAsDf")).toBe("6Xk2p9QwErTyUiOpAsDf");
+  });
+
+  it("refuses what no document id may be", () => {
+    expect(uidSchema.safeParse("a/b").success).toBe(false);
+    expect(uidSchema.safeParse("").success).toBe(false);
+  });
+
+  /** The way in for a uid the type system cannot see the origin of — a token claim, a document id. */
+  it("brands a string a caller vouches for, and refuses one that is no id", () => {
+    expect(asUid("6Xk2p9QwErTyUiOpAsDf")).toBe("6Xk2p9QwErTyUiOpAsDf");
+    expect(() => asUid(" padded ")).toThrow();
   });
 });
 

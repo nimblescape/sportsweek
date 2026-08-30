@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
 import {
@@ -19,8 +20,8 @@ let seed = 0;
 function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): RosterStudent {
   seed += 1;
   return rosterStudent({
-    id: `record${seed}`,
-    studentUid: `uidStudent${seed}`,
+    id: asUid(`record${seed}`),
+    studentUid: asUid(`uidStudent${seed}`),
     firstName: `Vorname${seed}`,
     lastName: `Nachname${seed}`,
     skillLevel: "Fortgeschritten",

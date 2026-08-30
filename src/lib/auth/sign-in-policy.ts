@@ -4,12 +4,10 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import "server-only";
-import type { AccountType } from "@/lib/schemas/user";
 
 export type SignInRefusal = { reason: string; message: string };
 
 export type SignInAttempt = {
-  accountType: AccountType;
   /** Set by Firebase during the token exchange, so a caller cannot claim it. */
   signInProvider?: string;
 };

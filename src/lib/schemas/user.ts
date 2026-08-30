@@ -5,14 +5,14 @@
  */
 import { z } from "zod";
 import { permissionsSchema } from "@/lib/auth/permissions";
-import { documentIdSchema, requiredText } from "./common";
+import { requiredText, uidSchema } from "./common";
 
 export const accountTypeSchema = z.enum(["teacher", "student"]);
 export type AccountType = z.infer<typeof accountTypeSchema>;
 
 export const userSchema = z.object({
   // The address the school issued doubles as the document id, giving a 1:1 relationship (US-1).
-  id: documentIdSchema,
+  id: uidSchema,
   firstName: requiredText(100),
   lastName: requiredText(100),
   email: z.email(),

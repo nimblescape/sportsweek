@@ -4,12 +4,13 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { FilterableStudent } from "@/lib/filters/student-filter";
+import type { Uid } from "@/lib/schemas/common";
 import type { Registration } from "@/lib/schemas/registration";
 
 export type RosterStudent = FilterableStudent & {
   /** The registration, which is what an assignment is written to (US-12). */
-  id: string;
-  studentUid: string;
+  id: Uid;
+  studentUid: Uid;
   /** On the report's master line, where it is the one contact detail always shown (US-13). */
   email: string;
   /**

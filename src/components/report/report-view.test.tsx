@@ -6,6 +6,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -58,8 +59,8 @@ function student(
   overrides: Partial<Omit<RosterStudent, "record">> = {},
 ): RosterStudent {
   return rosterStudent({
-    id: `record-${lastName}`,
-    studentUid: `uid-${lastName}`,
+    id: asUid(`record-${lastName}`),
+    studentUid: asUid(`uid-${lastName}`),
     email: `${lastName.toLowerCase()}@student.htldornbirn.at`,
     firstName,
     lastName,
@@ -158,7 +159,7 @@ describe("ReportView", () => {
 
   it("marks a registration that is still missing answers, so a teacher knows whom to chase", () => {
     const incomplete = rosterStudent(
-      { id: "record-Cerny", firstName: "Clara", lastName: "Cerny" },
+      { id: asUid("record-Cerny"), firstName: "Clara", lastName: "Cerny" },
       { isIncomplete: true },
     );
     useRoster.mockReturnValue({ students: [incomplete, ANNA], loading: false, error: null });
@@ -202,7 +203,7 @@ describe("ReportView", () => {
 
   it("filters by whether a registration is still missing answers", async () => {
     const chasing = rosterStudent(
-      { id: "record-Cerny", firstName: "Clara", lastName: "Cerny", isIncomplete: true },
+      { id: asUid("record-Cerny"), firstName: "Clara", lastName: "Cerny", isIncomplete: true },
       { isIncomplete: true },
     );
     useRoster.mockReturnValue({ students: [chasing, ANNA], loading: false, error: null });
@@ -321,7 +322,7 @@ describe("the fields tag list", () => {
 
   it("says a field is unanswered rather than leaving the line blank", async () => {
     const nameless = rosterStudent(
-      { id: "record-Cerny", firstName: "Clara", lastName: "Cerny" },
+      { id: asUid("record-Cerny"), firstName: "Clara", lastName: "Cerny" },
       { healthNotes: null },
     );
     useRoster.mockReturnValue({ students: [nameless], loading: false, error: null });

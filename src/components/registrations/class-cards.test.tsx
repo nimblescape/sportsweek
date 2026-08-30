@@ -6,6 +6,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { classOverview, skillColumns } from "@/lib/assignment/statistics";
 import { filterGroups } from "@/lib/filters/student-filter";
 import { INVITATION_LINK_LABEL, INVITATION_QR_LABEL } from "@/lib/invitations/invitation-link";
@@ -32,8 +33,8 @@ let seed = 0;
 function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): RosterStudent {
   seed += 1;
   return rosterStudent({
-    id: `record${seed}`,
-    studentUid: `uidStudent${seed}`,
+    id: asUid(`record${seed}`),
+    studentUid: asUid(`uidStudent${seed}`),
     firstName: `Vorname${seed}`,
     lastName: `Nachname${seed}`,
     ...overrides,

@@ -33,6 +33,23 @@ export const documentIdSchema = z
   .refine((value) => value.trim() === value, "Eine Dokument-ID hat keine Leerzeichen am Rand.")
   .refine((value) => !value.includes("/"), "Eine Dokument-ID darf keinen Pfad enthalten.");
 
+declare const uid: unique symbol;
+
+/**
+ * The Firebase uid a person's records are keyed by (US-31), as against the address they are also
+ * known by. Both are strings, and the compiler let one stand where the other belonged until a
+ * comparison quietly stopped matching — the brand is what makes that a type error.
+ *
+ * It exists only in the types: what is carried is the id itself, and `asUid` is the one way in
+ * for a string whose origin the compiler cannot see.
+ */
+export type Uid = string & { readonly [uid]: true };
+
+export const uidSchema = documentIdSchema.transform((value) => value as Uid);
+
+/** For a uid arriving from outside the type system — a token claim, a document id. */
+export const asUid = (value: string): Uid => uidSchema.parse(value);
+
 /**
  * A teacher-maintained list value copied onto a record as plain text (US-11).
  * Deliberately a string, never a document reference, so later list edits leave records untouched.
