@@ -91,6 +91,23 @@ function respondWithPhoto(status: number, type: string, bytes: Uint8Array) {
   return fetchMock;
 }
 
+/** One answer per request, so a test can say what the second one is. */
+function respondInTurn(...answers: { status: number; type: string; bytes: Uint8Array }[]) {
+  const fetchMock = vi.fn();
+  for (const answer of answers) {
+    fetchMock.mockResolvedValueOnce({
+      ok: answer.status >= 200 && answer.status < 300,
+      status: answer.status,
+      headers: {
+        get: (name: string) => (name.toLowerCase() === "content-type" ? answer.type : null),
+      },
+      arrayBuffer: async () => answer.bytes.buffer,
+    });
+  }
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
 const JPEG = new Uint8Array([255, 216, 255, 224]);
 
 describe("fetchEntraPhoto", () => {
@@ -112,13 +129,30 @@ describe("fetchEntraPhoto", () => {
     expect(url).toContain("graph.microsoft.com");
     expect(url).toMatch(/photos\/\d+x\d+\/\$value$/);
     expect(init.headers.Authorization).toBe("Bearer token");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Only Microsoft 365 keeps a photo in sizes. One held in Entra ID has whatever dimensions it
+   * was uploaded with, and answers 404 to every size — which is a missing thumbnail and not a
+   * missing photo, so the account's own photo is asked for next.
+   */
+  it("asks for the photo itself when there is no thumbnail of that size", async () => {
+    const fetchMock = respondInTurn(
+      { status: 404, type: "application/json", bytes: new Uint8Array() },
+      { status: 200, type: "image/jpeg", bytes: JPEG },
+    );
+
+    expect(await fetchEntraPhoto("token")).toBe("data:image/jpeg;base64,/9j/4A==");
+    expect(fetchMock.mock.calls[1][0]).toMatch(/\/me\/photo\/\$value$/);
   });
 
   /** Most tenants store no photo at all, so this is the ordinary answer rather than a fault. */
-  it("returns null when the account has no photo", async () => {
-    respondWithPhoto(404, "application/json", new Uint8Array());
+  it("returns null when the account has no photo in either shape", async () => {
+    const fetchMock = respondWithPhoto(404, "application/json", new Uint8Array());
 
     expect(await fetchEntraPhoto("token")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it.each([401, 403, 500])("returns null for %d", async (status) => {
