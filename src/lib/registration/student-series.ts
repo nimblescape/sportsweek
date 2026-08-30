@@ -17,7 +17,7 @@ import { registrationPath } from "./registration";
  * registrations still leave exactly one live answer. And held rather than merely open, because
  * joining is what a link does (US-23) — an open series nobody invited them to is not theirs.
  */
-export async function openSeriesOfStudent(studentUpn: string): Promise<EventSeries[]> {
+export async function openSeriesOfStudent(studentUid: string): Promise<EventSeries[]> {
   const snapshot = await adminDb
     .collection(COLLECTIONS.eventSeries)
     .where("isOpenToStudents", "==", true)
@@ -29,7 +29,7 @@ export async function openSeriesOfStudent(studentUpn: string): Promise<EventSeri
 
   const held = await Promise.all(
     open.map(async (series) => {
-      const stored = await adminDb.collection(registrationPath(series.id)).doc(studentUpn).get();
+      const stored = await adminDb.collection(registrationPath(series.id)).doc(studentUid).get();
       return stored.exists ? series : null;
     }),
   );

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
 import type { RosterStudent } from "@/lib/students/roster";
+import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 type DeleteRegistrationDialogProps = {
   open: boolean;
@@ -46,10 +47,10 @@ export function DeleteRegistrationDialog({
     setDeleting(true);
     setError(null);
     try {
-      await apiRequest(
-        `/api/event-series/${eventSeriesId}/registrations/${encodeURIComponent(student.id)}`,
-        { method: "DELETE" },
-      );
+      await apiRequest(`/api/event-series/${eventSeriesId}/registrations/delete`, {
+        method: "POST",
+        body: { studentUid: student.id },
+      });
       onDeleted();
     } catch (caught) {
       setError(
@@ -71,7 +72,7 @@ export function DeleteRegistrationDialog({
           <TriangleAlert aria-hidden className="text-destructive mt-0.5 size-4 shrink-0" />
           <span>
             Die Registrierung von <strong className="text-foreground">{name}</strong> wird mit allen
-            Antworten gelöscht. Das kann nicht rückgängig gemacht werden.
+            Antworten gelöscht. {IRREVERSIBLE_HINT}
           </span>
         </span>
       }

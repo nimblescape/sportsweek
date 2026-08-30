@@ -24,10 +24,10 @@ export default async function RegistrationPage({
   params: Promise<{ eventSeriesId: string }>;
 }) {
   const user = await requireStudent();
-  const studentUpn = (user.email ?? "").toLowerCase();
+  const studentUid = user.uid;
   const { eventSeriesId } = await params;
 
-  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(studentUpn).get();
+  const snapshot = await adminDb.collection(COLLECTIONS.users).doc(studentUid).get();
   const stored = userSchema.safeParse({ id: snapshot.id, ...snapshot.data() });
   const studentName = stored.success
     ? `${stored.data.firstName} ${stored.data.lastName}`
@@ -36,7 +36,7 @@ export default async function RegistrationPage({
   return (
     <MyRegistrationView
       eventSeriesId={eventSeriesId}
-      studentUpn={studentUpn}
+      studentUid={studentUid}
       studentName={studentName}
     />
   );

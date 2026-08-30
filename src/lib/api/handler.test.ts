@@ -75,21 +75,24 @@ describe("requirePermissionOrResponse", () => {
 });
 
 describe("requirePermissionIdentityOrResponse", () => {
-  it("returns the caller's UPN, lowercased to match the record id", async () => {
+  /** The uid, which is what a record is keyed by and the one identifier no client can move. */
+  it("returns the caller's uid rather than their address", async () => {
     getAuthenticatedUser.mockResolvedValue(teacher("editReports"));
 
     expect(await requirePermissionIdentityOrResponse("editReports")).toEqual({
       ok: true,
-      userId: "jane@htldornbirn.at",
+      userId: "uid-1",
     });
   });
 
-  it("refuses a session without an address, which cannot be attributed", async () => {
+  /** An address is no longer what attributes a write, so a session lacking one is still served. */
+  it("admits a session carrying no address at all", async () => {
     getAuthenticatedUser.mockResolvedValue({ ...teacher("editReports"), email: null });
 
-    const outcome = await requirePermissionIdentityOrResponse("editReports");
-
-    expect(outcome.ok).toBe(false);
+    expect(await requirePermissionIdentityOrResponse("editReports")).toEqual({
+      ok: true,
+      userId: "uid-1",
+    });
   });
 
   it("refuses a teacher holding a different permission", async () => {
@@ -108,7 +111,7 @@ describe("requireStudentOrResponse", () => {
 
     expect(await requireStudentOrResponse()).toEqual({
       ok: true,
-      userId: "sam@student.htldornbirn.at",
+      userId: "uid-2",
     });
   });
 

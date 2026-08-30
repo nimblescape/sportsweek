@@ -17,6 +17,8 @@ export type ReportProvenance = {
   /** What the filter tag list leaves, in words, or null where it leaves the whole event series. */
   filterSummary: string | null;
   exportedAt: Date;
+  /** Version and commit, as `buildInfo` spells them — a copy outlives the build that made it. */
+  build: string;
 };
 
 const twoDigits = (value: number) => String(value).padStart(2, "0");

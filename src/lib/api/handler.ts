@@ -19,6 +19,19 @@ export function errorResponse(code: ErrorCode, message: string, details?: unknow
 }
 
 /**
+ * Only that somebody is signed in, for a handler whose required permission depends on what its
+ * body asks for. Read the body after this, so a stranger is refused rather than shown which
+ * fields a valid one would name.
+ */
+export async function requireSignInOrResponse(): Promise<NextResponse | null> {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an.");
+  }
+  return null;
+}
+
+/**
  * The proxy already gates teacher routes, but that check is optimistic by design — the Edge
  * runtime cannot verify the session cookie, and it knows nothing of permissions. Every write
  * re-verifies here, against the record rather than the token (US-2, US-3).
@@ -40,14 +53,14 @@ type IdentifiedOutcome = { ok: true; userId: string } | { ok: false; response: N
 
 /**
  * The same check as above, plus who the caller is — for a write that records its author rather
- * than merely permitting it (US-13). Records are keyed by the UPN, so a session without an
- * address cannot be attributed and is not served.
+ * than merely permitting it (US-13). The uid, because that is what records are keyed by and it
+ * is the one identifier no client can move (US-31).
  */
 export async function requirePermissionIdentityOrResponse(
   permission: Permission,
 ): Promise<IdentifiedOutcome> {
   const user = await getAuthenticatedUser();
-  if (!user || !user.email) {
+  if (!user) {
     return {
       ok: false,
       response: errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an."),
@@ -59,7 +72,7 @@ export async function requirePermissionIdentityOrResponse(
       response: errorResponse(ErrorCode.PermissionDenied, PERMISSION_DENIED_HINT),
     };
   }
-  return { ok: true, userId: user.email.toLowerCase() };
+  return { ok: true, userId: user.uid };
 }
 
 /**
@@ -69,7 +82,7 @@ export async function requirePermissionIdentityOrResponse(
  */
 export async function requireStudentOrResponse(): Promise<IdentifiedOutcome> {
   const user = await getAuthenticatedUser();
-  if (!user || !user.email) {
+  if (!user) {
     return {
       ok: false,
       response: errorResponse(ErrorCode.AuthenticationRequired, "Bitte melde dich an."),
@@ -81,7 +94,7 @@ export async function requireStudentOrResponse(): Promise<IdentifiedOutcome> {
       response: errorResponse(ErrorCode.PermissionDenied, PERMISSION_DENIED_HINT),
     };
   }
-  return { ok: true, userId: user.email.toLowerCase() };
+  return { ok: true, userId: user.uid };
 }
 
 type ParseOutcome<T> = { ok: true; data: T } | { ok: false; response: NextResponse };

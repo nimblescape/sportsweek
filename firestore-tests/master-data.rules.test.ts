@@ -24,25 +24,25 @@ beforeAll(async () => {
 afterAll(async () => await testEnv.cleanup());
 
 /**
- * `/users` is keyed by UPN, not by the Firebase uid, so the two are kept distinct here —
- * reusing one value for both would let a broken rule pass in tests and fail in production.
+ * `/users` is keyed by the Firebase uid (US-31), so these are uids and the address is derived
+ * from one only to fill a claim that no rule here reads.
  */
-const TEACHER_UPN = "lehrperson@htldornbirn.at";
-const STUDENT_UPN = "schuelerin@student.htldornbirn.at";
+const TEACHER_UID = "uid-of-lehrperson";
+const STUDENT_UID = "uid-of-schuelerin";
 
-const signInAs = (upn: string) =>
-  testEnv.authenticatedContext(`uid-of-${upn}`, { email: upn }).firestore();
+const signInAs = (uid: string) =>
+  testEnv.authenticatedContext(uid, { email: `${uid}@htldornbirn.at` }).firestore();
 
-const teacher = () => signInAs(TEACHER_UPN);
-const student = () => signInAs(STUDENT_UPN);
+const teacher = () => signInAs(TEACHER_UID);
+const student = () => signInAs(STUDENT_UID);
 const anonymous = () => testEnv.unauthenticatedContext().firestore();
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
-    await db.collection("users").doc(TEACHER_UPN).set({ accountType: "teacher" });
-    await db.collection("users").doc(STUDENT_UPN).set({ accountType: "student" });
+    await db.collection("users").doc(TEACHER_UID).set({ accountType: "teacher" });
+    await db.collection("users").doc(STUDENT_UID).set({ accountType: "student" });
   });
 });
 
@@ -140,7 +140,7 @@ describe.each([
   ["reservedNames", { scope: "classOptions", name: "5AHIF", ownerId: "c1" }],
   ["seedState", { seededKeys: ["classes|5ahif"] }],
   // A registration lives beneath its event series now (US-26); a top-level one is nothing.
-  ["registrations", { studentUpn: "schuelerin@student.htldornbirn.at" }],
+  ["registrations", { studentUid: "schuelerin@student.htldornbirn.at" }],
 ])("/%s stays invisible to every client", (collection, valid) => {
   it("denies a teacher reading it", async () => {
     await seed(collection, "item1", valid);

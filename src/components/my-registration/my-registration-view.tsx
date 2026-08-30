@@ -14,7 +14,7 @@ import { RegistrationForm } from "./registration-form";
 
 type MyRegistrationViewProps = {
   eventSeriesId: string;
-  studentUpn: string;
+  studentUid: string;
   studentName: string;
 };
 
@@ -25,10 +25,10 @@ type MyRegistrationViewProps = {
  */
 export function MyRegistrationView({
   eventSeriesId,
-  studentUpn,
+  studentUid,
   studentName,
 }: MyRegistrationViewProps) {
-  const { eventSeries, record, loading, error } = useRegistration(eventSeriesId, studentUpn);
+  const { eventSeries, record, loading, error } = useRegistration(eventSeriesId, studentUid);
   const skillLevels = useMasterData("skill-levels", eventSeriesId);
   const busPickupPoints = useMasterData("bus-pickup-points", eventSeriesId);
   const foodOptions = useMasterData("food-options", eventSeriesId);

@@ -53,7 +53,12 @@ export function reportTable(
 
 /** What the overview sheet says under the logo — the same wording the PDF's header carries. */
 export function overviewLines(provenance: ReportProvenance): string[] {
-  return [REPORT_TITLE, exportedAtLine(provenance.exportedAt), ...subtitleLines(provenance)];
+  return [
+    REPORT_TITLE,
+    exportedAtLine(provenance.exportedAt),
+    ...subtitleLines(provenance),
+    provenance.build,
+  ];
 }
 
 export type ReportWorkbookOptions = {

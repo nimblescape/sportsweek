@@ -27,7 +27,7 @@ vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => us
 
 const { useRegistration } = await import("./use-registration");
 
-const STUDENT = "jane.doe@student.htldornbirn.at";
+const STUDENT = "uidJaneDoe";
 
 function eventSeries(id: string): EventSeries {
   return { id, ...storedEventSeries({ name: `Eventreihe ${id}`, isOpenToStudents: true }) };
@@ -53,7 +53,7 @@ function storedRecord(className: string): Snapshot {
   return {
     id: STUDENT,
     data: () => ({
-      studentUpn: STUDENT,
+      studentUid: STUDENT,
       firstName: "Jane",
       lastName: "Doe",
       email: STUDENT,
@@ -120,8 +120,8 @@ describe("useRegistration", () => {
 
   /**
    * Both halves of "which one is mine?" are known before the read: the series is the path and
-   * the UPN is the document's own name (US-26), which is also what the rule owns it by — so a
-   * student may read one that does not exist yet.
+   * the student's uid is the document's own name (US-26), which is also what the rule owns it
+   * by — so a student may read one that does not exist yet.
    */
   it("reads its own document beneath the event series the path names", () => {
     renderHook(() => useRegistration("s1", STUDENT));
@@ -160,7 +160,7 @@ describe("useRegistration", () => {
     const { result } = renderHook(() => useRegistration("s1", STUDENT));
     signIn();
 
-    emit({ id: STUDENT, data: () => ({ studentUpn: STUDENT, class: 42 }) });
+    emit({ id: STUDENT, data: () => ({ studentUid: STUDENT, class: 42 }) });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.record).toBeNull();

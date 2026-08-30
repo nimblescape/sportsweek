@@ -33,5 +33,9 @@ export default async function AppLandingPage() {
 
   if (destination !== null) redirect(destination);
 
-  return <p className="text-muted-foreground text-sm">{NO_PERMISSIONS_HINT}</p>;
+  return (
+    <div className="p-4 md:p-6">
+      <p className="text-muted-foreground text-sm">{NO_PERMISSIONS_HINT}</p>
+    </div>
+  );
 }

@@ -4,7 +4,13 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { OVERVIEW_SHEET, REPORT_SHEET, reportTable, reportWorkbook } from "./excel-report";
+import {
+  OVERVIEW_SHEET,
+  REPORT_SHEET,
+  overviewLines,
+  reportTable,
+  reportWorkbook,
+} from "./excel-report";
 import type { ReportProvenance } from "./report-export";
 import { reportFieldsOf } from "./report-fields";
 import { rosterStudent } from "@/test/roster-student";
@@ -22,6 +28,7 @@ const PROVENANCE: ReportProvenance = {
   reportName: null,
   filterSummary: null,
   exportedAt: new Date(2026, 7, 27, 14, 35),
+  build: "v1.2.3 \u00b7 abc1234",
 };
 
 const table = (students = [ANNA, BENE], fields = reportFieldsOf([])) =>
@@ -90,7 +97,12 @@ describe("reportWorkbook", () => {
     });
 
     expect(named.getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBe("Nur 5BHIF");
-    expect(workbook().getWorksheet(OVERVIEW_SHEET)?.getCell("A8").value).toBeNull();
+    expect(overviewLines(PROVENANCE)).not.toContain("Nur 5BHIF");
+  });
+
+  /** A spreadsheet is passed around and edited, so it says which build it was taken from. */
+  it("names the build that produced it on the overview", () => {
+    expect(overviewLines(PROVENANCE)).toContain("v1.2.3 \u00b7 abc1234");
   });
 
   it("puts the filter under the saved report's name, as the PDF's subtitle does", () => {

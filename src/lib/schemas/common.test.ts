@@ -62,9 +62,16 @@ describe("documentIdSchema", () => {
     expect(documentIdSchema.safeParse("event series-1").success).toBe(true);
   });
 
+  /** An id is opaque: repairing one quietly is how a uid comes to name the wrong document. */
+  it("returns the id exactly as it was given", () => {
+    expect(documentIdSchema.parse("6Xk2p9QwErTyUiOpAsDf")).toBe("6Xk2p9QwErTyUiOpAsDf");
+  });
+
   it.each([
     ["an empty id", ""],
     ["a path instead of an id", "event series/event series-1"],
+    ["an id padded with spaces", " 6Xk2p9QwErTyUiOpAsDf "],
+    ["an id that is nothing but spaces", "   "],
   ])("rejects %s", (_case, value) => {
     expect(documentIdSchema.safeParse(value).success).toBe(false);
   });

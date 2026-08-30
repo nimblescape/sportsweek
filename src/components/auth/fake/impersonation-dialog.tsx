@@ -16,16 +16,16 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
-import { buildUpn, isSchoolUpn } from "@/lib/auth/fake/upn-builder";
+import { buildEmail, isSchoolEmail } from "@/lib/auth/fake/email-builder";
 import { accountTypeSchema, userSchema, type AccountType } from "@/lib/schemas/user";
 
-const NO_UPN = "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden.";
+const NO_ADDRESS = "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden.";
 const SIGN_IN_FAILED = "Test-Anmeldung fehlgeschlagen.";
 const NOT_ALLOWED = "Dafür ist eine Anmeldung als Lehrperson über Office 365 nötig.";
 
 const knownUsersSchema = z.array(
   z.object({
-    upn: z.string(),
+    email: z.string(),
     firstName: z.string(),
     lastName: z.string(),
     accountType: accountTypeSchema,
@@ -42,14 +42,36 @@ type FormValues = z.infer<typeof formSchema>;
 
 const ROLE_LABELS: Record<AccountType, string> = { teacher: "Lehrperson", student: "Schüler:in" };
 
-// A native <select> rather than the design system's portalled one: this dialog never ships,
-// so it is not worth the weight to render a list of UPNs.
-const SELECT_CLASS =
-  "border-input focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-lg border bg-transparent px-3 text-sm outline-none focus-visible:ring-3";
+/** Which population the picker offers. A seeded school holds seventy students and three staff. */
+const POPULATIONS = [
+  { value: "all", label: "Alle" },
+  { value: "teacher", label: "Nur Lehrpersonen" },
+  { value: "student", label: "Nur Schüler:innen" },
+] as const;
+type Population = (typeof POPULATIONS)[number]["value"];
+
+/**
+ * Who the list offers. The name being typed is the search — it says who is meant, and the
+ * address it produces is what the entries show, so a second box would ask the same question.
+ */
+function matching(
+  users: KnownUser[],
+  filter: { population: Population; firstName: string; lastName: string },
+): KnownUser[] {
+  const first = filter.firstName.trim().toLowerCase();
+  const last = filter.lastName.trim().toLowerCase();
+
+  return users.filter(
+    (entry) =>
+      (filter.population === "all" || entry.accountType === filter.population) &&
+      entry.firstName.toLowerCase().startsWith(first) &&
+      entry.lastName.toLowerCase().startsWith(last),
+  );
+}
 
 /**
  * Impersonation, reached only after a real Entra ID sign-in (see the route's Entra gate).
- * The name and role compile into the UPN the tenant would issue, the server hands back a
+ * The name and role compile into the address the tenant would issue, the server hands back a
  * custom token, and signing in with it puts the app on the same path as a real login — so
  * the app can be tried as several teachers and students without tenant accounts.
  */
@@ -63,11 +85,13 @@ export function ImpersonationDialog({
   onImpersonated: () => void;
 }) {
   const [known, setKnown] = React.useState<KnownUser[]>([]);
+  const [population, setPopulation] = React.useState<Population>("all");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const knownId = React.useId();
+  const populationId = React.useId();
   const firstNameId = React.useId();
   const lastNameId = React.useId();
-  const upnId = React.useId();
+  const addressId = React.useId();
 
   const {
     register,
@@ -107,14 +131,37 @@ export function ImpersonationDialog({
     control,
     name: ["firstName", "lastName", "accountType"],
   });
-  const derived = buildUpn(firstName, lastName, role);
-  const upn = derived && isSchoolUpn(derived) ? derived : null;
+
+  // An address is a name and a role together, so the role follows a name the school already
+  // knows — otherwise typing a student's name would mint a teacher who merely shares it. Held
+  // to the moment the name changes, so it is a suggestion the reader can still overrule.
+  const answeredFor = React.useRef("");
+  React.useEffect(() => {
+    const typed = `${firstName ?? ""} ${lastName ?? ""}`.trim().toLowerCase();
+    if (typed === answeredFor.current) return;
+    answeredFor.current = typed;
+
+    const bearers = known.filter(
+      (entry) => `${entry.firstName} ${entry.lastName}`.toLowerCase() === typed,
+    );
+    if (bearers.length > 0 && !bearers.some((entry) => entry.accountType === role)) {
+      setValue("accountType", bearers[0].accountType);
+    }
+  }, [firstName, lastName, role, known, setValue]);
+
+  const derived = buildEmail(firstName, lastName, role);
+  const address = derived && isSchoolEmail(derived) ? derived : null;
   // Whether the name yields a school address is a separate question, and one the dialog answers
   // in words on the press — a control that refuses without saying why explains nothing.
   const named = firstName?.trim() !== "" && lastName?.trim() !== "";
+  const shown = matching(known, {
+    population,
+    firstName: firstName ?? "",
+    lastName: lastName ?? "",
+  });
 
-  function pickKnown(pickedUpn: string) {
-    const picked = known.find((entry) => entry.upn === pickedUpn);
+  function pickKnown(pickedEmail: string) {
+    const picked = known.find((entry) => entry.email === pickedEmail);
     if (!picked) return;
 
     setValue("firstName", picked.firstName);
@@ -124,8 +171,8 @@ export function ImpersonationDialog({
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
-    if (!upn) {
-      setSubmitError(NO_UPN);
+    if (!address) {
+      setSubmitError(NO_ADDRESS);
       return;
     }
 
@@ -153,23 +200,8 @@ export function ImpersonationDialog({
       onClose={onCancel}
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={knownId}>Bestehende Benutzer:innen</Label>
-          <select
-            id={knownId}
-            className={SELECT_CLASS}
-            defaultValue=""
-            onChange={(event) => pickKnown(event.target.value)}
-          >
-            <option value="">Neue Person</option>
-            {known.map((entry) => (
-              <option key={entry.upn} value={entry.upn}>
-                {entry.upn}
-              </option>
-            ))}
-          </select>
-        </div>
-
+        {/* The name leads, because it is both what identifies a new person and what searches
+            for an existing one. */}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={firstNameId}>Vorname</Label>
           <Input id={firstNameId} autoFocus {...register("firstName")} />
@@ -187,6 +219,54 @@ export function ImpersonationDialog({
         </div>
 
         <fieldset className="flex flex-col gap-1.5">
+          <legend className="text-sm font-medium">Wer</legend>
+          <div className="flex gap-4" id={populationId}>
+            {POPULATIONS.map((option) => (
+              <label key={option.value} className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name={populationId}
+                  value={option.value}
+                  checked={population === option.value}
+                  onChange={() => setPopulation(option.value)}
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="flex flex-col gap-1.5">
+          <span id={knownId} className="text-sm leading-none font-medium">
+            Bestehende Benutzer:innen
+          </span>
+          {/* A fixed height, so narrowing the list scrolls this box rather than moving
+              everything below it up and down as the reader types. */}
+          <div className="border-input h-40 overflow-y-auto rounded-lg border">
+            {shown.length === 0 ? (
+              <p className="text-muted-foreground px-3 py-1.5 text-sm">Keine Treffer</p>
+            ) : (
+              <ul aria-labelledby={knownId} className="divide-y">
+                {shown.map((entry) => (
+                  <li key={entry.email}>
+                    {/* Marked from the address the form derives, so typing a name out picks the
+                        matching person in the list just as clicking one does. */}
+                    <button
+                      type="button"
+                      aria-current={entry.email === address ? "true" : undefined}
+                      onClick={() => pickKnown(entry.email)}
+                      className="hover:bg-muted aria-[current]:bg-muted w-full truncate px-3 py-1.5 text-left text-sm aria-[current]:font-medium"
+                    >
+                      {entry.email}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <fieldset className="flex flex-col gap-1.5">
           <legend className="text-sm leading-none font-medium">Rolle</legend>
           <div className="flex gap-4 pt-1.5">
             {accountTypeSchema.options.map((option) => (
@@ -199,14 +279,14 @@ export function ImpersonationDialog({
         </fieldset>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={upnId}>E-Mail / UPN</Label>
+          <Label htmlFor={addressId}>E-Mail</Label>
           {/* An <output>, not a read-only input: the tenant derives this from the name, so
               there should be nowhere to put a caret and nothing to edit it into. */}
           <output
-            id={upnId}
+            id={addressId}
             className="border-input bg-muted text-muted-foreground flex h-9 items-center rounded-lg border px-3 text-sm"
           >
-            {upn ?? ""}
+            {address ?? ""}
           </output>
         </div>
 

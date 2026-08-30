@@ -11,35 +11,74 @@ service cloud.firestore {
     }
 
     /**
-     * `/users` is keyed by UPN (see provisionUser), not by the opaque Firebase uid, so every
-     * identity check has to go through the token's e-mail. Lowercased to match the stored id.
+     * Which providers may sign somebody in, given the record branch below admits whoever holds
+     * one. Entra ID is the school's own directory. A custom token is signed with this project's
+     * service account, so only this application's own server can mint one — which is what the
+     * fake login of a test environment does. Production has no fake login, and the entry costs
+     * it nothing: minting a custom token there needs credentials that bypass these rules
+     * altogether, so it grants no reach that was not already had.
+     *
+     * Anything else a project has switched on, an e-mail sign-up above all, would arrive as an
+     * ordinary account asserting whatever address it was handed. `refuseSignIn` turns those
+     * away before provisioning writes anything, so they hold neither claim nor record — and
+     * this denies the token itself, which is what stands between one and a direct read.
      */
-    function upn() {
-      return isSignedIn() && request.auth.token.email != null
-        ? request.auth.token.email.lower()
-        : '';
-    }
-
-    function recordAccountType() {
-      return get(/databases/$(database)/documents/users/$(upn())).data.accountType;
+    function isTrustedProvider() {
+      return request.auth.token.firebase.sign_in_provider in ['microsoft.com', 'custom'];
     }
 
     /**
-     * An account type says which population somebody belongs to, derived once from the UPN
+     * Who is asking. The Firebase uid, which Firebase mints and nothing can move — not a
+     * directory rename, and not a client changing the address on its own account. It is also
+     * what every record is keyed by (US-31), so no address appears in a document path.
+     */
+    function callerId() {
+      return isSignedIn() ? request.auth.uid : '';
+    }
+
+    function callerRecord() {
+      return /databases/$(database)/documents/users/$(callerId());
+    }
+
+    /**
+     * Whether the school issued this account (US-32), asked once and answered by what
+     * provisioning already established rather than by testing the address again here.
+     *
+     * `provisionUser` refuses an address outside the school's domains before it writes anything,
+     * so the `accountType` claim it mints is that refusal having been passed — and a claim is
+     * written by the Admin SDK alone, which no client can reach. The record covers the first
+     * session, whose token was issued before the claim was set.
+     *
+     * The domains are therefore named in one place, `accountTypeFromEmail`, and in no rule. When
+     * membership becomes a directory question, provisioning changes and nothing here does.
+     */
+    function isSchoolMember() {
+      return callerId() != ''
+        && isTrustedProvider()
+        && (request.auth.token.accountType in ['teacher', 'student'] || exists(callerRecord()));
+    }
+
+    function recordAccountType() {
+      return get(callerRecord()).data.accountType;
+    }
+
+    /**
+     * An account type says which population somebody belongs to, derived once from the address's
      * domain and granted by nobody (US-3). The claim is checked first so the common case costs
      * no document read; it is missing on the very first login, which is what the fallback
      * covers (see resolveAccountType in guards.ts).
      */
     function isTeacher() {
-      return upn() != ''
+      return isSchoolMember()
         && (request.auth.token.accountType == 'teacher'
-          || (exists(/databases/$(database)/documents/users/$(upn())) && recordAccountType() == 'teacher'));
+          || (exists(callerRecord()) && recordAccountType() == 'teacher'));
     }
 
     /**
      * What a teacher may do, as against what they are (US-2). Read from the record rather than
      * the token: permissions are granted and withdrawn while a session is live, and a claim
-     * minted before the change would go on admitting what an admin has just taken away.
+     * minted before the change would go on admitting what an admin has just taken away. That is
+     * the whole reason these do not travel as a claim the way the account type does.
      *
      * A record carrying none reaches nothing, and a student is refused by isTeacher() ahead of
      * whatever their own record happens to list. The names used below are a copy of PERMISSIONS
@@ -47,9 +86,8 @@ service cloud.firestore {
      */
     function mayAny(permissions) {
       return isTeacher()
-        && exists(/databases/$(database)/documents/users/$(upn()))
-        && get(/databases/$(database)/documents/users/$(upn())).data
-             .get('permissions', []).hasAny(permissions);
+        && exists(callerRecord())
+        && get(callerRecord()).data.get('permissions', []).hasAny(permissions);
     }
 
     function may(permission) {
@@ -57,7 +95,7 @@ service cloud.firestore {
     }
 
     function isSelf(uid) {
-      return upn() != '' && upn() == uid;
+      return isSchoolMember() && callerId() == uid;
     }
 
     /**
@@ -72,27 +110,39 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isSelf(uid) || may('editUsers');
 
-      // Records are provisioned on first login by the Admin SDK, which bypasses these rules.
-      allow create: if false;
-
       /**
-       * Neither what somebody is nor what they may do is theirs to write (US-3). The account
-       * type is assigned once from the UPN domain; the permissions are an admin's to grant,
-       * through the Route Handler that owns the refusals a rule cannot express — that a
-       * dependent permission travels with the one it needs, and that nobody takes editUsers
-       * off themselves.
+       * Records are provisioned on first login by the Admin SDK, which bypasses these rules, and
+       * nothing on one is the person's to write afterwards. Every field is written from the
+       * directory at each login, so an edit here would be overwritten at the next sign-in — and
+       * until then copied into the teacher's report, because a registration takes its name and
+       * address from this record (US-26). What a profile editor would have to reconcile is
+       * beyond what a rule can express, so it would be a Route Handler like every other write
+       * (US-35).
        */
-      allow update: if isSelf(uid)
-        && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['accountType', 'permissions']);
+      allow write: if false;
+    }
 
-      allow delete: if false;
+    /**
+     * When somebody signed in, one document per sign-in, written by provisionUser through the
+     * Admin SDK. Closed to everybody in both directions: nothing in the app reads it, so
+     * nothing opens it -- not even the person it is about, and not the rights page, which is
+     * about what somebody may do rather than when they were last here.
+     *
+     * It is a subcollection rather than a field for that reason. A rule grants a whole
+     * document, and the record above is read by whoever hands out the permissions.
+     *
+     * No rule would match this path anyway, since the one below reaches only top-level
+     * collections. This says so out loud, so that opening it reads as the decision it would be.
+     */
+    match /users/{uid}/logins/{loginId} {
+      allow read: if false;
+      allow write: if false;
     }
 
     /**
      * A student's own registration (US-11), stored beneath the event series it belongs to so
      * that which series it is in is its path rather than a field it carries (US-26). Its id is
-     * the student's UPN, so ownership is the document's own name and a read needs no query.
+     * the student's uid, so ownership is the document's own name and a read needs no query.
      * The record carries the emergency contact and the rented equipment in its own fields, so
      * there is no child document whose ownership would have to be worked out separately.
      *
@@ -107,9 +157,9 @@ service cloud.firestore {
      * `hasRegistrations` mirror follows it (US-4). The teacher's assignment goes the same way,
      * through a handler that owns `event`.
      */
-    match /eventSeries/{eventSeriesId}/registrations/{studentUpn} {
+    match /eventSeries/{eventSeriesId}/registrations/{studentUid} {
       allow read: if mayAny(['editRegistrations', 'editAssignments', 'viewReports', 'editReports'])
-        || isSelf(studentUpn);
+        || isSelf(studentUid);
       allow write: if false;
     }
 
@@ -147,9 +197,28 @@ service cloud.firestore {
     }
 
     /**
+     * What a school's starting administrators are before any of them has signed in (US-2). Their
+     * accounts belong to the directory, so there is no uid to key a record by until the first
+     * sign-in produces one; the invitation waits at the address and provisionUser claims it.
+     *
+     * Closed to everybody in both directions: it names the permissions somebody is about to
+     * hold, so reading it says who will be able to do what, and writing it would be a way to
+     * grant oneself anything at all.
+     *
+     * The catch-all below would deny this collection anyway, since it lists what may be read.
+     * This says so out loud, so that adding `invitedTeachers` to that list reads as the mistake
+     * it would be rather than as one more name in a list.
+     */
+    match /invitedTeachers/{email} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    /**
      * The event series, and with it every list a teacher maintains — its events among them
-     * (US-21). Anyone signed in may read, because a registration selects from those lists
-     * (US-11) and the teacher views subscribe to them live.
+     * (US-21). Anyone the school issued an account to may read, because a registration selects
+     * from those lists (US-11) and the teacher views subscribe to them live. Not anyone signed
+     * in: a guest of the directory is nobody here, and the class list is the school's own.
      *
      * Writes are closed rather than merely restricted to teachers, because the invariants this
      * document carries cannot be expressed here at all. Rules can `get()` a known path but cannot
@@ -163,7 +232,7 @@ service cloud.firestore {
      * COLLECTIONS in src/lib/schemas/collections.ts and has to be kept in step by hand.
      */
     match /{collection}/{itemId} {
-      allow read: if isSignedIn() && collection in ['eventSeries'];
+      allow read: if isSchoolMember() && collection in ['eventSeries'];
 
       allow write: if false;
     }

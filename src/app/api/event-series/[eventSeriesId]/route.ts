@@ -9,6 +9,7 @@ import {
   handleServiceFailure,
   parseJsonBody,
   requirePermissionOrResponse,
+  requireSignInOrResponse,
 } from "@/lib/api/handler";
 import { eventSeriesSchema } from "@/lib/schemas/event-series";
 import type { Permission } from "@/lib/auth/permissions";
@@ -44,13 +45,17 @@ function permissionsFor(update: Update): Permission[] {
 type Context = { params: Promise<{ eventSeriesId: string }> };
 
 export async function PATCH(request: Request, { params }: Context) {
-  // Read before the permission check, because which permission is needed depends on what changes.
+  // Which permission is needed depends on what changes, so the body is read before that is known
+  // -- but only once the caller is, or a stranger would be shown the schema by its refusal.
+  const denied = await requireSignInOrResponse();
+  if (denied) return denied;
+
   const body = await parseJsonBody(request, updateEventSeriesSchema);
   if (!body.ok) return body.response;
 
   for (const permission of permissionsFor(body.data)) {
-    const denied = await requirePermissionOrResponse(permission);
-    if (denied) return denied;
+    const refused = await requirePermissionOrResponse(permission);
+    if (refused) return refused;
   }
 
   const { eventSeriesId } = await params;

@@ -32,8 +32,8 @@ const LISTS = {
 };
 
 const storedRecord: Registration = {
-  id: "jane@student.htldornbirn.at",
-  studentUpn: "jane@student.htldornbirn.at",
+  id: "uidJane",
+  studentUid: "uidJane",
   firstName: "Jane",
   lastName: "Doe",
   email: "jane@student.htldornbirn.at",

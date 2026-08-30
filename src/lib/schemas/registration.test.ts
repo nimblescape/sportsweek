@@ -21,8 +21,8 @@ const validContact = {
 };
 
 const validRecord = {
-  id: "jane.doe@student.htldornbirn.at",
-  studentUpn: "jane.doe@student.htldornbirn.at",
+  id: "uidJaneDoe",
+  studentUid: "uidJaneDoe",
   firstName: "Jane",
   lastName: "Doe",
   email: "jane.doe@student.htldornbirn.at",
@@ -56,7 +56,7 @@ describe("registrationSchema", () => {
 
   /** The one identifying field it keeps, because a record naming nobody is owned by nobody. */
   it("names the student it belongs to", () => {
-    expect(registrationSchema.safeParse({ ...validRecord, studentUpn: "" }).success).toBe(false);
+    expect(registrationSchema.safeParse({ ...validRecord, studentUid: "" }).success).toBe(false);
   });
 
   /** The report, the board and both exports read the name from here rather than join (US-26). */
@@ -189,7 +189,7 @@ describe("registrationLockedFields", () => {
       "firstName",
       "isIncomplete",
       "lastName",
-      "studentUpn",
+      "studentUid",
     ]);
   });
 });
@@ -222,7 +222,7 @@ describe("registrationInputSchema", () => {
     expect(parse(attending).success).toBe(true);
   });
 
-  it.each(["id", "studentUpn", "firstName", "lastName", "email", "event", "class", "isIncomplete"])(
+  it.each(["id", "studentUid", "firstName", "lastName", "email", "event", "class", "isIncomplete"])(
     "refuses to take %s from the student, since the server owns it",
     (field) => {
       expect(parse({ ...attending, [field]: "smuggled" }).success).toBe(false);

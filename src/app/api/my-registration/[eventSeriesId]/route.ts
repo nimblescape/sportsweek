@@ -33,7 +33,7 @@ export async function PUT(
   const { eventSeriesId } = await context.params;
 
   try {
-    const record = await saveRegistration({ studentUpn: student.userId, eventSeriesId }, body.data);
+    const record = await saveRegistration({ studentUid: student.userId, eventSeriesId }, body.data);
     return NextResponse.json({ record });
   } catch (error) {
     return handleServiceFailure(error, "Saving registration");

@@ -14,7 +14,7 @@ vi.mock("@/lib/firebase/admin", () => ({ adminDb: firestore }));
 
 const { openSeriesOfStudent } = await import("./student-series");
 
-const STUDENT = "schuelerin@student.htldornbirn.at";
+const STUDENT = "uidSchuelerin";
 
 function seedSeries(id: string, overrides: Partial<Omit<EventSeries, "id" | "nameKey">> = {}) {
   firestore.seed(
@@ -29,7 +29,7 @@ beforeEach(() => firestore.reset());
 describe("openSeriesOfStudent", () => {
   it("returns the open series the student has joined", async () => {
     seedSeries("winter");
-    firestore.seed("eventSeries/winter/registrations", STUDENT, { studentUpn: STUDENT });
+    firestore.seed("eventSeries/winter/registrations", STUDENT, { studentUid: STUDENT });
 
     const found = await openSeriesOfStudent(STUDENT);
 
@@ -46,7 +46,7 @@ describe("openSeriesOfStudent", () => {
   /** Past series are closed, which is what keeps the chooser away in the ordinary case (Q7). */
   it("leaves out a closed series the student registered in years ago", async () => {
     seedSeries("winter24", { isOpenToStudents: false });
-    firestore.seed("eventSeries/winter24/registrations", STUDENT, { studentUpn: STUDENT });
+    firestore.seed("eventSeries/winter24/registrations", STUDENT, { studentUid: STUDENT });
 
     await expect(openSeriesOfStudent(STUDENT)).resolves.toEqual([]);
   });
@@ -54,7 +54,7 @@ describe("openSeriesOfStudent", () => {
   it("leaves out a registration belonging to somebody else", async () => {
     seedSeries("winter");
     firestore.seed("eventSeries/winter/registrations", "andere@student.htldornbirn.at", {
-      studentUpn: "andere@student.htldornbirn.at",
+      studentUid: "uidAndere",
     });
 
     await expect(openSeriesOfStudent(STUDENT)).resolves.toEqual([]);
@@ -63,8 +63,8 @@ describe("openSeriesOfStudent", () => {
   it("returns both where a Wintersportwoche and a Kulturwoche are open together", async () => {
     seedSeries("kultur", { position: 2 });
     seedSeries("winter", { position: 1 });
-    firestore.seed("eventSeries/kultur/registrations", STUDENT, { studentUpn: STUDENT });
-    firestore.seed("eventSeries/winter/registrations", STUDENT, { studentUpn: STUDENT });
+    firestore.seed("eventSeries/kultur/registrations", STUDENT, { studentUid: STUDENT });
+    firestore.seed("eventSeries/winter/registrations", STUDENT, { studentUid: STUDENT });
 
     const found = await openSeriesOfStudent(STUDENT);
 

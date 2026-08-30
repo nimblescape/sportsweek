@@ -92,3 +92,17 @@ export function requireFirebaseProject<T extends Record<string, string>>(
           "base deliberately holds nothing environment-specific to fall back on.",
   );
 }
+
+/**
+ * The tenant pins sign-in to the school's own directory. Left unset, the Microsoft provider
+ * falls back to Entra's default, which admits every tenant and every personal account — and a
+ * build widened that way looks exactly like one that was not, so the build refuses instead.
+ */
+export function requireEntraTenant<T extends Record<string, string>>(env: T): T {
+  if (env.NEXT_PUBLIC_ENTRA_ID_TENANT_ID) return env;
+
+  throw new Error(
+    "apphosting.yaml names no NEXT_PUBLIC_ENTRA_ID_TENANT_ID. Without it the sign-in admits " +
+      "every Microsoft tenant and every personal account, which no error would report.",
+  );
+}

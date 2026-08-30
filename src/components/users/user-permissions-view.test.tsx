@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PERMISSIONS, PERMISSION_LABELS } from "@/lib/auth/permissions";
 
@@ -25,11 +25,22 @@ const {
   NONE_MATCHING_HINT,
 } = await import("@/components/users/user-permissions-view");
 
-const ADA = { upn: "ada@htldornbirn.at", firstName: "Ada", lastName: "Auer" };
-const BOB = { upn: "bob@htldornbirn.at", firstName: "Bob", lastName: "Berger" };
+const ADA = { uid: "uid-of-ada", email: "ada@htldornbirn.at", firstName: "Ada", lastName: "Auer" };
+const BOB = {
+  uid: "uid-of-bob",
+  email: "bob@htldornbirn.at",
+  firstName: "Bob",
+  lastName: "Berger",
+};
 
 function teachers(
-  ...rows: { upn: string; firstName: string; lastName: string; permissions?: string[] }[]
+  ...rows: {
+    uid: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    permissions?: string[];
+  }[]
 ) {
   useTeachers.mockReturnValue({
     teachers: rows.map((row) => ({ ...row, permissions: row.permissions ?? [] })),
@@ -47,7 +58,7 @@ beforeEach(() => {
   teachers({ ...ADA, permissions: ["editUsers"] }, BOB);
 });
 
-function show(signedInAs = ADA.upn) {
+function show(signedInAs = ADA.uid) {
   return render(<UserPermissionsView signedInAs={signedInAs} />);
 }
 
@@ -85,7 +96,10 @@ describe("UserPermissionsView", () => {
     teachers(BOB);
     show();
 
-    expect(screen.getByText(NO_PERMISSIONS_LABEL)).toBeInTheDocument();
+    // Scoped to the row: the filter offers a tag by the same name, which is a different thing.
+    expect(
+      within(screen.getByRole("listitem")).getByText(NO_PERMISSIONS_LABEL),
+    ).toBeInTheDocument();
   });
 
   it("grants the permission that was pressed", async () => {
@@ -94,9 +108,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(`/api/users/${encodeURIComponent(BOB.upn)}`, {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["editAssignments"] },
+        body: { uid: BOB.uid, permissions: ["editAssignments"] },
       }),
     );
   });
@@ -108,9 +122,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["viewReports"] },
+        body: { uid: BOB.uid, permissions: ["viewReports"] },
       }),
     );
   });
@@ -123,9 +137,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editReports));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["editReports"] },
+        body: { uid: BOB.uid, permissions: ["editReports"] },
       }),
     );
   });
@@ -137,9 +151,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.viewReports));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["viewReports"] },
+        body: { uid: BOB.uid, permissions: ["viewReports"] },
       }),
     );
   });
@@ -163,9 +177,9 @@ describe("UserPermissionsView", () => {
     await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(expect.any(String), {
+      expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { permissions: ["editMasterData", "editUsers"] },
+        body: { uid: ADA.uid, permissions: ["editMasterData", "editUsers"] },
       }),
     );
   });
@@ -233,7 +247,7 @@ describe("UserPermissionsView — filtering", () => {
     teachers(
       { ...ADA, permissions: ["editUsers"] },
       { ...BOB, permissions: ["editMasterData"] },
-      { upn: "cla@htldornbirn.at", firstName: "Clara", lastName: "Cerny" },
+      { uid: "uid-of-clara", email: "cla@htldornbirn.at", firstName: "Clara", lastName: "Cerny" },
     );
   });
 
@@ -283,5 +297,41 @@ describe("UserPermissionsView — filtering", () => {
     await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
 
     expect(apiRequest).not.toHaveBeenCalled();
+  });
+
+  /** Who is waiting for access, which is the question this page is most often opened to answer. */
+  it("narrows to whoever holds nothing", async () => {
+    show();
+
+    await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
+
+    expect(shown()).toEqual(["Cerny Clara"]);
+  });
+
+  it("reads that tag as an alternative beside a permission", async () => {
+    show();
+
+    await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
+    await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
+
+    expect(shown()).toEqual(["Auer Ada", "Cerny Clara"]);
+  });
+
+  it("releases it again when pressed twice", async () => {
+    show();
+
+    await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
+    await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
+
+    expect(shown()).toHaveLength(3);
+  });
+
+  it("is cleared by Alle along with the rest", async () => {
+    show();
+    await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
+
+    await userEvent.click(screen.getByRole("button", { name: `${FILTER_LABEL}: Alle` }));
+
+    expect(shown()).toHaveLength(3);
   });
 });

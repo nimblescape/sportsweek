@@ -9,7 +9,7 @@ import type { Registration } from "@/lib/schemas/registration";
 export type RosterStudent = FilterableStudent & {
   /** The registration, which is what an assignment is written to (US-12). */
   id: string;
-  studentUpn: string;
+  studentUid: string;
   /** On the report's master line, where it is the one contact detail always shown (US-13). */
   email: string;
   /**
@@ -34,7 +34,7 @@ export function toRoster(records: readonly Registration[]): RosterStudent[] {
   return records
     .map((record) => ({
       id: record.id,
-      studentUpn: record.studentUpn,
+      studentUid: record.studentUid,
       email: record.email,
       record,
       firstName: record.firstName,

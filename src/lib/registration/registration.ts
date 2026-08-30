@@ -8,9 +8,9 @@ import { EMPTY_EMERGENCY_CONTACT } from "@/lib/schemas/registration";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 
 /**
- * Where a student's registration for one event series lives. The series is the path and the UPN
- * is the document id, so "does one exist yet?" is a single-document read rather than a query,
- * and a student can hold exactly one per series by construction (US-11, US-26).
+ * Where a student's registration for one event series lives. The series is the path and the
+ * student's address is the document id, so "does one exist yet?" is a single-document read rather
+ * than a query, and a student can hold exactly one per series by construction (US-11, US-26).
  */
 export function registrationPath(eventSeriesId: string): string {
   return `${COLLECTIONS.eventSeries}/${eventSeriesId}/${COLLECTIONS.registrations}`;

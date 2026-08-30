@@ -14,13 +14,19 @@ import type { Teacher } from "./use-teachers";
 export type TeacherFilter = {
   name: string;
   permissions: readonly Permission[];
+  /** Who is waiting for access — a tag in the same row, so it reads as one more alternative. */
+  withoutPermissions: boolean;
 };
 
-export const EMPTY_TEACHER_FILTER: TeacherFilter = { name: "", permissions: [] };
+export const EMPTY_TEACHER_FILTER: TeacherFilter = {
+  name: "",
+  permissions: [],
+  withoutPermissions: false,
+};
 
 /** Whether the tag row is showing everybody, which is what its "Alle" tag reports. */
 export function hasNoFilter(filter: TeacherFilter): boolean {
-  return filter.permissions.length === 0;
+  return filter.permissions.length === 0 && !filter.withoutPermissions;
 }
 
 export function togglePermissionTag(filter: TeacherFilter, permission: Permission): TeacherFilter {
@@ -34,8 +40,12 @@ export function togglePermissionTag(filter: TeacherFilter, permission: Permissio
   };
 }
 
+export function toggleWithoutPermissions(filter: TeacherFilter): TeacherFilter {
+  return { ...filter, withoutPermissions: !filter.withoutPermissions };
+}
+
 export function clearPermissionTags(filter: TeacherFilter): TeacherFilter {
-  return { ...filter, permissions: [] };
+  return { ...filter, permissions: [], withoutPermissions: false };
 }
 
 /** The address is searched as well as the name: a colleague is as often looked up by it. */
@@ -43,9 +53,17 @@ function matchesName(teacher: Teacher, name: string): boolean {
   const wanted = name.trim().toLocaleLowerCase("de-AT");
   if (wanted === "") return true;
 
-  return [teacher.firstName, teacher.lastName, teacher.upn].some((field) =>
+  return [teacher.firstName, teacher.lastName, teacher.email].some((field) =>
     field.toLocaleLowerCase("de-AT").includes(wanted),
   );
+}
+
+/** The tags are one row, so they are alternatives: whoever answers to any pressed one is kept. */
+function matchesTags(teacher: Teacher, filter: TeacherFilter): boolean {
+  if (hasNoFilter(filter)) return true;
+  if (filter.withoutPermissions && teacher.permissions.length === 0) return true;
+
+  return filter.permissions.some((permission) => teacher.permissions.includes(permission));
 }
 
 export function filterTeachers(
@@ -53,9 +71,6 @@ export function filterTeachers(
   filter: TeacherFilter,
 ): readonly Teacher[] {
   return teachers.filter(
-    (teacher) =>
-      matchesName(teacher, filter.name) &&
-      (filter.permissions.length === 0 ||
-        filter.permissions.some((permission) => teacher.permissions.includes(permission))),
+    (teacher) => matchesName(teacher, filter.name) && matchesTags(teacher, filter),
   );
 }

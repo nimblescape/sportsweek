@@ -61,13 +61,7 @@ beforeEach(() => {
 });
 
 function renderView() {
-  render(
-    <MyRegistrationView
-      eventSeriesId="s1"
-      studentUpn="jane@student.htldornbirn.at"
-      studentName="Jane Doe"
-    />,
-  );
+  render(<MyRegistrationView eventSeriesId="s1" studentUid="uidJane" studentName="Jane Doe" />);
 }
 
 describe("MyRegistrationView", () => {

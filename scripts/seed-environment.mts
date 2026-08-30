@@ -26,7 +26,7 @@ import { createInterface } from "node:readline/promises";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore, type WriteBatch } from "firebase-admin/firestore";
-import { buildUpn } from "@/lib/auth/fake/upn-builder";
+import { buildEmail } from "@/lib/auth/fake/email-builder";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Gender } from "@/lib/schemas/common";
 import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
@@ -62,6 +62,9 @@ const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
  * These are records rather than accounts: they sign in through Entra ID like anybody else, and
  * provisioning then fills in the name and the photo it finds. What it does not touch is what a
  * record already holds, which is what makes these survive their first login.
+ *
+ * Who administers a school later on is a question for the records — `npm run logins:<environment>`
+ * asks it — since a permission granted or withdrawn since is not visible from here.
  */
 const ADMINISTRATORS = [
   { firstName: "Hannes", lastName: "Stauss", email: "hannes.stauss@htldornbirn.at" },
@@ -170,31 +173,42 @@ const MEDICATION_SHARE = 0.1;
  */
 const RANDOM_SEED = 20260826;
 
+/**
+ * Deliberately synthetic. Plausible Vorarlberg names on the school's own domain would be
+ * indistinguishable from real students at a glance — and with a pool that size, some of the
+ * addresses would belong to actual ones. These cannot be mistaken for anybody.
+ *
+ * The first names are spelling-alphabet words — NATO's, the German-language ones and the French
+ * one — and each list holds those that read as that gender. A name is not what makes a student
+ * one gender or the other, the field is; the split is only so that a seeded person does not read
+ * as a mistake. Umlauts and accents are kept so the address transliteration is still exercised.
+ *
+ * The surnames are ordinary Austrian ones on a stem that says what they are, the way
+ * "Mustermann" does. An earlier set named specimens — Prüfstück, Attrappe, Blindprobe — which is
+ * unmistakable but calls the person an object, and a teacher reading a class list should not
+ * find that. A seeded student is a stand-in, not a sample.
+ */
 // prettier-ignore
 const MALE_FIRST_NAMES = [
-  "Lukas", "Maximilian", "Tobias", "Fabian", "David", "Jonas", "Simon", "Elias", "Felix",
-  "Julian", "Moritz", "Paul", "Samuel", "Noah", "Jakob", "Leon", "Matthias", "Philipp",
-  "Sebastian", "Andreas", "Michael", "Thomas", "Stefan", "Daniel", "Florian", "Christoph",
-  "Manuel", "Marcel", "Patrick", "Dominik", "Raphael", "Benjamin", "Alexander", "Valentin",
+  "Albert", "Anton", "Cäsar", "Charlie", "Daniel", "David", "Emil", "Friedrich", "Gustav",
+  "Heinrich", "Isidor", "Jakob", "Julius", "Konrad", "Leopold", "Ludwig", "Mike", "Moritz",
+  "Nathan", "Niklaus", "Oscar", "Otto", "Richard", "Romeo", "Samuel", "Siegfried", "Theodor",
+  "Ulrich", "Viktor", "Wilhelm", "Xaver", "Zacharias",
 ];
 
 // prettier-ignore
 const FEMALE_FIRST_NAMES = [
-  "Anna", "Lena", "Sarah", "Julia", "Laura", "Magdalena", "Hannah", "Sophie", "Lisa", "Marie",
-  "Elena", "Katharina", "Johanna", "Theresa", "Verena", "Nina", "Vanessa", "Melanie", "Carina",
-  "Selina", "Jasmin", "Larissa", "Isabella", "Valentina", "Emma", "Nora", "Clara", "Elisa",
-  "Franziska", "Alina", "Chiara", "Leonie", "Amelie", "Victoria",
+  "Anna", "Berta", "Dora", "Ida", "India", "Irma", "Juliett", "Marie", "Martha", "Paula", "Rosa",
+  "Sierra", "Sophie", "Suzanne", "Thérèse", "Ursule", "Xanthippe", "Yvonne", "Zoé",
 ];
 
 // prettier-ignore
 const LAST_NAMES = [
-  "Gruber", "Huber", "Bauer", "Wagner", "Müller", "Pichler", "Steiner", "Moser", "Mayer",
-  "Hofer", "Leitner", "Berger", "Fuchs", "Eder", "Fischer", "Schmid", "Winkler", "Weber",
-  "Schwarz", "Maier", "Schneider", "Reiter", "Wimmer", "Egger", "Brunner", "Lang", "Auer",
-  "Binder", "Lechner", "Wolf", "Wallner", "Aigner", "Ebner", "Koller", "Lehner", "Haas",
-  "Schuster", "Riedl", "Höller", "Sailer", "Kaufmann", "Feurstein", "Bösch", "Fessler",
-  "Amann", "Nachbaur", "Konzett", "Vonbank", "Sutterlüty", "Metzler", "Rüscher", "Ströhle",
-  "Bertsch", "Hämmerle", "Bilgeri", "Ölz", "Baumgartner", "Dür", "Fritsch", "Rhomberg",
+  "Musterhofer", "Musteregger", "Mustergruber", "Mustermüller", "Musterbauer", "Musterlechner",
+  "Musterwinkler", "Musterjäger", "Musterberger", "Musterwalder", "Musterfelder", "Musterkrämer",
+  "Beispielhofer", "Beispielegger", "Beispielgruber", "Beispielmüller", "Beispielbauer",
+  "Beispielsteiner", "Beispielwinkler", "Beispieljäger", "Beispielberger", "Beispielwalder",
+  "Beispielreiter", "Beispielkrämer",
 ];
 
 const OTHER_RELATIONSHIPS = ["Tante", "Onkel", "Schwester", "Bruder", "Großmutter", "Stiefvater"];
@@ -280,11 +294,12 @@ function phoneNumber(): string {
   return `+43 ${pick(MOBILE_PREFIXES)} ${digits}`;
 }
 
-type Person = { firstName: string; lastName: string; upn: string; gender: Gender };
+type Person = { firstName: string; lastName: string; email: string; gender: Gender };
 
 /**
- * Two students may not share an address, since the UPN is the user's document id. A second
- * surname is the way out that stays a UPN the tenant could have issued — a digit would not be.
+ * Two students may not share an address: the Auth account is looked up by it, so a repeat would
+ * hand back one uid for both and the second would silently overwrite the first. A second surname
+ * is the way out that stays an address the tenant could have issued — a digit would not be.
  */
 function createPerson(gender: Gender, taken: Set<string>): Person {
   const firstNames = gender === "male" ? MALE_FIRST_NAMES : FEMALE_FIRST_NAMES;
@@ -292,11 +307,11 @@ function createPerson(gender: Gender, taken: Set<string>): Person {
   for (let attempt = 0; ; attempt += 1) {
     const firstName = pick(firstNames);
     const lastName = attempt < 20 ? pick(LAST_NAMES) : `${pick(LAST_NAMES)}-${pick(LAST_NAMES)}`;
-    const upn = buildUpn(firstName, lastName, accountTypeSchema.enum.student);
+    const email = buildEmail(firstName, lastName, accountTypeSchema.enum.student);
 
-    if (upn && !taken.has(upn)) {
-      taken.add(upn);
-      return { firstName, lastName, upn, gender };
+    if (email && !taken.has(email)) {
+      taken.add(email);
+      return { firstName, lastName, email, gender };
     }
   }
 }
@@ -479,22 +494,39 @@ async function confirmed(projectId: string): Promise<boolean> {
   }
 }
 
-/** Writes the administrator records a purged school starts with, in every environment. */
-async function createAdministrators(db: Firestore): Promise<void> {
-  await Promise.all(
-    ADMINISTRATORS.map((person) => {
-      const { id, ...fields } = userSchema.parse({
-        id: person.email,
-        firstName: person.firstName,
-        lastName: person.lastName,
-        email: person.email,
-        accountType: accountTypeSchema.enum.teacher,
-        permissions: [...FULL_PERMISSIONS],
-        photo: null,
-      });
+/**
+ * The account behind a seeded record, because a record is keyed by the uid and only Firebase can
+ * mint one (US-31). Purging deletes these along with everything else, so a re-run creates them
+ * again rather than finding them — the lookup is for a re-run over a tree that was not purged.
+ */
+async function uidFor(auth: Auth, email: string, displayName: string): Promise<string> {
+  try {
+    return (await auth.getUserByEmail(email)).uid;
+  } catch {
+    return (await auth.createUser({ email, displayName, emailVerified: true })).uid;
+  }
+}
 
-      return db.collection(COLLECTIONS.users).doc(id).set(fields);
-    }),
+/**
+ * Leaves an invitation at each administrator's address, for the first sign-in to claim (US-2).
+ *
+ * Not a `users` record, and deliberately not an Auth account either: their accounts are the
+ * directory's to create, and one made here would hold the address under a credential Entra did
+ * not issue — which is what a real sign-in then collides with. There is therefore no uid to key
+ * a record by until somebody actually arrives.
+ */
+async function inviteAdministrators(db: Firestore): Promise<void> {
+  await Promise.all(
+    ADMINISTRATORS.map((person) =>
+      db
+        .collection(COLLECTIONS.invitedTeachers)
+        .doc(person.email)
+        .set({
+          firstName: person.firstName,
+          lastName: person.lastName,
+          permissions: [...FULL_PERMISSIONS],
+        }),
+    ),
   );
 }
 
@@ -521,9 +553,10 @@ async function main(): Promise<void> {
   // ambient environment names, and this must address the one just named and nothing else.
   const app = initializeApp({ projectId });
   const db = getFirestore(app);
+  const auth = getAuth(app);
 
   const collections = await purgeFirestore(db);
-  const accounts = await purgeAuth(getAuth(app));
+  const accounts = await purgeAuth(auth);
 
   console.log(`Purged ${projectId}:`);
   for (const [name, count] of collections) console.log(`  ${name}: ${count} document(s)`);
@@ -539,8 +572,8 @@ async function main(): Promise<void> {
   );
   console.log(`Created the event series "${eventSeries.name}".`);
 
-  await createAdministrators(db);
-  console.log(`Granted every permission to ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
+  await inviteAdministrators(db);
+  console.log(`Invited ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
   if (!seedsStudents) return;
@@ -609,14 +642,15 @@ async function main(): Promise<void> {
       const registration = registrationOf(person, chosen[index], lists, progress[index]);
       if (registration.isAttendingSportsWeek === true) written.attending += 1;
 
-      const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, accountType: "student" }); // prettier-ignore
+      const uid = await uidFor(auth, person.email, `${person.firstName} ${person.lastName}`);
+      const user = userSchema.parse({ id: uid, ...person, accountType: "student" });
       const record = registrationSchema.parse({
-        id: person.upn,
-        studentUpn: person.upn,
+        id: uid,
+        studentUid: uid,
         // Copied onto the record, which is what a reader takes the name from (US-26).
         firstName: person.firstName,
         lastName: person.lastName,
-        email: person.upn,
+        email: person.email,
         // Set by the invitation link a student joins through rather than answered (US-23).
         class: className,
         // Unassigned on purpose: putting students into events is what the board is for (US-12).

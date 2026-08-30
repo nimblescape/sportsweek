@@ -236,9 +236,11 @@ function filterStudentsOf(group: AssignmentGroup, filter: StudentFilter | undefi
 }
 
 /**
- * Who a drag started on this tag is carrying. "Alle" stands for everyone the card's filter
- * leaves; a student who is part of that card's selection takes it along, filtered out of sight
- * or not; one who is not travels alone. Asked once, so what the overlay shows is what moves.
+ * Who a drag started on this tag is carrying — never more than the card is showing, which is
+ * what the tally beside its list counts. A filter narrowing the list to one student would
+ * otherwise take everyone it had just hidden along with them. "Alle" stands for exactly that
+ * set; a student who is part of the selection within it takes the rest along, one who is not
+ * travels alone. Asked once, so what the overlay shows is what moves.
  */
 function carriedBy(
   active: DragEndEvent["active"],
@@ -246,12 +248,13 @@ function carriedBy(
   filter: StudentFilter | undefined,
   picked: readonly string[],
 ): RosterStudent[] {
-  if (active.data.current?.all === true) return filterStudentsOf(source, filter);
+  const shown = filterStudentsOf(source, filter);
+  if (active.data.current?.all === true) return shown;
 
   const recordId = String(active.id);
-  const selection = source.students.filter((student) => picked.includes(student.id));
+  const selection = shown.filter((student) => picked.includes(student.id));
 
   return selection.some((student) => student.id === recordId)
     ? selection
-    : source.students.filter((student) => student.id === recordId);
+    : shown.filter((student) => student.id === recordId);
 }

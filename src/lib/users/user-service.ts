@@ -34,16 +34,16 @@ const UNKNOWN_PERSON_HINT = "Diese Person hat sich noch nie angemeldet.";
  * moment cannot both pass a check made before the other's write.
  */
 export async function grantPermissions(
-  upn: string,
+  uid: string,
   wanted: readonly Permission[],
-  actorUpn: string,
+  actorUid: string,
 ): Promise<readonly Permission[]> {
   const permissions = permissionsSchema.safeParse(wanted);
   if (!permissions.success) {
     throw new ServiceError(ErrorCode.ValidationError, "Diese Rechte gibt es so nicht.");
   }
 
-  const reference = adminDb.collection(COLLECTIONS.users).doc(upn);
+  const reference = adminDb.collection(COLLECTIONS.users).doc(uid);
 
   return adminDb.runTransaction(async (transaction) => {
     const stored = await transaction.get(reference);
@@ -60,7 +60,7 @@ export async function grantPermissions(
       (held.success ? held.data : []).includes("editUsers") &&
       !permissions.data.includes("editUsers");
 
-    if (upn === actorUpn && losesEditUsers) {
+    if (uid === actorUid && losesEditUsers) {
       throw new ServiceError(ErrorCode.Conflict, SELF_DEMOTION_HINT);
     }
 

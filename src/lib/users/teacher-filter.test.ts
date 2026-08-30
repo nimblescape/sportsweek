@@ -10,10 +10,12 @@ import {
   filterTeachers,
   hasNoFilter,
   togglePermissionTag,
+  toggleWithoutPermissions,
 } from "./teacher-filter";
 
 const teacher = (firstName: string, lastName: string, ...permissions: string[]): Teacher => ({
-  upn: `${firstName}.${lastName}@htldornbirn.at`.toLowerCase(),
+  uid: `uid-of-${firstName}-${lastName}`,
+  email: `${firstName}.${lastName}@htldornbirn.at`.toLowerCase(),
   firstName,
   lastName,
   permissions: permissions as Teacher["permissions"],
@@ -82,9 +84,49 @@ describe("filterTeachers", () => {
   });
 
   it("applies the name and the tags together", () => {
-    const filter = { name: "a", permissions: ["editMasterData"] } as const;
+    const filter = { ...EMPTY_TEACHER_FILTER, name: "a", permissions: ["editMasterData"] } as const;
 
     expect(namesOf(filterTeachers(ALL, filter))).toEqual(["Berger"]);
+  });
+});
+
+/**
+ * Who is waiting for access, which is the question the page is most often opened to answer.
+ * It is a tag in the same row, so it reads as one more alternative rather than a mode.
+ */
+describe("filterTeachers — the tag for holding nothing", () => {
+  const without = { ...EMPTY_TEACHER_FILTER, withoutPermissions: true };
+
+  it("keeps only those holding none", () => {
+    expect(namesOf(filterTeachers(ALL, without))).toEqual(["Cerny"]);
+  });
+
+  it("reads as an alternative beside a permission, not a narrowing of it", () => {
+    const filter = { ...without, permissions: ["editUsers"] } as const;
+
+    expect(namesOf(filterTeachers(ALL, filter))).toEqual(["Auer", "Cerny"]);
+  });
+
+  it("still respects the name beside it", () => {
+    expect(namesOf(filterTeachers(ALL, { ...without, name: "zzz" }))).toEqual([]);
+  });
+});
+
+describe("toggleWithoutPermissions", () => {
+  it("presses it, and releases it again", () => {
+    const pressed = toggleWithoutPermissions(EMPTY_TEACHER_FILTER);
+
+    expect(pressed.withoutPermissions).toBe(true);
+    expect(toggleWithoutPermissions(pressed).withoutPermissions).toBe(false);
+  });
+
+  it("leaves the permission tags and the name alone", () => {
+    const filter = { name: "auer", permissions: ["editUsers"], withoutPermissions: false } as const;
+
+    const pressed = toggleWithoutPermissions(filter);
+
+    expect(pressed.permissions).toEqual(["editUsers"]);
+    expect(pressed.name).toBe("auer");
   });
 });
 
@@ -102,7 +144,7 @@ describe("togglePermissionTag", () => {
   });
 
   it("leaves the name alone", () => {
-    const filter = { name: "auer", permissions: [] };
+    const filter = { ...EMPTY_TEACHER_FILTER, name: "auer" };
 
     expect(togglePermissionTag(filter, "editUsers").name).toBe("auer");
   });
@@ -114,11 +156,15 @@ describe("hasNoFilter", () => {
   });
 
   it("is false once a tag is pressed", () => {
-    expect(hasNoFilter({ name: "", permissions: ["editUsers"] })).toBe(false);
+    expect(hasNoFilter({ ...EMPTY_TEACHER_FILTER, permissions: ["editUsers"] })).toBe(false);
+  });
+
+  it("is false once the tag for holding nothing is pressed", () => {
+    expect(hasNoFilter({ ...EMPTY_TEACHER_FILTER, withoutPermissions: true })).toBe(false);
   });
 
   /** The "Alle" tag answers for the tags, not for the name field beside it. */
   it("stays true while only a name is typed", () => {
-    expect(hasNoFilter({ name: "auer", permissions: [] })).toBe(true);
+    expect(hasNoFilter({ ...EMPTY_TEACHER_FILTER, name: "auer" })).toBe(true);
   });
 });

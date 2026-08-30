@@ -15,17 +15,17 @@ const { assignStudents } = await import("./assignment-service");
 const { registrationPath } = await import("@/lib/registration/registration");
 const { ServiceError } = await import("@/lib/service-error");
 
-const ANNA = "anna@student.htldornbirn.at";
+const ANNA = "uidAnna";
 const BENE = "bene@student.htldornbirn.at";
 const REGISTRATIONS = registrationPath("s1");
 
 /** The series is named by the path the teacher is working in (Q8), so every call carries it. */
-const assign = (studentUpns: readonly string[], event: string | null) =>
-  assignStudents("s1", studentUpns, event);
+const assign = (studentUids: readonly string[], event: string | null) =>
+  assignStudents("s1", studentUids, event);
 
-function seedRecord(studentUpn: string, fields: Record<string, unknown> = {}) {
-  firestore.seed(REGISTRATIONS, studentUpn, {
-    studentUpn,
+function seedRecord(studentUid: string, fields: Record<string, unknown> = {}) {
+  firestore.seed(REGISTRATIONS, studentUid, {
+    studentUid,
     event: null,
     isAttendingSportsWeek: true,
     ...fields,
@@ -97,7 +97,7 @@ describe("assignStudents", () => {
     await assign([ANNA], "Woche 1");
 
     expect(firestore.get(REGISTRATIONS, ANNA)).toMatchObject({
-      studentUpn: ANNA,
+      studentUid: ANNA,
       isAttendingSportsWeek: true,
     });
   });
@@ -151,7 +151,7 @@ describe("assignStudents", () => {
   it("refuses a student whose only registration is in another event series", async () => {
     const CLARA = "clara@student.htldornbirn.at";
     firestore.seed(registrationPath("s0"), CLARA, {
-      studentUpn: CLARA,
+      studentUid: CLARA,
       event: null,
       isAttendingSportsWeek: true,
     });

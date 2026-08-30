@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // No record, no claim and no cookie for a UPN outside the allowed domains (US-3).
+  // No record, no claim and no cookie for an address outside the allowed domains (US-3).
   let provisioned;
   try {
     provisioned = await provisionUser(decoded, parsed.data.msAccessToken);

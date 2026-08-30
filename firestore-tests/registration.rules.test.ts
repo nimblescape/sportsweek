@@ -23,18 +23,18 @@ beforeAll(async () => {
 
 afterAll(async () => await testEnv.cleanup());
 
-const TEACHER_UPN = "lehrperson@htldornbirn.at";
-const STUDENT_UPN = "schuelerin@student.htldornbirn.at";
-const OTHER_STUDENT_UPN = "schueler@student.htldornbirn.at";
+const TEACHER_UID = "uid-of-lehrperson";
+const STUDENT_UID = "uid-of-schuelerin";
+const OTHER_STUDENT_UID = "uid-of-schueler";
 /** Signed in, but has not registered yet — which is where every student starts. */
-const NEWCOMER_UPN = "neu@student.htldornbirn.at";
+const NEWCOMER_UID = "uid-of-neu";
 
-const signInAs = (upn: string) =>
-  testEnv.authenticatedContext(`uid-of-${upn}`, { email: upn }).firestore();
+const signInAs = (uid: string) =>
+  testEnv.authenticatedContext(uid, { email: `${uid}@htldornbirn.at` }).firestore();
 
-const teacher = () => signInAs(TEACHER_UPN);
-const student = () => signInAs(STUDENT_UPN);
-const otherStudent = () => signInAs(OTHER_STUDENT_UPN);
+const teacher = () => signInAs(TEACHER_UID);
+const student = () => signInAs(STUDENT_UID);
+const otherStudent = () => signInAs(OTHER_STUDENT_UID);
 const anonymous = () => testEnv.unauthenticatedContext().firestore();
 
 /** Beneath the event series it belongs to, named after the student it belongs to (US-26). */
@@ -55,31 +55,31 @@ beforeEach(async () => {
     // registration, and reporting on it is what reads a saved report (US-2).
     await db
       .collection("users")
-      .doc(TEACHER_UPN)
+      .doc(TEACHER_UID)
       .set({
         accountType: "teacher",
         permissions: ["editRegistrations", "editAssignments", "editReports"],
       });
-    await db.collection("users").doc(STUDENT_UPN).set({ accountType: "student" });
-    await db.collection("users").doc(OTHER_STUDENT_UPN).set({ accountType: "student" });
-    await db.collection("users").doc(NEWCOMER_UPN).set({ accountType: "student" });
+    await db.collection("users").doc(STUDENT_UID).set({ accountType: "student" });
+    await db.collection("users").doc(OTHER_STUDENT_UID).set({ accountType: "student" });
+    await db.collection("users").doc(NEWCOMER_UID).set({ accountType: "student" });
   });
 
-  await seed(REGISTRATIONS, STUDENT_UPN, {
-    studentUpn: STUDENT_UPN,
+  await seed(REGISTRATIONS, STUDENT_UID, {
+    studentUid: STUDENT_UID,
     firstName: "Erika",
     lastName: "Musterfrau",
-    email: STUDENT_UPN,
+    email: "erika.musterfrau@student.htldornbirn.at",
     isAttendingSportsWeek: true,
     class: "5AHIF",
     emergencyContact: { firstName: "Maria", lastName: "Muster", relationship: "mother" },
     rentedEquipment: ["Helm"],
   });
-  await seed(REGISTRATIONS, OTHER_STUDENT_UPN, {
-    studentUpn: OTHER_STUDENT_UPN,
+  await seed(REGISTRATIONS, OTHER_STUDENT_UID, {
+    studentUid: OTHER_STUDENT_UID,
     firstName: "Max",
     lastName: "Mustermann",
-    email: OTHER_STUDENT_UPN,
+    email: "max.mustermann@student.htldornbirn.at",
     isAttendingSportsWeek: true,
     class: "5AHIF",
   });
@@ -102,7 +102,7 @@ beforeEach(async () => {
  */
 describe("/eventSeries/{id}/registrations", () => {
   it("lets a student read their own record", async () => {
-    await assertSucceeds(student().collection(REGISTRATIONS).doc(STUDENT_UPN).get());
+    await assertSucceeds(student().collection(REGISTRATIONS).doc(STUDENT_UID).get());
   });
 
   /**
@@ -111,9 +111,9 @@ describe("/eventSeries/{id}/registrations", () => {
    * why the form reads the id it derives rather than querying for it.
    */
   it("lets a student who has no record yet read the id they would have", async () => {
-    const newcomer = signInAs(NEWCOMER_UPN);
+    const newcomer = signInAs(NEWCOMER_UID);
 
-    await assertSucceeds(newcomer.collection(REGISTRATIONS).doc(NEWCOMER_UPN).get());
+    await assertSucceeds(newcomer.collection(REGISTRATIONS).doc(NEWCOMER_UID).get());
   });
 
   /**
@@ -126,19 +126,19 @@ describe("/eventSeries/{id}/registrations", () => {
   });
 
   it("lets a teacher read a single record", async () => {
-    await assertSucceeds(teacher().collection(REGISTRATIONS).doc(OTHER_STUDENT_UPN).get());
+    await assertSucceeds(teacher().collection(REGISTRATIONS).doc(OTHER_STUDENT_UID).get());
   });
 
   /** Being a teacher opens nothing on its own: each permission is granted deliberately (US-2). */
   it("denies a teacher holding no permission", async () => {
-    await seed("users", TEACHER_UPN, { accountType: "teacher", permissions: [] });
+    await seed("users", TEACHER_UID, { accountType: "teacher", permissions: [] });
 
     await assertFails(teacher().collection(REGISTRATIONS).get());
-    await assertFails(teacher().collection(REGISTRATIONS).doc(OTHER_STUDENT_UPN).get());
+    await assertFails(teacher().collection(REGISTRATIONS).doc(OTHER_STUDENT_UID).get());
   });
 
   it("denies a teacher whose only permission is about lists rather than people", async () => {
-    await seed("users", TEACHER_UPN, { accountType: "teacher", permissions: ["editMasterData"] });
+    await seed("users", TEACHER_UID, { accountType: "teacher", permissions: ["editMasterData"] });
 
     await assertFails(teacher().collection(REGISTRATIONS).get());
   });
@@ -147,14 +147,14 @@ describe("/eventSeries/{id}/registrations", () => {
   it.each(["editRegistrations", "editAssignments", "viewReports", "editReports"])(
     "lets a teacher holding only %s read them",
     async (permission) => {
-      await seed("users", TEACHER_UPN, { accountType: "teacher", permissions: [permission] });
+      await seed("users", TEACHER_UID, { accountType: "teacher", permissions: [permission] });
 
       await assertSucceeds(teacher().collection(REGISTRATIONS).get());
     },
   );
 
   it("denies a student reading another student's record", async () => {
-    await assertFails(student().collection(REGISTRATIONS).doc(OTHER_STUDENT_UPN).get());
+    await assertFails(student().collection(REGISTRATIONS).doc(OTHER_STUDENT_UID).get());
   });
 
   it("denies a student querying the whole subcollection", async () => {
@@ -162,12 +162,12 @@ describe("/eventSeries/{id}/registrations", () => {
   });
 
   it("denies an unauthenticated read", async () => {
-    await assertFails(anonymous().collection(REGISTRATIONS).doc(STUDENT_UPN).get());
+    await assertFails(anonymous().collection(REGISTRATIONS).doc(STUDENT_UID).get());
   });
 
   it("denies a student writing their own record, so the save keeps going through the handler", async () => {
     await assertFails(
-      student().collection(REGISTRATIONS).doc(STUDENT_UPN).update({ class: "5BHIF" }),
+      student().collection(REGISTRATIONS).doc(STUDENT_UID).update({ class: "5BHIF" }),
     );
   });
 
@@ -175,24 +175,24 @@ describe("/eventSeries/{id}/registrations", () => {
     await assertFails(
       student()
         .collection(OTHER_SERIES)
-        .doc(STUDENT_UPN)
-        .set({ studentUpn: STUDENT_UPN, isAttendingSportsWeek: true }),
+        .doc(STUDENT_UID)
+        .set({ studentUid: STUDENT_UID, isAttendingSportsWeek: true }),
     );
   });
 
   it("denies a student assigning themselves to an event", async () => {
     await assertFails(
-      student().collection(REGISTRATIONS).doc(STUDENT_UPN).update({ event: "Woche 1" }),
+      student().collection(REGISTRATIONS).doc(STUDENT_UID).update({ event: "Woche 1" }),
     );
   });
 
   it("denies a student deleting their own record", async () => {
-    await assertFails(student().collection(REGISTRATIONS).doc(STUDENT_UPN).delete());
+    await assertFails(student().collection(REGISTRATIONS).doc(STUDENT_UID).delete());
   });
 
   it("denies a teacher writing a record", async () => {
     await assertFails(
-      teacher().collection(REGISTRATIONS).doc(STUDENT_UPN).update({ class: "5BHIF" }),
+      teacher().collection(REGISTRATIONS).doc(STUDENT_UID).update({ class: "5BHIF" }),
     );
   });
 
@@ -201,7 +201,7 @@ describe("/eventSeries/{id}/registrations", () => {
    * recomputed in the same transaction, which a rule cannot do.
    */
   it("denies a teacher deleting a record directly", async () => {
-    await assertFails(teacher().collection(REGISTRATIONS).doc(STUDENT_UPN).delete());
+    await assertFails(teacher().collection(REGISTRATIONS).doc(STUDENT_UID).delete());
   });
 });
 
@@ -214,7 +214,7 @@ describe("/eventSeries/{id}/registrations", () => {
 describe("/eventSeries/{id}/savedReports", () => {
   const SAVED_REPORTS = "eventSeries/eventSeries1/savedReports";
   const report = {
-    createdByUserId: TEACHER_UPN,
+    createdByUserId: TEACHER_UID,
     name: "5AHIF",
     filter: {
       name: "",
@@ -235,7 +235,7 @@ describe("/eventSeries/{id}/savedReports", () => {
 
   /** A saved report is a report: whoever may not open one may not see what was saved of it. */
   it("denies a teacher who may neither view nor edit reports", async () => {
-    await seed("users", TEACHER_UPN, {
+    await seed("users", TEACHER_UID, {
       accountType: "teacher",
       permissions: ["editRegistrations", "editAssignments", "editMasterData"],
     });
@@ -247,7 +247,7 @@ describe("/eventSeries/{id}/savedReports", () => {
   it.each(["viewReports", "editReports"])(
     "lets a teacher holding only %s read them",
     async (permission) => {
-      await seed("users", TEACHER_UPN, { accountType: "teacher", permissions: [permission] });
+      await seed("users", TEACHER_UID, { accountType: "teacher", permissions: [permission] });
 
       await assertSucceeds(teacher().collection(SAVED_REPORTS).get());
     },
@@ -282,6 +282,6 @@ describe("/eventSeries/{id}/savedReports", () => {
 /** Cross-checks that the record another student owns is genuinely reachable by its owner. */
 describe("ownership is the document's own name", () => {
   it("lets the other student read the record named after them", async () => {
-    await assertSucceeds(otherStudent().collection(REGISTRATIONS).doc(OTHER_STUDENT_UPN).get());
+    await assertSucceeds(otherStudent().collection(REGISTRATIONS).doc(OTHER_STUDENT_UID).get());
   });
 });

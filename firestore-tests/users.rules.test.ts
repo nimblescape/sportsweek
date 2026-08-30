@@ -40,25 +40,27 @@ async function seedUser(uid: string, data: Record<string, unknown>) {
 /** Beneath the event series it belongs to, named after the student it belongs to (US-26). */
 const REGISTRATIONS = "eventSeries/eventSeries1/registrations";
 
-async function seedRegistration(studentUpn: string) {
+async function seedRegistration(studentUid: string) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
-    await context.firestore().collection(REGISTRATIONS).doc(studentUpn).set({ studentUpn });
+    await context.firestore().collection(REGISTRATIONS).doc(studentUid).set({ studentUid });
   });
 }
 
 /**
- * Production keys `/users` by UPN (see provisionUser) while `request.auth.uid` is an opaque
- * Firebase id. Signing in through this helper keeps the two distinct, so a rule that confuses
- * them cannot pass here and fail in production.
+ * `/users` is keyed by the Firebase uid (see provisionUser), so these are uids and not addresses.
+ * Naming them as such is the point: a rule that reached for the token's e-mail instead would
+ * pass against fixtures where the two were the same string, and fail in production.
  */
-const ALICE = "alice@student.htldornbirn.at";
-const BOB = "bob@student.htldornbirn.at";
-const CAROL = "carol@htldornbirn.at";
-const DAVE = "dave@student.htldornbirn.at";
-const MALLORY = "mallory@student.htldornbirn.at";
+const ALICE = "uid-of-alice";
+const BOB = "uid-of-bob";
+const CAROL = "uid-of-carol";
+const DAVE = "uid-of-dave";
+const MALLORY = "uid-of-mallory";
 
-function signInAs(upn: string, claims: Record<string, unknown> = {}) {
-  return testEnv.authenticatedContext(`uid-of-${upn}`, { email: upn, ...claims }).firestore();
+function signInAs(uid: string, claims: Record<string, unknown> = {}) {
+  return testEnv
+    .authenticatedContext(uid, { email: `${uid}@htldornbirn.at`, ...claims })
+    .firestore();
 }
 
 const student = (extra: Record<string, unknown> = {}) => ({ accountType: "student", ...extra });
@@ -180,11 +182,21 @@ describe("/users/{uid} account type and permission immutability", () => {
     await assertFails(db.collection("users").doc(ALICE).update({ accountType: "teacher" }));
   });
 
-  it("allows a user to update their own remaining fields", async () => {
+  /**
+   * Nothing about the record is the person's to write. Every field on it is written by
+   * provisionUser from the directory at each login, so an edit here would be overwritten at the
+   * next sign-in -- and until then copied into the teacher's report, since a registration takes
+   * its name and address from this record (US-26).
+   */
+  it("denies a user updating even the fields that are about them", async () => {
     await seedUser(ALICE, student({ firstName: "Alice" }));
     const db = signInAs(ALICE);
 
-    await assertSucceeds(db.collection("users").doc(ALICE).update({ firstName: "Alicia" }));
+    await assertFails(db.collection("users").doc(ALICE).update({ firstName: "Alicia" }));
+    await assertFails(db.collection("users").doc(ALICE).update({ email: BOB }));
+    await assertFails(
+      db.collection("users").doc(ALICE).update({ photo: "data:image/png;base64,A" }),
+    );
   });
 
   it("denies a student updating another user's document", async () => {
@@ -193,6 +205,61 @@ describe("/users/{uid} account type and permission immutability", () => {
     const db = signInAs(ALICE);
 
     await assertFails(db.collection("users").doc(BOB).update({ firstName: "Bobby" }));
+  });
+});
+
+/**
+ * What a school's starting administrators are before any of them has signed in. It carries the
+ * permissions they will hold, so reading it would say who is about to be able to do what, and
+ * writing it would be a way to grant oneself anything. Drained by provisionUser alone.
+ */
+describe("/invitedTeachers/{email}", () => {
+  const INVITED = "invitedTeachers";
+  const ADDRESS = "neue.lehrperson@htldornbirn.at";
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context
+        .firestore()
+        .collection(INVITED)
+        .doc(ADDRESS)
+        .set({ firstName: "Neue", lastName: "Lehrperson", permissions: ["editUsers"] });
+    });
+  });
+
+  it("denies a teacher reading one, even the one holding editUsers", async () => {
+    await seedUser(CAROL, admin());
+
+    await assertFails(signInAs(CAROL).collection(INVITED).doc(ADDRESS).get());
+  });
+
+  it("denies a student reading one", async () => {
+    await seedUser(ALICE, student());
+
+    await assertFails(signInAs(ALICE).collection(INVITED).doc(ADDRESS).get());
+  });
+
+  it("denies querying them, so who is expected cannot be enumerated", async () => {
+    await seedUser(CAROL, admin());
+
+    await assertFails(signInAs(CAROL).collection(INVITED).get());
+  });
+
+  it("denies writing one, which would be a way to grant yourself anything", async () => {
+    await seedUser(ALICE, student());
+
+    await assertFails(
+      signInAs(ALICE)
+        .collection(INVITED)
+        .doc("someone@htldornbirn.at")
+        .set({ permissions: ["editUsers"] }),
+    );
+  });
+
+  it("denies deleting one, so a pending grant cannot be taken away", async () => {
+    await seedUser(CAROL, admin());
+
+    await assertFails(signInAs(CAROL).collection(INVITED).doc(ADDRESS).delete());
   });
 });
 
@@ -227,6 +294,60 @@ describe("/users/{uid} create and delete", () => {
   });
 });
 
+/**
+ * When somebody signed in is nobody's to read (US-1). It is written server-side with the Admin
+ * SDK, and no client has a use for it -- so the rule grants none, and these say so.
+ */
+describe("/users/{uid}/logins", () => {
+  async function seedLogin(uid: string) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context
+        .firestore()
+        .collection(`users/${uid}/logins`)
+        .doc("login1")
+        .set({ at: "2026-08-29T17:04:05+02:00" });
+    });
+  }
+
+  it("denies somebody reading their own sign-ins, which their record does not carry", async () => {
+    await seedUser(ALICE, student());
+    await seedLogin(ALICE);
+    const db = signInAs(ALICE);
+
+    await assertFails(db.collection(`users/${ALICE}/logins`).doc("login1").get());
+  });
+
+  // Reading every user record is what editUsers grants, and it stops at the record.
+  it("denies whoever hands out the permissions reading somebody's sign-ins", async () => {
+    await seedUser(CAROL, admin());
+    await seedUser(ALICE, student());
+    await seedLogin(ALICE);
+    const db = signInAs(CAROL);
+
+    await assertFails(db.collection(`users/${ALICE}/logins`).get());
+  });
+
+  it("denies somebody writing a sign-in of their own", async () => {
+    await seedUser(ALICE, student());
+    const db = signInAs(ALICE);
+
+    await assertFails(
+      db
+        .collection(`users/${ALICE}/logins`)
+        .doc("invented")
+        .set({ at: "2026-08-29T17:04:05+02:00" }),
+    );
+  });
+
+  it("denies somebody deleting one, so a record of a sign-in outlives whoever made it", async () => {
+    await seedUser(ALICE, student());
+    await seedLogin(ALICE);
+    const db = signInAs(ALICE);
+
+    await assertFails(db.collection(`users/${ALICE}/logins`).doc("login1").delete());
+  });
+});
+
 describe("/users/{uid} has no admin role", () => {
   it("grants a document claiming role 'admin' no privileges at all", async () => {
     await seedUser(MALLORY, { accountType: "admin" });
@@ -248,39 +369,44 @@ describe("/users/{uid} has no admin role", () => {
 });
 
 /**
- * Production keys `/users` by UPN (see provisionUser), while `request.auth.uid` is an opaque
- * Firebase id. Tests that reuse one value for both silently pass rules that can never match
- * a real request, so these deliberately keep the two apart.
+ * `/users` is keyed by the Firebase uid (US-31), and the address is an ordinary field. These
+ * cases use a uid that looks nothing like an address, so a rule that reached for the token's
+ * e-mail instead cannot pass here.
  *
- * The teacher cases read a registration rather than a user record: `/users` now answers only
- * to `isSelf`, so a registration is the one door left that still resolves a role.
+ * The teacher cases read a registration rather than a user record: `/users` answers only to
+ * `isSelf`, so a registration is the one door left that still resolves a role.
  */
 describe("identity resolution with a realistic uid", () => {
   const UID = "6Xk2p9QwErTyUiOpAsDf";
-  const UPN = "erika.mustermann@htldornbirn.at";
+  const EMAIL = "erika.mustermann@htldornbirn.at";
 
   const signedIn = (claims: Record<string, unknown> = {}) =>
-    testEnv.authenticatedContext(UID, { email: UPN, ...claims }).firestore();
+    testEnv.authenticatedContext(UID, { email: EMAIL, ...claims }).firestore();
 
-  it("lets a user read their own record, which is keyed by UPN and not by uid", async () => {
-    await seedUser(UPN, student({ email: UPN }));
+  it("lets a user read their own record, which is keyed by their uid", async () => {
+    await seedUser(UID, student({ email: EMAIL }));
 
-    await assertSucceeds(signedIn().collection("users").doc(UPN).get());
+    await assertSucceeds(signedIn().collection("users").doc(UID).get());
   });
 
   it("still denies reading someone else's record", async () => {
-    await seedUser("someone.else@htldornbirn.at", student());
+    await seedUser("someone-elses-uid", student());
 
-    await assertFails(signedIn().collection("users").doc("someone.else@htldornbirn.at").get());
+    await assertFails(signedIn().collection("users").doc("someone-elses-uid").get());
   });
 
-  it("recognises a teacher whose record is keyed by UPN", async () => {
-    await seedUser(UPN, teacher({ email: UPN, permissions: ["editRegistrations"] }));
-    await seedRegistration("pupil@student.htldornbirn.at");
+  /** The address is not the id, so the record it names is nobody's to reach by naming it. */
+  it("denies reading a record at the address rather than the uid", async () => {
+    await seedUser(UID, student({ email: EMAIL }));
 
-    await assertSucceeds(
-      signedIn().collection(REGISTRATIONS).doc("pupil@student.htldornbirn.at").get(),
-    );
+    await assertFails(signedIn().collection("users").doc(EMAIL).get());
+  });
+
+  it("recognises a teacher whose record is keyed by their uid", async () => {
+    await seedUser(UID, teacher({ email: EMAIL, permissions: ["editRegistrations"] }));
+    await seedRegistration("uid-of-pupil");
+
+    await assertSucceeds(signedIn().collection(REGISTRATIONS).doc("uid-of-pupil").get());
   });
 
   /**
@@ -289,34 +415,36 @@ describe("identity resolution with a realistic uid", () => {
    * minted beforehand would go on admitting what an admin has just taken away (US-2).
    */
   it("does not take a permission from the claim, so a record is still read", async () => {
-    await seedRegistration("pupil@student.htldornbirn.at");
+    await seedRegistration("uid-of-pupil");
 
     await assertFails(
       signedIn({ accountType: "teacher", permissions: ["editRegistrations"] })
         .collection(REGISTRATIONS)
-        .doc("pupil@student.htldornbirn.at")
+        .doc("uid-of-pupil")
         .get(),
     );
   });
 
   it("does not grant teacher rights to a student who forges nothing but a uid", async () => {
-    await seedUser(UPN, student({ email: UPN }));
-    await seedRegistration("pupil@student.htldornbirn.at");
+    await seedUser(UID, student({ email: EMAIL }));
+    await seedRegistration("uid-of-pupil");
 
-    await assertFails(
-      signedIn().collection(REGISTRATIONS).doc("pupil@student.htldornbirn.at").get(),
-    );
+    await assertFails(signedIn().collection(REGISTRATIONS).doc("uid-of-pupil").get());
   });
 
-  it("matches the UPN case-insensitively, since the record id is lowercased", async () => {
-    await seedUser(UPN, student({ email: UPN }));
+  /**
+   * The address the token carries decides nothing, which is the whole of US-31: a directory
+   * rename, or a client moving its own account's address, reaches the same record as before.
+   */
+  it("resolves the same record whatever address the token carries", async () => {
+    await seedUser(UID, student({ email: EMAIL }));
 
     await assertSucceeds(
       testEnv
-        .authenticatedContext(UID, { email: "Erika.Mustermann@HTLDornbirn.at" })
+        .authenticatedContext(UID, { email: "somebody.else@htldornbirn.at" })
         .firestore()
         .collection("users")
-        .doc(UPN)
+        .doc(UID)
         .get(),
     );
   });
