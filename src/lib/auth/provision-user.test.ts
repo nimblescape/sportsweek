@@ -22,10 +22,19 @@ const doc = vi.fn(() => ({
 const teachersGet = vi.fn();
 const limit = vi.fn(() => ({ get: teachersGet }));
 const where = vi.fn(() => ({ limit }));
-const collection = vi.fn(() => ({ doc, where }));
 const setCustomUserClaims = vi.fn();
+// The administrators a school starts with, waiting for whoever signs in at that address (US-2).
+const invitationGet = vi.fn();
+const invitationDelete = vi.fn();
+const invitationDoc = vi.fn(() => ({ get: invitationGet, delete: invitationDelete }));
+const collection = vi.fn((name: string) =>
+  name === "invitedTeachers" ? { doc: invitationDoc } : { doc, where },
+);
 const fetchEntraName = vi.fn();
 const fetchEntraPhoto = vi.fn();
+
+// Nobody is expected, unless a test says otherwise.
+invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
 
 // A school that already has one, so a test says so itself when it means to be the first.
 teachersGet.mockResolvedValue({ empty: false });
@@ -86,6 +95,7 @@ describe("the deployment's own sign-in policy", () => {
     vi.clearAllMocks();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
   });
 
@@ -139,6 +149,7 @@ describe("provisionUser", () => {
     vi.clearAllMocks();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
   });
 
@@ -219,6 +230,56 @@ describe("provisionUser", () => {
 
     expect(result).toEqual({ ok: false, reason: "missing-upn" });
     expect(docSet).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A school's starting administrators are written before anybody has signed in, so there is no
+   * uid to key their record by. The invitation waits at their address and the first sign-in
+   * claims it, which is the one way a record is created holding anything (US-2).
+   */
+  it("takes the permissions an invitation was left holding, and claims it", async () => {
+    invitationGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ permissions: ["editUsers", "editMasterData"] }),
+    });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(collection).toHaveBeenCalledWith("invitedTeachers");
+    expect(invitationDoc).toHaveBeenCalledWith("jane.doe@htldornbirn.at");
+    expect(result).toMatchObject({
+      ok: true,
+      user: { permissions: ["editUsers", "editMasterData"] },
+    });
+    expect(docSet).toHaveBeenCalledWith(
+      expect.objectContaining({ permissions: ["editUsers", "editMasterData"] }),
+    );
+    expect(invitationDelete).toHaveBeenCalled();
+  });
+
+  /** Claimed once: a second sign-in finds nothing waiting, and is granted nothing. */
+  it("grants nothing where no invitation is waiting", async () => {
+    const result = await provisionUser(teacherClaims);
+
+    expect(result).toMatchObject({ ok: true, user: { permissions: [] } });
+    expect(invitationDelete).not.toHaveBeenCalled();
+  });
+
+  /** An invitation is for a first sign-in; somebody who already has a record is past that. */
+  it("leaves an invitation alone once a record exists", async () => {
+    existingRecord({
+      firstName: "Jane",
+      lastName: "Doe",
+      email: "jane.doe@htldornbirn.at",
+      accountType: "teacher",
+      permissions: [],
+    });
+    invitationGet.mockResolvedValue({ exists: true, data: () => ({ permissions: ["editUsers"] }) });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(result).toMatchObject({ ok: true, user: { permissions: [] } });
+    expect(invitationDelete).not.toHaveBeenCalled();
   });
 
   it("keeps the stored role on a later login instead of recomputing it", async () => {
@@ -388,6 +449,7 @@ describe("the permissions a new teacher is provisioned with", () => {
     vi.clearAllMocks();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
   });
 
@@ -453,6 +515,7 @@ describe("provisionUser — the Entra photo", () => {
     vi.clearAllMocks();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
     fetchEntraPhoto.mockResolvedValue(null);
   });
@@ -538,6 +601,7 @@ describe("the login refresh of a student's registrations", () => {
     firestore.reset();
     refuseSignIn.mockReturnValue(null);
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
   });
 

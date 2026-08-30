@@ -208,6 +208,61 @@ describe("/users/{uid} account type and permission immutability", () => {
   });
 });
 
+/**
+ * What a school's starting administrators are before any of them has signed in. It carries the
+ * permissions they will hold, so reading it would say who is about to be able to do what, and
+ * writing it would be a way to grant oneself anything. Drained by provisionUser alone.
+ */
+describe("/invitedTeachers/{email}", () => {
+  const INVITED = "invitedTeachers";
+  const ADDRESS = "neue.lehrperson@htldornbirn.at";
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context
+        .firestore()
+        .collection(INVITED)
+        .doc(ADDRESS)
+        .set({ firstName: "Neue", lastName: "Lehrperson", permissions: ["editUsers"] });
+    });
+  });
+
+  it("denies a teacher reading one, even the one holding editUsers", async () => {
+    await seedUser(CAROL, admin());
+
+    await assertFails(signInAs(CAROL).collection(INVITED).doc(ADDRESS).get());
+  });
+
+  it("denies a student reading one", async () => {
+    await seedUser(ALICE, student());
+
+    await assertFails(signInAs(ALICE).collection(INVITED).doc(ADDRESS).get());
+  });
+
+  it("denies querying them, so who is expected cannot be enumerated", async () => {
+    await seedUser(CAROL, admin());
+
+    await assertFails(signInAs(CAROL).collection(INVITED).get());
+  });
+
+  it("denies writing one, which would be a way to grant yourself anything", async () => {
+    await seedUser(ALICE, student());
+
+    await assertFails(
+      signInAs(ALICE)
+        .collection(INVITED)
+        .doc("someone@htldornbirn.at")
+        .set({ permissions: ["editUsers"] }),
+    );
+  });
+
+  it("denies deleting one, so a pending grant cannot be taken away", async () => {
+    await seedUser(CAROL, admin());
+
+    await assertFails(signInAs(CAROL).collection(INVITED).doc(ADDRESS).delete());
+  });
+});
+
 describe("/users/{uid} create and delete", () => {
   it("denies a student creating a user document", async () => {
     await seedUser(ALICE, student());

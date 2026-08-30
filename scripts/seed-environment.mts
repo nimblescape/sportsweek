@@ -500,23 +500,26 @@ async function uidFor(auth: Auth, email: string, displayName: string): Promise<s
   }
 }
 
-/** Writes the administrator records a purged school starts with, in every environment. */
-async function createAdministrators(db: Firestore, auth: Auth): Promise<void> {
+/**
+ * Leaves an invitation at each administrator's address, for the first sign-in to claim (US-2).
+ *
+ * Not a `users` record, and deliberately not an Auth account either: their accounts are the
+ * directory's to create, and one made here would hold the address under a credential Entra did
+ * not issue — which is what a real sign-in then collides with. There is therefore no uid to key
+ * a record by until somebody actually arrives.
+ */
+async function inviteAdministrators(db: Firestore): Promise<void> {
   await Promise.all(
-    ADMINISTRATORS.map(async (person) => {
-      const uid = await uidFor(auth, person.email, `${person.firstName} ${person.lastName}`);
-      const { id, ...fields } = userSchema.parse({
-        id: uid,
-        firstName: person.firstName,
-        lastName: person.lastName,
-        email: person.email,
-        accountType: accountTypeSchema.enum.teacher,
-        permissions: [...FULL_PERMISSIONS],
-        photo: null,
-      });
-
-      return db.collection(COLLECTIONS.users).doc(id).set(fields);
-    }),
+    ADMINISTRATORS.map((person) =>
+      db
+        .collection(COLLECTIONS.invitedTeachers)
+        .doc(person.email)
+        .set({
+          firstName: person.firstName,
+          lastName: person.lastName,
+          permissions: [...FULL_PERMISSIONS],
+        }),
+    ),
   );
 }
 
@@ -562,8 +565,8 @@ async function main(): Promise<void> {
   );
   console.log(`Created the event series "${eventSeries.name}".`);
 
-  await createAdministrators(db, auth);
-  console.log(`Granted every permission to ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
+  await inviteAdministrators(db);
+  console.log(`Invited ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
   if (!seedsStudents) return;

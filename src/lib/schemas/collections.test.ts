@@ -23,6 +23,10 @@ describe("COLLECTIONS", () => {
         "savedReports",
         // Beneath the person who signed in, and closed to every client (US-1).
         "logins",
+        // What a school's starting administrators are, before any of them has ever signed in:
+        // their accounts are the directory's to create, so there is no uid to key a record by
+        // until the first sign-in claims one (US-2, US-31).
+        "invitedTeachers",
       ].sort(),
     );
   });

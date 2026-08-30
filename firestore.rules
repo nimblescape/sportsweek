@@ -197,6 +197,24 @@ service cloud.firestore {
     }
 
     /**
+     * What a school's starting administrators are before any of them has signed in (US-2). Their
+     * accounts belong to the directory, so there is no uid to key a record by until the first
+     * sign-in produces one; the invitation waits at the address and provisionUser claims it.
+     *
+     * Closed to everybody in both directions: it names the permissions somebody is about to
+     * hold, so reading it says who will be able to do what, and writing it would be a way to
+     * grant oneself anything at all.
+     *
+     * The catch-all below would deny this collection anyway, since it lists what may be read.
+     * This says so out loud, so that adding `invitedTeachers` to that list reads as the mistake
+     * it would be rather than as one more name in a list.
+     */
+    match /invitedTeachers/{email} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    /**
      * The event series, and with it every list a teacher maintains — its events among them
      * (US-21). Anyone the school issued an account to may read, because a registration selects
      * from those lists (US-11) and the teacher views subscribe to them live. Not anyone signed

@@ -159,9 +159,18 @@ export async function provisionUser(
     // The photo is written even when there is none, so removing it in Entra removes it here.
     await ref.update({ firstName, lastName, email, photo });
   } else {
-    // Nobody is granted anything by signing in. The administrators a school starts with are
-    // written by the seeding script, so there is no race to be the first through the door.
+    // Nobody is granted anything by signing in — except where the school left an invitation at
+    // this address, which is how a purged school gets its first administrators (US-2). Their
+    // accounts are the directory's to create, so a record cannot be keyed by a uid until now.
+    const invitationRef = adminDb.collection(COLLECTIONS.invitedTeachers).doc(email);
+    const invitation = await invitationRef.get();
+    if (invitation.exists) {
+      const invited = permissionsSchema.safeParse(invitation.data()?.permissions);
+      permissions = invited.success ? invited.data : [];
+    }
     await ref.set({ firstName, lastName, email, accountType, photo, permissions });
+    // Claimed once: a second sign-in finds nothing waiting.
+    if (invitation.exists) await invitationRef.delete();
   }
 
   // Recorded only now, once the sign-in is one: a refusal above returns without writing.
