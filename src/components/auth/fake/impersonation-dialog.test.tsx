@@ -76,25 +76,6 @@ describe("ImpersonationDialog", () => {
     expect(await listed()).toEqual(KNOWN_USERS.map((entry) => entry.email));
   });
 
-  /** Seventy students and a handful of teachers is too long a list to read through. */
-  it("narrows the list to the name that was typed", async () => {
-    const { user } = renderDialog();
-    await listed();
-
-    await user.type(screen.getByLabelText("Suchen"), "zimmer");
-
-    expect(await listed()).toEqual(["zoe.zimmer@student.htldornbirn.at"]);
-  });
-
-  it("searches the address as well as the name", async () => {
-    const { user } = renderDialog();
-    await listed();
-
-    await user.type(screen.getByLabelText("Suchen"), "jane.doe@");
-
-    expect(await listed()).toEqual(["jane.doe@htldornbirn.at"]);
-  });
-
   it("shows only teachers when asked for them", async () => {
     const { user } = renderDialog();
     await listed();
@@ -116,24 +97,14 @@ describe("ImpersonationDialog", () => {
     ]);
   });
 
-  /** The two narrow together, so a name is searched within whichever population is shown. */
-  it("combines the two, searching a name within the population shown", async () => {
-    const { user } = renderDialog();
-    await listed();
-
-    await user.click(screen.getByRole("radio", { name: "Nur Schüler:innen" }));
-    await user.type(screen.getByLabelText("Suchen"), "doe");
-
-    expect(await screen.findByText("Keine Treffer")).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Bestehende Benutzer:innen" })).toBeNull();
-  });
-
   // The dropdown this replaced kept its choice on show. A list has to say so itself, and it
   // answers for a typed name too, since the address is what either one produces.
   it("marks whoever the form now names", async () => {
     const { user } = renderDialog();
+    const jane = await screen.findByRole("button", { name: "jane.doe@htldornbirn.at" });
+    expect(jane).not.toHaveAttribute("aria-current");
 
-    await user.click(await screen.findByRole("button", { name: "jane.doe@htldornbirn.at" }));
+    await user.click(jane);
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "jane.doe@htldornbirn.at" })).toHaveAttribute(
@@ -141,9 +112,42 @@ describe("ImpersonationDialog", () => {
         "true",
       ),
     );
-    expect(
-      screen.getByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" }),
-    ).not.toHaveAttribute("aria-current");
+  });
+
+  /** Seventy students and a handful of teachers is too long a list to read through, and the
+   * name is already being typed — so it is what narrows the list. */
+  it("narrows the list to the first name being typed", async () => {
+    const { user } = renderDialog();
+    await listed();
+
+    await user.type(screen.getByLabelText("Vorname"), "Zo");
+
+    await waitFor(async () =>
+      expect(await listed()).toEqual(["zoe.zimmer@student.htldornbirn.at"]),
+    );
+  });
+
+  it("narrows the list to the surname being typed", async () => {
+    const { user } = renderDialog();
+    await listed();
+
+    await user.type(screen.getByLabelText("Nachname"), "Muster");
+
+    await waitFor(async () =>
+      expect(await listed()).toEqual(["max.mustermann@student.htldornbirn.at"]),
+    );
+  });
+
+  /** The two narrow together, so a name is searched within whichever population is shown. */
+  it("searches the name within the population shown", async () => {
+    const { user } = renderDialog();
+    await listed();
+
+    await user.click(screen.getByRole("radio", { name: "Nur Lehrpersonen" }));
+    await user.type(screen.getByLabelText("Nachname"), "Zimmer");
+
+    expect(await screen.findByText("Keine Treffer")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Bestehende Benutzer:innen" })).toBeNull();
   });
 
   it("fills the form from the picked user", async () => {

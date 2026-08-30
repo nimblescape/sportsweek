@@ -50,14 +50,22 @@ const POPULATIONS = [
 ] as const;
 type Population = (typeof POPULATIONS)[number]["value"];
 
-function matching(users: KnownUser[], population: Population, search: string): KnownUser[] {
-  const needle = search.trim().toLowerCase();
+/**
+ * Who the list offers. The name being typed is the search — it says who is meant, and the
+ * address it produces is what the entries show, so a second box would ask the same question.
+ */
+function matching(
+  users: KnownUser[],
+  filter: { population: Population; firstName: string; lastName: string },
+): KnownUser[] {
+  const first = filter.firstName.trim().toLowerCase();
+  const last = filter.lastName.trim().toLowerCase();
 
   return users.filter(
     (entry) =>
-      (population === "all" || entry.accountType === population) &&
-      (needle === "" ||
-        `${entry.firstName} ${entry.lastName} ${entry.email}`.toLowerCase().includes(needle)),
+      (filter.population === "all" || entry.accountType === filter.population) &&
+      entry.firstName.toLowerCase().startsWith(first) &&
+      entry.lastName.toLowerCase().startsWith(last),
   );
 }
 
@@ -78,10 +86,8 @@ export function ImpersonationDialog({
 }) {
   const [known, setKnown] = React.useState<KnownUser[]>([]);
   const [population, setPopulation] = React.useState<Population>("all");
-  const [search, setSearch] = React.useState("");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const knownId = React.useId();
-  const searchId = React.useId();
   const populationId = React.useId();
   const firstNameId = React.useId();
   const lastNameId = React.useId();
@@ -148,7 +154,11 @@ export function ImpersonationDialog({
   // Whether the name yields a school address is a separate question, and one the dialog answers
   // in words on the press — a control that refuses without saying why explains nothing.
   const named = firstName?.trim() !== "" && lastName?.trim() !== "";
-  const shown = matching(known, population, search);
+  const shown = matching(known, {
+    population,
+    firstName: firstName ?? "",
+    lastName: lastName ?? "",
+  });
 
   function pickKnown(pickedEmail: string) {
     const picked = known.find((entry) => entry.email === pickedEmail);
@@ -190,14 +200,22 @@ export function ImpersonationDialog({
       onClose={onCancel}
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+        {/* The name leads, because it is both what identifies a new person and what searches
+            for an existing one. */}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={searchId}>Suchen</Label>
-          <Input
-            id={searchId}
-            type="text"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
+          <Label htmlFor={firstNameId}>Vorname</Label>
+          <Input id={firstNameId} autoFocus {...register("firstName")} />
+          {errors.firstName ? (
+            <p className="text-destructive text-sm">{errors.firstName.message}</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={lastNameId}>Nachname</Label>
+          <Input id={lastNameId} {...register("lastName")} />
+          {errors.lastName ? (
+            <p className="text-destructive text-sm">{errors.lastName.message}</p>
+          ) : null}
         </div>
 
         <fieldset className="flex flex-col gap-1.5">
@@ -222,7 +240,7 @@ export function ImpersonationDialog({
           <span id={knownId} className="text-sm leading-none font-medium">
             Bestehende Benutzer:innen
           </span>
-          {/* A fixed height, so narrowing the search scrolls this box rather than moving
+          {/* A fixed height, so narrowing the list scrolls this box rather than moving
               everything below it up and down as the reader types. */}
           <div className="border-input h-40 overflow-y-auto rounded-lg border">
             {shown.length === 0 ? (
@@ -246,22 +264,6 @@ export function ImpersonationDialog({
               </ul>
             )}
           </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={firstNameId}>Vorname</Label>
-          <Input id={firstNameId} autoFocus {...register("firstName")} />
-          {errors.firstName ? (
-            <p className="text-destructive text-sm">{errors.firstName.message}</p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={lastNameId}>Nachname</Label>
-          <Input id={lastNameId} {...register("lastName")} />
-          {errors.lastName ? (
-            <p className="text-destructive text-sm">{errors.lastName.message}</p>
-          ) : null}
         </div>
 
         <fieldset className="flex flex-col gap-1.5">
