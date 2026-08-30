@@ -151,6 +151,7 @@ describe("provisionUser", () => {
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
     invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
     fetchEntraName.mockResolvedValue(null);
+    fetchEntraPhoto.mockResolvedValue(null);
   });
 
   /**
@@ -299,7 +300,7 @@ describe("provisionUser", () => {
     );
   });
 
-  it("refreshes the profile fields on a later login", async () => {
+  it("refreshes the profile fields on a later login that can ask Graph", async () => {
     existingRecord({
       firstName: "Old",
       lastName: "Name",
@@ -307,7 +308,7 @@ describe("provisionUser", () => {
       accountType: "teacher",
     });
 
-    await provisionUser(teacherClaims);
+    await provisionUser(teacherClaims, "graph-token");
 
     expect(docUpdate).toHaveBeenCalledWith({
       firstName: "Jane",
@@ -554,6 +555,42 @@ describe("provisionUser — the Entra photo", () => {
 
     expect(fetchEntraPhoto).not.toHaveBeenCalled();
     expect(docSet).toHaveBeenCalledWith(expect.objectContaining({ photo: null }));
+  });
+
+  /**
+   * The token only exists in the redirect result, so every later login — a reload, an hourly
+   * token refresh — arrives without one. Writing null then would wipe the photo minutes after
+   * storing it: an answer Graph never gave is not an answer of "none".
+   */
+  it("keeps the stored photo when there was no token to ask with", async () => {
+    existingRecord({ accountType: "teacher", photo: "data:image/jpeg;base64,OLD" });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(docUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ photo: null }));
+    expect(result).toMatchObject({ ok: true, user: { photo: "data:image/jpeg;base64,OLD" } });
+  });
+
+  /** Same for the name, which Graph is likewise the authority on (US-1). */
+  it("keeps the stored name when there was no token to ask with", async () => {
+    existingRecord({ accountType: "teacher", firstName: "Jane-Marie", lastName: "Doe-Smith" });
+
+    const result = await provisionUser(teacherClaims);
+
+    expect(result).toMatchObject({
+      ok: true,
+      user: { firstName: "Jane-Marie", lastName: "Doe-Smith" },
+    });
+    expect(docUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ firstName: "Jane" }));
+  });
+
+  /** The address is the token's to state, so it is the one field such a login still carries. */
+  it("still follows a directory rename without a token", async () => {
+    existingRecord({ accountType: "teacher", firstName: "Jane", lastName: "Doe" });
+
+    await provisionUser({ ...teacherClaims, email: "jane.roe@htldornbirn.at" });
+
+    expect(docUpdate).toHaveBeenCalledWith({ email: "jane.roe@htldornbirn.at" });
   });
 
   /** Two independent reads of the same profile; one waiting for the other only slows sign-in. */

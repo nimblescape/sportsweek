@@ -134,12 +134,13 @@ export async function provisionUser(
   // Graph is the authoritative source, field by field: its `givenName` is the first name and
   // its `surname` the last one, so neither can be mistaken for the other. Whichever it cannot
   // supply falls back below.
-  const [fromGraph, photo] = graphAccessToken
+  const [fromGraph, fromGraphPhoto] = graphAccessToken
     ? await Promise.all([fetchEntraName(graphAccessToken), fetchEntraPhoto(graphAccessToken)])
     : [null, null];
   const fallback = resolveName(claims, localPart);
-  const firstName = fromGraph?.firstName ?? fallback.firstName;
-  const lastName = fromGraph?.lastName ?? fallback.lastName;
+  let firstName = fromGraph?.firstName ?? fallback.firstName;
+  let lastName = fromGraph?.lastName ?? fallback.lastName;
+  let photo = fromGraphPhoto;
   // Keyed by the uid, which Firebase mints and nothing can move. A directory rename therefore
   // updates this record rather than forking a second one, and no address reaches a document
   // path (US-31).
@@ -156,8 +157,22 @@ export async function provisionUser(
     // they existed reads as holding none.
     const held = permissionsSchema.safeParse(snapshot.data()?.permissions);
     permissions = held.success ? held.data : [];
-    // The photo is written even when there is none, so removing it in Entra removes it here.
-    await ref.update({ firstName, lastName, email, photo });
+
+    if (graphAccessToken) {
+      // The photo is written even when there is none, so removing it in Entra removes it here.
+      await ref.update({ firstName, lastName, email, photo });
+    } else {
+      // Only the login that follows the redirect holds a token; a reload or a token refresh
+      // arrives without one. What Graph was never asked it did not answer "none" to, so the
+      // record keeps what it has and only the address, which the token states, is written.
+      const keptFirstName = userSchema.shape.firstName.safeParse(snapshot.data()?.firstName);
+      const keptLastName = userSchema.shape.lastName.safeParse(snapshot.data()?.lastName);
+      const keptPhoto = userSchema.shape.photo.safeParse(snapshot.data()?.photo);
+      if (keptFirstName.success) firstName = keptFirstName.data;
+      if (keptLastName.success) lastName = keptLastName.data;
+      photo = keptPhoto.success ? (keptPhoto.data ?? null) : null;
+      await ref.update({ email });
+    }
   } else {
     // Nobody is granted anything by signing in — except where the school left an invitation at
     // this address, which is how a purged school gets its first administrators (US-2). Their
