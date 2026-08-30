@@ -112,11 +112,11 @@ export async function GET() {
   }
 }
 
-async function uidFor(upn: string, displayName: string): Promise<string> {
+async function uidFor(email: string, displayName: string): Promise<string> {
   try {
-    return (await adminAuth.getUserByEmail(upn)).uid;
+    return (await adminAuth.getUserByEmail(email)).uid;
   } catch {
-    return (await adminAuth.createUser({ email: upn, displayName, emailVerified: true })).uid;
+    return (await adminAuth.createUser({ email, displayName, emailVerified: true })).uid;
   }
 }
 
@@ -135,10 +135,10 @@ export async function POST(request: Request) {
   }
 
   const { firstName, lastName, accountType } = parsed.data;
-  const upn = buildEmail(firstName, lastName, accountType);
-  // Holds the fake tenant to the shape the real one issues, so a UPN that could never exist
+  const email = buildEmail(firstName, lastName, accountType);
+  // Holds the fake tenant to the shape the real one issues, so an address that could never exist
   // in Entra ID cannot exist here either — and the accountType still follows from the domain (US-3).
-  if (!upn || !isSchoolEmail(upn)) {
+  if (!email || !isSchoolEmail(email)) {
     return NextResponse.json(
       apiError(
         ErrorCode.ValidationError,
@@ -149,7 +149,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const uid = await uidFor(upn, `${firstName} ${lastName}`);
+    const uid = await uidFor(email, `${firstName} ${lastName}`);
     // Carried into the ID token, so provisionUser stores the names as typed instead of
     // re-splitting a display name.
     const customToken = await adminAuth.createCustomToken(uid, {
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
       path: "/",
     });
 
-    return NextResponse.json({ customToken, upn });
+    return NextResponse.json({ customToken, email });
   } catch (err) {
     console.error("Failed to mint a fake-login token:", err);
     return NextResponse.json(

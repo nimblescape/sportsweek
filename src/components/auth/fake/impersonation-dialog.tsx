@@ -19,7 +19,7 @@ import { apiRequest, ApiRequestError } from "@/lib/api/client";
 import { buildEmail, isSchoolEmail } from "@/lib/auth/fake/email-builder";
 import { accountTypeSchema, userSchema, type AccountType } from "@/lib/schemas/user";
 
-const NO_UPN = "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden.";
+const NO_ADDRESS = "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden.";
 const SIGN_IN_FAILED = "Test-Anmeldung fehlgeschlagen.";
 const NOT_ALLOWED = "Dafür ist eine Anmeldung als Lehrperson über Office 365 nötig.";
 
@@ -71,7 +71,7 @@ function matching(
 
 /**
  * Impersonation, reached only after a real Entra ID sign-in (see the route's Entra gate).
- * The name and role compile into the UPN the tenant would issue, the server hands back a
+ * The name and role compile into the address the tenant would issue, the server hands back a
  * custom token, and signing in with it puts the app on the same path as a real login — so
  * the app can be tried as several teachers and students without tenant accounts.
  */
@@ -91,7 +91,7 @@ export function ImpersonationDialog({
   const populationId = React.useId();
   const firstNameId = React.useId();
   const lastNameId = React.useId();
-  const upnId = React.useId();
+  const addressId = React.useId();
 
   const {
     register,
@@ -150,7 +150,7 @@ export function ImpersonationDialog({
   }, [firstName, lastName, role, known, setValue]);
 
   const derived = buildEmail(firstName, lastName, role);
-  const upn = derived && isSchoolEmail(derived) ? derived : null;
+  const address = derived && isSchoolEmail(derived) ? derived : null;
   // Whether the name yields a school address is a separate question, and one the dialog answers
   // in words on the press — a control that refuses without saying why explains nothing.
   const named = firstName?.trim() !== "" && lastName?.trim() !== "";
@@ -171,8 +171,8 @@ export function ImpersonationDialog({
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
-    if (!upn) {
-      setSubmitError(NO_UPN);
+    if (!address) {
+      setSubmitError(NO_ADDRESS);
       return;
     }
 
@@ -253,7 +253,7 @@ export function ImpersonationDialog({
                         matching person in the list just as clicking one does. */}
                     <button
                       type="button"
-                      aria-current={entry.email === upn ? "true" : undefined}
+                      aria-current={entry.email === address ? "true" : undefined}
                       onClick={() => pickKnown(entry.email)}
                       className="hover:bg-muted aria-[current]:bg-muted w-full truncate px-3 py-1.5 text-left text-sm aria-[current]:font-medium"
                     >
@@ -279,14 +279,14 @@ export function ImpersonationDialog({
         </fieldset>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={upnId}>E-Mail / UPN</Label>
+          <Label htmlFor={addressId}>E-Mail</Label>
           {/* An <output>, not a read-only input: the tenant derives this from the name, so
               there should be nowhere to put a caret and nothing to edit it into. */}
           <output
-            id={upnId}
+            id={addressId}
             className="border-input bg-muted text-muted-foreground flex h-9 items-center rounded-lg border px-3 text-sm"
           >
-            {upn ?? ""}
+            {address ?? ""}
           </output>
         </div>
 

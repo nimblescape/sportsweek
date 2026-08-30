@@ -52,7 +52,7 @@ describe("buildEmail", () => {
   });
 });
 
-describe("isSchoolUpn", () => {
+describe("isSchoolEmail", () => {
   it.each([
     ["jane.doe@htldornbirn.at"],
     ["jane.doe@student.htldornbirn.at"],

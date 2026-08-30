@@ -91,7 +91,7 @@ describe("PATCH /api/users", () => {
     const response = await patch({
       uid: TARGET,
       permissions: [],
-      actorUpn: "someone.else@htldornbirn.at",
+      actorUid: "some-other-uid",
     });
 
     expect(response.status).toBe(400);

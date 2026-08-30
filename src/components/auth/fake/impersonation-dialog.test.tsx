@@ -173,9 +173,7 @@ describe("ImpersonationDialog", () => {
     await typeName(user, "Zoe", "Zimmer");
 
     await waitFor(() => expect(screen.getByLabelText("Schüler:in")).toBeChecked());
-    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent(
-      "zoe.zimmer@student.htldornbirn.at",
-    );
+    expect(screen.getByLabelText("E-Mail")).toHaveTextContent("zoe.zimmer@student.htldornbirn.at");
     expect(
       screen.getByRole("button", { name: "zoe.zimmer@student.htldornbirn.at" }),
     ).toHaveAttribute("aria-current", "true");
@@ -203,29 +201,27 @@ describe("ImpersonationDialog", () => {
     expect(screen.getByLabelText("Lehrperson")).toBeChecked();
   });
 
-  it("compiles the UPN from the name and the role while typing", async () => {
+  it("compiles the address from the name and the role while typing", async () => {
     const { user } = renderDialog();
 
     await typeName(user, "Jürgen", "Müller");
-    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent(
-      "juergen.mueller@htldornbirn.at",
-    );
+    expect(screen.getByLabelText("E-Mail")).toHaveTextContent("juergen.mueller@htldornbirn.at");
 
     await user.click(screen.getByLabelText("Schüler:in"));
-    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent(
+    expect(screen.getByLabelText("E-Mail")).toHaveTextContent(
       "juergen.mueller@student.htldornbirn.at",
     );
   });
 
   // It is derived from the two names, so offering somewhere to type would invite editing it
   // into something the tenant would never issue.
-  it("presents the UPN as a result rather than a field", async () => {
+  it("presents the address as a result rather than a field", async () => {
     const { user } = renderDialog();
 
     await typeName(user, "Jane", "Doe");
 
-    expect(screen.getByLabelText("E-Mail / UPN")).toHaveTextContent("jane.doe@htldornbirn.at");
-    expect(screen.queryByRole("textbox", { name: "E-Mail / UPN" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("E-Mail")).toHaveTextContent("jane.doe@htldornbirn.at");
+    expect(screen.queryByRole("textbox", { name: "E-Mail" })).not.toBeInTheDocument();
   });
 
   it("signs in with the token the server minted", async () => {

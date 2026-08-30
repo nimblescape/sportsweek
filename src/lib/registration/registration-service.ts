@@ -154,8 +154,8 @@ export async function saveRegistration(
   return adminDb.runTransaction(async (transaction) => {
     const eventSeries = await requireOpenSeries(transaction, target.eventSeriesId);
 
-    // The series is the path and the UPN is the id, so one registration per student per series
-    // holds by construction rather than by a check (US-26).
+    // The series is the path and the student's uid is the id, so one registration per student
+    // per series holds by construction rather than by a check (US-26).
     const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUid);
     const stored = await transaction.get(reference);
 

@@ -135,7 +135,7 @@ describe("POST /api/session", () => {
     expect(provisionUser).toHaveBeenCalledWith(claims, "graph-token");
   });
 
-  it.each(["unsupported-domain", "missing-upn"])(
+  it.each(["unsupported-domain", "missing-email"])(
     "returns 403 and sets no cookie when provisioning fails with %s",
     async (reason) => {
       verifyIdToken.mockResolvedValue({ uid: "user-1", email: "jane@gmail.com" });

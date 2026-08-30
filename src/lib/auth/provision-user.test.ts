@@ -121,7 +121,7 @@ describe("the deployment's own sign-in policy", () => {
     expect(loginAdd).not.toHaveBeenCalled();
   });
 
-  // The role has been derived by then, so the policy never has to parse a UPN itself.
+  // The role has been derived by then, so the policy never has to parse an address itself.
   it("asks with the derived role and the provider Firebase reported", async () => {
     await provisionUser({ ...studentClaims, ...ENTRA });
 
@@ -229,7 +229,7 @@ describe("provisionUser", () => {
   it("rejects a token without an email claim", async () => {
     const result = await provisionUser({ uid: "firebase-uid-1" });
 
-    expect(result).toEqual({ ok: false, reason: "missing-upn" });
+    expect(result).toEqual({ ok: false, reason: "missing-email" });
     expect(docSet).not.toHaveBeenCalled();
   });
 
@@ -339,9 +339,9 @@ describe("provisionUser", () => {
 
   /**
    * The display name is deliberately ignored: this tenant writes "Mustermann Erika", so
-   * splitting it stored the name the wrong way round. The UPN is `firstname.lastname`.
+   * splitting it stored the name the wrong way round. The address is `firstname.lastname`.
    */
-  it("reads the name from the UPN when given/family names are absent", async () => {
+  it("reads the name from the address when given/family names are absent", async () => {
     const result = await provisionUser({
       uid: "firebase-uid-1",
       email: "jane.doe@htldornbirn.at",
@@ -351,7 +351,7 @@ describe("provisionUser", () => {
     expect(result).toMatchObject({ ok: true, user: { firstName: "Jane", lastName: "Doe" } });
   });
 
-  it("capitalises what the UPN spells in lower case", async () => {
+  it("capitalises what the address spells in lower case", async () => {
     const result = await provisionUser({
       uid: "firebase-uid-1",
       email: "anna.stauss-mueller@htldornbirn.at",
@@ -394,7 +394,7 @@ describe("provisionUser", () => {
     expect(fetchEntraName).toHaveBeenCalledWith("graph-token");
   });
 
-  it("falls back to the UPN when Graph cannot supply a name", async () => {
+  it("falls back to the address when Graph cannot supply a name", async () => {
     fetchEntraName.mockResolvedValue(null);
 
     const result = await provisionUser(

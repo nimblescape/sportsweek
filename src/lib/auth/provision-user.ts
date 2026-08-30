@@ -120,7 +120,7 @@ export async function provisionUser(
   graphAccessToken?: string,
 ): Promise<ProvisionOutcome> {
   const email = claims.email?.trim().toLowerCase();
-  if (!email) return { ok: false, reason: "missing-upn" };
+  if (!email) return { ok: false, reason: "missing-email" };
 
   const derivedAccountType = accountTypeFromEmail(email);
   if (!derivedAccountType) return { ok: false, reason: "unsupported-domain" };

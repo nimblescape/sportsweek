@@ -17,8 +17,8 @@ export const STUDENT_DOMAIN = "student.htldornbirn.at";
  * a different attribute the application never reads. The tenant issues both alike, so the domain
  * says the same thing either way — until the directory itself can be asked (US-32).
  *
- * `isSchoolUpn` in firestore.rules spells both domains out a second time, because a rules file
- * cannot import this one; a domain changed here has to be carried over there by hand.
+ * The domains are named here and in no rule: firestore.rules asks provisioning's answer — the
+ * `accountType` claim or a record — rather than testing an address a second time (US-32).
  */
 export function accountTypeFromEmail(email: string): AccountType | null {
   const parts = email.trim().toLowerCase().split("@");

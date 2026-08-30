@@ -120,8 +120,8 @@ describe("useRegistration", () => {
 
   /**
    * Both halves of "which one is mine?" are known before the read: the series is the path and
-   * the UPN is the document's own name (US-26), which is also what the rule owns it by — so a
-   * student may read one that does not exist yet.
+   * the student's uid is the document's own name (US-26), which is also what the rule owns it
+   * by — so a student may read one that does not exist yet.
    */
   it("reads its own document beneath the event series the path names", () => {
     renderHook(() => useRegistration("s1", STUDENT));
