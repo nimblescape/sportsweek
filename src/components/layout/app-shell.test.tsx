@@ -97,10 +97,11 @@ describe("AppShell", () => {
   });
 
   /**
-   * The header does not scroll, so what it says is in a screenshot of the window however far
-   * down the page the person taking it had got.
+   * The header is one row, and on a phone it could not carry the build line as well: at 375px
+   * it pushed the sign-out button off the right of the screen. The foot of the window is out of
+   * the way of every control and still never scrolls, which was the point of the header.
    */
-  it("says which build it is after the brand, for a student who has no bar", () => {
+  it("says which build it is along the foot, for a student who has no bar", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_VERSION", "1.2.3");
     vi.stubEnv("NEXT_PUBLIC_COMMIT_HASH", "a1b2c3d");
 
@@ -110,13 +111,11 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    const header = screen.getByRole("banner");
     const stamp = screen.getByText("v1.2.3 · a1b2c3d");
 
-    expect(header).toContainElement(stamp);
+    expect(screen.getByRole("banner")).not.toContainElement(stamp);
     expect(
-      screen.getByText("Sportsweek").compareDocumentPosition(stamp) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      screen.getByText("Inhalt").compareDocumentPosition(stamp) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 

@@ -21,7 +21,7 @@ import { BusyBar } from "@/components/layout/busy-bar";
  *
  * A grid track is also a definite height, which is what lets the bar reach the foot of the
  * window — Safari will not resolve that from flex-grow. The header track sizes to its content,
- * so it grows when the tags wrap.
+ * so it grows when the tags wrap, and the foot sizes to nothing where it holds nothing.
  */
 export function AppShell({
   children,
@@ -36,21 +36,17 @@ export function AppShell({
 }) {
   return (
     <BusyProvider>
-      <div className="grid h-dvh grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)]">
+      <div className="grid h-dvh grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]">
         {nav ? (
-          <div className="border-border bg-sidebar col-start-1 row-span-2 row-start-1 hidden shrink-0 border-r md:block">
+          <div className="border-border bg-sidebar col-start-1 row-span-3 row-start-1 hidden shrink-0 border-r md:block">
             {nav}
           </div>
         ) : null}
 
-        <header className="border-border bg-background col-start-2 row-start-1 flex items-center gap-4 border-b px-4 py-2 md:px-6">
-          {/* The build line travels with the brand, so it is here for exactly the person whose
-              bar is not carrying it — and the header does not scroll, which is the point. */}
-          {nav ? null : (
-            <Brand>
-              <BuildInfo />
-            </Brand>
-          )}
+        {/* Tighter on a phone, where this one row carries the brand, the scope and signing out:
+            at 375px the gaps alone were the difference between fitting and scrolling sideways. */}
+        <header className="border-border bg-background col-start-2 row-start-1 flex items-center gap-2 border-b px-4 py-2 sm:gap-4 md:px-6">
+          {nav ? null : <Brand />}
           {/* The scope leads the header, because it says what every page below it is about. Its
               slot grows whether or not it has anything in it: a school with no event series yet
               would otherwise leave the row empty, and the indicator would report from the near
@@ -71,6 +67,14 @@ export function AppShell({
           {nav ? <div className="border-border bg-sidebar border-b md:hidden">{nav}</div> : null}
           {children}
         </main>
+
+        {/* Only for the person whose bar is not carrying it. A strip of its own rather than a
+            place in the header: the header is one row, and on a phone the build line was what
+            pushed signing out off the right of the screen. It is a grid track, so it stays put
+            while the form above it scrolls — which is what the header was chosen for. */}
+        {nav ? null : (
+          <BuildInfo className="border-border bg-background col-start-2 row-start-3 border-t px-4 py-2 text-center" />
+        )}
       </div>
     </BusyProvider>
   );
