@@ -12,7 +12,7 @@ import { ROUTES, eventSeriesRoutes } from "@/lib/routes";
 /**
  * The invitation link (US-23). It selects an event series and does nothing else: it signs nobody
  * in and grants no identity, so a student following it still signs in through Entra ID and still
- * has the role their UPN domain gives them (US-1, US-3).
+ * has the role their address's domain gives them (US-1, US-3).
  *
  * Following it is what joins a student, so this writes the registration rather than noting the
  * token down to be redeemed later. That needs to know who is joining, and a signed-out visitor

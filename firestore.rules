@@ -26,7 +26,7 @@ service cloud.firestore {
 
     /**
      * The two domains the school issues UPNs from, which is what tells a member of it from a
-     * guest of the directory. A copy of TEACHER_DOMAIN and STUDENT_DOMAIN in src/lib/auth/upn.ts,
+     * guest of the directory. A copy of TEACHER_DOMAIN and STUDENT_DOMAIN in src/lib/auth/school-email.ts,
      * which this language cannot import, and the same rule provisioning applies (US-3).
      */
     function isSchoolUpn(email) {

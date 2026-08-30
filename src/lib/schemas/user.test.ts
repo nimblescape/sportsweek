@@ -30,7 +30,7 @@ describe("userSchema", () => {
     expect(userSchema.parse(validUser)).toEqual(validUser);
   });
 
-  it("uses the UPN as the document id", () => {
+  it("uses the address as the document id", () => {
     expect(userSchema.parse(validUser).id).toBe("jane.doe@htldornbirn.at");
   });
 

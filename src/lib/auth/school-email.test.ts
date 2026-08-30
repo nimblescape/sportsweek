@@ -4,26 +4,26 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { accountTypeFromUpn } from "@/lib/auth/upn";
+import { accountTypeFromEmail } from "@/lib/auth/school-email";
 
-describe("accountTypeFromUpn", () => {
+describe("accountTypeFromEmail", () => {
   it("assigns the teacher role to the staff domain", () => {
-    expect(accountTypeFromUpn("jane.doe@htldornbirn.at")).toBe("teacher");
+    expect(accountTypeFromEmail("jane.doe@htldornbirn.at")).toBe("teacher");
   });
 
   it("assigns the student role to the student domain", () => {
-    expect(accountTypeFromUpn("jane.doe@student.htldornbirn.at")).toBe("student");
+    expect(accountTypeFromEmail("jane.doe@student.htldornbirn.at")).toBe("student");
   });
 
   it.each([
     ["Jane.Doe@HTLDornbirn.at", "teacher"],
     ["Jane.Doe@Student.HTLDornbirn.AT", "student"],
   ])("matches %s case-insensitively", (upn, expected) => {
-    expect(accountTypeFromUpn(upn)).toBe(expected);
+    expect(accountTypeFromEmail(upn)).toBe(expected);
   });
 
   it("trims surrounding whitespace", () => {
-    expect(accountTypeFromUpn("  jane.doe@htldornbirn.at  ")).toBe("teacher");
+    expect(accountTypeFromEmail("  jane.doe@htldornbirn.at  ")).toBe("teacher");
   });
 
   it.each([
@@ -39,6 +39,6 @@ describe("accountTypeFromUpn", () => {
     ["a missing domain", "jane@"],
     ["two at signs", "jane@evil.com@htldornbirn.at"],
   ])("rejects %s", (_case, upn) => {
-    expect(accountTypeFromUpn(upn)).toBeNull();
+    expect(accountTypeFromEmail(upn)).toBeNull();
   });
 });

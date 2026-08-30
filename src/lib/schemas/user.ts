@@ -11,7 +11,7 @@ export const accountTypeSchema = z.enum(["teacher", "student"]);
 export type AccountType = z.infer<typeof accountTypeSchema>;
 
 export const userSchema = z.object({
-  // The Entra ID UPN doubles as the document id, giving a 1:1 relationship (US-1).
+  // The address the school issued doubles as the document id, giving a 1:1 relationship (US-1).
   id: documentIdSchema,
   firstName: requiredText(100),
   lastName: requiredText(100),

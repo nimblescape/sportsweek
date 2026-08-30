@@ -17,7 +17,7 @@ export type SignInAttempt = {
 /**
  * Whether a provisioning attempt is refused for reasons particular to this environment.
  *
- * Production admits everyone the UPN domain already allows, so this always returns null.
+ * Production admits everyone the address's domain already allows, so this always returns null.
  * `next.config.ts` swaps the module for the test-environment rules where they apply — which
  * keeps `provisionUser` free of conditions that can only ever be false in production.
  */

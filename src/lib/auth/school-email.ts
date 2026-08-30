@@ -9,15 +9,19 @@ export const TEACHER_DOMAIN = "htldornbirn.at";
 export const STUDENT_DOMAIN = "student.htldornbirn.at";
 
 /**
- * Derives the role from an Entra ID UPN (US-3).
+ * Derives the account type from the address the school issued (US-3).
  * The domain must match exactly, so lookalikes such as `evil-htldornbirn.at`,
  * `mail.htldornbirn.at` or `htldornbirn.at.evil.com` are rejected.
+ *
+ * The address is the ID token's `email` claim rather than Entra's `userPrincipalName`, which is
+ * a different attribute the application never reads. The tenant issues both alike, so the domain
+ * says the same thing either way — until the directory itself can be asked (US-32).
  *
  * `isSchoolUpn` in firestore.rules spells both domains out a second time, because a rules file
  * cannot import this one; a domain changed here has to be carried over there by hand.
  */
-export function accountTypeFromUpn(upn: string): AccountType | null {
-  const parts = upn.trim().toLowerCase().split("@");
+export function accountTypeFromEmail(email: string): AccountType | null {
+  const parts = email.trim().toLowerCase().split("@");
   if (parts.length !== 2) return null;
 
   const [localPart, domain] = parts;

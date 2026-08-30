@@ -10,7 +10,7 @@ import { ErrorCode, apiError } from "@/lib/errors";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { currentAuthMode } from "@/lib/auth/auth-mode";
 import { resolveAccountType } from "@/lib/auth/guards";
-import { buildUpn, isSchoolUpn } from "@/lib/auth/fake/upn-builder";
+import { buildEmail, isSchoolEmail } from "@/lib/auth/fake/email-builder";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
@@ -135,10 +135,10 @@ export async function POST(request: Request) {
   }
 
   const { firstName, lastName, accountType } = parsed.data;
-  const upn = buildUpn(firstName, lastName, accountType);
+  const upn = buildEmail(firstName, lastName, accountType);
   // Holds the fake tenant to the shape the real one issues, so a UPN that could never exist
   // in Entra ID cannot exist here either — and the accountType still follows from the domain (US-3).
-  if (!upn || !isSchoolUpn(upn)) {
+  if (!upn || !isSchoolEmail(upn)) {
     return NextResponse.json(
       apiError(
         ErrorCode.ValidationError,

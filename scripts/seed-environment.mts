@@ -26,7 +26,7 @@ import { createInterface } from "node:readline/promises";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore, type WriteBatch } from "firebase-admin/firestore";
-import { buildUpn } from "@/lib/auth/fake/upn-builder";
+import { buildEmail } from "@/lib/auth/fake/email-builder";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import type { Gender } from "@/lib/schemas/common";
 import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
@@ -300,7 +300,7 @@ function createPerson(gender: Gender, taken: Set<string>): Person {
   for (let attempt = 0; ; attempt += 1) {
     const firstName = pick(firstNames);
     const lastName = attempt < 20 ? pick(LAST_NAMES) : `${pick(LAST_NAMES)}-${pick(LAST_NAMES)}`;
-    const upn = buildUpn(firstName, lastName, accountTypeSchema.enum.student);
+    const upn = buildEmail(firstName, lastName, accountTypeSchema.enum.student);
 
     if (upn && !taken.has(upn)) {
       taken.add(upn);

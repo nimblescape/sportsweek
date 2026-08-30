@@ -73,7 +73,7 @@ describe("may", () => {
   });
 
   /**
-   * An account type is which population somebody belongs to, derived once from the UPN domain
+   * An account type is which population somebody belongs to, derived once from the address's domain
    * and granted by nobody (US-3). A student is refused ahead of anything their record lists.
    */
   it("refuses a student everything, even what their record lists", () => {

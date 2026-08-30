@@ -53,7 +53,7 @@ type IdentifiedOutcome = { ok: true; userId: string } | { ok: false; response: N
 
 /**
  * The same check as above, plus who the caller is — for a write that records its author rather
- * than merely permitting it (US-13). Records are keyed by the UPN, so a session without an
+ * than merely permitting it (US-13). Records are keyed by the address, so a session without an
  * address cannot be attributed and is not served.
  */
 export async function requirePermissionIdentityOrResponse(

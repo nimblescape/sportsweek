@@ -14,7 +14,7 @@ import { permissionsSchema, type Permission } from "./permissions";
 import { fetchEntraName, fetchEntraPhoto } from "./graph";
 import { localTimestamp, LOGIN_TIME_FIELD } from "./login-time";
 import { refuseSignIn } from "./sign-in-policy";
-import { accountTypeFromUpn } from "./upn";
+import { accountTypeFromEmail } from "./school-email";
 
 export type EntraClaims = {
   uid: string;
@@ -29,7 +29,7 @@ export type EntraClaims = {
 export type ProvisionOutcome =
   { ok: true; user: User } | { ok: false; reason: string; message?: string };
 
-/** Capitalises a UPN segment: "stauss-mueller" becomes "Stauss-Mueller". */
+/** Capitalises a local-part segment: "stauss-mueller" becomes "Stauss-Mueller". */
 function titleCase(segment: string): string {
   return segment.replace(/(^|[-'])(\p{Ll})/gu, (_, lead: string, letter: string) =>
     lead.concat(letter.toLocaleUpperCase("de-AT")),
@@ -42,22 +42,22 @@ function titleCase(segment: string): string {
  * `given_name` and `family_name` are used when Entra sends them, each for what it says it is.
  * The display name is not used at all: its word order is the tenant's choice — this school
  * writes "Stauss Hannes" — so splitting it is a coin toss, and it landed the wrong way up. The
- * UPN's local part is `firstname.lastname` by the tenant's own convention (US-3, US-16), which
- * makes it the better guess, umlauts spelled out and all.
+ * address's local part is `firstname.lastname` by the tenant's own convention (US-3, US-16),
+ * which makes it the better guess, umlauts spelled out and all.
  */
 function resolveName(claims: EntraClaims, localPart: string) {
   const given = claims.given_name?.trim();
   const family = claims.family_name?.trim();
 
   const [first, ...rest] = localPart.split(".").filter(Boolean);
-  const fromUpn =
+  const fromAddress =
     first && rest.length > 0
       ? { firstName: titleCase(first), lastName: rest.map(titleCase).join(" ") }
       : { firstName: localPart, lastName: localPart };
 
   return {
-    firstName: given || fromUpn.firstName,
-    lastName: family || fromUpn.lastName,
+    firstName: given || fromAddress.firstName,
+    lastName: family || fromAddress.lastName,
   };
 }
 
@@ -120,7 +120,7 @@ export async function provisionUser(
   const upn = claims.email?.trim().toLowerCase();
   if (!upn) return { ok: false, reason: "missing-upn" };
 
-  const derivedAccountType = accountTypeFromUpn(upn);
+  const derivedAccountType = accountTypeFromEmail(upn);
   if (!derivedAccountType) return { ok: false, reason: "unsupported-domain" };
 
   // Whatever else this deployment refuses. Production refuses nothing here.

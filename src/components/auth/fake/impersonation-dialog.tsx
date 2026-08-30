@@ -16,7 +16,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiRequestError } from "@/lib/api/client";
-import { buildUpn, isSchoolUpn } from "@/lib/auth/fake/upn-builder";
+import { buildEmail, isSchoolEmail } from "@/lib/auth/fake/email-builder";
 import { accountTypeSchema, userSchema, type AccountType } from "@/lib/schemas/user";
 
 const NO_UPN = "Aus diesem Namen lässt sich keine gültige Schul-Adresse bilden.";
@@ -107,8 +107,8 @@ export function ImpersonationDialog({
     control,
     name: ["firstName", "lastName", "accountType"],
   });
-  const derived = buildUpn(firstName, lastName, role);
-  const upn = derived && isSchoolUpn(derived) ? derived : null;
+  const derived = buildEmail(firstName, lastName, role);
+  const upn = derived && isSchoolEmail(derived) ? derived : null;
   // Whether the name yields a school address is a separate question, and one the dialog answers
   // in words on the press — a control that refuses without saying why explains nothing.
   const named = firstName?.trim() !== "" && lastName?.trim() !== "";

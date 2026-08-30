@@ -75,7 +75,7 @@ describe("requirePermissionOrResponse", () => {
 });
 
 describe("requirePermissionIdentityOrResponse", () => {
-  it("returns the caller's UPN, lowercased to match the record id", async () => {
+  it("returns the caller's address, lowercased to match the record id", async () => {
     getAuthenticatedUser.mockResolvedValue(teacher("editReports"));
 
     expect(await requirePermissionIdentityOrResponse("editReports")).toEqual({

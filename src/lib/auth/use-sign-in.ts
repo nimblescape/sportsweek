@@ -84,7 +84,7 @@ export function useSignIn() {
           }),
         });
 
-        // The UPN domain isn't eligible (US-3) — leave no half-authenticated client state behind.
+        // The address's domain isn't eligible (US-3) — leave no half-authenticated client state behind.
         if (response.status === 403) {
           const body = await response.json().catch(() => null);
           await signOut(auth);
