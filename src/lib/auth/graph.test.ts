@@ -155,6 +155,19 @@ describe("fetchEntraPhoto", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  /**
+   * Ordinary, but not silent: an account with no photo and a login that never asked leave the
+   * same empty record behind, and only this line tells the two apart.
+   */
+  it("says so when Graph holds no photo, which is not the same as not having asked", async () => {
+    const logged = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    respondWithPhoto(404, "application/json", new Uint8Array());
+
+    await fetchEntraPhoto("token");
+
+    expect(logged).toHaveBeenCalledWith("Microsoft Graph holds no photo for this account");
+  });
+
   it.each([401, 403, 500])("returns null for %d", async (status) => {
     respondWithPhoto(status, "application/json", new Uint8Array());
 

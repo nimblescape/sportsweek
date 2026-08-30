@@ -113,6 +113,9 @@ export async function fetchEntraPhoto(accessToken: string): Promise<string | nul
       if (photo !== null) return photo;
     }
 
+    // Said out loud because the record cannot show it: an account with no photo and a login that
+    // never held a token to ask with both leave the same empty field behind.
+    console.info("Microsoft Graph holds no photo for this account");
     return null;
   } catch (err) {
     console.error("Microsoft Graph /me/photo request failed:", err);
