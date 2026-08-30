@@ -59,7 +59,7 @@ function student(
 ): RosterStudent {
   return rosterStudent({
     id: `record-${lastName}`,
-    studentUpn: `${lastName.toLowerCase()}@student.htldornbirn.at`,
+    studentUid: `${lastName.toLowerCase()}@student.htldornbirn.at`,
     email: `${lastName.toLowerCase()}@student.htldornbirn.at`,
     firstName,
     lastName,

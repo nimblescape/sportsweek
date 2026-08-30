@@ -37,7 +37,7 @@ import {
  * they cannot do is name one they never joined, since a save with no stored class is refused.
  */
 export type RegistrationTarget = {
-  studentUpn: string;
+  studentUid: string;
   eventSeriesId: string;
 };
 
@@ -116,15 +116,15 @@ function assertAnswersAreOffered(
  * user record rather than sent, and that record is corrected from the directory at every login
  * (US-1) — which is what keeps this copy from being a snapshot that drifts.
  */
-async function identityOf(studentUpn: string) {
-  const stored = await adminDb.collection(COLLECTIONS.users).doc(studentUpn).get();
-  const user = userSchema.safeParse({ id: studentUpn, ...stored.data() });
+async function identityOf(studentUid: string) {
+  const stored = await adminDb.collection(COLLECTIONS.users).doc(studentUid).get();
+  const user = userSchema.safeParse({ id: studentUid, ...stored.data() });
 
   if (!user.success) {
     throw new ServiceError(ErrorCode.NotFound, "Dieses Benutzerkonto gibt es nicht.");
   }
   return {
-    studentUpn,
+    studentUid,
     firstName: user.data.firstName,
     lastName: user.data.lastName,
     email: user.data.email,
@@ -149,14 +149,14 @@ export async function saveRegistration(
   input: RegistrationInput,
 ): Promise<Registration> {
   const fields = parseInput(input);
-  const identity = await identityOf(target.studentUpn);
+  const identity = await identityOf(target.studentUid);
 
   return adminDb.runTransaction(async (transaction) => {
     const eventSeries = await requireOpenSeries(transaction, target.eventSeriesId);
 
     // The series is the path and the UPN is the id, so one registration per student per series
     // holds by construction rather than by a check (US-26).
-    const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUpn);
+    const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUid);
     const stored = await transaction.get(reference);
 
     // Nothing already enrolling them: following the link is what joins a student and writes the
@@ -183,7 +183,7 @@ export async function saveRegistration(
       isIncomplete: isRegistrationIncomplete(fields, questionsAsked(eventSeries)),
       ...fields,
     };
-    const record = registrationSchema.parse({ id: identity.studentUpn, ...data });
+    const record = registrationSchema.parse({ id: identity.studentUid, ...data });
 
     transaction.set(reference, data);
     if (!eventSeries.hasRegistrations) {
@@ -209,15 +209,15 @@ export const NO_SUCH_REGISTRATION = "Diese Registrierung gibt es nicht.";
  */
 export async function joinEventSeries(
   eventSeriesId: string,
-  studentUpn: string,
+  studentUid: string,
   className: string,
 ): Promise<void> {
-  const identity = await identityOf(studentUpn);
+  const identity = await identityOf(studentUid);
 
   await adminDb.runTransaction(async (transaction) => {
     const eventSeries = await requireOpenSeries(transaction, eventSeriesId);
 
-    const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUpn);
+    const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUid);
     const stored = await transaction.get(reference);
 
     if (stored.exists) {
@@ -251,7 +251,7 @@ export async function joinEventSeries(
  * that mirror has ever had to go back down (Q5), and it is what US-19's archive and delete
  * controls read.
  */
-export async function deleteRegistration(eventSeriesId: string, studentUpn: string): Promise<void> {
+export async function deleteRegistration(eventSeriesId: string, studentUid: string): Promise<void> {
   const row = adminDb.collection(registrationPath(eventSeriesId));
   const seriesRef = adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId);
 
@@ -262,7 +262,7 @@ export async function deleteRegistration(eventSeriesId: string, studentUpn: stri
       throw new ServiceError(ErrorCode.Conflict, ARCHIVED_IS_READ_ONLY_HINT);
     }
 
-    const reference = row.doc(studentUpn);
+    const reference = row.doc(studentUid);
     const stored = await transaction.get(reference);
     if (!stored.exists) throw new ServiceError(ErrorCode.NotFound, NO_SUCH_REGISTRATION);
 

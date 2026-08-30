@@ -46,7 +46,7 @@ describe("GET /join/[token]", () => {
   it("records the joining, for the class the link names", async () => {
     await follow();
 
-    expect(joinEventSeries).toHaveBeenCalledWith("s1", "s@student.at", "3aWI");
+    expect(joinEventSeries).toHaveBeenCalledWith("s1", "u1", "3aWI");
   });
 
   it("takes the student to the registration the link named", async () => {

@@ -20,7 +20,7 @@ type Context = { params: Promise<{ eventSeriesId: string }> };
  * every request and an address is nobody's to leave there (US-33). Strict, so a body reaching for
  * the series it deletes from fails rather than being quietly dropped: the path decides that.
  */
-const deleteSchema = z.object({ studentUpn: documentIdSchema }).strict();
+const deleteSchema = z.object({ studentUid: documentIdSchema }).strict();
 
 /**
  * Removes one registration (US-28). A teacher's doing and never a student's: a student who is
@@ -39,7 +39,7 @@ export async function POST(request: Request, { params }: Context) {
   const { eventSeriesId } = await params;
 
   try {
-    await deleteRegistration(eventSeriesId, body.data.studentUpn.toLowerCase());
+    await deleteRegistration(eventSeriesId, body.data.studentUid.toLowerCase());
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return handleServiceFailure(error, "Deleting a registration");

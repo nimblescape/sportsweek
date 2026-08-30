@@ -17,7 +17,7 @@ function record(
 
   return studentRecord({
     id: upn,
-    studentUpn: upn,
+    studentUid: upn,
     firstName,
     lastName,
     email: upn,
@@ -33,7 +33,7 @@ describe("toRoster", () => {
 
     expect(student).toMatchObject({
       id: ANNA.id,
-      studentUpn: ANNA.studentUpn,
+      studentUid: ANNA.studentUid,
       firstName: "Anna",
       lastName: "Muster",
       class: "5AHIF",

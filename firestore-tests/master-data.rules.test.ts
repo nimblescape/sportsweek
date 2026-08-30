@@ -27,11 +27,11 @@ afterAll(async () => await testEnv.cleanup());
  * `/users` is keyed by UPN, not by the Firebase uid, so the two are kept distinct here —
  * reusing one value for both would let a broken rule pass in tests and fail in production.
  */
-const TEACHER_UPN = "lehrperson@htldornbirn.at";
-const STUDENT_UPN = "schuelerin@student.htldornbirn.at";
+const TEACHER_UPN = "uid-of-lehrperson";
+const STUDENT_UPN = "uid-of-schuelerin";
 
 const signInAs = (upn: string) =>
-  testEnv.authenticatedContext(`uid-of-${upn}`, { email: upn }).firestore();
+  testEnv.authenticatedContext(upn, { email: `${upn}@htldornbirn.at` }).firestore();
 
 const teacher = () => signInAs(TEACHER_UPN);
 const student = () => signInAs(STUDENT_UPN);
@@ -140,7 +140,7 @@ describe.each([
   ["reservedNames", { scope: "classOptions", name: "5AHIF", ownerId: "c1" }],
   ["seedState", { seededKeys: ["classes|5ahif"] }],
   // A registration lives beneath its event series now (US-26); a top-level one is nothing.
-  ["registrations", { studentUpn: "schuelerin@student.htldornbirn.at" }],
+  ["registrations", { studentUid: "schuelerin@student.htldornbirn.at" }],
 ])("/%s stays invisible to every client", (collection, valid) => {
   it("denies a teacher reading it", async () => {
     await seed(collection, "item1", valid);

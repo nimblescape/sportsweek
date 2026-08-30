@@ -24,7 +24,7 @@ beforeAll(async () => {
 
 afterAll(async () => await testEnv.cleanup());
 
-const TEACHER_UPN = "lehrperson@htldornbirn.at";
+const TEACHER_UPN = "uid-of-lehrperson";
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
@@ -34,7 +34,7 @@ beforeEach(async () => {
 });
 
 const teacherDb = () =>
-  testEnv.authenticatedContext(`uid-of-${TEACHER_UPN}`, { email: TEACHER_UPN }).firestore();
+  testEnv.authenticatedContext(TEACHER_UPN, { email: `${TEACHER_UPN}@htldornbirn.at` }).firestore();
 
 /** Writes the way a Route Handler does — through the Admin SDK, bypassing rules. */
 async function serverWrite(fn: (db: FirebaseFirestore.Firestore) => Promise<unknown>) {

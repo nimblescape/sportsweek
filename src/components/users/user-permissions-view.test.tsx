@@ -25,11 +25,22 @@ const {
   NONE_MATCHING_HINT,
 } = await import("@/components/users/user-permissions-view");
 
-const ADA = { upn: "ada@htldornbirn.at", firstName: "Ada", lastName: "Auer" };
-const BOB = { upn: "bob@htldornbirn.at", firstName: "Bob", lastName: "Berger" };
+const ADA = { uid: "uid-of-ada", email: "ada@htldornbirn.at", firstName: "Ada", lastName: "Auer" };
+const BOB = {
+  uid: "uid-of-bob",
+  email: "bob@htldornbirn.at",
+  firstName: "Bob",
+  lastName: "Berger",
+};
 
 function teachers(
-  ...rows: { upn: string; firstName: string; lastName: string; permissions?: string[] }[]
+  ...rows: {
+    uid: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    permissions?: string[];
+  }[]
 ) {
   useTeachers.mockReturnValue({
     teachers: rows.map((row) => ({ ...row, permissions: row.permissions ?? [] })),
@@ -47,7 +58,7 @@ beforeEach(() => {
   teachers({ ...ADA, permissions: ["editUsers"] }, BOB);
 });
 
-function show(signedInAs = ADA.upn) {
+function show(signedInAs = ADA.uid) {
   return render(<UserPermissionsView signedInAs={signedInAs} />);
 }
 
@@ -99,7 +110,7 @@ describe("UserPermissionsView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { upn: BOB.upn, permissions: ["editAssignments"] },
+        body: { uid: BOB.uid, permissions: ["editAssignments"] },
       }),
     );
   });
@@ -113,7 +124,7 @@ describe("UserPermissionsView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { upn: BOB.upn, permissions: ["viewReports"] },
+        body: { uid: BOB.uid, permissions: ["viewReports"] },
       }),
     );
   });
@@ -128,7 +139,7 @@ describe("UserPermissionsView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { upn: BOB.upn, permissions: ["editReports"] },
+        body: { uid: BOB.uid, permissions: ["editReports"] },
       }),
     );
   });
@@ -142,7 +153,7 @@ describe("UserPermissionsView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { upn: BOB.upn, permissions: ["viewReports"] },
+        body: { uid: BOB.uid, permissions: ["viewReports"] },
       }),
     );
   });
@@ -168,7 +179,7 @@ describe("UserPermissionsView", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/users", {
         method: "PATCH",
-        body: { upn: ADA.upn, permissions: ["editMasterData", "editUsers"] },
+        body: { uid: ADA.uid, permissions: ["editMasterData", "editUsers"] },
       }),
     );
   });
@@ -236,7 +247,7 @@ describe("UserPermissionsView — filtering", () => {
     teachers(
       { ...ADA, permissions: ["editUsers"] },
       { ...BOB, permissions: ["editMasterData"] },
-      { upn: "cla@htldornbirn.at", firstName: "Clara", lastName: "Cerny" },
+      { uid: "uid-of-clara", email: "cla@htldornbirn.at", firstName: "Clara", lastName: "Cerny" },
     );
   });
 

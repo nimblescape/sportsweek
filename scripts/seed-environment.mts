@@ -487,12 +487,26 @@ async function confirmed(projectId: string): Promise<boolean> {
   }
 }
 
+/**
+ * The account behind a seeded record, because a record is keyed by the uid and only Firebase can
+ * mint one (US-31). Purging deletes these along with everything else, so a re-run creates them
+ * again rather than finding them — the lookup is for a re-run over a tree that was not purged.
+ */
+async function uidFor(auth: Auth, email: string, displayName: string): Promise<string> {
+  try {
+    return (await auth.getUserByEmail(email)).uid;
+  } catch {
+    return (await auth.createUser({ email, displayName, emailVerified: true })).uid;
+  }
+}
+
 /** Writes the administrator records a purged school starts with, in every environment. */
-async function createAdministrators(db: Firestore): Promise<void> {
+async function createAdministrators(db: Firestore, auth: Auth): Promise<void> {
   await Promise.all(
-    ADMINISTRATORS.map((person) => {
+    ADMINISTRATORS.map(async (person) => {
+      const uid = await uidFor(auth, person.email, `${person.firstName} ${person.lastName}`);
       const { id, ...fields } = userSchema.parse({
-        id: person.email,
+        id: uid,
         firstName: person.firstName,
         lastName: person.lastName,
         email: person.email,
@@ -529,9 +543,10 @@ async function main(): Promise<void> {
   // ambient environment names, and this must address the one just named and nothing else.
   const app = initializeApp({ projectId });
   const db = getFirestore(app);
+  const auth = getAuth(app);
 
   const collections = await purgeFirestore(db);
-  const accounts = await purgeAuth(getAuth(app));
+  const accounts = await purgeAuth(auth);
 
   console.log(`Purged ${projectId}:`);
   for (const [name, count] of collections) console.log(`  ${name}: ${count} document(s)`);
@@ -547,7 +562,7 @@ async function main(): Promise<void> {
   );
   console.log(`Created the event series "${eventSeries.name}".`);
 
-  await createAdministrators(db);
+  await createAdministrators(db, auth);
   console.log(`Granted every permission to ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
@@ -617,10 +632,11 @@ async function main(): Promise<void> {
       const registration = registrationOf(person, chosen[index], lists, progress[index]);
       if (registration.isAttendingSportsWeek === true) written.attending += 1;
 
-      const user = userSchema.parse({ id: person.upn, ...person, email: person.upn, accountType: "student" }); // prettier-ignore
+      const uid = await uidFor(auth, person.upn, `${person.firstName} ${person.lastName}`);
+      const user = userSchema.parse({ id: uid, ...person, email: person.upn, accountType: "student" }); // prettier-ignore
       const record = registrationSchema.parse({
-        id: person.upn,
-        studentUpn: person.upn,
+        id: uid,
+        studentUid: uid,
         // Copied onto the record, which is what a reader takes the name from (US-26).
         firstName: person.firstName,
         lastName: person.lastName,

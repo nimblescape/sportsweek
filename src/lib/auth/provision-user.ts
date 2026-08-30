@@ -76,10 +76,10 @@ type StoredIdentity = Pick<Registration, "firstName" | "lastName" | "email">;
  * alone, because an archived series is read-only in everything it holds (US-19) — a name in last
  * year's report is a record of what was true then.
  */
-async function refreshRegistrations(upn: string, identity: StoredIdentity): Promise<void> {
+async function refreshRegistrations(uid: string, identity: StoredIdentity): Promise<void> {
   const held = await adminDb
     .collectionGroup(COLLECTIONS.registrations)
-    .where("studentUpn", "==", upn)
+    .where("studentUid", "==", uid)
     .get();
   if (held.empty) return;
 
@@ -117,10 +117,10 @@ export async function provisionUser(
   claims: EntraClaims,
   graphAccessToken?: string,
 ): Promise<ProvisionOutcome> {
-  const upn = claims.email?.trim().toLowerCase();
-  if (!upn) return { ok: false, reason: "missing-upn" };
+  const email = claims.email?.trim().toLowerCase();
+  if (!email) return { ok: false, reason: "missing-upn" };
 
-  const derivedAccountType = accountTypeFromEmail(upn);
+  const derivedAccountType = accountTypeFromEmail(email);
   if (!derivedAccountType) return { ok: false, reason: "unsupported-domain" };
 
   // Whatever else this deployment refuses. Production refuses nothing here.
@@ -130,7 +130,7 @@ export async function provisionUser(
   });
   if (refusal) return { ok: false, ...refusal };
 
-  const localPart = upn.slice(0, upn.indexOf("@"));
+  const localPart = email.slice(0, email.indexOf("@"));
   // Graph is the authoritative source, field by field: its `givenName` is the first name and
   // its `surname` the last one, so neither can be mistaken for the other. Whichever it cannot
   // supply falls back below.
@@ -140,7 +140,10 @@ export async function provisionUser(
   const fallback = resolveName(claims, localPart);
   const firstName = fromGraph?.firstName ?? fallback.firstName;
   const lastName = fromGraph?.lastName ?? fallback.lastName;
-  const ref = adminDb.collection(COLLECTIONS.users).doc(upn);
+  // Keyed by the uid, which Firebase mints and nothing can move. A directory rename therefore
+  // updates this record rather than forking a second one, and no address reaches a document
+  // path (US-31).
+  const ref = adminDb.collection(COLLECTIONS.users).doc(claims.uid);
   const snapshot = await ref.get();
 
   let accountType = derivedAccountType;
@@ -154,21 +157,21 @@ export async function provisionUser(
     const held = permissionsSchema.safeParse(snapshot.data()?.permissions);
     permissions = held.success ? held.data : [];
     // The photo is written even when there is none, so removing it in Entra removes it here.
-    await ref.update({ firstName, lastName, email: upn, photo });
+    await ref.update({ firstName, lastName, email, photo });
   } else {
     // Nobody is granted anything by signing in. The administrators a school starts with are
     // written by the seeding script, so there is no race to be the first through the door.
-    await ref.set({ firstName, lastName, email: upn, accountType, photo, permissions });
+    await ref.set({ firstName, lastName, email, accountType, photo, permissions });
   }
 
   // Recorded only now, once the sign-in is one: a refusal above returns without writing.
   await ref.collection(COLLECTIONS.logins).add({ [LOGIN_TIME_FIELD]: localTimestamp(new Date()) });
 
   const user = userSchema.parse({
-    id: upn,
+    id: claims.uid,
     firstName,
     lastName,
-    email: upn,
+    email,
     accountType,
     permissions,
     photo,
@@ -176,7 +179,7 @@ export async function provisionUser(
 
   // Only a student holds registrations: a teacher keeps none of their own (US-15).
   if (accountType === accountTypeSchema.enum.student) {
-    await refreshRegistrations(upn, { firstName, lastName, email: upn });
+    await refreshRegistrations(claims.uid, { firstName, lastName, email });
   }
 
   if (claims.accountType !== accountType) {

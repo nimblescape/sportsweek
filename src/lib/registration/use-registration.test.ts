@@ -53,7 +53,7 @@ function storedRecord(className: string): Snapshot {
   return {
     id: STUDENT,
     data: () => ({
-      studentUpn: STUDENT,
+      studentUid: STUDENT,
       firstName: "Jane",
       lastName: "Doe",
       email: STUDENT,
@@ -160,7 +160,7 @@ describe("useRegistration", () => {
     const { result } = renderHook(() => useRegistration("s1", STUDENT));
     signIn();
 
-    emit({ id: STUDENT, data: () => ({ studentUpn: STUDENT, class: 42 }) });
+    emit({ id: STUDENT, data: () => ({ studentUid: STUDENT, class: 42 }) });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.record).toBeNull();

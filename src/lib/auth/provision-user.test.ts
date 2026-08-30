@@ -168,13 +168,14 @@ describe("provisionUser", () => {
     expect(docSet).not.toHaveBeenCalled();
   });
 
-  it("creates the record on first login using the UPN as the document id", async () => {
+  /** The uid, not the address: a directory rename then updates this record instead of forking. */
+  it("creates the record on first login using the uid as the document id", async () => {
     const result = await provisionUser(teacherClaims);
 
     expect(result).toEqual({
       ok: true,
       user: {
-        id: "jane.doe@htldornbirn.at",
+        id: "firebase-uid-1",
         firstName: "Jane",
         lastName: "Doe",
         email: "jane.doe@htldornbirn.at",
@@ -184,7 +185,7 @@ describe("provisionUser", () => {
       },
     });
     expect(collection).toHaveBeenCalledWith("users");
-    expect(doc).toHaveBeenCalledWith("jane.doe@htldornbirn.at");
+    expect(doc).toHaveBeenCalledWith("firebase-uid-1");
     expect(docSet).toHaveBeenCalledWith(
       expect.objectContaining({ firstName: "Jane", lastName: "Doe", accountType: "teacher" }),
     );
@@ -515,7 +516,7 @@ describe("provisionUser — the Entra photo", () => {
  * can never be more than one login out of date.
  */
 describe("the login refresh of a student's registrations", () => {
-  const STUDENT = studentClaims.email;
+  const STUDENT = studentClaims.uid;
 
   function seedEventSeries(id: string, isArchived = false) {
     firestore.seed("eventSeries", id, storedEventSeries({ name: `Eventreihe ${id}`, isArchived }));
@@ -523,8 +524,8 @@ describe("the login refresh of a student's registrations", () => {
 
   function seedRegistration(eventSeriesId: string, name: Record<string, unknown>) {
     firestore.seed(registrationPath(eventSeriesId), STUDENT, {
-      studentUpn: STUDENT,
-      email: STUDENT,
+      studentUid: STUDENT,
+      email: studentClaims.email,
       class: "3AHME",
       ...name,
     });
@@ -597,7 +598,7 @@ describe("the login refresh of a student's registrations", () => {
   it("leaves somebody else's registration alone", async () => {
     seedEventSeries("s1");
     firestore.seed(registrationPath("s1"), "other@student.htldornbirn.at", {
-      studentUpn: "other@student.htldornbirn.at",
+      studentUid: "other@student.htldornbirn.at",
       firstName: "Maks",
       lastName: "Mustermann",
       email: "other@student.htldornbirn.at",

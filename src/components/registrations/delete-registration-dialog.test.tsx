@@ -48,7 +48,7 @@ describe("DeleteRegistrationDialog", () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/registrations/delete", {
         method: "POST",
-        body: { studentUpn: student.id },
+        body: { studentUid: student.id },
       }),
     );
     expect(onDeleted).toHaveBeenCalled();

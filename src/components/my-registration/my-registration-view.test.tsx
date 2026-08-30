@@ -64,7 +64,7 @@ function renderView() {
   render(
     <MyRegistrationView
       eventSeriesId="s1"
-      studentUpn="jane@student.htldornbirn.at"
+      studentUid="jane@student.htldornbirn.at"
       studentName="Jane Doe"
     />,
   );

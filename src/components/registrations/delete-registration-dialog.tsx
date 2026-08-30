@@ -49,7 +49,7 @@ export function DeleteRegistrationDialog({
     try {
       await apiRequest(`/api/event-series/${eventSeriesId}/registrations/delete`, {
         method: "POST",
-        body: { studentUpn: student.id },
+        body: { studentUid: student.id },
       });
       onDeleted();
     } catch (caught) {

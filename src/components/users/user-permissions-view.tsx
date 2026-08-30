@@ -66,15 +66,15 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
     const permissions = toggledPermissions(teacher.permissions, permission);
     setFailure(null);
 
-    await run(teacher.upn, async () => {
+    await run(teacher.uid, async () => {
       try {
         await apiRequest("/api/users", {
           method: "PATCH",
-          body: { upn: teacher.upn, permissions },
+          body: { uid: teacher.uid, permissions },
         });
         // The navigation bar comes from a server layout above this page, which does not run
         // again on its own — so what you may reach would go on saying what it said before.
-        if (teacher.upn === signedInAs) router.refresh();
+        if (teacher.uid === signedInAs) router.refresh();
       } catch (thrown) {
         setFailure(thrown instanceof Error ? thrown.message : "Das hat leider nicht geklappt.");
       }
@@ -151,12 +151,12 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
 
       <ul className="flex flex-col gap-3">
         {shown.map((teacher) => (
-          <li key={teacher.upn}>
+          <li key={teacher.uid}>
             <Card size="sm">
               <CardContent className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-baseline gap-x-2">
                   <span className="font-medium">{nameOf(teacher)}</span>
-                  <span className="text-muted-foreground text-sm">{teacher.upn}</span>
+                  <span className="text-muted-foreground text-sm">{teacher.uid}</span>
                   {teacher.permissions.length === 0 ? (
                     <span className="text-muted-foreground text-sm">{NO_PERMISSIONS_LABEL}</span>
                   ) : null}
@@ -174,8 +174,8 @@ export function UserPermissionsView({ signedInAs }: { signedInAs: string }) {
                       permission={permission}
                       // Withdrawing this one from yourself is what would leave nobody able to
                       // grant it, so the tag states it instead of offering the press.
-                      fixed={permission === "editUsers" && teacher.upn === signedInAs}
-                      disabled={busyId === teacher.upn}
+                      fixed={permission === "editUsers" && teacher.uid === signedInAs}
+                      disabled={busyId === teacher.uid}
                       onPress={() => grant(teacher, permission)}
                     />
                   ))}

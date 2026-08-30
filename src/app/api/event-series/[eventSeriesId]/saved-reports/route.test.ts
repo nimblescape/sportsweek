@@ -47,7 +47,7 @@ beforeEach(() => {
     accountType: "teacher",
     permissions: ["editReports"],
   });
-  createSavedReport.mockResolvedValue({ id: "r1", ...input, createdByUserId: TEACHER });
+  createSavedReport.mockResolvedValue({ id: "r1", ...input, createdByUserId: "u1" });
   reorderSavedReports.mockResolvedValue(undefined);
 });
 
@@ -57,7 +57,7 @@ describe("POST /api/event-series/[eventSeriesId]/saved-reports", () => {
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({
-      report: { id: "r1", ...input, createdByUserId: TEACHER },
+      report: { id: "r1", ...input, createdByUserId: "u1" },
     });
   });
 
@@ -68,10 +68,10 @@ describe("POST /api/event-series/[eventSeriesId]/saved-reports", () => {
   });
 
   /** A report filters on one series' lists, so which series is the path rather than a field. */
-  it("saves it into the series the address names, and takes the author from the session", async () => {
+  it("saves it into the series the path names, and takes the author from the session", async () => {
     await POST(postRequest(input), context);
 
-    expect(createSavedReport).toHaveBeenCalledWith(SERIES, input, TEACHER);
+    expect(createSavedReport).toHaveBeenCalledWith(SERIES, input, "u1");
   });
 
   it("rejects a student with 403, since the report is a teacher's (US-13)", async () => {
@@ -124,7 +124,7 @@ describe("POST /api/event-series/[eventSeriesId]/saved-reports", () => {
 
     await POST(postRequest({ ...input, filter: { ...selection, tags } }), context);
 
-    expect(createSavedReport).toHaveBeenCalledWith(SERIES, input, TEACHER);
+    expect(createSavedReport).toHaveBeenCalledWith(SERIES, input, "u1");
   });
 });
 

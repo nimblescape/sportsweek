@@ -23,14 +23,14 @@ beforeAll(async () => {
 
 afterAll(async () => await testEnv.cleanup());
 
-const TEACHER_UPN = "lehrperson@htldornbirn.at";
-const STUDENT_UPN = "schuelerin@student.htldornbirn.at";
-const OTHER_STUDENT_UPN = "schueler@student.htldornbirn.at";
+const TEACHER_UPN = "uid-of-lehrperson";
+const STUDENT_UPN = "uid-of-schuelerin";
+const OTHER_STUDENT_UPN = "uid-of-schueler";
 /** Signed in, but has not registered yet — which is where every student starts. */
-const NEWCOMER_UPN = "neu@student.htldornbirn.at";
+const NEWCOMER_UPN = "uid-of-neu";
 
 const signInAs = (upn: string) =>
-  testEnv.authenticatedContext(`uid-of-${upn}`, { email: upn }).firestore();
+  testEnv.authenticatedContext(upn, { email: `${upn}@htldornbirn.at` }).firestore();
 
 const teacher = () => signInAs(TEACHER_UPN);
 const student = () => signInAs(STUDENT_UPN);
@@ -66,7 +66,7 @@ beforeEach(async () => {
   });
 
   await seed(REGISTRATIONS, STUDENT_UPN, {
-    studentUpn: STUDENT_UPN,
+    studentUid: STUDENT_UPN,
     firstName: "Erika",
     lastName: "Musterfrau",
     email: STUDENT_UPN,
@@ -76,7 +76,7 @@ beforeEach(async () => {
     rentedEquipment: ["Helm"],
   });
   await seed(REGISTRATIONS, OTHER_STUDENT_UPN, {
-    studentUpn: OTHER_STUDENT_UPN,
+    studentUid: OTHER_STUDENT_UPN,
     firstName: "Max",
     lastName: "Mustermann",
     email: OTHER_STUDENT_UPN,
@@ -176,7 +176,7 @@ describe("/eventSeries/{id}/registrations", () => {
       student()
         .collection(OTHER_SERIES)
         .doc(STUDENT_UPN)
-        .set({ studentUpn: STUDENT_UPN, isAttendingSportsWeek: true }),
+        .set({ studentUid: STUDENT_UPN, isAttendingSportsWeek: true }),
     );
   });
 

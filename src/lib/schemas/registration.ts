@@ -62,7 +62,7 @@ const registrationFields = z.object({
    * nobody (US-26). It is also the document's own id, so a student's registration in a series is
    * reached without a query.
    */
-  studentUpn: documentIdSchema,
+  studentUid: documentIdSchema,
   /**
    * Copied from the session on every save and refreshed at every login (US-1, US-26), so a
    * reader needs no join: the report, the board, the overview and both exports read the name
@@ -128,7 +128,7 @@ export type Registration = z.infer<typeof registrationSchema>;
 
 /** Set by the server on every save, so a student naming one of them is refused outright. */
 const SERVER_OWNED = {
-  studentUpn: true,
+  studentUid: true,
   firstName: true,
   lastName: true,
   email: true,

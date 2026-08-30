@@ -55,9 +55,9 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
   if (invitation === null) return to(ROUTES.myRegistration);
 
   try {
-    // Lower-cased because a UPN is the registration's id, and the directory does not agree with
-    // itself about case; every other read of it is lower-cased for the same reason.
-    await joinEventSeries(invitation.eventSeriesId, (user.email ?? "").toLowerCase(), invitation.class); // prettier-ignore
+    // The uid is the registration's id, so following the link enrols the account that followed
+    // it rather than whatever address its token happens to carry (US-31).
+    await joinEventSeries(invitation.eventSeriesId, user.uid, invitation.class);
   } catch {
     return to(ROUTES.myRegistration);
   }

@@ -25,7 +25,7 @@ const SERIES = "s1";
 beforeEach(() => firestore.reset());
 
 function seedRegistration(id: string, eventSeriesId: string, answers: Record<string, unknown>) {
-  firestore.seed(registrationPath(eventSeriesId), id, { studentUpn: id, ...answers });
+  firestore.seed(registrationPath(eventSeriesId), id, { studentUid: id, ...answers });
 }
 
 /**

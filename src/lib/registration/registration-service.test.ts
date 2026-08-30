@@ -25,9 +25,9 @@ const STUDENT = "jane.doe@student.htldornbirn.at";
 const REGISTRATIONS = registrationPath("s1");
 
 /** Where the save is aimed — the one thing the body cannot say. */
-function target(overrides: { studentUpn?: string; eventSeriesId?: string } = {}) {
+function target(overrides: { studentUid?: string; eventSeriesId?: string } = {}) {
   return {
-    studentUpn: STUDENT,
+    studentUid: STUDENT,
     eventSeriesId: "s1",
     ...overrides,
   };
@@ -47,7 +47,7 @@ const unanswered = () => firestore.get(REGISTRATIONS, STUDENT)?.isAttendingSport
 /** What following the invitation link leaves behind, which is what a save then amends. */
 function seedJoined(className = "3AHME", eventSeriesId = "s1") {
   firestore.seed(registrationPath(eventSeriesId), STUDENT, {
-    studentUpn: STUDENT,
+    studentUid: STUDENT,
     class: className,
   });
 }
@@ -122,7 +122,7 @@ describe("saveRegistration", () => {
     await saveRegistration(target(), attending);
 
     expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({
-      studentUpn: STUDENT,
+      studentUid: STUDENT,
       class: "3AHME",
       program: "Ski",
     });
@@ -146,7 +146,7 @@ describe("saveRegistration", () => {
     seedEventSeries("s1");
 
     await expect(
-      saveRegistration(target({ studentUpn: "ghost@student.htldornbirn.at" }), attending),
+      saveRegistration(target({ studentUid: "ghost@student.htldornbirn.at" }), attending),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(unanswered()).toBe(true);
   });
@@ -156,7 +156,7 @@ describe("saveRegistration", () => {
 
     const record = await saveRegistration(target(), attending);
 
-    expect(record).toMatchObject({ id: STUDENT, studentUpn: STUDENT });
+    expect(record).toMatchObject({ id: STUDENT, studentUid: STUDENT });
   });
 
   /** Which series a registration is in is where it is stored, not a field it carries (US-26). */
@@ -185,12 +185,12 @@ describe("saveRegistration", () => {
     seedEventSeries("s1");
     seedStudent("john@student.htldornbirn.at", { firstName: "John", lastName: "Doe" });
     firestore.seed(REGISTRATIONS, "john@student.htldornbirn.at", {
-      studentUpn: "john@student.htldornbirn.at",
+      studentUid: "john@student.htldornbirn.at",
       class: "3AHME",
     });
 
     await saveRegistration(target(), attending);
-    await saveRegistration(target({ studentUpn: "john@student.htldornbirn.at" }), attending);
+    await saveRegistration(target({ studentUid: "john@student.htldornbirn.at" }), attending);
 
     expect(firestore.count(REGISTRATIONS)).toBe(2);
   });
@@ -372,7 +372,7 @@ describe("saveRegistration", () => {
     seedEventSeries("s1");
     const smuggled = {
       ...attending,
-      studentUpn: "someone.else@htldornbirn.at",
+      studentUid: "someone.else@htldornbirn.at",
       firstName: "Someone",
     };
 
@@ -592,7 +592,7 @@ describe("joinEventSeries", () => {
     await joinEventSeries("s1", STUDENT, "3AHME");
 
     expect(firestore.get(registrationPath("s1"), STUDENT)).toMatchObject({
-      studentUpn: STUDENT,
+      studentUid: STUDENT,
       firstName: "Jane",
       lastName: "Doe",
       class: "3AHME",

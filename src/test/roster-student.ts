@@ -14,7 +14,7 @@ import type { RosterStudent } from "@/lib/students/roster";
 export function studentRecord(overrides: Partial<Registration> = {}): Registration {
   return {
     id: "anna@student.htldornbirn.at",
-    studentUpn: "anna@student.htldornbirn.at",
+    studentUid: "anna@student.htldornbirn.at",
     firstName: "Anna",
     lastName: "Muster",
     email: "anna@student.htldornbirn.at",
@@ -59,7 +59,7 @@ export function rosterStudent(
 ): RosterStudent {
   const row = {
     id: "anna@student.htldornbirn.at",
-    studentUpn: "anna@student.htldornbirn.at",
+    studentUid: "anna@student.htldornbirn.at",
     email: "anna@student.htldornbirn.at",
     firstName: "Anna",
     lastName: "Muster",
@@ -83,7 +83,7 @@ export function rosterStudent(
     ...row,
     record: studentRecord({
       id: row.id,
-      studentUpn: row.studentUpn,
+      studentUid: row.studentUid,
       firstName: row.firstName,
       lastName: row.lastName,
       email: row.email,

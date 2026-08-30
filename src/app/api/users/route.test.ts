@@ -19,8 +19,8 @@ vi.mock("@/lib/users/user-service", () => ({
 
 const { PATCH } = await import("@/app/api/users/route");
 
-const ADMIN = "ada@htldornbirn.at";
-const TARGET = "bob@htldornbirn.at";
+const ADMIN = "uid-of-ada";
+const TARGET = "uid-of-Bob";
 
 const patch = (body: unknown) =>
   PATCH(
@@ -34,8 +34,8 @@ const patch = (body: unknown) =>
 beforeEach(() => {
   vi.clearAllMocks();
   getAuthenticatedUser.mockResolvedValue({
-    uid: "u1",
-    email: ADMIN,
+    uid: ADMIN,
+    email: "ada@htldornbirn.at",
     accountType: "teacher",
     permissions: ["editUsers"],
   });
@@ -44,7 +44,7 @@ beforeEach(() => {
 
 describe("PATCH /api/users", () => {
   it("grants the set the admin named", async () => {
-    const response = await patch({ upn: TARGET, permissions: ["viewReports"] });
+    const response = await patch({ uid: TARGET, permissions: ["viewReports"] });
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ permissions: ["viewReports"] });
@@ -56,14 +56,17 @@ describe("PATCH /api/users", () => {
    * the platform keeps of every URL (US-33).
    */
   it("names nobody in the URL", async () => {
-    const response = await patch({ upn: TARGET, permissions: [] });
+    const response = await patch({ uid: TARGET, permissions: [] });
 
     expect(new URL(response.url || "http://localhost/api/users").pathname).toBe("/api/users");
   });
 
-  /** Records are keyed by the lower-cased address, so the stored id is what is looked up. */
-  it("lower-cases the address it was given", async () => {
-    await patch({ upn: "Bob@HTLDornbirn.at", permissions: [] });
+  /**
+   * A uid is case-sensitive, unlike the address it replaced, so it is passed through exactly as
+   * given rather than folded to lower case.
+   */
+  it("passes the uid through unchanged", async () => {
+    await patch({ uid: TARGET, permissions: [] });
 
     expect(grantPermissions).toHaveBeenCalledWith(TARGET, [], ADMIN);
   });
@@ -75,9 +78,9 @@ describe("PATCH /api/users", () => {
     expect(grantPermissions).not.toHaveBeenCalled();
   });
 
-  /** An address is a document id once stored, and a path separator would fork the path. */
-  it("refuses an address that could not be a document id", async () => {
-    const response = await patch({ upn: "a/b@htldornbirn.at", permissions: [] });
+  /** An id is a document id once stored, and a path separator would fork the path. */
+  it("refuses an id that could not be a document id", async () => {
+    const response = await patch({ uid: "a/b", permissions: [] });
 
     expect(response.status).toBe(400);
     expect(grantPermissions).not.toHaveBeenCalled();
@@ -86,7 +89,7 @@ describe("PATCH /api/users", () => {
   /** Who is granting comes from the session, so a body cannot name somebody else as the actor. */
   it("takes the granting person from the session and refuses one named in the body", async () => {
     const response = await patch({
-      upn: TARGET,
+      uid: TARGET,
       permissions: [],
       actorUpn: "someone.else@htldornbirn.at",
     });
@@ -96,14 +99,14 @@ describe("PATCH /api/users", () => {
   });
 
   it("refuses a permission nothing offers", async () => {
-    const response = await patch({ upn: TARGET, permissions: ["superuser"] });
+    const response = await patch({ uid: TARGET, permissions: ["superuser"] });
 
     expect(response.status).toBe(400);
     expect(grantPermissions).not.toHaveBeenCalled();
   });
 
   it("refuses a body with nothing to grant", async () => {
-    const response = await patch({ upn: TARGET });
+    const response = await patch({ uid: TARGET });
 
     expect(response.status).toBe(400);
     expect(grantPermissions).not.toHaveBeenCalled();
@@ -117,7 +120,7 @@ describe("PATCH /api/users", () => {
       permissions: ["editMasterData", "editAssignments", "viewReports"],
     });
 
-    const response = await patch({ upn: TARGET, permissions: ["viewReports"] });
+    const response = await patch({ uid: TARGET, permissions: ["viewReports"] });
 
     expect(response.status).toBe(403);
     expect(grantPermissions).not.toHaveBeenCalled();
@@ -131,21 +134,21 @@ describe("PATCH /api/users", () => {
       permissions: ["editUsers"],
     });
 
-    expect((await patch({ upn: TARGET, permissions: [] })).status).toBe(403);
+    expect((await patch({ uid: TARGET, permissions: [] })).status).toBe(403);
     expect(grantPermissions).not.toHaveBeenCalled();
   });
 
   it("refuses a caller with no session", async () => {
     getAuthenticatedUser.mockResolvedValue(null);
 
-    expect((await patch({ upn: TARGET, permissions: [] })).status).toBe(401);
+    expect((await patch({ uid: TARGET, permissions: [] })).status).toBe(401);
     expect(grantPermissions).not.toHaveBeenCalled();
   });
 
   it("passes a service refusal on in the shared envelope", async () => {
     grantPermissions.mockRejectedValue(new ServiceError(ErrorCode.Conflict, "self"));
 
-    const response = await patch({ upn: TARGET, permissions: [] });
+    const response = await patch({ uid: TARGET, permissions: [] });
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({

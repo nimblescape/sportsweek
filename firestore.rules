@@ -11,28 +11,25 @@ service cloud.firestore {
     }
 
     /**
-     * Which providers may put an e-mail address into a token, given every rule below decides
-     * what a caller reaches by that address alone. Entra ID is the school's own directory. A
-     * custom token is signed with this project's service account, so only this application's
-     * own server can mint one — which is what the fake login of a test environment does.
+     * Which providers may sign somebody in, given the record branch below admits whoever holds
+     * one. Entra ID is the school's own directory. A custom token is signed with this project's
+     * service account, so only this application's own server can mint one — which is what the
+     * fake login of a test environment does.
      *
-     * Anything else a project has switched on, an e-mail sign-up above all, asserts whatever
-     * address it is handed: a stranger who signs up as a teacher would arrive holding that
-     * teacher's reach. `email_verified` cannot stand in for this — Entra leaves it false.
+     * Anything else a project has switched on, an e-mail sign-up above all, would arrive as an
+     * ordinary account; provisioning refuses it, so it holds neither claim nor record.
      */
     function isTrustedProvider() {
       return request.auth.token.firebase.sign_in_provider in ['microsoft.com', 'custom'];
     }
 
     /**
-     * The address the caller's token carries, lower-cased to match the stored id. It says who is
-     * asking, not whether they belong — `isSchoolMember()` answers that. Empty where there is
-     * none, and an empty string cannot name a document, so every use below is guarded.
+     * Who is asking. The Firebase uid, which Firebase mints and nothing can move — not a
+     * directory rename, and not a client changing the address on its own account. It is also
+     * what every record is keyed by (US-31), so no address appears in a document path.
      */
     function callerId() {
-      return isSignedIn() && request.auth.token.email is string
-        ? request.auth.token.email.lower()
-        : '';
+      return isSignedIn() ? request.auth.uid : '';
     }
 
     function callerRecord() {
@@ -145,7 +142,7 @@ service cloud.firestore {
     /**
      * A student's own registration (US-11), stored beneath the event series it belongs to so
      * that which series it is in is its path rather than a field it carries (US-26). Its id is
-     * the student's UPN, so ownership is the document's own name and a read needs no query.
+     * the student's uid, so ownership is the document's own name and a read needs no query.
      * The record carries the emergency contact and the rented equipment in its own fields, so
      * there is no child document whose ownership would have to be worked out separately.
      *
@@ -160,9 +157,9 @@ service cloud.firestore {
      * `hasRegistrations` mirror follows it (US-4). The teacher's assignment goes the same way,
      * through a handler that owns `event`.
      */
-    match /eventSeries/{eventSeriesId}/registrations/{studentUpn} {
+    match /eventSeries/{eventSeriesId}/registrations/{studentUid} {
       allow read: if mayAny(['editRegistrations', 'editAssignments', 'viewReports', 'editReports'])
-        || isSelf(studentUpn);
+        || isSelf(studentUid);
       allow write: if false;
     }
 

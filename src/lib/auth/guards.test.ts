@@ -76,7 +76,7 @@ describe("resolveAccountType", () => {
     docGet.mockResolvedValue({ exists: true, data: () => ({ accountType: "student" }) });
 
     expect(await resolveAccountType({ ...studentSession, accountType: null })).toBe("student");
-    expect(doc).toHaveBeenCalledWith("sam@student.htldornbirn.at");
+    expect(doc).toHaveBeenCalledWith("uid-2");
   });
 
   it("returns null when no record exists", async () => {
@@ -91,8 +91,14 @@ describe("resolveAccountType", () => {
     expect(await resolveAccountType({ ...studentSession, accountType: null })).toBeNull();
   });
 
-  it("returns null when the session carries no email to look up", async () => {
-    expect(await resolveAccountType({ uid: "uid-3", email: null, accountType: null })).toBeNull();
+  /** The record is keyed by the uid, so a session carrying no address still finds it (US-31). */
+  it("still reads the record for a session carrying no address", async () => {
+    docGet.mockResolvedValue({ exists: true, data: () => ({ accountType: "student" }) });
+
+    expect(await resolveAccountType({ uid: "uid-3", email: null, accountType: null })).toBe(
+      "student",
+    );
+    expect(doc).toHaveBeenCalledWith("uid-3");
   });
 });
 
@@ -180,7 +186,7 @@ describe("getAuthenticatedUser", () => {
     });
 
     expect(await getAuthenticatedUser()).toMatchObject({ permissions: ["editMasterData"] });
-    expect(doc).toHaveBeenCalledWith("jane@htldornbirn.at");
+    expect(doc).toHaveBeenCalledWith("uid-1");
   });
 
   it("reads a record written before permissions existed as holding none", async () => {
