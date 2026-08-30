@@ -204,29 +204,30 @@ export function ImpersonationDialog({
           <span id={knownId} className="text-sm leading-none font-medium">
             Bestehende Benutzer:innen
           </span>
-          {shown.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Keine Treffer</p>
-          ) : (
-            <ul
-              aria-labelledby={knownId}
-              className="border-input max-h-40 divide-y overflow-y-auto rounded-lg border"
-            >
-              {shown.map((entry) => (
-                <li key={entry.email}>
-                  {/* Marked from the address the form derives, so typing a name out picks the
-                      matching person in the list just as clicking one does. */}
-                  <button
-                    type="button"
-                    aria-current={entry.email === upn ? "true" : undefined}
-                    onClick={() => pickKnown(entry.email)}
-                    className="hover:bg-muted aria-[current]:bg-muted w-full truncate px-3 py-1.5 text-left text-sm aria-[current]:font-medium"
-                  >
-                    {entry.email}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* A fixed height, so narrowing the search scrolls this box rather than moving
+              everything below it up and down as the reader types. */}
+          <div className="border-input h-40 overflow-y-auto rounded-lg border">
+            {shown.length === 0 ? (
+              <p className="text-muted-foreground px-3 py-1.5 text-sm">Keine Treffer</p>
+            ) : (
+              <ul aria-labelledby={knownId} className="divide-y">
+                {shown.map((entry) => (
+                  <li key={entry.email}>
+                    {/* Marked from the address the form derives, so typing a name out picks the
+                        matching person in the list just as clicking one does. */}
+                    <button
+                      type="button"
+                      aria-current={entry.email === upn ? "true" : undefined}
+                      onClick={() => pickKnown(entry.email)}
+                      className="hover:bg-muted aria-[current]:bg-muted w-full truncate px-3 py-1.5 text-left text-sm aria-[current]:font-medium"
+                    >
+                      {entry.email}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
