@@ -181,7 +181,7 @@ const RANDOM_SEED = 20260826;
  * They are spelling-alphabet words — NATO's, the German-language ones and the French one — and
  * each list holds those that read as that gender. A name is not what makes a student one gender
  * or the other, the field is; the split is only so that a seeded person does not read as a
- * mistake. Umlauts and accents are kept so the UPN transliteration is still exercised.
+ * mistake. Umlauts and accents are kept so the address transliteration is still exercised.
  */
 // prettier-ignore
 const MALE_FIRST_NAMES = [
@@ -288,11 +288,12 @@ function phoneNumber(): string {
   return `+43 ${pick(MOBILE_PREFIXES)} ${digits}`;
 }
 
-type Person = { firstName: string; lastName: string; upn: string; gender: Gender };
+type Person = { firstName: string; lastName: string; email: string; gender: Gender };
 
 /**
- * Two students may not share an address, since the UPN is the user's document id. A second
- * surname is the way out that stays a UPN the tenant could have issued — a digit would not be.
+ * Two students may not share an address: the Auth account is looked up by it, so a repeat would
+ * hand back one uid for both and the second would silently overwrite the first. A second surname
+ * is the way out that stays an address the tenant could have issued — a digit would not be.
  */
 function createPerson(gender: Gender, taken: Set<string>): Person {
   const firstNames = gender === "male" ? MALE_FIRST_NAMES : FEMALE_FIRST_NAMES;
@@ -300,11 +301,11 @@ function createPerson(gender: Gender, taken: Set<string>): Person {
   for (let attempt = 0; ; attempt += 1) {
     const firstName = pick(firstNames);
     const lastName = attempt < 20 ? pick(LAST_NAMES) : `${pick(LAST_NAMES)}-${pick(LAST_NAMES)}`;
-    const upn = buildEmail(firstName, lastName, accountTypeSchema.enum.student);
+    const email = buildEmail(firstName, lastName, accountTypeSchema.enum.student);
 
-    if (upn && !taken.has(upn)) {
-      taken.add(upn);
-      return { firstName, lastName, upn, gender };
+    if (email && !taken.has(email)) {
+      taken.add(email);
+      return { firstName, lastName, email, gender };
     }
   }
 }
@@ -635,15 +636,15 @@ async function main(): Promise<void> {
       const registration = registrationOf(person, chosen[index], lists, progress[index]);
       if (registration.isAttendingSportsWeek === true) written.attending += 1;
 
-      const uid = await uidFor(auth, person.upn, `${person.firstName} ${person.lastName}`);
-      const user = userSchema.parse({ id: uid, ...person, email: person.upn, accountType: "student" }); // prettier-ignore
+      const uid = await uidFor(auth, person.email, `${person.firstName} ${person.lastName}`);
+      const user = userSchema.parse({ id: uid, ...person, accountType: "student" });
       const record = registrationSchema.parse({
         id: uid,
         studentUid: uid,
         // Copied onto the record, which is what a reader takes the name from (US-26).
         firstName: person.firstName,
         lastName: person.lastName,
-        email: person.upn,
+        email: person.email,
         // Set by the invitation link a student joins through rather than answered (US-23).
         class: className,
         // Unassigned on purpose: putting students into events is what the board is for (US-12).
