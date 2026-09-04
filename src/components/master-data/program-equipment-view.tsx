@@ -72,7 +72,7 @@ export function ProgramEquipmentView({
       )}
     >
       <Link
-        href="/app/master-data/programs"
+        href={`/app/${encodeURIComponent(eventSeriesId)}/master-data/programs`}
         className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
       >
         <ArrowLeft aria-hidden className="size-4" />
