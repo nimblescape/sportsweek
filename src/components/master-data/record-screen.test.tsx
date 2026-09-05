@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -42,11 +42,19 @@ describe("RecordScreen", () => {
     vi.clearAllMocks();
   });
 
-  it("heads the page with the record its path ends at", () => {
+  it("heads the page with the collection on show, the record being a step back", () => {
     setup();
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
-    expect(screen.getByRole("navigation", { name: "Pfad" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Klassen");
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+    expect(within(trail).getByRole("link", { name: "Wintersportwoche" })).toBeInTheDocument();
+  });
+
+  /** Switching tags stays on the record but changes what is shown, so the path follows. */
+  it("moves its last step with the marked tag", () => {
+    setup({ marked: "events" });
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Events");
   });
 
   it("offers one tag per child collection of the record", () => {
@@ -139,9 +147,31 @@ describe("RecordScreen", () => {
     );
   });
 
-  /** A row of one tag is the same row with fewer tags — the root, and the equipment leaf. */
+  /** A row of one tag offers no choice, so the path ends at the record it belongs to. */
   it("draws a row of one tag", () => {
     setup({
+      trail: [{ label: "Programme", href: "/app/event-series/s1/programs" }],
+      tabs: [
+        {
+          key: "required-equipment",
+          label: "Benötigte Ausrüstung",
+          href: "/app/event-series/s1/programs?equipment=Ski",
+          addLabel: "Neuer Ausrüstungsgegenstand",
+        },
+      ],
+      marked: "required-equipment",
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Benötigte Ausrüstung: Neuer Ausrüstungsgegenstand" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Programme");
+  });
+
+  /** Where nothing sits above it, that one collection is the whole path there is. */
+  it("names the one collection where the record has no ancestors", () => {
+    setup({
+      trail: [],
       tabs: [
         {
           key: "event-series",
@@ -153,10 +183,7 @@ describe("RecordScreen", () => {
       marked: "event-series",
     });
 
-    expect(screen.getByRole("button", { name: "Eventreihen: Neue Eventreihe" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Eventreihen");
   });
 
   it("holds every tag while a write of the screen's is out", () => {

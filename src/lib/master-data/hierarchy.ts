@@ -81,9 +81,12 @@ export function equipmentTabs(eventSeriesId: string, program: string): RecordTab
 
 const EVENT_SERIES_CRUMB: Crumb = { label: EVENT_SERIES_TAB.label, href: EVENT_SERIES_TAB.href };
 
-/** The root's own trail: the one collection it lists, which the title above it does not name. */
+/**
+ * The ancestors of what a screen shows; the screen itself ends the path with the collection on
+ * show. The root has none, so its whole path is that one step.
+ */
 export function rootTrail(): Crumb[] {
-  return [EVENT_SERIES_CRUMB];
+  return [];
 }
 
 /** The path down to one event series' record. */

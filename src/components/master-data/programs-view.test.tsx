@@ -183,6 +183,7 @@ describe("ProgramEquipmentView", () => {
       "href",
       "/app/event-series/s1/classes",
     );
+    // The equipment leaf offers one tag, so the path ends at the program rather than repeating it.
     expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Ski");
   });
 

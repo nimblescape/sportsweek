@@ -21,6 +21,7 @@ export const RECORD_TABS_LABEL = "Bereiche";
 const OWNS_ENTER = "input, textarea, select, button, a, [contenteditable='true']";
 
 type RecordScreenProps = {
+  /** The ancestors of what is on screen. The marked collection is added as the last step. */
   trail: readonly Crumb[];
   tabs: readonly RecordTab[];
   /** The key of the tab whose entries the list beneath is showing. */
@@ -34,9 +35,13 @@ type RecordScreenProps = {
 
 /**
  * The one master-detail editor this application has (US-33). Every level of the hierarchy is this
- * screen: the path down to the record, whose last step is the heading; a tag per child collection
- * the record has; and the marked collection's entries beneath. A row of one tag at the root and
- * at the equipment leaf is the same screen with fewer tags.
+ * screen: the path down to what is open, whose last step is the heading; a tag per child
+ * collection the record has; and the marked collection's entries beneath. A row of one tag at the
+ * root and at the equipment leaf is the same screen with fewer tags.
+ *
+ * The trail ends at the marked collection rather than at the record above it, so it says what the
+ * list beneath is and follows the tag that is pressed. The screen appends that step itself, which
+ * is what keeps the path and the marked tag from ever disagreeing.
  *
  * The marked tag is already open, so the whole of it adds to the list it is showing; every other
  * tag opens the collection it names. What differs between levels is only the list inside — which
@@ -51,6 +56,12 @@ export function RecordScreen({
   children,
 }: RecordScreenProps) {
   const router = useRouter();
+  const openTab = tabs.find((tab) => tab.key === marked);
+  // A row of one tag offers no choice, so naming it in the path would add nothing the row does
+  // not already say — the path ends at the record instead. Unless the record has no ancestors,
+  // where that one collection is the whole path there is.
+  const namesCollection = openTab !== undefined && (tabs.length > 1 || trail.length === 0);
+  const path = namesCollection ? [...trail, { label: openTab.label, href: openTab.href }] : trail;
 
   // Adding to the marked collection is what the screen is for, so Enter does it wherever the
   // teacher happens to be — short of a control or a dialog that already answers Enter itself.
@@ -75,7 +86,7 @@ export function RecordScreen({
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <BusyRegion busy={busy}>
         <div className="flex flex-col gap-4">
-          <Breadcrumb trail={trail} />
+          <Breadcrumb trail={path} />
 
           <div
             role="group"

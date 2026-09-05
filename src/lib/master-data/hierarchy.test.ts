@@ -106,9 +106,9 @@ describe("the tabs of a record", () => {
 });
 
 describe("the breadcrumb trails", () => {
-  /** The navigation already says the teacher is in Stammdaten, so the trail does not repeat it. */
-  it("starts at the event series collection rather than at the root", () => {
-    expect(rootTrail()).toEqual([{ label: "Eventreihen", href: "/app/event-series" }]);
+  /** The screen ends the path with the collection on show, so a trail names ancestors only. */
+  it("gives the root no ancestors, its whole path being the collection it lists", () => {
+    expect(rootTrail()).toEqual([]);
   });
 
   it("names the whole path down to a series' record", () => {
@@ -127,8 +127,8 @@ describe("the breadcrumb trails", () => {
     ]);
   });
 
-  /** The title repeats the last step, so the trail is the full address of the page. */
-  it("ends at the record the page is about", () => {
+  /** The screen's own last step follows it, so the record is a step the teacher can go back to. */
+  it("ends at the record the collection on show belongs to", () => {
     expect(eventSeriesTrail("s1", "Wintersportwoche").at(-1)?.label).toBe("Wintersportwoche");
     expect(programTrail("s1", "Wintersportwoche", "Ski").at(-1)?.label).toBe("Ski");
   });

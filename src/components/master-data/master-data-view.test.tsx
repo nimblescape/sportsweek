@@ -79,11 +79,11 @@ function renderView(props: Record<string, unknown> = {}) {
 }
 
 describe("MasterDataView — reading the list", () => {
-  /** The heading is the record the path ends at; the category is the tag that is marked. */
-  it("names the event series, and marks the category being maintained", () => {
+  /** The heading is the collection on show; the record it belongs to is a step back. */
+  it("names the category on show, and marks its tag", () => {
     renderView();
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Klassen");
     expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -107,13 +107,14 @@ describe("MasterDataView — reading the list", () => {
     }
   });
 
-  it("names the whole path down to the record", () => {
+  it("names the whole path down to the category on show", () => {
     renderView();
 
     const trail = screen.getByRole("navigation", { name: "Pfad" });
 
     expect(within(trail).getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
-    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
+    expect(within(trail).getByRole("link", { name: "Wintersportwoche" })).toBeInTheDocument();
+    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Klassen");
   });
 
   it("lists every item", () => {

@@ -238,26 +238,22 @@ the root, and at the equipment leaf — is the same screen as one with seven, wi
 ```
 L1  /app/event-series
     Eventreihen
-    Stammdaten
     [Eventreihen ＋]
     ⠿ Wintersportwoche 2026/27 ›                    ✎  ὕ1
 
 L2  /app/event-series/{series}/{category}
-    Eventreihen › Wintersportwoche 2026/27
-    Wintersportwoche 2026/27
+    Eventreihen › Wintersportwoche 2026/27 › Events
     Klassen  [Events ＋]  Programme  Leistungsstufen  Zugangskarten
     Zustiegsstellen  Verpflegung
     ⠿ Woche 1 ›                                    ✎  ὕ1
 
 L3  /app/event-series/{series}/events/{category}?event={event}
-    Eventreihen › Wintersportwoche 2026/27 › Events › Woche 2
-    Woche 2
+    Eventreihen › Wintersportwoche 2026/27 › Events › Woche 2 › Programme
     [Programme ＋]  Leistungsstufen  Zugangskarten  Zustiegsstellen  Verpflegung
     ⠿ Ski ›                                        ✎  Ὕ1
 
 L4  /app/event-series/{series}/events/programs?event={event}&equipment={program}
     Eventreihen › … › Woche 2 › Programme › Ski
-    Ski
     [Benötigte Ausrüstung ＋]
     ⠿ Helm                                         ✎  Ὕ1
 ```
@@ -342,7 +338,7 @@ rename — at which point it is an id that merely looks readable.
   level: an event series row at the root, a program row wherever programs are listed, and an
   event row once events carry lists of their own.
 - **The breadcrumb names the whole path, and its last step is the heading.** There is no separate
-  title: the record is named once, at the end of its own address.
+  title: the page is named once, at the end of its own address.
 
 ### The breadcrumb is the heading
 
@@ -351,10 +347,20 @@ the `h1`. The steps before it are links in a lighter weight, the last is plain t
 `aria-current="page"`, and the row is floored at the height of a button so a page with controls
 beside the heading and a page without them put it in the same place.
 
+**The trail ends at the collection on show, not at the record above it** — so it says what the
+list beneath is, and it follows the tag that is pressed rather than standing still while the page
+changes under it. The record is the step before, which is what makes it something to go back to.
+The screen appends that last step itself, from the marked tag, so the path and the tag row cannot
+come to disagree.
+
+**A row of one tag is the exception, because it offers no choice.** Naming it in the path would
+repeat what the row beneath already says and nothing would ever change it, so the path ends at
+the record instead — "… › Programme › Ski", with "Benötigte Ausrüstung" said once, on its tag.
+Where the record has no ancestors at all that one collection is the whole path there is, which is
+why the root reads "Eventreihen".
+
 The trail begins at "Eventreihen" rather than at "Stammdaten": the navigation already says which
-of its five entries the teacher is in, and a first step that never changes carries nothing. At the
-root that leaves one step, which is the collection listed beneath — the only screen whose trail
-does not end at a record, because the root has no record page under it.
+of its five entries the teacher is in, and a first step that never changes carries nothing.
 
 **"Benutzerrechte" is the same shape with nothing above it.** It is not part of the master data
 hierarchy, but it is a page with a name, so it heads itself the same way: a trail of one step,
@@ -756,9 +762,10 @@ way out, and it says what it is doing.
 - The lists of one series are reached from that series' record, never from a header selection;
   the header's series rows are shown only where the URL names a series, so neither Stammdaten nor
   the rights page carries them.
-- A breadcrumb names the whole path down to what is open, ending at the record itself, and its
-  last step is the page's heading; every step before it is a link. "Benutzerrechte" heads itself
-  the same way, as a trail of one step.
+- A breadcrumb names the whole path down to what is open, ending at the collection on show, and
+  its last step is the page's heading; every step before it is a link, the record among them. A
+  row of one tag names no collection, since the row already does and nothing can change it.
+  "Benutzerrechte" heads itself the same way, as a trail of one step.
 - A record's categories are offered as one row of tags, in the master data menu order — Klassen,
   Events, Programme, Leistungsstufen, Zugangskarten, Zustiegsstellen, Verpflegung. The marked tag
   is the control that adds: the whole of it, by pointer or by Enter, and Enter adds from anywhere
