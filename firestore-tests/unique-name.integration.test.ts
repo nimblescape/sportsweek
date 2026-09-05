@@ -126,7 +126,7 @@ describe("event name uniqueness against a real Firestore", () => {
     const elapsed = Date.now() - started;
 
     for (const series of eventSeries)
-      expect(await eventsOf(series.id)).toEqual([{ name: "Montafon" }]);
+      expect(await eventsOf(series.id)).toMatchObject([{ name: "Montafon" }]);
     // Four separate documents, so nothing is shared to contend over. A sibling query used to
     // lock the index range it scanned and take seconds over exactly this.
     expect(elapsed).toBeLessThan(3000);
@@ -140,7 +140,7 @@ describe("event name uniqueness against a real Firestore", () => {
       createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
     ]);
 
-    expect(await eventsOf(eventSeries.id)).toEqual([{ name: "Montafon" }]);
+    expect(await eventsOf(eventSeries.id)).toMatchObject([{ name: "Montafon" }]);
   });
 
   it("treats a case-only difference as the same name under contention", async () => {
@@ -165,8 +165,8 @@ describe("event name uniqueness against a real Firestore", () => {
       createEvent({ eventSeriesId: b!.id, name: "Montafon" }),
     ]);
 
-    expect(await eventsOf(a!.id)).toEqual([{ name: "Montafon" }]);
-    expect(await eventsOf(b!.id)).toEqual([{ name: "Montafon" }]);
+    expect(await eventsOf(a!.id)).toMatchObject([{ name: "Montafon" }]);
+    expect(await eventsOf(b!.id)).toMatchObject([{ name: "Montafon" }]);
   });
 });
 

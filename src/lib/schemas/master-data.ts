@@ -59,10 +59,29 @@ export const programListSchema = z
   );
 
 /**
- * One event of an event series (US-21, US-33). A record rather than a bare name because it may
- * come to carry lists of its own that override the series' — the name is all it holds for now.
+ * The five lists a place decides (US-33): what an event series offers by default, and what one
+ * of its events may name instead. Shared by `eventSeriesSchema` and `eventSchema` so the two
+ * scopes cannot come to disagree about what either one holds.
  */
-export const eventSchema = z.object({ name: listItemNameSchema });
+export const overridableListsSchema = z.object({
+  programs: programListSchema.default([]),
+  skillLevels: namedListSchema.default([]),
+  seasonPassOptions: namedListSchema.default([]),
+  busPickupPoints: namedListSchema.default([]),
+  foodOptions: namedListSchema.default([]),
+});
+export type OverridableLists = z.infer<typeof overridableListsSchema>;
+
+/**
+ * One event of an event series (US-21, US-33). A record because it may carry its own version of
+ * the five lists a place decides (see `overridableListsSchema`); "Klassen" stays series-only,
+ * since it describes the school rather than the trip.
+ *
+ * An empty list here is not "asked of nobody" as it is everywhere else — it is "inherited": this
+ * event offers whatever the series offers for that category. Naming an entry is what makes the
+ * event stop inheriting, and removing the last one is what makes it start again.
+ */
+export const eventSchema = z.object({ name: listItemNameSchema }).merge(overridableListsSchema);
 export type Event = z.infer<typeof eventSchema>;
 
 export const eventListSchema = z

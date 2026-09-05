@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { asUid } from "@/lib/schemas/common";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import { stubBoardLayout } from "@/test/stub-board-layout";
 
 const useEventSeries = vi.fn();
@@ -68,7 +68,7 @@ const eventSeries = {
     name: "2026",
     isOpenToStudents: true,
     hasRegistrations: true,
-    events: [{ name: "Montafon" }, { name: "Gardasee" }],
+    events: [event("Montafon"), event("Gardasee")],
   }),
 };
 

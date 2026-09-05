@@ -9,8 +9,15 @@ import {
   categoryTabs,
   equipmentPath,
   equipmentTabs,
+  eventCategoryPath,
+  eventEquipmentPath,
+  eventEquipmentTabs,
+  eventEquipmentTrail,
+  eventRecordPath,
   eventSeriesRecordPath,
   eventSeriesTrail,
+  eventTabs,
+  eventTrail,
   masterDataPath,
   programTrail,
   ROOT_TABS,
@@ -38,6 +45,13 @@ describe("eventSeriesRecordPath", () => {
   });
 });
 
+describe("eventRecordPath", () => {
+  /** An event has no view of its own either, so it opens on the first category it may override. */
+  it("opens an event on the first overridable category", () => {
+    expect(eventRecordPath("s1", "Woche 1")).toBe(eventCategoryPath("s1", "Woche 1", "programs"));
+  });
+});
+
 describe("equipmentPath", () => {
   /**
    * A program is identified by its name (US-21), which a teacher typed and which may hold a
@@ -53,6 +67,32 @@ describe("equipmentPath", () => {
     );
     expect(equipmentPath("s1", "Ski+Board")).toBe(
       "/app/event-series/s1/programs?equipment=Ski%2BBoard",
+    );
+  });
+});
+
+describe("eventCategoryPath", () => {
+  /** `events` is static because it is the one category whose entries have children of their own. */
+  it("puts the category under a static events segment, the event named in a search parameter", () => {
+    expect(eventCategoryPath("s1", "Woche 1", "programs")).toBe(
+      "/app/event-series/s1/events/programs?event=Woche%201",
+    );
+  });
+
+  it("encodes a name a path could not carry, and the plus a query would read as a space", () => {
+    expect(eventCategoryPath("s1", "Woche 1/2", "programs")).toBe(
+      "/app/event-series/s1/events/programs?event=Woche%201%2F2",
+    );
+    expect(eventCategoryPath("s1", "Woche 1+2", "programs")).toBe(
+      "/app/event-series/s1/events/programs?event=Woche%201%2B2",
+    );
+  });
+});
+
+describe("eventEquipmentPath", () => {
+  it("names the event's own program in a search parameter, beside the event's", () => {
+    expect(eventEquipmentPath("s1", "Woche 1", "Ski")).toBe(
+      "/app/event-series/s1/events/programs?event=Woche%201&equipment=Ski",
     );
   });
 });
@@ -93,7 +133,7 @@ describe("the tabs of a record", () => {
       .filter((tab) => tab.opensRecords)
       .map((tab) => tab.key);
 
-    expect(opening).toEqual(["programs"]);
+    expect(opening).toEqual(["events", "programs"]);
     expect(ROOT_TABS[0].opensRecords).toBe(true);
     expect(equipmentTabs("s1", "Ski")[0].opensRecords).toBe(false);
   });
@@ -114,6 +154,35 @@ describe("the tabs of a record", () => {
     expect(tabs.map((tab) => tab.label)).toEqual([EQUIPMENT_LABELS.title]);
     expect(tabs[0].addLabel).toBe(EQUIPMENT_LABELS.add);
     expect(tabs[0].href).toBe(equipmentPath("s1", "Ski"));
+  });
+
+  /** An event's row offers only the five categories it may override, not classes or events. */
+  it("offers an event only the categories it may override, in the menu's order", () => {
+    expect(eventTabs("s1", "Woche 1").map((tab) => tab.label)).toEqual([
+      "Programme",
+      "Leistungsstufen",
+      "Zugangskarten",
+      "Zustiegsstellen",
+      "Verpflegung",
+    ]);
+  });
+
+  it("links every one of an event's categories beneath that event", () => {
+    expect(eventTabs("s1", "Woche 1")).toContainEqual({
+      key: "programs",
+      label: "Programme",
+      href: eventCategoryPath("s1", "Woche 1", "programs"),
+      addLabel: "Neues Programm",
+      opensRecords: true,
+    });
+  });
+
+  it("offers an event's own program its one child collection", () => {
+    const tabs = eventEquipmentTabs("s1", "Woche 1", "Ski");
+
+    expect(tabs.map((tab) => tab.label)).toEqual([EQUIPMENT_LABELS.title]);
+    expect(tabs[0].addLabel).toBe(EQUIPMENT_LABELS.add);
+    expect(tabs[0].href).toBe(eventEquipmentPath("s1", "Woche 1", "Ski"));
   });
 });
 
@@ -143,5 +212,30 @@ describe("the breadcrumb trails", () => {
   it("ends at the record the collection on show belongs to", () => {
     expect(eventSeriesTrail("s1", "Wintersportwoche").at(-1)?.label).toBe("Wintersportwoche");
     expect(programTrail("s1", "Wintersportwoche", "Ski").at(-1)?.label).toBe("Ski");
+  });
+
+  /** An event is a step of the path now that it carries lists of its own (US-33). */
+  it("names the whole path down to an event's record", () => {
+    expect(eventTrail("s1", "Wintersportwoche", "Woche 2")).toEqual([
+      { label: "Eventreihen", href: "/app/event-series" },
+      { label: "Wintersportwoche", href: "/app/event-series/s1/classes" },
+      { label: "Events", href: "/app/event-series/s1/events" },
+      { label: "Woche 2", href: eventRecordPath("s1", "Woche 2") },
+    ]);
+    expect(eventTrail("s1", "Wintersportwoche", "Woche 2").at(-1)?.label).toBe("Woche 2");
+  });
+
+  it("names the whole path down to one of an event's own programs", () => {
+    expect(eventEquipmentTrail("s1", "Wintersportwoche", "Woche 2", "Ski")).toEqual([
+      { label: "Eventreihen", href: "/app/event-series" },
+      { label: "Wintersportwoche", href: "/app/event-series/s1/classes" },
+      { label: "Events", href: "/app/event-series/s1/events" },
+      { label: "Woche 2", href: eventRecordPath("s1", "Woche 2") },
+      { label: "Programme", href: eventCategoryPath("s1", "Woche 2", "programs") },
+      { label: "Ski", href: eventEquipmentPath("s1", "Woche 2", "Ski") },
+    ]);
+    expect(eventEquipmentTrail("s1", "Wintersportwoche", "Woche 2", "Ski").at(-1)?.label).toBe(
+      "Ski",
+    );
   });
 });

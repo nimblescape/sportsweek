@@ -26,8 +26,8 @@ export type MasterDataCategory = {
   field: EventSeriesListField;
   usage: MasterDataUsage;
   /**
-   * Whether an entry has a record page of its own — a program and its required equipment so far.
-   * Such a list is a step of the hierarchy rather than a leaf of it (US-33).
+   * Whether an entry has a record page of its own — a program, or an event now that it carries
+   * lists of its own. Such a list is a step of the hierarchy rather than a leaf of it (US-33).
    */
   opensRecords: boolean;
   /**
@@ -41,6 +41,14 @@ export type MasterDataCategory = {
    * (US-33). A program also stores objects, but that is already said by `equipmentField`.
    */
   entriesAreRecords?: boolean;
+  /**
+   * Whether one of this series' events may name entries of its own for this list, in place of
+   * the series' (US-33) — true for the five lists a place decides, false for classes, which
+   * describes the school rather than the trip, and for events themselves. What lets one
+   * definition serve a series and its events alike, rather than a second category map repeating
+   * the same five with a different scope.
+   */
+  perEvent: boolean;
   labels: {
     title: string;
     singular: string;
@@ -72,6 +80,7 @@ export const MASTER_DATA_CATEGORIES = {
     field: "classOptions",
     usage: { kind: "masterData", field: "class" },
     opensRecords: false,
+    perEvent: false,
     labels: {
       title: "Klassen",
       singular: "Klasse",
@@ -85,8 +94,9 @@ export const MASTER_DATA_CATEGORIES = {
     // The one list nobody is asked for: a teacher assigns the event (US-12), so this field is
     // matched only by the in-use guard, which refuses to remove an event somebody is assigned to.
     usage: { kind: "masterData", field: "event" },
-    opensRecords: false,
+    opensRecords: true,
     entriesAreRecords: true,
+    perEvent: false,
     labels: {
       title: "Events",
       singular: "Event",
@@ -100,6 +110,7 @@ export const MASTER_DATA_CATEGORIES = {
     usage: { kind: "masterData", field: "program" },
     opensRecords: true,
     equipmentField: "requiredEquipment",
+    perEvent: true,
     labels: {
       title: "Programme",
       singular: "Programm",
@@ -112,6 +123,7 @@ export const MASTER_DATA_CATEGORIES = {
     field: "skillLevels",
     usage: { kind: "masterData", field: "skillLevel" },
     opensRecords: false,
+    perEvent: true,
     labels: {
       title: "Leistungsstufen",
       singular: "Leistungsstufe",
@@ -124,6 +136,7 @@ export const MASTER_DATA_CATEGORIES = {
     field: "seasonPassOptions",
     usage: { kind: "masterData", field: "seasonPassOption" },
     opensRecords: false,
+    perEvent: true,
     labels: {
       title: "Zugangskarten",
       singular: "Zugangskarte",
@@ -136,6 +149,7 @@ export const MASTER_DATA_CATEGORIES = {
     field: "busPickupPoints",
     usage: { kind: "masterData", field: "busPickupPoint" },
     opensRecords: false,
+    perEvent: true,
     labels: {
       title: "Zustiegsstellen",
       singular: "Zustiegsstelle",
@@ -148,6 +162,7 @@ export const MASTER_DATA_CATEGORIES = {
     field: "foodOptions",
     usage: { kind: "masterData", field: "foodOption" },
     opensRecords: false,
+    perEvent: true,
     labels: {
       title: "Verpflegung",
       singular: "Verpflegungsoption",
@@ -159,6 +174,17 @@ export const MASTER_DATA_CATEGORIES = {
 } as const satisfies Record<string, MasterDataCategory>;
 
 export type MasterDataCategoryKey = keyof typeof MASTER_DATA_CATEGORIES;
+
+/**
+ * The five categories an event may name entries of its own for (US-33), derived from the map
+ * above rather than named a second time — so a category that becomes overridable, or stops being
+ * one, changes here and nowhere else.
+ */
+export type PerEventCategoryKey = {
+  [Key in MasterDataCategoryKey]: (typeof MASTER_DATA_CATEGORIES)[Key]["perEvent"] extends true
+    ? Key
+    : never;
+}[MasterDataCategoryKey];
 
 /** The registration fields the maintained lists supply an answer for (US-5 to US-11). */
 export type AnswerField = (typeof MASTER_DATA_CATEGORIES)[MasterDataCategoryKey]["usage"]["field"];
@@ -249,6 +275,24 @@ export const masterDataCategorySchema = z.enum(
   Object.keys(MASTER_DATA_CATEGORIES) as [MasterDataCategoryKey, ...MasterDataCategoryKey[]],
 );
 
+/** The keys of the five categories an event may override, in the menu's order (US-33). */
+export const PER_EVENT_CATEGORY_KEYS = (
+  Object.keys(MASTER_DATA_CATEGORIES) as MasterDataCategoryKey[]
+).filter((key) => MASTER_DATA_CATEGORIES[key].perEvent) as PerEventCategoryKey[];
+
+/** A category segment on an event's own page — narrower than the series', which also has this. */
+export const eventCategorySchema = z.enum(
+  PER_EVENT_CATEGORY_KEYS as [PerEventCategoryKey, ...PerEventCategoryKey[]],
+);
+
 export function categoryOf(key: MasterDataCategoryKey): MasterDataCategory {
   return MASTER_DATA_CATEGORIES[key];
 }
+
+/**
+ * What an event's page says under the empty list of one of its five overridable categories
+ * (US-33). Empty means something different here than everywhere else a list is empty: not
+ * "nobody is asked", but "this event takes the series' own list instead".
+ */
+export const inheritsSeriesHint = (category: MasterDataCategory) =>
+  `Dieses Event verwendet die ${category.labels.title} der Eventreihe.`;

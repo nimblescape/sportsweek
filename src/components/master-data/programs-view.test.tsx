@@ -36,18 +36,32 @@ const { ProgramEquipmentView: ScopedProgramEquipmentView } =
   await import("./program-equipment-view");
 
 // Which series the lists belong to comes from the page (Q8); the data hooks are mocked here.
-function ProgramsView({ eventSeriesId = "s1" }: { eventSeriesId?: string }) {
-  return <ScopedProgramsView eventSeriesId={eventSeriesId} />;
+function ProgramsView({
+  eventSeriesId = "s1",
+  eventName,
+}: {
+  eventSeriesId?: string;
+  eventName?: string;
+}) {
+  return <ScopedProgramsView eventSeriesId={eventSeriesId} eventName={eventName} />;
 }
 
 function ProgramEquipmentView({
   program,
   eventSeriesId = "s1",
+  eventName,
 }: {
   program: string;
   eventSeriesId?: string;
+  eventName?: string;
 }) {
-  return <ScopedProgramEquipmentView program={program} eventSeriesId={eventSeriesId} />;
+  return (
+    <ScopedProgramEquipmentView
+      program={program}
+      eventSeriesId={eventSeriesId}
+      eventName={eventName}
+    />
+  );
 }
 
 const ski = { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] };
@@ -150,7 +164,7 @@ describe("ProgramEquipmentView", () => {
   it("reads the program named in the URL, from the series the page names", () => {
     render(<ProgramEquipmentView program="Ski" />);
 
-    expect(useProgram).toHaveBeenCalledWith("Ski", "s1");
+    expect(useProgram).toHaveBeenCalledWith("Ski", "s1", undefined);
   });
 
   it("lists the entries the program carries, and names the program", () => {
@@ -319,5 +333,57 @@ describe("ProgramEquipmentView", () => {
     expect(
       screen.getByRole("button", { name: "Ausrüstungsgegenstand Helm löschen" }),
     ).toBeEnabled();
+  });
+});
+
+describe("an event's own programs (US-33)", () => {
+  it("reads and writes the event's own programs list, not the series'", async () => {
+    const fetchMock = stubFetch();
+    render(<ProgramsView eventName="Woche 1" />);
+
+    expect(useMasterData).toHaveBeenCalledWith("programs", "s1", "Woche 1");
+
+    await userEvent.click(screen.getByRole("button", { name: "Programm Ski löschen" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Löschen" }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [url] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/event-series/s1/events/master-data/programs?event=Woche%201");
+  });
+
+  it("names an event's own program's equipment in a search parameter, beside the event's", () => {
+    render(<ProgramsView eventName="Woche 1" />);
+
+    expect(screen.getByRole("link", { name: "Ski" })).toHaveAttribute(
+      "href",
+      "/app/event-series/s1/events/programs?event=Woche%201&equipment=Ski",
+    );
+  });
+
+  it("reads and writes an event's own program's equipment, not the series'", async () => {
+    const fetchMock = stubFetch();
+    render(<ProgramEquipmentView program="Ski" eventName="Woche 1" />);
+
+    expect(useProgram).toHaveBeenCalledWith("Ski", "s1", "Woche 1");
+
+    await userEvent.click(screen.getByRole("button", { name: /neuer ausrüstungsgegenstand/i }));
+    await userEvent.type(screen.getByLabelText("Name"), "Brille");
+    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [url] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/event-series/s1/events/master-data/programs?event=Woche%201");
+  });
+
+  it("names the whole path down to the event's own program, ending at it", () => {
+    render(<ProgramEquipmentView program="Ski" eventName="Woche 1" />);
+
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+
+    expect(within(trail).getByRole("link", { name: "Events" })).toBeInTheDocument();
+    expect(within(trail).getByRole("link", { name: "Woche 1" })).toBeInTheDocument();
+    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Ski");
   });
 });

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import type { RegistrationInput } from "@/lib/schemas/registration";
 import { questionsAsked } from "@/lib/master-data/categories";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import { EQUIPMENT_RENTAL_LABEL } from "./answer-labels";
 import { ATTENDANCE_ANSWER_LABEL, isRegistrationIncomplete, missingAnswers } from "./completeness";
 import { EMPTY_REGISTRATION } from "./registration";
@@ -41,7 +41,7 @@ const complete: RegistrationInput = {
 /** A series whose lists are all filled in, so every question it can ask is asked. */
 const ALL_ASKED = questionsAsked(
   storedEventSeries({
-    events: [{ name: "Woche 1" }],
+    events: [event("Woche 1")],
     classOptions: ["3AHME"],
     programs: [{ name: "Ski", requiredEquipment: [] }],
     skillLevels: ["Anfänger"],

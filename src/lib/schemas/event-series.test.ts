@@ -14,7 +14,16 @@ const validEventSeries = {
   isOpenToStudents: false,
   hasRegistrations: false,
   position: 0,
-  events: [{ name: "Woche 1" }],
+  events: [
+    {
+      name: "Woche 1",
+      programs: [],
+      skillLevels: [],
+      seasonPassOptions: [],
+      busPickupPoints: [],
+      foodOptions: [],
+    },
+  ],
   classOptions: ["3AHIT"],
   programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
   skillLevels: ["Keine Vorkenntnisse"],

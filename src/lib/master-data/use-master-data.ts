@@ -10,17 +10,27 @@ import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-se
 import type { Program } from "@/lib/schemas/master-data";
 import { categoryOf, type MasterDataCategoryKey } from "./categories";
 
-/** The names on one list, in the teacher's order (US-5 to US-10). A name is an item's identity. */
-export function useMasterData(key: MasterDataCategoryKey, eventSeriesId: string | null) {
+/**
+ * The names on one list, in the teacher's order (US-5 to US-10). A name is an item's identity.
+ * `eventName` reads one event's own list instead of the series' (US-33) — whichever it is, empty
+ * or not, since resolving an empty one to the series' answer is a separate rule for a separate
+ * caller, not this view's to make.
+ */
+export function useMasterData(
+  key: MasterDataCategoryKey,
+  eventSeriesId: string | null,
+  eventName?: string,
+) {
   const { eventSeries, loading, error } = useSelectedEventSeries(eventSeriesId);
 
-  const items = useMemo(
-    () =>
-      (eventSeries?.[categoryOf(key).field] ?? []).map((entry) =>
-        typeof entry === "string" ? entry : entry.name,
-      ),
-    [eventSeries, key],
-  );
+  const items = useMemo(() => {
+    const source: Record<string, unknown> | null | undefined =
+      eventName === undefined
+        ? eventSeries
+        : eventSeries?.events.find((event) => event.name === eventName);
+    const list = (source?.[categoryOf(key).field] ?? []) as readonly (string | { name: string })[];
+    return list.map((entry) => (typeof entry === "string" ? entry : entry.name));
+  }, [eventSeries, key, eventName]);
 
   return { items, loading, error };
 }
@@ -28,24 +38,31 @@ export function useMasterData(key: MasterDataCategoryKey, eventSeriesId: string 
 /**
  * The programs, each with the equipment it requires (US-5). Separate from `useMasterData`
  * because that one reduces every category to a name, which drops the list — and the student's
- * rental checkboxes are exactly that list (US-11).
+ * rental checkboxes are exactly that list (US-11). `eventName` reads one event's own programs
+ * instead of the series' (US-33).
  */
-export function usePrograms(eventSeriesId: string | null) {
+export function usePrograms(eventSeriesId: string | null, eventName?: string) {
   const { eventSeries, loading, error } = useSelectedEventSeries(eventSeriesId);
 
-  return { programs: eventSeries?.programs ?? [], loading, error };
+  const source =
+    eventName === undefined
+      ? eventSeries
+      : eventSeries?.events.find((event) => event.name === eventName);
+
+  return { programs: source?.programs ?? [], loading, error };
 }
 
 /** One program with its equipment list (US-5), named rather than pointed at (US-21). */
 export function useProgram(
   name: string,
   eventSeriesId: string | null,
+  eventName?: string,
 ): {
   program: Program | null;
   loading: boolean;
   error: string | null;
 } {
-  const { programs, loading, error } = usePrograms(eventSeriesId);
+  const { programs, loading, error } = usePrograms(eventSeriesId, eventName);
 
   const program = useMemo(
     () => programs.find((candidate) => candidate.name === name) ?? null,
@@ -74,9 +91,14 @@ const NOTHING_BLOCKED: UsageReport = {
  * What the in-use guard blocks (US-5 to US-10). The answer depends on the registrations of this
  * event series, which clients may not read at all, so it comes from a teacher-guarded handler
  * rather than a subscription. Fetching once is enough: it only moves when a student edits their
- * registration, which cannot happen from this view.
+ * registration, which cannot happen from this view. `eventName` asks the event's own route
+ * instead of the series' (US-33).
  */
-export function useUsageReport(key: MasterDataCategoryKey, eventSeriesId: string): UsageReport {
+export function useUsageReport(
+  key: MasterDataCategoryKey,
+  eventSeriesId: string,
+  eventName?: string,
+): UsageReport {
   const [report, setReport] = useState<UsageReport>(CHECKING);
 
   useEffect(() => {
@@ -84,9 +106,12 @@ export function useUsageReport(key: MasterDataCategoryKey, eventSeriesId: string
 
     async function load() {
       try {
-        const response = await fetch(
-          `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/${key}`,
-        );
+        const endpoint =
+          eventName === undefined
+            ? `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/${key}`
+            : `/api/event-series/${encodeURIComponent(eventSeriesId)}/events/master-data/${key}` +
+              `?event=${encodeURIComponent(eventName)}`;
+        const response = await fetch(endpoint);
         const body = response.ok ? await response.json() : null;
         if (!active) return;
 
@@ -110,7 +135,7 @@ export function useUsageReport(key: MasterDataCategoryKey, eventSeriesId: string
     return () => {
       active = false;
     };
-  }, [key, eventSeriesId]);
+  }, [key, eventSeriesId, eventName]);
 
   return report;
 }

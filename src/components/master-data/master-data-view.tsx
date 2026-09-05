@@ -11,9 +11,10 @@ import { apiRequest } from "@/lib/api/client";
 import {
   categoryOf,
   CHILD_IN_USE_HINT,
+  inheritsSeriesHint,
   type MasterDataCategoryKey,
 } from "@/lib/master-data/categories";
-import { categoryTabs, eventSeriesTrail } from "@/lib/master-data/hierarchy";
+import { categoryTabs, eventSeriesTrail, eventTabs, eventTrail } from "@/lib/master-data/hierarchy";
 import { useMasterData, useUsageReport } from "@/lib/master-data/use-master-data";
 import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
 import { FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
@@ -35,26 +36,50 @@ type MasterDataViewProps = {
   eventSeriesId: string;
   /** Where an entry's own record page is, for a category whose entries have children (US-33). */
   openHref?: (item: CrudItem) => string;
+  /** Undefined for the series' own page; an event's own page names itself instead (US-33). */
+  eventName?: string;
 };
 
-/** One category of one event series, as a record screen of the master data hierarchy (US-33). */
-export function MasterDataView({ category: key, eventSeriesId, openHref }: MasterDataViewProps) {
+/** One category of one event series — or of one of its events (US-33), as a record screen. */
+export function MasterDataView({
+  category: key,
+  eventSeriesId,
+  openHref,
+  eventName,
+}: MasterDataViewProps) {
   const category = categoryOf(key);
-  const { items, loading, error } = useMasterData(key, eventSeriesId);
-  const report = useUsageReport(key, eventSeriesId);
+  const { items, loading, error } = useMasterData(key, eventSeriesId, eventName);
+  const report = useUsageReport(key, eventSeriesId, eventName);
   // The screen is about the series, so its name is the title and the last step of the path.
   const { eventSeries } = useSelectedEventSeries(eventSeriesId);
   const name = eventSeries?.name ?? "";
   const fixed = FIXED_ITEMS[key];
-  // Every list belongs to one event series (US-21), so the write names the one it edits.
-  const endpoint = `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/${key}`;
+  // Every list belongs to one event series (US-21), so the write names the one it edits; an
+  // event's own list also names the event, since the series' route knows nothing of one.
+  const endpoint =
+    eventName === undefined
+      ? `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/${key}`
+      : `/api/event-series/${encodeURIComponent(eventSeriesId)}/events/master-data/${key}` +
+        `?event=${encodeURIComponent(eventName)}`;
+  const trail =
+    eventName === undefined
+      ? eventSeriesTrail(eventSeriesId, name)
+      : eventTrail(eventSeriesId, name, eventName);
+  const tabs =
+    eventName === undefined ? categoryTabs(eventSeriesId) : eventTabs(eventSeriesId, eventName);
+  // Empty means something different on an event's own page: not "nobody is asked", but "this
+  // event takes the series' list instead" — so the sentence beneath the empty list changes with it.
+  const labels =
+    eventName === undefined
+      ? category.labels
+      : { ...category.labels, empty: inheritsSeriesHint(category) };
 
   return (
     <CrudList
-      trail={eventSeriesTrail(eventSeriesId, name)}
-      tabs={categoryTabs(eventSeriesId)}
+      trail={trail}
+      tabs={tabs}
       marked={key}
-      labels={category.labels}
+      labels={labels}
       items={items.map((name) => ({ id: name, name }))}
       loading={loading}
       error={error}

@@ -160,7 +160,7 @@ describe("MasterDataView — reading the list", () => {
   it("subscribes to the category it was configured with, for the series the page names", () => {
     render(<MasterDataView category="skill-levels" eventSeriesId="s1" />);
 
-    expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1");
+    expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1", undefined);
     expect(
       screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
     ).toHaveAttribute("aria-pressed", "true");
@@ -399,7 +399,7 @@ describe("MasterDataView — the in-use restriction", () => {
   it("asks the guard about the category it is showing, for the series the page names", () => {
     renderView();
 
-    expect(useUsageReport).toHaveBeenCalledWith("classes", "s1");
+    expect(useUsageReport).toHaveBeenCalledWith("classes", "s1", undefined);
   });
 });
 
@@ -515,6 +515,72 @@ describe("MasterDataView — a row that opens a record of its own", () => {
 
     expect(screen.queryByRole("link", { name: "3AHIT" })).not.toBeInTheDocument();
     expect(screen.getByText("3AHIT")).toBeInTheDocument();
+  });
+});
+
+describe("MasterDataView — an event's own page (US-33)", () => {
+  function renderEventView(props: Record<string, unknown> = {}) {
+    render(
+      <MasterDataView category="skill-levels" eventSeriesId="s1" eventName="Woche 1" {...props} />,
+    );
+  }
+
+  it("reads and reports usage scoped to the event it was given", () => {
+    renderEventView();
+
+    expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1", "Woche 1");
+    expect(useUsageReport).toHaveBeenCalledWith("skill-levels", "s1", "Woche 1");
+  });
+
+  it("writes to the event-scoped handler, the event named in the query", async () => {
+    const fetchMock = stubFetch(created);
+    renderEventView();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    );
+    await userEvent.type(screen.getByLabelText("Name"), "Fortgeschritten");
+    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/event-series/s1/events/master-data/skill-levels?event=Woche%201");
+  });
+
+  it("names the whole path down to the event, ending at it", () => {
+    renderEventView();
+
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+
+    expect(within(trail).getByRole("link", { name: "Events" })).toBeInTheDocument();
+    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Woche 1");
+  });
+
+  it("offers only the five categories an event may override", () => {
+    renderEventView();
+
+    for (const label of [
+      "Programme",
+      "Leistungsstufen",
+      "Zugangskarten",
+      "Zustiegsstellen",
+      "Verpflegung",
+    ]) {
+      expect(screen.getByRole("button", { name: new RegExp(`^${label}`) })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: /^Klassen/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Events/ })).not.toBeInTheDocument();
+  });
+
+  /** Empty means the event takes the series' list instead, not that nobody is asked (US-33). */
+  it("explains an empty list as inheriting the series', not as nothing maintained", () => {
+    useMasterData.mockReturnValue({ items: [], loading: false, error: null });
+    renderEventView();
+
+    expect(
+      screen.getByText("Dieses Event verwendet die Leistungsstufen der Eventreihe."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/noch keine Leistungsstufe/i)).not.toBeInTheDocument();
   });
 });
 

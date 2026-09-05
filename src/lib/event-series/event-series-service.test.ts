@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import { FakeFirestore } from "@/test/fake-firestore";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import { registrationPath } from "@/lib/registration/registration";
 import { savedReportPath } from "@/lib/report/saved-reports";
 import { ARCHIVE_OPEN_HINT } from "@/lib/event-series/event-series-state";
@@ -92,7 +92,7 @@ describe("createEventSeries", () => {
  */
 describe("createEventSeries — from a source", () => {
   const lists = {
-    events: [{ name: "Woche 1" }, { name: "Woche 2" }],
+    events: [event("Woche 1"), event("Woche 2")],
     classOptions: ["5AHIF", "5BHIF"],
     programs: [
       { name: "Ski", requiredEquipment: ["Ski", "Helm"] },

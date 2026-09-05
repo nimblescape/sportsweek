@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeDocumentReference, FakeFirestore } from "@/test/fake-firestore";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 
 const firestore = new FakeFirestore();
 
@@ -41,7 +41,7 @@ beforeEach(() => {
       name: "2026",
       isOpenToStudents: true,
       hasRegistrations: true,
-      events: [{ name: "Woche 1" }, { name: "Woche 2" }],
+      events: [event("Woche 1"), event("Woche 2")],
     }),
   );
   firestore.seed(
@@ -52,7 +52,7 @@ beforeEach(() => {
       isArchived: true,
       hasRegistrations: true,
       position: 1,
-      events: [{ name: "Gardasee" }],
+      events: [event("Gardasee")],
     }),
   );
   seedRecord(ANNA);
@@ -134,7 +134,7 @@ describe("assignStudents", () => {
         isArchived: true,
         hasRegistrations: true,
         position: 1,
-        events: [{ name: "woche 1" }],
+        events: [event("woche 1")],
       }),
     );
 

@@ -6,7 +6,9 @@
 import {
   EQUIPMENT_LABELS,
   MASTER_DATA_CATEGORIES,
+  PER_EVENT_CATEGORY_KEYS,
   type MasterDataCategoryKey,
+  type PerEventCategoryKey,
 } from "@/lib/master-data/categories";
 import { ROUTES } from "@/lib/routes";
 
@@ -54,11 +56,43 @@ export function equipmentPath(eventSeriesId: string, program: string): string {
   return `${masterDataPath(eventSeriesId, "programs")}?equipment=${encodeURIComponent(program)}`;
 }
 
+/**
+ * A category on an event's own page (US-33). `events` is a static segment rather than a dynamic
+ * one, because it is the only category whose entries have children of their own and a static
+ * segment wins over a dynamic one — `{category}` still names which of the event's five lists.
+ */
+export function eventCategoryPath(
+  eventSeriesId: string,
+  eventName: string,
+  category: PerEventCategoryKey,
+): string {
+  return (
+    `${ROUTES.eventSeries}/${encodeURIComponent(eventSeriesId)}/events/${category}` +
+    `?event=${encodeURIComponent(eventName)}`
+  );
+}
+
+/** A series-level program's equipment one level up, at an event's own program instead. */
+export function eventEquipmentPath(
+  eventSeriesId: string,
+  eventName: string,
+  program: string,
+): string {
+  return `${eventCategoryPath(eventSeriesId, eventName, "programs")}&equipment=${encodeURIComponent(program)}`;
+}
+
 /** Where a series' record opens, the record itself having no view of its own. */
 export function eventSeriesRecordPath(eventSeriesId: string): string {
   const [first] = Object.keys(MASTER_DATA_CATEGORIES) as MasterDataCategoryKey[];
 
   return masterDataPath(eventSeriesId, first);
+}
+
+/** Where an event's own record opens, mirroring a series' record having no view of its own. */
+export function eventRecordPath(eventSeriesId: string, eventName: string): string {
+  const [first] = PER_EVENT_CATEGORY_KEYS;
+
+  return eventCategoryPath(eventSeriesId, eventName, first);
 }
 
 export function categoryTabs(eventSeriesId: string): RecordTab[] {
@@ -78,6 +112,38 @@ export function equipmentTabs(eventSeriesId: string, program: string): RecordTab
       key: "required-equipment",
       label: EQUIPMENT_LABELS.title,
       href: equipmentPath(eventSeriesId, program),
+      addLabel: EQUIPMENT_LABELS.add,
+      opensRecords: false,
+    },
+  ];
+}
+
+/** An event's own tag row: the five categories it may override, and none of the other two. */
+export function eventTabs(eventSeriesId: string, eventName: string): RecordTab[] {
+  return PER_EVENT_CATEGORY_KEYS.map((key) => {
+    const category = MASTER_DATA_CATEGORIES[key];
+
+    return {
+      key,
+      label: category.labels.title,
+      href: eventCategoryPath(eventSeriesId, eventName, key),
+      addLabel: category.labels.add,
+      opensRecords: category.opensRecords,
+    };
+  });
+}
+
+/** Equipment belongs to the program that requires it, even one that is itself an event's own. */
+export function eventEquipmentTabs(
+  eventSeriesId: string,
+  eventName: string,
+  program: string,
+): RecordTab[] {
+  return [
+    {
+      key: "required-equipment",
+      label: EQUIPMENT_LABELS.title,
+      href: eventEquipmentPath(eventSeriesId, eventName, program),
       addLabel: EQUIPMENT_LABELS.add,
       opensRecords: false,
     },
@@ -115,5 +181,38 @@ export function programTrail(
       href: masterDataPath(eventSeriesId, "programs"),
     },
     { label: program, href: equipmentPath(eventSeriesId, program) },
+  ];
+}
+
+/** The path down to one event's record, an event now carrying lists of its own (US-33). */
+export function eventTrail(
+  eventSeriesId: string,
+  eventSeriesName: string,
+  eventName: string,
+): Crumb[] {
+  return [
+    ...eventSeriesTrail(eventSeriesId, eventSeriesName),
+    {
+      label: MASTER_DATA_CATEGORIES.events.labels.title,
+      href: masterDataPath(eventSeriesId, "events"),
+    },
+    { label: eventName, href: eventRecordPath(eventSeriesId, eventName) },
+  ];
+}
+
+/** The path down to one of an event's own programs, whose required equipment the leaf lists. */
+export function eventEquipmentTrail(
+  eventSeriesId: string,
+  eventSeriesName: string,
+  eventName: string,
+  program: string,
+): Crumb[] {
+  return [
+    ...eventTrail(eventSeriesId, eventSeriesName, eventName),
+    {
+      label: MASTER_DATA_CATEGORIES.programs.labels.title,
+      href: eventCategoryPath(eventSeriesId, eventName, "programs"),
+    },
+    { label: program, href: eventEquipmentPath(eventSeriesId, eventName, program) },
   ];
 }

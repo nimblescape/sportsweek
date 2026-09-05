@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { notFound } from "next/navigation";
+import { EventsView } from "@/components/master-data/events-view";
 import { MasterDataView } from "@/components/master-data/master-data-view";
 import { ProgramEquipmentView } from "@/components/master-data/program-equipment-view";
 import { ProgramsView } from "@/components/master-data/programs-view";
@@ -26,6 +27,10 @@ export default async function MasterDataCategoryPage({
   if (!parsed.success) notFound();
 
   const { equipment } = await searchParams;
+
+  if (parsed.data === "events") {
+    return <EventsView eventSeriesId={eventSeriesId} />;
+  }
 
   if (parsed.data === "programs") {
     return equipment === undefined ? (

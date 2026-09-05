@@ -14,7 +14,7 @@ import {
 } from "@/lib/registration/answer-labels";
 import { REPORT_FIELD_TAGS } from "@/lib/report/report-fields";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import {
   ATTENDANCE_VALUES,
   COMPLETENESS_VALUES,
@@ -569,7 +569,7 @@ describe("scopeFilterToGroups", () => {
  */
 describe("prunedToLists", () => {
   const series = storedEventSeries({
-    events: [{ name: "Woche 1" }],
+    events: [event("Woche 1")],
     classOptions: ["5AHIF"],
     programs: [{ name: "Ski", requiredEquipment: [] }],
     skillLevels: ["Profi"],

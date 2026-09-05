@@ -9,6 +9,7 @@ import { EQUIPMENT_RENTAL_LABEL } from "@/lib/registration/answer-labels";
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import type { Registration } from "@/lib/schemas/registration";
 import { studentRecord } from "@/test/roster-student";
+import { event } from "@/test/event-series";
 import { fieldTagsFor, NO_ANSWER, REPORT_FIELD_TAGS, reportFieldsOf } from "./report-fields";
 
 const keys = REPORT_FIELD_TAGS.map((tag) => tag.key);
@@ -198,7 +199,7 @@ describe("a field's value", () => {
  */
 describe("fieldTagsFor", () => {
   const lists = {
-    events: [{ name: "Woche 1" }],
+    events: [event("Woche 1")],
     classOptions: ["5AHIF"],
     programs: [{ name: "Ski", requiredEquipment: ["Ski"] }],
     skillLevels: ["Profi"],

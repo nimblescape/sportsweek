@@ -155,12 +155,31 @@ describe("programListSchema", () => {
 });
 
 describe("eventSchema", () => {
-  it("carries a name and nothing else yet", () => {
-    expect(Object.keys(eventSchema.shape)).toEqual(["name"]);
+  it("carries a name and the five lists a place may override", () => {
+    expect(Object.keys(eventSchema.shape)).toEqual([
+      "name",
+      "programs",
+      "skillLevels",
+      "seasonPassOptions",
+      "busPickupPoints",
+      "foodOptions",
+    ]);
   });
 
   it("requires a non-empty name", () => {
     expect(eventSchema.safeParse({ name: "  " }).success).toBe(false);
+  });
+
+  /** Empty means "inherit the series' list" here, unlike anywhere else a list is empty (US-33). */
+  it("defaults every one of its five lists to empty, which is what inheriting looks like", () => {
+    expect(eventSchema.parse({ name: "Woche 1" })).toEqual({
+      name: "Woche 1",
+      programs: [],
+      skillLevels: [],
+      seasonPassOptions: [],
+      busPickupPoints: [],
+      foodOptions: [],
+    });
   });
 });
 

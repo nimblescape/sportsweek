@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { registrationPath } from "@/lib/registration/registration";
 
@@ -409,23 +409,23 @@ describe("deleteMasterDataItem", () => {
    * exactly as deleting a class would. It is a list like any other in this respect.
    */
   it("refuses to delete an event a student is assigned to", async () => {
-    seedActiveEventSeries({ events: [{ name: "Woche 1" }, { name: "Woche 2" }] });
+    seedActiveEventSeries({ events: [event("Woche 1"), event("Woche 2")] });
     seedRegistration("r1", { event: "Woche 1" });
 
     await expect(deleteMasterDataItem("events", "Woche 1")).rejects.toMatchObject({
       code: "CONFLICT",
       message: IN_USE_HINT,
     });
-    expect(storedList("events")).toEqual([{ name: "Woche 1" }, { name: "Woche 2" }]);
+    expect(storedList("events")).toEqual([event("Woche 1"), event("Woche 2")]);
   });
 
   it("deletes an event nobody is assigned to", async () => {
-    seedActiveEventSeries({ events: [{ name: "Woche 1" }, { name: "Woche 2" }] });
+    seedActiveEventSeries({ events: [event("Woche 1"), event("Woche 2")] });
     seedRegistration("r1", { event: "Woche 1" });
 
     await deleteMasterDataItem("events", "Woche 2");
 
-    expect(storedList("events")).toEqual([{ name: "Woche 1" }]);
+    expect(storedList("events")).toEqual([event("Woche 1")]);
   });
 
   /** Deleting a program would take its equipment along, so a rented entry holds it back too. */
@@ -551,5 +551,106 @@ describe("readMasterDataItems", () => {
 
   it("refuses while no event series is active", async () => {
     await expect(readMasterDataItems("classes")).rejects.toBeInstanceOf(ServiceError);
+  });
+});
+
+/**
+ * The five overridable categories (US-33) work the same at event scope as at series scope — same
+ * service, same guard, same schema — with only where the list lives differing (Q: "unify, don't
+ * reinvent" per the per-event-categories refactor's own instruction).
+ */
+describe("event scope", () => {
+  const WOCHE_1 = { kind: "event", name: "Woche 1" } as const;
+
+  it("reads an event's own list rather than the series'", async () => {
+    seedActiveEventSeries({
+      events: [event("Woche 1", { programs: [{ name: "Ski", requiredEquipment: [] }] })],
+      programs: [{ name: "Snowboard", requiredEquipment: [] }],
+    });
+
+    await expect(readMasterDataItems("programs", WOCHE_1)).resolves.toEqual({
+      eventSeriesId: SERIES,
+      items: [{ name: "Ski", requiredEquipment: [] }],
+    });
+  });
+
+  it("adds to one event's own list, leaving the series' and its other events' untouched", async () => {
+    seedActiveEventSeries({
+      events: [event("Woche 1"), event("Woche 2", { skillLevels: ["Profi"] })],
+      skillLevels: ["Anfänger:in"],
+    });
+
+    await createMasterDataItem("skill-levels", { name: "Profi" }, WOCHE_1);
+
+    expect(storedList("skillLevels")).toEqual(["Anfänger:in"]);
+    expect(storedList("events")).toEqual([
+      event("Woche 1", { skillLevels: ["Profi"] }),
+      event("Woche 2", { skillLevels: ["Profi"] }),
+    ]);
+  });
+
+  it("renames an entry of one event's list, carrying its other four lists forward untouched", async () => {
+    seedActiveEventSeries({
+      events: [
+        event("Woche 1", {
+          skillLevels: ["Anfänger:in"],
+          seasonPassOptions: ["Kein Skipass"],
+        }),
+      ],
+    });
+
+    await updateMasterDataItem("skill-levels", "Anfänger:in", { name: "Profi" }, WOCHE_1);
+
+    expect(storedList("events")).toEqual([
+      event("Woche 1", { skillLevels: ["Profi"], seasonPassOptions: ["Kein Skipass"] }),
+    ]);
+  });
+
+  it("deletes an entry of one event's own list", async () => {
+    seedActiveEventSeries({
+      events: [event("Woche 1", { foodOptions: ["Vegetarisch", "Vegan"] })],
+    });
+
+    await deleteMasterDataItem("food-options", "Vegan", WOCHE_1);
+
+    expect(storedList("events")).toEqual([event("Woche 1", { foodOptions: ["Vegetarisch"] })]);
+  });
+
+  it("reorders one event's own list", async () => {
+    seedActiveEventSeries({
+      events: [event("Woche 1", { busPickupPoints: ["A", "B"] })],
+    });
+
+    await reorderMasterDataItems("bus-pickup-points", ["B", "A"], WOCHE_1);
+
+    expect(storedList("events")).toEqual([event("Woche 1", { busPickupPoints: ["B", "A"] })]);
+  });
+
+  it("still refuses an entry a registration selects, the guard reading the event's own list", async () => {
+    seedActiveEventSeries({ events: [event("Woche 1", { skillLevels: ["Profi"] })] });
+    seedRegistration("r1", { skillLevel: "Profi" });
+
+    await expect(deleteMasterDataItem("skill-levels", "Profi", WOCHE_1)).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
+  it("refuses a category that names no event, such as classes or the events list itself", async () => {
+    seedActiveEventSeries({ events: [event("Woche 1")] });
+
+    await expect(createMasterDataItem("classes", { name: "3AHIT" }, WOCHE_1)).rejects.toMatchObject(
+      { code: "VALIDATION_ERROR" },
+    );
+    await expect(
+      createMasterDataItem("events", { name: "Woche 2" }, WOCHE_1),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("reports an event the scope names as not found", async () => {
+    seedActiveEventSeries({ events: [event("Woche 1")] });
+
+    await expect(
+      createMasterDataItem("skill-levels", { name: "Profi" }, { kind: "event", name: "Ghost" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });
