@@ -243,6 +243,18 @@ So the event joins it: `?event=`, beside the `?equipment=` that is already there
 stops reading as a hierarchy at that level, which is a real loss on the pages where the hierarchy
 is the point — and the breadcrumb, not the address bar, is what the concept relies on to show it.
 
+The asymmetry is not about the encoding but about what is re-normalised afterwards. A path is
+structural, so routers and proxies resolve `.` and `..`, collapse `//`, and may decode `%2F` back
+to a separator before matching — the encoding was right, and something downstream undid it. A
+query string has no structure to normalise, so nothing between the browser and the handler
+re-splits it, and the only parser is the application's own.
+
+One trap remains on that side and it must not be forgotten: a query is read with
+form-urlencoded semantics, where a **literal** `+` decodes as a space — so an event named
+"Woche 1+2" would come back as "Woche 1 2". `encodeURIComponent` escapes it to `%2B`, which is
+why the name survives. Every such link is therefore built by encoding the value, never by joining
+strings.
+
 The alternatives were weighed and set aside:
 
 |       | What names the event                     | Why not                                                                                                                                                                                      |
