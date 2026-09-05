@@ -21,18 +21,19 @@ jobs:
       - name: Only main may be promoted to production
         # Via the environment rather than an expression inside the script: a branch name is
         # attacker-controlled text and would otherwise be pasted straight into the shell.
+        #
+        # `main` is the only accepted source, and code scanning now depends on that. CodeQL
+        # runs as GitHub's default setup, which analyses `main` and pull requests into it and
+        # nothing else. That covers production only for as long as production is a snapshot of
+        # main -- so a branch admitted here that has not been through main would reach users
+        # unscanned. Re-opening this to another pattern means moving CodeQL back to a workflow
+        # that watches production too.
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           case "$HEAD_REF" in
             main)
               echo "Promoting main to production."
-              ;;
-            hotfix/*)
-              # The one way past the queue, named so it is visible in the log rather than
-              # done by disabling this check. Land the same fix on main as well, or the trunk
-              # keeps the defect and every later promotion has to merge around it.
-              echo "Hotfix '$HEAD_REF' going straight to production."
               ;;
             *)
               echo "::error::'$HEAD_REF' cannot merge into production. Changes reach production"
