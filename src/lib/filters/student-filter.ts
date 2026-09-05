@@ -294,6 +294,9 @@ const HEALTH_OPTIONS: readonly FilterOption[] = [
   { value: HEALTH_VALUES.noted, label: HEALTH_NOTED_LABEL },
 ];
 
+/** "Sonstiges" alone says nothing in a row that carries no headings, so the tag names its own. */
+const FOOD_OTHER_TAG_LABEL = `Essen ${FOOD_OPTION_OTHER_LABEL}`;
+
 /** Whether a student has anything health-related to be aware of, which is either answer (US-11). */
 function hasHealthNote(student: FilterableStudent): boolean {
   return (student.healthNotes ?? "").trim() !== "" || student.hasMedication === true;
@@ -403,7 +406,7 @@ export function filterGroups(
       ANSWER_LABELS.foodOption,
       food.length === 0
         ? []
-        : [...asOptions(food), { value: FOOD_OPTION_OTHER, label: FOOD_OPTION_OTHER_LABEL }],
+        : [...asOptions(food), { value: FOOD_OPTION_OTHER, label: FOOD_OTHER_TAG_LABEL }],
     );
   }
   if (health) {

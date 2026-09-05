@@ -8,10 +8,17 @@ import type { EventSeries } from "@/lib/schemas/event-series";
 import {
   MASTER_DATA_CATEGORIES,
   PER_EVENT_CATEGORY_KEYS,
+  questionsAsked,
+  type AnswerField,
   type EventSeriesListField,
 } from "./categories";
 
 type Lists = Pick<EventSeries, EventSeriesListField>;
+
+/** The answers an event can supply differently from its series, and so the ones step two asks. */
+export const EVENT_OWNED_ANSWERS: ReadonlySet<AnswerField> = new Set(
+  PER_EVENT_CATEGORY_KEYS.map((key) => MASTER_DATA_CATEGORIES[key].usage.field),
+);
 
 function named(entry: string | { name: string }): string {
   return typeof entry === "string" ? entry : entry.name;
@@ -54,6 +61,8 @@ export function seriesWideLists(eventSeries: Lists): Lists {
       const fromEvents = eventSeries.events.flatMap(
         (event) => event[field] as readonly (string | { name: string })[],
       );
+      // One entry per name, first spelling kept: the series and an event may name the same thing,
+      // and a filter offering it twice would be two tags for one answer.
       const seen = new Set<string>();
       const combined = [...seriesOwn, ...fromEvents].filter((entry) => {
         const key = normalizeName(named(entry));
@@ -66,4 +75,33 @@ export function seriesWideLists(eventSeries: Lists): Lists {
   );
 
   return { ...eventSeries, ...widened } as Lists;
+}
+
+/**
+ * Whether this series registers in two steps (US-36): any event names any list of its own.
+ *
+ * Deliberately not "names programs of its own". An event with its own access cards would ask a
+ * student for one before anybody knows which event they are in, and their answer would then turn
+ * out not to be one their event offers — which is exactly what two steps exist to prevent.
+ */
+export function registersInTwoSteps(eventSeries: Lists): boolean {
+  return eventSeries.events.some((event) =>
+    PER_EVENT_CATEGORY_KEYS.some((key) => event[MASTER_DATA_CATEGORIES[key].field].length > 0),
+  );
+}
+
+/**
+ * What this student is asked (US-35, US-36): the questions the lists their event resolves to
+ * stand behind — less, until they have an event in a two-step series, everything an event could
+ * answer differently. The one function the form, the completeness check and the server all ask,
+ * so none of them can come to put a question another one is not expecting an answer to.
+ */
+export function questionsFor(
+  eventSeries: Lists,
+  eventName: string | null,
+): ReadonlySet<AnswerField> {
+  const asked = questionsAsked(resolveEventLists(eventSeries, eventName));
+  if (eventName !== null || !registersInTwoSteps(eventSeries)) return asked;
+
+  return new Set([...asked].filter((field) => !EVENT_OWNED_ANSWERS.has(field)));
 }

@@ -7,8 +7,7 @@
 
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { questionsAsked } from "@/lib/master-data/categories";
-import { resolveEventLists } from "@/lib/master-data/resolution";
+import { questionsFor, resolveEventLists } from "@/lib/master-data/resolution";
 import { REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
 import { useRegistration } from "@/lib/registration/use-registration";
 import { RegistrationForm } from "./registration-form";
@@ -75,7 +74,7 @@ export function MyRegistrationView({
       eventSeriesName={eventSeries.name}
       studentName={studentName}
       studentClass={studentClass}
-      asked={questionsAsked(lists)}
+      asked={questionsFor(eventSeries, record?.event ?? null)}
       record={record}
       lists={{
         programs: lists.programs,

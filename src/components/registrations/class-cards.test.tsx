@@ -12,7 +12,7 @@ import { filterGroups } from "@/lib/filters/student-filter";
 import { INVITATION_LINK_LABEL, INVITATION_QR_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { ATTENDANCE_LABELS } from "@/lib/registration/answer-labels";
+import { ATTENDANCE_LABELS, INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
 import { ClassCards, NO_ANSWER_LABEL } from "./class-cards";
 
 const PROGRAMS = ["Ski", "Snowboard"];
@@ -151,6 +151,51 @@ describe("ClassCards — the students", () => {
 
     expect(listIn("5AHIF", "Teilnahme").getByText(nameOf(skier))).toBeInTheDocument();
     expect(listIn("5AHIF", "Teilnahme").queryByText(nameOf(boarder))).not.toBeInTheDocument();
+  });
+
+  /**
+   * Labelled rather than hidden, so a teacher who cannot see the icon is still told which
+   * registrations are still owed answers (US-13).
+   */
+  it("marks a student whose registration is still missing answers", () => {
+    const unfinished = student({ isIncomplete: true });
+    const finished = student({ isIncomplete: false });
+    setup([unfinished, finished]);
+
+    const marks = listIn("5AHIF", "Teilnahme").getAllByLabelText(INCOMPLETE_REGISTRATION_HINT);
+
+    expect(marks).toHaveLength(1);
+    expect(marks[0].closest("li")).toHaveTextContent(nameOf(unfinished));
+  });
+
+  /** Before the name, so a column of tags can be read down for the ones still to chase. */
+  it("puts the mark ahead of the name", () => {
+    const unfinished = student({ isIncomplete: true });
+    setup([unfinished]);
+
+    const mark = listIn("5AHIF", "Teilnahme").getByLabelText(INCOMPLETE_REGISTRATION_HINT);
+    const name = listIn("5AHIF", "Teilnahme").getByText(nameOf(unfinished));
+
+    expect(mark.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("leaves a finished registration unmarked", () => {
+    setup([student({ isIncomplete: false })]);
+
+    expect(
+      listIn("5AHIF", "Teilnahme").queryByLabelText(INCOMPLETE_REGISTRATION_HINT),
+    ).not.toBeInTheDocument();
+  });
+
+  /** The icon says it to a screen reader; this says the same to everyone else. */
+  it("says on hover what the mark means", async () => {
+    setup([student({ isIncomplete: true })]);
+
+    await userEvent.hover(
+      listIn("5AHIF", "Teilnahme").getByLabelText(INCOMPLETE_REGISTRATION_HINT),
+    );
+
+    expect(await screen.findByText(INCOMPLETE_REGISTRATION_HINT)).toBeInTheDocument();
   });
 });
 

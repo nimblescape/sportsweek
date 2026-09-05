@@ -5,7 +5,113 @@
  */
 import { describe, expect, it } from "vitest";
 import { event, storedEventSeries } from "@/test/event-series";
-import { resolveEventLists, seriesWideLists } from "./resolution";
+import {
+  questionsFor,
+  registersInTwoSteps,
+  resolveEventLists,
+  seriesWideLists,
+} from "./resolution";
+
+/**
+ * Two steps exist because a question an event answers differently cannot be put before anybody
+ * knows which event the student is in (US-36). Any of the five carries that problem, so the
+ * condition is the condition itself rather than one instance of it.
+ */
+describe("registersInTwoSteps", () => {
+  it("registers in one step where no event names a list of its own", () => {
+    const eventSeries = storedEventSeries({
+      programs: [{ name: "Ski", requiredEquipment: [] }],
+      events: [event("Woche 1"), event("Woche 2")],
+    });
+
+    expect(registersInTwoSteps(eventSeries)).toBe(false);
+  });
+
+  it("registers in one step where there is no event at all", () => {
+    expect(registersInTwoSteps(storedEventSeries({ events: [] }))).toBe(false);
+  });
+
+  it("registers in two steps as soon as one event names one list", () => {
+    const eventSeries = storedEventSeries({
+      events: [event("Woche 1"), event("Woche 2", { seasonPassOptions: ["Arlberg"] })],
+    });
+
+    expect(registersInTwoSteps(eventSeries)).toBe(true);
+  });
+
+  it.each(["programs", "skillLevels", "seasonPassOptions", "busPickupPoints", "foodOptions"])(
+    "counts %s, not the programs alone",
+    (field) => {
+      const own = field === "programs" ? [{ name: "Ski", requiredEquipment: [] }] : ["Irgendetwas"];
+      const eventSeries = storedEventSeries({ events: [event("Woche 1", { [field]: own })] });
+
+      expect(registersInTwoSteps(eventSeries)).toBe(true);
+    },
+  );
+});
+
+describe("questionsFor", () => {
+  const lists = {
+    classOptions: ["5AHIF"],
+    programs: [{ name: "Ski", requiredEquipment: [] }],
+    skillLevels: ["Profi"],
+    seasonPassOptions: ["Montafon"],
+    busPickupPoints: ["Dornbirn"],
+    foodOptions: ["Vegetarisch"],
+  };
+
+  it("asks everything the series offers in a one-step series", () => {
+    const eventSeries = storedEventSeries({ ...lists, events: [event("Woche 1")] });
+
+    expect([...questionsFor(eventSeries, null)].sort()).toEqual([
+      "busPickupPoint",
+      "class",
+      "event",
+      "foodOption",
+      "program",
+      "seasonPassOption",
+      "skillLevel",
+    ]);
+  });
+
+  /** Step one asks nothing an event could answer differently, since nobody knows which yet. */
+  it("holds back the event's own questions until the student has an event", () => {
+    const eventSeries = storedEventSeries({
+      ...lists,
+      events: [event("Woche 2", { seasonPassOptions: ["Arlberg"] })],
+    });
+
+    expect([...questionsFor(eventSeries, null)].sort()).toEqual(["class", "event"]);
+  });
+
+  it("asks them once the student is assigned to an event", () => {
+    const eventSeries = storedEventSeries({
+      ...lists,
+      events: [event("Woche 2", { seasonPassOptions: ["Arlberg"] })],
+    });
+
+    expect([...questionsFor(eventSeries, "Woche 2")].sort()).toEqual([
+      "busPickupPoint",
+      "class",
+      "event",
+      "foodOption",
+      "program",
+      "seasonPassOption",
+      "skillLevel",
+    ]);
+  });
+
+  /** An empty list is still a question nobody is asked, whichever step it would have been in. */
+  it("leaves out a question no list stands behind", () => {
+    const eventSeries = storedEventSeries({
+      ...lists,
+      skillLevels: [],
+      events: [event("Woche 1")],
+    });
+
+    expect(questionsFor(eventSeries, null).has("skillLevel")).toBe(false);
+  });
+});
 
 describe("resolveEventLists", () => {
   it("answers the series' own lists where no event is named", () => {

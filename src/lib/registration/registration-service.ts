@@ -13,10 +13,10 @@ import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series"
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import {
   MASTER_DATA_CATEGORIES,
-  questionsAsked,
+  type AnswerField,
   type EventSeriesListField,
 } from "@/lib/master-data/categories";
-import { resolveEventLists } from "@/lib/master-data/resolution";
+import { questionsFor, resolveEventLists } from "@/lib/master-data/resolution";
 import {
   registrationInputSchema,
   registrationSchema,
@@ -94,11 +94,18 @@ function parseInput(input: RegistrationInput): RegistrationInput {
  */
 function assertAnswersAreOffered(
   lists: Pick<EventSeries, EventSeriesListField>,
+  asked: ReadonlySet<AnswerField>,
   answers: RegistrationInput & Pick<Registration, "class">,
 ): void {
   for (const category of Object.values(MASTER_DATA_CATEGORIES)) {
     const answer = answers[category.usage.field as keyof typeof answers];
     if (typeof answer !== "string" || answer === "") continue;
+
+    // A question that is not put has no answer that could be right — which is what keeps step one
+    // of a two-step series from storing anything about Veranstaltung (US-36).
+    if (!asked.has(category.usage.field)) {
+      throw new ServiceError(ErrorCode.Conflict, ANSWER_NO_LONGER_OFFERED_HINT);
+    }
 
     const list = lists[category.field];
     const offered = list.map((entry) => (typeof entry === "string" ? entry : entry.name));
@@ -180,8 +187,11 @@ export async function saveRegistration(
     // What the student's own event offers, falling back to the series' (US-33, US-35) — the one
     // resolution both the check below and the completeness it feeds are asked for.
     const lists = resolveEventLists(eventSeries, event);
+    // Until a teacher assigns them, a two-step series asks nothing an event could answer
+    // differently — so those answers are neither expected nor stored (US-36).
+    const asked = questionsFor(eventSeries, event);
 
-    assertAnswersAreOffered(lists, { ...fields, class: studentClass });
+    assertAnswersAreOffered(lists, asked, { ...fields, class: studentClass });
 
     const data = {
       ...identity,
@@ -189,7 +199,7 @@ export async function saveRegistration(
       event,
       // Recomputed here rather than trusted from the client: it is what the report marks a
       // student by (US-13), so it has to follow the answers actually stored.
-      isIncomplete: isRegistrationIncomplete(fields, questionsAsked(lists)),
+      isIncomplete: isRegistrationIncomplete(fields, asked),
       ...fields,
     };
     const record = registrationSchema.parse({ id: identity.studentUid, ...data });
@@ -236,7 +246,7 @@ export async function joinEventSeries(
         ...identity,
         class: className,
         event: null,
-        isIncomplete: isRegistrationIncomplete(EMPTY_REGISTRATION, questionsAsked(eventSeries)),
+        isIncomplete: isRegistrationIncomplete(EMPTY_REGISTRATION, questionsFor(eventSeries, null)),
         ...EMPTY_REGISTRATION,
       });
     }

@@ -6,7 +6,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Link, QrCode, Trash2 } from "lucide-react";
+import { Copy, Link, QrCode, Trash2, TriangleAlert } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeading, CardTitle } from "@/components/ui/card";
@@ -28,7 +28,7 @@ import {
   type FilterGroup,
   type StudentFilter,
 } from "@/lib/filters/student-filter";
-import { ATTENDANCE_LABELS } from "@/lib/registration/answer-labels";
+import { ATTENDANCE_LABELS, INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
 import type { RosterStudent } from "@/lib/students/roster";
 import {
   AREA,
@@ -376,6 +376,18 @@ function Cloud({
           return (
             <li key={student.id}>
               <Tag pressed={marked}>
+                {/* Labelled rather than hidden, so the mark reaches a teacher who cannot see it;
+                    the tooltip says the same to everyone else (US-13). */}
+                {student.isIncomplete ? (
+                  <Tooltip label={INCOMPLETE_REGISTRATION_HINT}>
+                    <span className="inline-flex">
+                      <TriangleAlert
+                        aria-label={INCOMPLETE_REGISTRATION_HINT}
+                        className="size-4 shrink-0"
+                      />
+                    </span>
+                  </Tooltip>
+                ) : null}
                 <TagName label={name} onPress={() => onMark(marked ? null : student.id)} />
                 {/* On the marked tag only, as a saved report's controls are (US-13, US-28). */}
                 {marked && onRemove ? (

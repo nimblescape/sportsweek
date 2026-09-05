@@ -421,7 +421,7 @@ describe("filterGroups", () => {
     expect(food.options).toEqual([
       { value: "Alles", label: "Alles" },
       { value: "Vegetarisch", label: "Vegetarisch" },
-      { value: FOOD_OPTION_OTHER, label: FOOD_OPTION_OTHER_LABEL },
+      { value: FOOD_OPTION_OTHER, label: `Essen ${FOOD_OPTION_OTHER_LABEL}` },
     ]);
   });
 
