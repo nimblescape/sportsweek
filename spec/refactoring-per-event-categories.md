@@ -415,6 +415,59 @@ names its own entries:
 The price is that two events wanting the same list type it twice. The alternative price was a
 third state on all five lists of every event, and a switch whose two positions render the same.
 
+## Required equipment says whether it can be borrowed
+
+A program's required equipment is the list of what a student needs in order to take part. Today
+that list means two things at once, because everything on it is also something the school lends —
+so a teacher who wants to tell students to bring long waterproof trousers has no way to say it
+without offering to supply them.
+
+Each entry therefore carries a flag of its own:
+
+```jsonc
+"requiredEquipment": [
+  { "name": "Helm", "isRentable": true },
+  { "name": "Lange, wasserdichte Hose", "isRentable": false },
+]
+```
+
+This is what an alternative program most needs. Its requirements are usually things a household
+already has, and listing them is the point — a student has to know to pack them — while lending
+them is not something the school does.
+
+### Where it shows up
+
+| Where                      | What changes                                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The equipment leaf         | Each row gains the flag beside its name; the list still holds at most `MAX_EQUIPMENT_ITEMS` entries with unique names                                        |
+| `rentsEquipment`           | Narrows from "some program requires anything" to "some program requires something **borrowable**" — it is what decides whether renting is asked about at all |
+| The form's equipment block | Lists **every** required item, so the student sees the whole of what they need; only the borrowable ones can be ticked, and the rest read as theirs to bring |
+| The form's rental question | "Musst du etwas ausleihen?" appears only when the chosen program has at least one borrowable item. A program with none shows a packing list and asks nothing |
+| The measurements           | Unchanged, and still behind the rental answer — which now cannot be reached by a program that lends nothing                                                  |
+| `scopeRentalToProgram`     | Scopes a student's rentals to the chosen program's **borrowable** names, and clears the rental answer when the program has none                              |
+| The completeness check     | Unchanged in shape; the rental branch is simply unreachable where nothing is borrowable                                                                      |
+| The report's rental field  | Offered by `rentsEquipment`, so it disappears for a series that lends nothing                                                                                |
+| The in-use guard           | Unchanged: it matches a student's stored rental by name, and a name nobody could rent is a name nobody holds                                                 |
+
+A student's `rentedEquipment` stays an array of names, so nothing about a stored registration
+changes shape.
+
+### Three things to settle
+
+**The wording.** The flag needs a label on the equipment row, and a non-borrowable item needs to
+read as the student's own responsibility on the form. Neither word is chosen here, because the
+right one is the school's.
+
+**Whether the flag may be withdrawn while somebody holds the item.** A student who has already
+ticked "Helm" has an answer that only made sense while it was borrowable. Turning the flag off is
+the same kind of act as renaming an entry a student has chosen, which is already refused — so it
+could be refused on the same terms, or allowed on the grounds that the stored answer remains true
+of the day it was given.
+
+**Whether the report shows the non-borrowable items.** They are the program's data rather than
+the student's answer, so they do not obviously belong in a report about students — but a teacher
+packing a coach may want exactly that list.
+
 ## Registration
 
 ### The form, reordered
@@ -665,7 +718,7 @@ emulator. Test-driven throughout: the failing test that states the new behaviour
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1** | The editor concept: the route tree moves under `/app/event-series/{id}`, the navigation shrinks to its five fixed entries, the category tag row and the breadcrumb arrive, the header rows are hidden in Stammdaten. No stored shape changes. |
 | **2** | An event becomes a record — `events` goes from `string[]` to objects with a name. Registrations still store the event's name.                                                                                                                 |
-| **3** | The five per-event lists, the resolution rule, and the per-event editor pages.                                                                                                                                                                |
+| **3** | The five per-event lists, the resolution rule, the per-event editor pages, and the borrowable flag on required equipment.                                                                                                                     |
 | **4** | The registration form order, the schema field order, and `"diverse"`.                                                                                                                                                                         |
 | **5** | The two-step registration and its steering condition.                                                                                                                                                                                         |
 | **6** | Merge this document and `spec/refactoring-event-series.md` into `spec/requirements.md`, and delete both.                                                                                                                                      |
