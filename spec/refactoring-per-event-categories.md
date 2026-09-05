@@ -200,13 +200,13 @@ L2  /app/event-series/{series}/{category}
     Zustiegsstellen  Verpflegung
     ⠿ Woche 1                      Öffnen ›        ✎  Ὕ1
 
-L3  /app/event-series/{series}/events/{event}/{category}
+L3  /app/event-series/{series}/events/{category}?event={event}
     Stammdaten › Eventreihen › Wintersportwoche 2026/27 › Events
     Woche 2
     [Programme ＋]  Leistungsstufen  Zugangskarten  Zustiegsstellen  Verpflegung
     ⠿ Ski                          Ausrüstung ›    ✎  Ὕ1
 
-L4  /app/event-series/{series}/events/{event}/programs?equipment={program}
+L4  /app/event-series/{series}/events/programs?event={event}&equipment={program}
     Stammdaten › … › Woche 2 › Programme
     Ski
     [Benötigte Ausrüstung ＋]
@@ -217,21 +217,21 @@ A series-level program's equipment is the same leaf one level up, at
 `/app/event-series/{series}/programs?equipment={program}`.
 
 `{category}` is a dynamic segment and `events` is a static one, because it is the only category
-whose entries have children of their own and a static segment wins over a dynamic one. Equipment
-keeps the `?equipment=` search parameter rather than a segment, because a program name is its
-identity and may hold characters a segment cannot carry.
+whose entries have children of their own and a static segment wins over a dynamic one. So the
+category is a segment at both levels, and what moves into a search parameter is only the record's
+identity — the event, alongside the program that equipment already names that way.
 
-### An event needs something a URL can carry — open, see Q5
+### An event is named by a search parameter, not by a segment
 
-`{event}` is the one segment naming a record a teacher typed. That is a problem the rest of the
-tree does not have: a program name was deliberately kept out of a segment for exactly this reason,
-and an event name is no different — it is editable, it is the identity (US-21), and nothing stops
-it holding a `/`, a `%` or a `#`.
+An event is the one record in the tree whose identity a teacher typed. That is a problem the rest
+of the tree does not have: a program name was deliberately kept out of a segment for exactly this
+reason, and an event name is no different — it is editable, it is the identity (US-21), and
+nothing stops it holding a `/`, a `%` or a `#`.
 
-Percent-encoding it is the obvious answer and it is not a reliable one. `%2F` inside a path
-segment is normalised by proxies and frameworks at several points between the browser and the
-page, and where it is decoded early the segment splits in two and the route stops matching. It
-works until the day somebody names an event "Woche 1/2".
+Percent-encoding it into a segment is the obvious answer and it is not a reliable one. `%2F`
+inside a path segment is normalised by proxies and frameworks at several points between the
+browser and the page, and where it is decoded early the segment splits in two and the route stops
+matching. It works until the day somebody names an event "Woche 1/2".
 
 The existing segment is no precedent for it, which is easy to assume and wrong. The event series
 id in `/app/event-series/{series}` is a Firestore auto-id, and `documentIdSchema` refuses a `/`
@@ -239,23 +239,26 @@ outright — so that segment has never carried an encoded slash and never can. N
 application has yet put teacher-typed text in a path segment, and where a name genuinely could
 hold anything, the existing answer was a search parameter.
 
-|       | What names the event                     | What it costs                                                                                                                                                                                     |
-| ----- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **a** | The percent-encoded name, in the segment | Reads well and needs no stored change. Fails on the characters a path cannot carry, and fails in a way that looks like a routing bug rather than a bad name.                                      |
-| **b** | The name, in a search parameter          | Cannot fail, and it is the precedent equipment already sets. The address stops reading as a hierarchy at the level where the hierarchy is the point.                                              |
-| **c** | A stored id on the event                 | Safe, opaque, survives a rename — and a rename becomes free, because nothing points at the name any more. Costs a generated id per event, and forces a decision about what a registration stores. |
-| **d** | The event's array index                  | **A trap.** An index is a position, not an identity: reordering or deleting silently re-points every link, bookmark and open tab at a different event. Do not use it.                             |
-|       |                                          |                                                                                                                                                                                                   |
+So the event joins it: `?event=`, beside the `?equipment=` that is already there. The address
+stops reading as a hierarchy at that level, which is a real loss on the pages where the hierarchy
+is the point — and the breadcrumb, not the address bar, is what the concept relies on to show it.
 
-Option **c** carries a second decision with it, which is why it is not simply the best answer. A
-registration stores `event` as a name today, so an id would mean either registrations start
-storing the id — after which renaming an event no longer has to be refused while students are
-assigned to it, because nothing needs rewriting — or they keep the name, and the event then has
-two identities, which is the thing this codebase most consistently refuses.
+The alternatives were weighed and set aside:
 
-Slugging the name is a fifth option and a worse version of **c**: a slug is safe in a path but two
-names can produce one slug, so it needs a uniqueness rule of its own, and it has to be stored to
-survive a rename — at which point it is an id that merely looks readable.
+|       | What names the event                     | Why not                                                                                                                                                                                      |
+| ----- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **a** | The percent-encoded name, in the segment | Fails on the characters a path cannot carry, and fails in a way that looks like a routing bug rather than a bad name.                                                                        |
+| **c** | A stored id on the event                 | The clean answer, and the expensive one: an id that is worth having is a document id, which means collections and references — the model deliberately dropped in favour of the one document. |
+| **d** | The event's array index                  | A position, not an identity: reordering or deleting silently re-points every link, bookmark and open tab at a different event.                                                               |
+
+Option **c** is the one to come back to, and it is not a URL decision on its own. Giving events
+real ids means giving them documents, and that is the same refactoring the document size limit
+would eventually force. Until something forces it, paying for it to get a tidier address is a
+poor trade — so readable paths wait for the day the storage changes for a reason of its own.
+
+Slugging the name would be a worse version of **c**: a slug is safe in a path but two names can
+produce one slug, so it needs a uniqueness rule of its own, and it has to be stored to survive a
+rename — at which point it is an id that merely looks readable.
 
 ### What the four screens share
 
@@ -419,7 +422,17 @@ Nothing about Veranstaltung is stored during the first step.
 
 ### Assignment is a step forward, and it does not go back
 
-Assigning is what begins step two, so it needs its own preconditions and one refusal.
+Assigning is what begins step two, so it carries three rules of its own — all of them enforced
+where the write happens, none of them a wizard or a prompt.
+
+**A series open to students cannot be assigned in.** Assigning, reassigning and un-assigning all
+require the series to be closed first. While it is open a student may be answering Veranstaltung
+at the moment a teacher moves them, and neither of them would ever know.
+
+Closing is the teacher's own act, and the application never does it on their behalf. An
+assignment that closed the series as a side effect would shut students out of a registration they
+were in the middle of, decided by somebody who was doing something else entirely — so the write
+is refused, and the teacher closes the series and tries again.
 
 **A student may only be assigned once their registration is complete** — in whichever sense
 applies: everything answered in a one-step series, everything outside Veranstaltung in a two-step
@@ -427,19 +440,15 @@ one. Assigning somebody who has not finished answering produces a registration t
 for two unrelated reasons at once, and a teacher cannot tell from the board which one they are
 looking at. Today the board's rule is only that the student is attending; this narrows it.
 
-**A student whose Veranstaltung answers are complete may not be un-assigned, and may not be moved
-to another event.** Their answers were drawn from that event's lists, and taking the event away
-would leave answers that came from nowhere, while moving them to another event would leave
-answers that came from the wrong place. Both are refused rather than silently cleared — clearing
-is a decision about somebody else's data, made by the person least likely to notice it happened.
-Un-assigning a student who has not yet answered Veranstaltung is free, because there is nothing
-to lose.
+**In a two-step series, a student who has chosen a program cannot be reassigned.** The program
+came from that event's own list — that is what made the series two-step in the first place — so
+moving the student elsewhere, or taking their event away, would leave an answer sourced from an
+event they are no longer in. The write is refused rather than the answer quietly cleared, which
+is the same shape as the rule that already refuses to rename a list entry a student has chosen.
 
-What that means for the teacher is a running order rather than a rule to remember: close the
-series to students, then assign. A series still open is one where a student can be answering
-Veranstaltung at the moment the teacher moves them. The teachers who do this are the skilled
-users of the application and the order is theirs to keep — whether the application should enforce
-it rather than rely on it is Q6.
+The last rule is narrow on purpose. It does not apply in a one-step series, where the program came
+from the series and survives any move; and it does not fire before a program is chosen, when there
+is nothing yet to invalidate.
 
 ## User stories
 
@@ -486,10 +495,11 @@ it rather than rely on it is Q6.
 - Step one is everything but Veranstaltung, and a registration that has it all reads complete.
 - Assignment to an event begins step two: Veranstaltung appears and the registration reads
   incomplete until it is answered.
+- Assigning, reassigning and un-assigning are refused while the series is open to students.
 - A student may only be assigned once their registration is complete in the sense that applies to
   their series.
-- A student whose Veranstaltung answers are complete may be neither un-assigned nor moved to
-  another event; the attempt is refused, and nothing is cleared on their behalf.
+- In a two-step series, a student who has chosen a program may not be reassigned or un-assigned;
+  the attempt is refused, and nothing is cleared on their behalf.
 - A student may amend either step at any time while the series is open to them.
 
 ## Sequencing
@@ -508,23 +518,3 @@ emulator. Test-driven throughout: the failing test that states the new behaviour
 | **6** | Merge this document and `spec/refactoring-event-series.md` into `spec/requirements.md`, and delete both.                                                                                                                                      |
 
 Environments are purged and reseeded after slices 2, 3 and 4.
-
-## Open questions
-
-### Q5 — What names an event in a URL?
-
-See "An event needs something a URL can carry" above. The four candidates and what each costs are
-stated there; what is open is which of them the events get.
-
-### Q6 — Should assignment be refused while the series is open to students?
-
-The order that keeps a teacher out of trouble is: close the series, then assign. The question is
-whether the application enforces it or merely relies on it.
-
-Enforcing it makes a race impossible — a student cannot be answering Veranstaltung at the moment
-their event changes underneath them. It also makes assignment unavailable during the window a
-teacher may reasonably want it, since a series is opened by generating its invitation link and
-is not closed again as a matter of course.
-
-Relying on it keeps the workflow open and leaves the two refusals above as the only guard, which
-is what the skilled users this page is built for would expect.
