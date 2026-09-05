@@ -126,30 +126,38 @@ Two consequences worth stating, because they are the ones that surprise:
   at its own level. Uniqueness, length and count are checked within one list, so the same
   constraints apply per event as per series, independently.
 
-### What bounds the document
+### The document's real limit, handled rather than guessed at
 
 Everything above lives in one Firestore document, and Firestore caps a document at 1 MiB. The
-caps declared today multiply badly: 100 events, each with five lists of up to 100 entries of up
-to 120 characters, programs carrying 10 equipment items apiece, is several megabytes — a
-document a teacher could make unwritable through the UI alone.
+caps the lists already declare multiply badly against that: a hundred events, each carrying five
+lists of up to a hundred entries, is megabytes on paper.
 
-So the caps come down to **10 events** and **10 entries per list**, equipment staying at 10:
+**No new cap is introduced for it.** A number chosen to make the arithmetic safe would be a
+number invented against a case nobody has met — a realistic series is a few tens of kilobytes,
+and a cap tight enough to guarantee the worst case would be tight enough to obstruct the normal
+one. If a school ever does reach the limit, that is the moment to change how the data is stored,
+and the refactoring will be informed by a real shape rather than a guessed one.
 
-|                                                                         | Worst case at the new caps             |
-| ----------------------------------------------------------------------- | -------------------------------------- |
-| One event's programs — 10 × (name + 10 equipment), 120 chars at 2 bytes | ≈ 26 KB                                |
-| Its other four lists — 4 × 10 × 120 chars                               | ≈ 10 KB                                |
-| **One event**                                                           | **≈ 36 KB**                            |
-| Ten events                                                              | ≈ 360 KB                               |
-| The series' own six lists                                               | ≈ 38 KB                                |
-| **The whole document**                                                  | **≈ 400 KB — under 40% of the budget** |
+What the limit gets instead is **an honest failure**. Firestore refuses a write that would exceed
+it, and that refusal must reach the teacher as a sentence saying what happened and what to do,
+not as a generic save error. The write path recognises that one refusal and answers with its own
+message; every other fault keeps the sanitised message it has today.
 
-A realistic series — five events, five programs of three items each, names of about thirty
-characters — is well under 30 KB. The caps are what keeps the worst case bounded; they are not
-what anyone is expected to reach.
+### Concurrent edits: the last write wins
 
-One cap serves both levels, so a per-event list can never be bounded differently from the
-per-series list it overrides.
+All the master data of one series is one document, so two teachers editing different categories
+are still editing one record. The rule is the simple one: **the last write wins.** Nothing
+versions the document, nothing refuses a write because somebody else got there first, and a
+teacher is never shown a conflict to resolve.
+
+This is a deliberate trade against a bounded audience. Master data is maintained by one or two
+people who are in touch with each other, and for them a merge dialogue would be a cost paid on
+every save to guard against something that does not happen. The consequence is real and
+accepted: if two people do edit at the same time, one of them can silently lose an entry.
+
+If that assumption stops holding — more maintainers, or edits that are not coordinated — the
+answer is not to bolt locking on, but to revisit how the lists are stored, which is the same
+refactoring the size limit would eventually force.
 
 ## The master data editor: drill-down record pages (Concept A)
 
@@ -212,6 +220,36 @@ A series-level program's equipment is the same leaf one level up, at
 whose entries have children of their own and a static segment wins over a dynamic one. Equipment
 keeps the `?equipment=` search parameter rather than a segment, because a program name is its
 identity and may hold characters a segment cannot carry.
+
+### An event needs something a URL can carry — open, see Q5
+
+`{event}` is the one segment naming a record a teacher typed. That is a problem the rest of the
+tree does not have: a program name was deliberately kept out of a segment for exactly this reason,
+and an event name is no different — it is editable, it is the identity (US-21), and nothing stops
+it holding a `/`, a `%` or a `#`.
+
+Percent-encoding it is the obvious answer and it is not a reliable one. `%2F` inside a path
+segment is normalised by proxies and frameworks at several points between the browser and the
+page, and where it is decoded early the segment splits in two and the route stops matching. It
+works until the day somebody names an event "Woche 1/2".
+
+|       | What names the event                     | What it costs                                                                                                                                                                                     |
+| ----- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **a** | The percent-encoded name, in the segment | Reads well and needs no stored change. Fails on the characters a path cannot carry, and fails in a way that looks like a routing bug rather than a bad name.                                      |
+| **b** | The name, in a search parameter          | Cannot fail, and it is the precedent equipment already sets. The address stops reading as a hierarchy at the level where the hierarchy is the point.                                              |
+| **c** | A stored id on the event                 | Safe, opaque, survives a rename — and a rename becomes free, because nothing points at the name any more. Costs a generated id per event, and forces a decision about what a registration stores. |
+| **d** | The event's array index                  | **A trap.** An index is a position, not an identity: reordering or deleting silently re-points every link, bookmark and open tab at a different event. Do not use it.                             |
+|       |                                          |                                                                                                                                                                                                   |
+
+Option **c** carries a second decision with it, which is why it is not simply the best answer. A
+registration stores `event` as a name today, so an id would mean either registrations start
+storing the id — after which renaming an event no longer has to be refused while students are
+assigned to it, because nothing needs rewriting — or they keep the name, and the event then has
+two identities, which is the thing this codebase most consistently refuses.
+
+Slugging the name is a fifth option and a worse version of **c**: a slug is safe in a path but two
+names can produce one slug, so it needs a uniqueness rule of its own, and it has to be stored to
+survive a rename — at which point it is an id that merely looks readable.
 
 ### What the four screens share
 
@@ -373,6 +411,30 @@ card is now there — filled from their event's lists, or the series' where the 
 
 Nothing about Veranstaltung is stored during the first step.
 
+### Assignment is a step forward, and it does not go back
+
+Assigning is what begins step two, so it needs its own preconditions and one refusal.
+
+**A student may only be assigned once their registration is complete** — in whichever sense
+applies: everything answered in a one-step series, everything outside Veranstaltung in a two-step
+one. Assigning somebody who has not finished answering produces a registration that is incomplete
+for two unrelated reasons at once, and a teacher cannot tell from the board which one they are
+looking at. Today the board's rule is only that the student is attending; this narrows it.
+
+**A student whose Veranstaltung answers are complete may not be un-assigned, and may not be moved
+to another event.** Their answers were drawn from that event's lists, and taking the event away
+would leave answers that came from nowhere, while moving them to another event would leave
+answers that came from the wrong place. Both are refused rather than silently cleared — clearing
+is a decision about somebody else's data, made by the person least likely to notice it happened.
+Un-assigning a student who has not yet answered Veranstaltung is free, because there is nothing
+to lose.
+
+What that means for the teacher is a running order rather than a rule to remember: close the
+series to students, then assign. A series still open is one where a student can be answering
+Veranstaltung at the moment the teacher moves them. The teachers who do this are the skilled
+users of the application and the order is theirs to keep — whether the application should enforce
+it rather than rely on it is Q6.
+
 ## User stories
 
 ### US-33: Teacher maintains master data as a hierarchy
@@ -418,6 +480,10 @@ Nothing about Veranstaltung is stored during the first step.
 - Step one is everything but Veranstaltung, and a registration that has it all reads complete.
 - Assignment to an event begins step two: Veranstaltung appears and the registration reads
   incomplete until it is answered.
+- A student may only be assigned once their registration is complete in the sense that applies to
+  their series.
+- A student whose Veranstaltung answers are complete may be neither un-assigned nor moved to
+  another event; the attempt is refused, and nothing is cleared on their behalf.
 - A student may amend either step at any time while the series is open to them.
 
 ## Sequencing
@@ -439,24 +505,20 @@ Environments are purged and reseeded after slices 2, 3 and 4.
 
 ## Open questions
 
-### Q3 — Is ten entries enough for every list, or only for the ones that multiply?
+### Q5 — What names an event in a URL?
 
-The caps are settled at ten events and ten entries per list, and the arithmetic is in "What
-bounds the document" above. What is left is which lists the ten applies to.
+See "An event needs something a URL can carry" above. The four candidates and what each costs are
+stated there; what is open is which of them the events get.
 
-The number only multiplies where a list hangs off an event. A series-level list appears once, so
-it could stay at a hundred and the document would still fit — the worst case rises to about
-740 KB, roughly 70% of the budget, rather than 400 KB.
+### Q6 — Should assignment be refused while the series is open to students?
 
-The one that matters is **Klassen**: it exists only at series level and it is the list most
-likely to want more than ten entries, since it names every class taking part. Ten programs, ten
-skill levels, ten access cards, ten pickup points and ten catering options are all generous.
+The order that keeps a teacher out of trouble is: close the series, then assign. The question is
+whether the application enforces it or merely relies on it.
 
-So: does ten bound every list, or does it bound only the five that hang off an event, leaving
-Klassen — and perhaps the other series-level lists — at a hundred?
+Enforcing it makes a race impossible — a student cannot be answering Veranstaltung at the moment
+their event changes underneath them. It also makes assignment unavailable during the window a
+teacher may reasonably want it, since a series is opened by generating its invitation link and
+is not closed again as a matter of course.
 
-### Q4 — Does the answer order follow the menu?
-
-Putting Klassen before Events reorders the report's field row, the filter's category row and the
-registration form's card, because all three are pinned to the menu order by tests. Confirm that
-this is wanted, or the menu stops being the single source of that order.
+Relying on it keeps the workflow open and leaves the two refusals above as the only guard, which
+is what the skilled users this page is built for would expect.
