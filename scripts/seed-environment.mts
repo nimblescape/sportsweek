@@ -37,7 +37,7 @@ import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
 import { FULL_PERMISSIONS } from "@/lib/auth/permissions";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
-import { questionsAsked } from "@/lib/master-data/categories";
+import { questionsFor } from "@/lib/master-data/resolution";
 import { EMPTY_REGISTRATION, registrationPath } from "@/lib/registration/registration";
 import {
   apphostingValue,
@@ -706,7 +706,9 @@ async function main(): Promise<void> {
         class: className,
         // Unassigned on purpose: putting students into events is what the board is for (US-12).
         event: null,
-        isIncomplete: isRegistrationIncomplete(registration, questionsAsked(eventSeries)),
+        // Nobody has an event yet, so a two-step series asks nothing an event could answer
+        // differently here either (US-36) — the same rule a real registration is saved under.
+        isIncomplete: isRegistrationIncomplete(registration, questionsFor(eventSeries, null)),
         ...registration,
       });
       if (record.isIncomplete) written.incomplete += 1;
