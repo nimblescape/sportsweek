@@ -5,9 +5,9 @@
  */
 "use client";
 
-import { Archive, ArchiveRestore, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -107,7 +107,22 @@ export function EventSeriesList({
 
           return (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 pr-4 pl-2">
-              <span className="flex-1 text-sm font-medium">{eventSeries.name}</span>
+              {/* The name is the way in: what the series is made of hangs beneath it, archived
+                  or not, and that record page is where its lists are maintained (US-33). */}
+              <Link
+                href={eventSeriesRecordPath(eventSeries.id)}
+                // A link has no disabled state of its own, so a write running on this row has to
+                // be spelled out for the pointer, the keyboard and assistive technology.
+                aria-disabled={busy || undefined}
+                tabIndex={busy ? -1 : undefined}
+                onClick={busy ? (clicked) => clicked.preventDefault() : undefined}
+                className={cn(
+                  "hover:text-primary focus-visible:ring-ring/50 flex-1 rounded-md text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3",
+                  busy && "pointer-events-none opacity-50",
+                )}
+              >
+                {eventSeries.name}
+              </Link>
 
               <span
                 className={cn(
@@ -121,25 +136,6 @@ export function EventSeriesList({
               </span>
 
               <div className="flex shrink-0 items-center gap-1">
-                {/* What the series is made of hangs beneath it, archived or not: the record page
-                    is where its lists are maintained and where the breadcrumb starts (US-33). */}
-                <Link
-                  href={eventSeriesRecordPath(eventSeries.id)}
-                  aria-label={`Eventreihe ${eventSeries.name} öffnen`}
-                  // A link has no disabled state of its own, so a write running on this row has
-                  // to be spelled out for the pointer, the keyboard and assistive technology.
-                  aria-disabled={busy || undefined}
-                  tabIndex={busy ? -1 : undefined}
-                  onClick={busy ? (clicked) => clicked.preventDefault() : undefined}
-                  className={cn(
-                    buttonVariants({ variant: "ghost" }),
-                    busy && "pointer-events-none opacity-50",
-                  )}
-                >
-                  Öffnen
-                  <ChevronRight aria-hidden data-icon="inline-end" />
-                </Link>
-
                 {/* An archived eventSeries is finished with: it can be unarchived or removed, but
                     not rewritten, and neither its name nor its place is up for change (US-19). */}
                 {eventSeries.isArchived ? null : (

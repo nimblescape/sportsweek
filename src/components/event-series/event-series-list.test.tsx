@@ -258,22 +258,24 @@ describe("EventSeriesList — row actions", () => {
     ).not.toBeDisabled();
   });
 
-  /** What a series is made of hangs beneath it, so the row is the way down to its record (US-33). */
-  it("opens a series on its own record page", () => {
+  /** What a series is made of hangs beneath it, so the name is the way down to its record (US-33). */
+  it("opens a series on its own record page, from its name", () => {
     renderList();
 
-    expect(
-      screen.getByRole("link", { name: "Eventreihe Wintersportwoche 2026 öffnen" }),
-    ).toHaveAttribute("href", "/app/event-series/s1/classes");
+    expect(screen.getByRole("link", { name: "Wintersportwoche 2026" })).toHaveAttribute(
+      "href",
+      "/app/event-series/s1/classes",
+    );
   });
 
   /** Archiving takes a series off every screen the header scopes, not out of its own hierarchy. */
   it("opens an archived series too, which is where its lists are still read", () => {
     renderList();
 
-    expect(
-      screen.getByRole("link", { name: "Eventreihe Wintersportwoche 2025 öffnen" }),
-    ).toHaveAttribute("href", "/app/event-series/s2/classes");
+    expect(screen.getByRole("link", { name: "Wintersportwoche 2025" })).toHaveAttribute(
+      "href",
+      "/app/event-series/s2/classes",
+    );
   });
 });
 

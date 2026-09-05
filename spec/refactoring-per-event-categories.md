@@ -233,14 +233,14 @@ L1  /app/event-series
     Stammdaten
     Stammdaten
     [Eventreihen ＋]
-    ⠿ Wintersportwoche 2026/27     Öffnen ›        ✎  Ὕ1
+    ⠿ Wintersportwoche 2026/27                     ✎  ὕ1
 
 L2  /app/event-series/{series}/{category}
     Stammdaten › Eventreihen › Wintersportwoche 2026/27
     Wintersportwoche 2026/27
     Klassen  [Events ＋]  Programme  Leistungsstufen  Zugangskarten
     Zustiegsstellen  Verpflegung
-    ⠿ Woche 1                      Öffnen ›        ✎  Ὕ1
+    ⠿ Woche 1                                      ✎  ὕ1
 
 L3  /app/event-series/{series}/events/{category}?event={event}
     Stammdaten › Eventreihen › Wintersportwoche 2026/27 › Events › Woche 2
@@ -325,8 +325,12 @@ rename — at which point it is an id that merely looks readable.
   the header would offer none.
 - **One tag row per screen, and only the marked tag carries its add control.** The control's
   accessible name is that category's own wording, so it reads "Neues Event" on one tag and "Neue
-  Klasse" on the next; pressing it opens a name form below the row. This is the tag row that
-  already carries per-tag controls on the marked tag, applied to a second row.
+  Klasse" on the next; pressing it opens the dialog that names a new entry, the same one renaming
+  uses. This is the tag row that already carries per-tag controls on the marked tag, applied to a
+  second row.
+- **A row with a record page of its own is opened by its name**, which is the link — there is no
+  separate control for it. A row whose entry leads somewhere more particular says where instead,
+  as a program's does for its equipment.
 - **The breadcrumb names the whole path**, ending at the record the page is about — so its last
   step and the title beneath it say the same word, at every level including the root.
 - **The title is the record.**

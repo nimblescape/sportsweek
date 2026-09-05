@@ -16,7 +16,6 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NameForm } from "@/components/ui/name-form";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { RecordHeader } from "@/components/master-data/record-header";
@@ -30,7 +29,6 @@ const formSchema = z.object({ name: listItemNameSchema });
 type FormValues = z.infer<typeof formSchema>;
 
 const NAME_LABEL = "Name";
-const ADD_LABEL = "Anlegen";
 
 /** An item has no id of its own: its name is what identifies it within its list (US-21). */
 export type CrudItem = { id: string; name: string };
@@ -43,7 +41,7 @@ export type CrudLabels = {
 };
 
 type OpenDialog =
-  { kind: "none" } | { kind: "edit"; item: CrudItem } | { kind: "delete"; item: CrudItem };
+  { kind: "none" } | { kind: "form"; item: CrudItem | null } | { kind: "delete"; item: CrudItem };
 
 type CrudListProps = {
   /** The path down to the record on screen, ending at it (US-33). */
@@ -110,8 +108,6 @@ export function CrudList({
   editNote,
 }: CrudListProps) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
-  // Held against the tab it was opened on, so walking to another collection closes it by itself.
-  const [addingUnder, setAddingUnder] = React.useState<string | null>(null);
   const { busyId, pending, run } = useRowAction();
 
   const closeDialog = () => setDialog({ kind: "none" });
@@ -132,25 +128,8 @@ export function CrudList({
             tabs={tabs}
             marked={marked}
             disabled={pending}
-            onAdd={() => {
-              closeDialog();
-              setAddingUnder(marked);
-            }}
+            onAdd={() => setDialog({ kind: "form", item: null })}
           />
-
-          {addingUnder === marked ? (
-            <NameForm
-              schema={listItemNameSchema}
-              label={NAME_LABEL}
-              submitLabel={ADD_LABEL}
-              pending={pending}
-              onSubmit={async (name) => {
-                await submit(name, null);
-                setAddingUnder(null);
-              }}
-              onCancel={() => setAddingUnder(null)}
-            />
-          ) : null}
 
           <ItemList
             labels={labels}
@@ -165,25 +144,19 @@ export function CrudList({
             fixedItemsHint={fixedItemsHint}
             renderRowAction={renderRowAction}
             busyId={busyId}
-            onEdit={(item) => {
-              setAddingUnder(null);
-              setDialog({ kind: "edit", item });
-            }}
-            onDelete={(item) => {
-              setAddingUnder(null);
-              setDialog({ kind: "delete", item });
-            }}
+            onEdit={(item) => setDialog({ kind: "form", item })}
+            onDelete={(item) => setDialog({ kind: "delete", item })}
             onReorder={(orderedIds) => run(null, async () => onReorder(orderedIds))}
           />
         </div>
       </BusyRegion>
 
-      {dialog.kind === "edit" ? (
-        <EditItemDialog
-          key={dialog.item.id}
+      {dialog.kind === "form" ? (
+        <ItemFormDialog
+          key={dialog.item?.id ?? "new"}
           labels={labels}
           item={dialog.item}
-          note={editNote(dialog.item)}
+          note={dialog.item === null ? null : editNote(dialog.item)}
           onSubmit={submit}
           onClose={closeDialog}
         />
@@ -351,7 +324,7 @@ function ItemList({
   );
 }
 
-function EditItemDialog({
+function ItemFormDialog({
   labels,
   item,
   note,
@@ -359,11 +332,12 @@ function EditItemDialog({
   onClose,
 }: {
   labels: CrudLabels;
-  item: CrudItem;
+  item: CrudItem | null;
   note: React.ReactNode;
   onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
   onClose: () => void;
 }) {
+  const isEdit = item !== null;
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const nameId = React.useId();
   const errorId = React.useId();
@@ -375,7 +349,7 @@ function EditItemDialog({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: item.name },
+    defaultValues: { name: item?.name ?? "" },
   });
 
   const submit = handleSubmit(async (values) => {
@@ -397,7 +371,7 @@ function EditItemDialog({
   });
 
   return (
-    <Dialog open title={`${labels.singular} bearbeiten`} onClose={onClose}>
+    <Dialog open title={isEdit ? `${labels.singular} bearbeiten` : labels.add} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         {/* Renaming leaves what was already stored alone, which is worth saying before it is. */}
         {note === null ? null : <p className="text-muted-foreground text-sm">{note}</p>}
@@ -429,7 +403,7 @@ function EditItemDialog({
             Abbrechen
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            Speichern
+            {isEdit ? "Speichern" : "Anlegen"}
           </Button>
         </div>
       </form>
