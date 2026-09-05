@@ -42,6 +42,7 @@ describe("FilterTagList", () => {
       "Klasse: 5BHIF",
       "Geschlecht: Männlich",
       "Geschlecht: Weiblich",
+      "Geschlecht: Divers",
       "Programm: Ski",
       "Leistungsstufe: Fortgeschritten",
     ]);

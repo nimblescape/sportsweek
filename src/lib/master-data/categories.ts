@@ -221,13 +221,12 @@ export function rentsEquipment(eventSeries: Pick<EventSeries, "programs">): bool
 }
 
 /**
- * Whether any program requires something the school does not lend (US-36). What the report's
- * "Ausrüstung" field is offered on, mirroring the way `rentsEquipment` offers the rental one.
+ * Whether any program requires anything at all (US-36). What the report's "Ausrüstung" field is
+ * offered on: a student who borrows nothing brings the whole of their program's list, so the
+ * field has something to say wherever there is a list.
  */
-export function requiresOwnEquipment(eventSeries: Pick<EventSeries, "programs">): boolean {
-  return eventSeries.programs.some((program) =>
-    program.requiredEquipment.some((item) => !item.isRentable),
-  );
+export function requiresEquipment(eventSeries: Pick<EventSeries, "programs">): boolean {
+  return eventSeries.programs.some((program) => program.requiredEquipment.length > 0);
 }
 
 /**

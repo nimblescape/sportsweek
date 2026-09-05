@@ -8,7 +8,7 @@ import {
   ANSWER_LABELS,
   questionsAsked,
   rentsEquipment,
-  requiresOwnEquipment,
+  requiresEquipment,
   type AnswerField,
   type EventSeriesListField,
 } from "@/lib/master-data/categories";
@@ -165,19 +165,22 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
     ],
   },
   answer("program", ANSWER_LABELS.program, (record) => record.program, asksFor("program")),
-  // What the student brings and what they borrow are two questions, so they are two fields; the
-  // first is their program's data read through their choice, the second is their own answer.
+  // What the student brings and what they borrow are two questions, so they are two fields. What
+  // they bring is everything their program requires that they did not ask to borrow — so a
+  // student who borrows nothing packs the whole list, borrowable items included.
   answer(
     "ownEquipment",
     OWN_EQUIPMENT_LABEL,
     (record, context) => {
+      const borrowed = new Set(record.rentedEquipment);
       const own = context
         .requiredEquipmentOf(record)
-        .filter((item) => !item.isRentable)
-        .map((item) => item.name);
-      return own.length > 0 ? own.join(", ") : null;
+        .map((item) => item.name)
+        .filter((name) => !borrowed.has(name));
+      // Empty is an answer rather than a gap: the school is supplying the whole of the list.
+      return own.length > 0 ? own.join(", ") : yesNo(false);
     },
-    requiresOwnEquipment,
+    requiresEquipment,
   ),
   answer(
     "rentedEquipment",

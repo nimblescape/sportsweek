@@ -29,7 +29,7 @@ import { getFirestore, type Firestore, type WriteBatch } from "firebase-admin/fi
 import { buildEmail } from "@/lib/auth/fake/email-builder";
 import { invitationKey } from "@/lib/auth/school-email";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import type { Gender } from "@/lib/schemas/common";
+import { genderSchema, type Gender } from "@/lib/schemas/common";
 import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
@@ -185,6 +185,8 @@ const UNFINISHED_ANSWERS = [
   "hasMedication",
 ] as const satisfies readonly (keyof RegistrationInput)[];
 const FEMALE_SHARE = 1 / 3;
+/** Small on purpose: enough that every run has some, few enough to stay a minority in the figures. */
+const DIVERSE_SHARE = 1 / 20;
 const AGE_RANGE = { min: 15, max: 16 };
 
 /**
@@ -337,7 +339,14 @@ type Person = { firstName: string; lastName: string; email: string; gender: Gend
  * is the way out that stays an address the tenant could have issued — a digit would not be.
  */
 function createPerson(gender: Gender, taken: Set<string>): Person {
-  const firstNames = gender === "male" ? MALE_FIRST_NAMES : FEMALE_FIRST_NAMES;
+  // The two pools are given names sorted by the gender they read as, and a third gender is not a
+  // third way of reading one — so it draws from both rather than from a pool invented for it.
+  const firstNames =
+    gender === "male"
+      ? MALE_FIRST_NAMES
+      : gender === "female"
+        ? FEMALE_FIRST_NAMES
+        : [...MALE_FIRST_NAMES, ...FEMALE_FIRST_NAMES];
 
   for (let attempt = 0; ; attempt += 1) {
     const firstName = pick(firstNames);
@@ -655,7 +664,10 @@ async function main(): Promise<void> {
   for (const className of classNames) {
     const size = intBetween(STUDENTS_PER_CLASS.min, STUDENTS_PER_CLASS.max);
     const [attending, absent] = split(size, [between(ATTENDING_SHARE.min, ATTENDING_SHARE.max)]);
-    const genders = deal(["female", "male"] as const, split(size, [FEMALE_SHARE]));
+    const genders = deal(
+      ["female", "diverse", "male"] as const,
+      split(size, [FEMALE_SHARE, DIVERSE_SHARE]),
+    );
     // Alternated rather than rolled, so a class always gets both kinds rather than three of one.
     const unfinished = Math.min(
       intBetween(INCOMPLETE_PER_CLASS.min, INCOMPLETE_PER_CLASS.max),
@@ -707,14 +719,16 @@ async function main(): Promise<void> {
       );
     }
 
-    const female = genders.filter((gender) => gender === "female").length;
+    const counted = genderSchema.options
+      .map((gender) => `${genders.filter((one) => one === gender).length} ${gender}`)
+      .join(" / ");
     const perProgram = ordered
       .map((program) => `${program.name} ${chosen.filter((c) => c === program).length}`)
       .join(", ");
     summary.push(
       `  ${className}: ${size} students, ${written.attending} attending, ` +
         `${written.incomplete} incomplete, ` +
-        `${size - female} male / ${female} female, ${perProgram}`,
+        `${counted}, ${perProgram}`,
     );
   }
 

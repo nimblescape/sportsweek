@@ -112,8 +112,13 @@ describe("snapshotValueSchema", () => {
 });
 
 describe("genderSchema", () => {
-  it.each(["male", "female"])("accepts %s", (value) => {
+  it.each(["male", "female", "diverse"])("accepts %s", (value) => {
     expect(genderSchema.safeParse(value).success).toBe(true);
+  });
+
+  /** One order, followed by the labels, the form's options, the filter's tags and the figures. */
+  it("states the order the three are always shown in", () => {
+    expect(genderSchema.options).toEqual(["male", "female", "diverse"]);
   });
 
   it("rejects any other value", () => {

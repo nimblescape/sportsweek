@@ -14,6 +14,7 @@ import type { Relationship } from "@/lib/schemas/registration";
 export const GENDER_LABELS: Record<Gender, string> = {
   male: "Männlich",
   female: "Weiblich",
+  diverse: "Divers",
 };
 
 export const RELATIONSHIP_LABELS: Record<Relationship, string> = {
@@ -63,7 +64,7 @@ export const NO_EQUIPMENT_RENTAL_LABEL = "Keine Leihausrüstung";
  * What a student brings themselves: the other half of the same list, and a field of its own in
  * the report because it answers a different question from what they borrow (US-36).
  */
-export const OWN_EQUIPMENT_LABEL = "Ausrüstung";
+export const OWN_EQUIPMENT_LABEL = "Eigene Ausrüstung";
 
 /**
  * The two health answers are read as one question — is there anything to look out for — so the

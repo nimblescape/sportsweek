@@ -436,7 +436,7 @@ describe("filterGroups", () => {
   });
 
   /** Both tags are worded so they read on their own, in a row that carries no headings. */
-  it("offers renting and not renting as the two equipment tags (US-11, US-13)", () => {
+  it("offers not renting and renting as the two equipment tags (US-11, US-13)", () => {
     const [rental] = filterGroups(lists, { equipmentRental: true }).filter(
       (group) => group.category === "equipmentRental",
     );
@@ -444,14 +444,14 @@ describe("filterGroups", () => {
     expect(rental.label).toBe(EQUIPMENT_RENTAL_LABEL);
     expect(rental.options).toEqual([
       {
-        value: EQUIPMENT_RENTAL_VALUES.needed,
-        label: EQUIPMENT_RENTAL_LABEL,
-        name: EQUIPMENT_RENTAL_LABEL,
-      },
-      {
         value: EQUIPMENT_RENTAL_VALUES.notNeeded,
         label: NO_EQUIPMENT_RENTAL_LABEL,
         name: NO_EQUIPMENT_RENTAL_LABEL,
+      },
+      {
+        value: EQUIPMENT_RENTAL_VALUES.needed,
+        label: EQUIPMENT_RENTAL_LABEL,
+        name: EQUIPMENT_RENTAL_LABEL,
       },
     ]);
   });

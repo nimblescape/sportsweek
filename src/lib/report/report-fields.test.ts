@@ -182,32 +182,43 @@ describe("a field's value", () => {
   });
 
   /**
-   * What a student brings is their program's data read through their choice of program, so every
-   * student on the same program shows the same list (US-36).
+   * What a student brings is their program's list minus what they asked to borrow, so a student
+   * borrowing nothing packs all of it — borrowable items included (US-36).
    */
   describe(OWN_EQUIPMENT_LABEL, () => {
     const requiring = (...items: EquipmentItem[]): ReportFieldContext => ({
       requiredEquipmentOf: () => items,
     });
 
-    it("lists what the program requires and does not lend", () => {
+    const SKI_LIST = requiring(
+      { name: "Ski", isRentable: true },
+      { name: "Helm", isRentable: true },
+      { name: "Lange Hose", isRentable: false },
+    );
+
+    it("lists the whole requirement for a student who borrows nothing", () => {
+      expect(lineFor(OWN_EQUIPMENT_LABEL, studentRecord(), SKI_LIST)).toBe("Ski, Helm, Lange Hose");
+    });
+
+    it("leaves out what the student asked to borrow", () => {
+      const record = studentRecord({ rentedEquipment: ["Ski"] });
+
+      expect(lineFor(OWN_EQUIPMENT_LABEL, record, SKI_LIST)).toBe("Helm, Lange Hose");
+    });
+
+    /** Nothing left to pack is an answer, not a gap: the school is supplying the whole list. */
+    it("says so where the student borrows everything the program requires", () => {
+      const record = studentRecord({ rentedEquipment: ["Ski", "Helm"] });
       const context = requiring(
         { name: "Ski", isRentable: true },
-        { name: "Lange Hose", isRentable: false },
-        { name: "Handschuhe", isRentable: false },
+        { name: "Helm", isRentable: true },
       );
 
-      expect(lineFor(OWN_EQUIPMENT_LABEL, studentRecord(), context)).toBe("Lange Hose, Handschuhe");
+      expect(lineFor(OWN_EQUIPMENT_LABEL, record, context)).toBe("Nein");
     });
 
-    it("says nothing where the school lends the whole list", () => {
-      const context = requiring({ name: "Ski", isRentable: true });
-
-      expect(lineFor(OWN_EQUIPMENT_LABEL, studentRecord(), context)).toBeNull();
-    });
-
-    it("says nothing where the program requires nothing at all", () => {
-      expect(lineFor(OWN_EQUIPMENT_LABEL, studentRecord())).toBeNull();
+    it("says the same where the program requires nothing at all", () => {
+      expect(lineFor(OWN_EQUIPMENT_LABEL, studentRecord())).toBe("Nein");
     });
   });
 

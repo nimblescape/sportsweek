@@ -487,7 +487,7 @@ them is not something the school does.
 | The measurements           | Unchanged, and still behind the rental answer — which now cannot be reached by a program that lends nothing                                                  |
 | `scopeRentalToProgram`     | Scopes a student's rentals to the chosen program's **borrowable** names, and clears the rental answer when the program has none                              |
 | The completeness check     | Unchanged in shape; the rental branch is simply unreachable where nothing is borrowable                                                                      |
-| The report                 | Gains a second field, "Ausrüstung", beside the existing "Leihausrüstung" — see below                                                                         |
+| The report                 | Gains a second field, "Eigene Ausrüstung", beside the existing "Leihausrüstung" — see below                                                                  |
 | The in-use guard           | Gains the flag: withdrawing it is refused while a student holds that item                                                                                    |
 
 A student's `rentedEquipment` stays an array of names, so nothing about a stored registration
@@ -537,13 +537,20 @@ said.
 The two halves answer different questions, so they are two fields rather than one with a
 qualifier, and a teacher switches on whichever they need — or both:
 
-| Field            | Shows                                                     |
-| ---------------- | --------------------------------------------------------- |
-| "Ausrüstung"     | The student's program's **non-borrowable** required items |
-| "Leihausrüstung" | What the student actually asked to **borrow**             |
+| Field               | Shows                                                                      |
+| ------------------- | -------------------------------------------------------------------------- |
+| "Eigene Ausrüstung" | What the student has to bring: their program's list minus what they borrow |
+| "Leihausrüstung"    | What the student actually asked to **borrow**                              |
 
-"Ausrüstung" comes first in the field selector and in the printed lines, because a student packs
-their own things before collecting anything from the school.
+"Eigene Ausrüstung" comes first in the field selector and in the printed lines, because a student
+packs their own things before collecting anything from the school.
+
+**It is the requirement minus the rental, not the non-borrowable half of the list.** A student who
+borrows nothing packs everything their program requires, borrowable items included — which is the
+whole point of the field, and the case a teacher checking a coach load is looking at. Where they
+borrow the lot, the line says "Nein" rather than reading as unanswered: nothing to pack is an
+answer. The field is therefore offered wherever any program requires anything, which is a wider
+condition than the one the rental field uses.
 
 **The form does not split the same way.** It keeps one block, headed "Benötigte Ausrüstung", with
 every required item in it and only the borrowable ones tickable. A student is answering one
@@ -551,11 +558,9 @@ question — what do I need, and what can I borrow — while a teacher is readin
 earns its place in the report and not in the form.
 
 The two are different in kind, and the difference is deliberate rather than an oversight to be
-tidied away later. "Leihausrüstung" is the student's own answer and differs from student to
-student. "Ausrüstung" is their **program's** data, read through their choice of program — so every
-student on the same program shows the same list. That is what makes it useful for packing a coach,
-and it is why it is offered whenever any program requires something non-borrowable, mirroring the
-way `rentsEquipment` offers the rental field.
+tidied away later. "Leihausrüstung" is what the student asked for. "Eigene Ausrüstung" is their
+**program's** list read through that answer — so two students on one program differ only by what
+they borrow. That is what makes it useful for packing a coach.
 
 With per-event programs, both resolve the program list from the student's event and fall back to
 the series, exactly as every other program-dependent answer does.
@@ -622,7 +627,7 @@ ownEquipment · rentedEquipment · measurements · skillLevel · seasonPassOptio
 busPickupPoint · food · health · completeness
 ```
 
-`ownEquipment` is the new one, labelled "Ausrüstung", and it sits ahead of `rentedEquipment`
+`ownEquipment` is the new one, labelled "Eigene Ausrüstung", and it sits ahead of `rentedEquipment`
 ("Leihausrüstung"). Both stay beside the program they are drawn from, and the measurements stay
 behind them, because a shoe size is asked for in order to borrow.
 
@@ -823,7 +828,7 @@ way out, and it says what it is doing.
   has something borrowable; a program that lends nothing shows a packing list and asks nothing.
 - Making an entry non-borrowable is refused while a student of this series has borrowed it, on
   the same terms as renaming or removing it.
-- The report offers the two halves as separate fields, "Ausrüstung" for what the student brings
+- The report offers the two halves as separate fields, "Eigene Ausrüstung" for what the student brings
   and "Leihausrüstung" for what they borrow, either or both.
 
 ## Sequencing

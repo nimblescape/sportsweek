@@ -162,14 +162,14 @@ describe("ClassCards — the figures", () => {
       within(figures("5AHIF"))
         .getAllByRole("columnheader")
         .map((header) => header.textContent),
-    ).toEqual(["Männlich", "Weiblich", "Gesamt", "Teilnahme"]);
-    expect(cellsOf(figures("5AHIF"))).toEqual(["1", "0", "1", "50 %"]);
+    ).toEqual(["Männlich", "Weiblich", "Divers", "Gesamt", "Teilnahme"]);
+    expect(cellsOf(figures("5AHIF"))).toEqual(["1", "0", "0", "1", "50 %"]);
   });
 
   it("answers a class nobody registered for with zero, not with a division by zero", () => {
     setup([student({ class: "5AHIF" })]);
 
-    expect(cellsOf(figures("5BHIF"))).toEqual(["0", "0", "0", "0 %"]);
+    expect(cellsOf(figures("5BHIF"))).toEqual(["0", "0", "0", "0", "0 %"]);
   });
 
   it("describes the whole class while the toggle is off, however the filter narrows the list", async () => {
@@ -177,7 +177,7 @@ describe("ClassCards — the figures", () => {
 
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Programm: Ski" }));
 
-    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "2", "2", "100 %"]);
+    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "2", "0", "2", "100 %"]);
   });
 
   it("counts only what the filter leaves once the toggle is on", async () => {
@@ -186,7 +186,7 @@ describe("ClassCards — the figures", () => {
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Programm: Ski" }));
     await userEvent.click(card("5AHIF").getByRole("button", { name: "5AHIF: Gefiltert" }));
 
-    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "1", "1", "100 %"]);
+    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "1", "0", "1", "100 %"]);
   });
 
   it("lays the matrix out with the programs across and the skill levels down", () => {

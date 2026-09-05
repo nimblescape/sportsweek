@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { MAX_EQUIPMENT_ITEMS } from "@/lib/schemas/master-data";
+import { EMPTY_REGISTRATION } from "@/lib/registration/registration";
 import {
   emergencyContactSchema,
   registrationInputSchema,
@@ -95,8 +96,11 @@ describe("registrationSchema", () => {
     },
   );
 
-  it("rejects an invalid gender", () => {
-    expect(registrationSchema.safeParse({ ...validRecord, gender: "diverse" }).success).toBe(false);
+  it("accepts every gender the enum names, and rejects anything else", () => {
+    expect(registrationSchema.safeParse({ ...validRecord, gender: "diverse" }).success).toBe(true);
+    expect(registrationSchema.safeParse({ ...validRecord, gender: "sonstiges" }).success).toBe(
+      false,
+    );
   });
 
   it("rejects a national phone number", () => {
@@ -194,6 +198,51 @@ describe("registrationLockedFields", () => {
   });
 });
 
+/**
+ * The record reads the way the form asks, card by card: Registrierung, Persönliches,
+ * Notfallkontakt, Veranstaltung, Gesundheit. Stated here because nothing else can hold the two
+ * in step, and a field appended out of place is the easy mistake to make.
+ */
+describe("the order the fields are declared in", () => {
+  it("follows the form's cards", () => {
+    expect(Object.keys(registrationSchema.shape)).toEqual([
+      "id",
+      "studentUid",
+      "firstName",
+      "lastName",
+      "email",
+      "event",
+      "isIncomplete",
+      "isAttendingSportsWeek",
+      "class",
+      "gender",
+      "dateOfBirth",
+      "phoneNumber",
+      "emergencyContact",
+      "program",
+      "equipmentRentalNeeded",
+      "rentedEquipment",
+      "weightKg",
+      "heightCm",
+      "shoeSize",
+      "skillLevel",
+      "seasonPassOption",
+      "busPickupPoint",
+      "foodOption",
+      "foodOtherText",
+      "healthNotes",
+      "hasMedication",
+    ]);
+  });
+
+  /** The empty registration is what the form starts from, so it reads in the same order. */
+  it("is the order the empty registration lists its answers in", () => {
+    const answered = Object.keys(registrationInputSchema.shape);
+
+    expect(Object.keys(EMPTY_REGISTRATION)).toEqual(answered);
+  });
+});
+
 describe("registrationInputSchema", () => {
   const attending = {
     isAttendingSportsWeek: true,
@@ -274,7 +323,7 @@ describe("registrationInputSchema", () => {
   it.each([
     ["phoneNumber", "06601234567"],
     ["dateOfBirth", "04.05.2008"],
-    ["gender", "diverse"],
+    ["gender", "sonstiges"],
     ["heightCm", -1],
   ])("still rejects a malformed %s", (field, value) => {
     expect(parse({ ...attending, [field]: value }).success).toBe(false);

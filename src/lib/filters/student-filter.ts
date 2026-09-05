@@ -10,7 +10,7 @@ import {
   rentsEquipment,
   type EventSeriesListField,
 } from "@/lib/master-data/categories";
-import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
+import { genderSchema, snapshotValueSchema, type Gender } from "@/lib/schemas/common";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import {
@@ -240,10 +240,10 @@ export function filterSummary(
   return parts.length === 0 ? null : parts.join(" \u00b7 ");
 }
 
-const GENDER_OPTIONS: readonly FilterOption[] = [
-  { value: "male", label: GENDER_LABELS.male },
-  { value: "female", label: GENDER_LABELS.female },
-];
+const GENDER_OPTIONS: readonly FilterOption[] = genderSchema.options.map((value) => ({
+  value,
+  label: GENDER_LABELS[value],
+}));
 
 /** Named in full, since the tag now reads as its own category would and would otherwise stutter. */
 const ATTENDANCE_OPTIONS: readonly FilterOption[] = [
@@ -272,17 +272,20 @@ const COMPLETENESS_OPTIONS: readonly FilterOption[] = [
   },
 ];
 
-/** Both tags name the equipment themselves, because the row they sit in carries no headings. */
+/**
+ * Both tags name the equipment themselves, because the row they sit in carries no headings. The
+ * negative leads, as it does in the equipment dialog, so the two rows read the same way round.
+ */
 const EQUIPMENT_RENTAL_OPTIONS: readonly FilterOption[] = [
-  {
-    value: EQUIPMENT_RENTAL_VALUES.needed,
-    label: EQUIPMENT_RENTAL_LABEL,
-    name: EQUIPMENT_RENTAL_LABEL,
-  },
   {
     value: EQUIPMENT_RENTAL_VALUES.notNeeded,
     label: NO_EQUIPMENT_RENTAL_LABEL,
     name: NO_EQUIPMENT_RENTAL_LABEL,
+  },
+  {
+    value: EQUIPMENT_RENTAL_VALUES.needed,
+    label: EQUIPMENT_RENTAL_LABEL,
+    name: EQUIPMENT_RENTAL_LABEL,
   },
 ];
 

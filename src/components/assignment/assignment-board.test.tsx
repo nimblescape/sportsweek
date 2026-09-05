@@ -306,20 +306,20 @@ describe("AssignmentBoard — what the figures count", () => {
       within(table)
         .getAllByRole("columnheader")
         .map((header) => header.textContent),
-    ).toEqual(["Männlich", "Weiblich", "Gesamt", "Teilnahme"]);
-    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "2", "50 %"]);
+    ).toEqual(["Männlich", "Weiblich", "Divers", "Gesamt", "Teilnahme"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "0", "2", "50 %"]);
   });
 
   it("takes the share of the whole board, so the cards' shares add up to everyone", () => {
     setup();
 
-    expect(genderCells("Montafon")).toEqual(["0", "1", "1", "25 %"]);
+    expect(genderCells("Montafon")).toEqual(["0", "1", "0", "1", "25 %"]);
   });
 
   it("measures against everyone registered, not only against those taking part", () => {
     setup([BENE, ANNA, CLARA, DORA, ELIAS]);
 
-    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "2", "40 %"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "0", "2", "40 %"]);
   });
 
   it("counts the whole card while the toggle is off, however the filter narrows the list", async () => {
@@ -327,7 +327,7 @@ describe("AssignmentBoard — what the figures count", () => {
 
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
 
-    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "2", "50 %"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "0", "2", "50 %"]);
   });
 
   it("counts only what the filter leaves once the toggle is on", async () => {
@@ -336,7 +336,7 @@ describe("AssignmentBoard — what the figures count", () => {
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
     await userEvent.click(toggleIn("Nicht zugeteilt"));
 
-    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "0", "1", "100 %"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "0", "0", "1", "100 %"]);
   });
 
   // Filtering to a class asks what that class did, so the students of it who stay at home have
@@ -347,7 +347,7 @@ describe("AssignmentBoard — what the figures count", () => {
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
     await userEvent.click(toggleIn("Nicht zugeteilt"));
 
-    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "0", "1", "50 %"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "0", "0", "1", "50 %"]);
   });
 
   it("is answered per card, since each card carries a filter of its own", async () => {

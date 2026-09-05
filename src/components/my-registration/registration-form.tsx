@@ -24,6 +24,7 @@ import {
   type Registration,
   type RegistrationInput,
 } from "@/lib/schemas/registration";
+import { genderSchema } from "@/lib/schemas/common";
 import {
   EMPTY_REGISTRATION,
   scopeRentalToProgram,
@@ -61,10 +62,7 @@ type RegistrationFormProps = {
   lists: MasterDataLists;
 };
 
-const GENDERS = [
-  { value: "male", label: GENDER_LABELS.male },
-  { value: "female", label: GENDER_LABELS.female },
-] as const;
+const GENDERS = genderSchema.options.map((value) => ({ value, label: GENDER_LABELS[value] }));
 
 const RELATIONSHIPS = [
   { value: "mother", label: RELATIONSHIP_LABELS.mother },
@@ -220,11 +218,6 @@ export function RegistrationForm({
       {isAttending ? (
         <>
           <Section title="Persönliches">
-            <Field label="Geburtsdatum" error={errors.dateOfBirth?.message ?? hint("dateOfBirth")}>
-              {(id) => (
-                <Input id={id} type="date" {...register("dateOfBirth", { setValueAs: orNull })} />
-              )}
-            </Field>
             <RadioField
               control={control}
               name="gender"
@@ -232,6 +225,11 @@ export function RegistrationForm({
               options={GENDERS}
               error={errors.gender?.message ?? hint("gender")}
             />
+            <Field label="Geburtsdatum" error={errors.dateOfBirth?.message ?? hint("dateOfBirth")}>
+              {(id) => (
+                <Input id={id} type="date" {...register("dateOfBirth", { setValueAs: orNull })} />
+              )}
+            </Field>
             <Field label="Telefonnummer" error={errors.phoneNumber?.message ?? hint("phoneNumber")}>
               {(id) => (
                 <Input
@@ -356,12 +354,12 @@ export function RegistrationForm({
             ) : null}
             {lendsAnything && needsRental === true ? (
               <>
-                <Field label="Schuhgröße" error={errors.shoeSize?.message ?? hint("shoeSize")}>
+                <Field label="Gewicht [kg]" error={errors.weightKg?.message ?? hint("weightKg")}>
                   {(id) => (
                     <Input
                       id={id}
-                      inputMode="numeric"
-                      {...register("shoeSize", { setValueAs: orNull })}
+                      type="number"
+                      {...register("weightKg", { setValueAs: asNumber })}
                     />
                   )}
                 </Field>
@@ -377,12 +375,12 @@ export function RegistrationForm({
                     />
                   )}
                 </Field>
-                <Field label="Gewicht [kg]" error={errors.weightKg?.message ?? hint("weightKg")}>
+                <Field label="Schuhgröße" error={errors.shoeSize?.message ?? hint("shoeSize")}>
                   {(id) => (
                     <Input
                       id={id}
-                      type="number"
-                      {...register("weightKg", { setValueAs: asNumber })}
+                      inputMode="numeric"
+                      {...register("shoeSize", { setValueAs: orNull })}
                     />
                   )}
                 </Field>

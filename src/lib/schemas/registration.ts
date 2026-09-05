@@ -95,25 +95,25 @@ const registrationFields = z.object({
    * so one mistyped choice would quietly falsify two classes' numbers with nothing to show it.
    */
   class: snapshotValueSchema.nullable(),
-  program: snapshotValueSchema.nullable(),
-  skillLevel: snapshotValueSchema.nullable(),
-  busPickupPoint: snapshotValueSchema.nullable(),
-  foodOption: snapshotValueSchema.nullable(),
-  foodOtherText: optionalText(500),
-  seasonPassOption: snapshotValueSchema.nullable(),
-  dateOfBirth: isoDateSchema.nullable(),
   gender: genderSchema.nullable(),
+  dateOfBirth: isoDateSchema.nullable(),
   phoneNumber: phoneNumberSchema.nullable(),
   // Defaulted like the rented equipment: records written before the field existed carry none.
   emergencyContact: emergencyContactSchema.default(EMPTY_EMERGENCY_CONTACT),
-  healthNotes: optionalText(2000),
-  hasMedication: z.boolean().nullable(),
+  program: snapshotValueSchema.nullable(),
   equipmentRentalNeeded: z.boolean().nullable(),
   // Defaulted, because records written before the field existed simply rent nothing.
   rentedEquipment: rentedEquipmentSchema.default([]),
-  shoeSize: requiredText(10).nullable(),
-  heightCm: z.number().int().positive().max(300).nullable(),
   weightKg: z.number().positive().max(400).nullable(),
+  heightCm: z.number().int().positive().max(300).nullable(),
+  shoeSize: requiredText(10).nullable(),
+  skillLevel: snapshotValueSchema.nullable(),
+  seasonPassOption: snapshotValueSchema.nullable(),
+  busPickupPoint: snapshotValueSchema.nullable(),
+  foodOption: snapshotValueSchema.nullable(),
+  foodOtherText: optionalText(500),
+  healthNotes: optionalText(2000),
+  hasMedication: z.boolean().nullable(),
 });
 
 /**

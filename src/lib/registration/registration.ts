@@ -43,23 +43,23 @@ export const EMPTY_REGISTRATION: RegistrationInput = {
   // Taking part is the student's to answer, and an unanswered form has not answered it. Borrowing
   // equipment is only asked of somebody taking part, so it starts on "no".
   isAttendingSportsWeek: null,
+  gender: null,
+  dateOfBirth: null,
+  phoneNumber: null,
+  emergencyContact: EMPTY_EMERGENCY_CONTACT,
   program: null,
+  equipmentRentalNeeded: false,
+  rentedEquipment: [],
+  weightKg: null,
+  heightCm: null,
+  shoeSize: null,
   skillLevel: null,
+  seasonPassOption: null,
   busPickupPoint: null,
   foodOption: null,
   foodOtherText: null,
-  seasonPassOption: null,
-  dateOfBirth: null,
-  gender: null,
-  phoneNumber: null,
-  emergencyContact: EMPTY_EMERGENCY_CONTACT,
   healthNotes: null,
   hasMedication: null,
-  equipmentRentalNeeded: false,
-  rentedEquipment: [],
-  shoeSize: null,
-  heightCm: null,
-  weightKg: null,
 };
 
 /**
