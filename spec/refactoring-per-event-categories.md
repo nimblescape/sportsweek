@@ -249,10 +249,62 @@ single source of answer order: the report fields, the filter categories and the 
 card all follow it, each pinned by a test. Putting Klassen before Events moves class ahead of event
 in all four.
 
-### Inherited state — open, see Q2
+### An inherited list says so where its entries would be
 
-A per-event list page has to show that an empty list is not "nothing offered" but "whatever the
-series offers". Q2 states the candidates.
+An empty per-event list does not mean "nothing offered", it means "whatever the series offers",
+and the page has to say which. It says it in the plainest way available: the list area shows its
+ordinary empty state, and beneath it one sentence naming what applies instead.
+
+```
+[Programme ＋]  Leistungsstufen  Zugangskarten  Zustiegsstellen  Verpflegung
+
+Es gibt noch kein Programm.
+Dieses Event verwendet die Programme der Eventreihe.
+```
+
+The sentence carries **no link**. Where the series' entries are maintained is one breadcrumb away
+and a teacher who wants them is going there anyway; a link inside an empty state invites a detour
+from the page they meant to fill in.
+
+One template serves all five categories, built from the category's own title — "die Programme",
+"die Leistungsstufen", "die Zugangskarten", "die Zustiegsstellen", "die Verpflegung" — so a
+relabelled category cannot leave a stale sentence behind.
+
+**There is no override control, because none is needed.** Adding the first entry is what makes the
+event stop inheriting, and removing the last is what makes it start again. The add control on the
+marked tag and the row delete already do both, so the state is a consequence of the list rather
+than a switch that could disagree with it.
+
+The cost, accepted deliberately: this page does not show _which_ entries are currently in effect,
+only that the series supplies them.
+
+### Empty means inherit in exactly one place
+
+The sentence belongs to the five lists an event may override, and nowhere else. An empty list
+means something different at every other level, and saying "inherited" at any of them would be
+wrong:
+
+| An empty list            | Means                                                           |
+| ------------------------ | --------------------------------------------------------------- |
+| Eventreihen, at the root | The school has no event series yet                              |
+| One of a series' lists   | The students of that series are never asked that question       |
+| One of an event's five   | The series' list applies — the only place the sentence is shown |
+| A program's equipment    | **That program requires no equipment**                          |
+
+The last is the one to be careful of. Equipment is not a sixth overridable category: it belongs to
+the program that requires it and travels with it, so a per-event programs list carries its own
+programs' equipment already. A per-event "Ski" with nothing in its equipment list is a deliberate
+statement that this event's Ski needs nothing — not a request to fall back on the series' Ski,
+which the event stopped using the moment it named a program of its own.
+
+So the equipment leaf keeps the empty state it has today, which says exactly that and needs no
+second sentence beneath it:
+
+```
+[Benötigte Ausrüstung ＋]
+
+Dieses Programm benötigt keine Ausrüstung.
+```
 
 ## Registration
 
@@ -319,8 +371,9 @@ Nothing about Veranstaltung is stored during the first step.
 - Each list is maintained exactly as its series-level counterpart, under the same constraints:
   the same maximum count, the same maximum name length, uniqueness within the list.
 - A per-event name may equal a per-series name.
-- A list left empty is inherited from the series; a list with entries replaces the series' list
-  outright.
+- A list left empty is inherited from the series and says so where its entries would be; a list
+  with entries replaces the series' list outright. Adding the first entry is what overrides, and
+  removing the last is what returns to inheriting — there is no separate control.
 - An event whose program is renamed or removed is refused while a student of that event has
   chosen it, on the same terms as the series-level rule.
 
@@ -359,15 +412,6 @@ emulator. Test-driven throughout: the failing test that states the new behaviour
 Environments are purged and reseeded after slices 2, 3 and 4.
 
 ## Open questions
-
-### Q2 — How is an inherited list shown on a per-event page?
-
-|       | Option                                                                                                                                                                         | Consequence                                                                                                                                                                                      |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **a** | The series' entries are listed **greyed** — muted text, no drag handle, no rename or delete — under a strip naming where they come from, with one button to start an own list. | The teacher sees what students of this event will actually be offered without leaving the page. A greyed row that ignores a drag needs the strip to explain why.                                 |
-| **b** | The normal empty state, plus a sentence naming the series the list falls back to and a link to it.                                                                             | Simplest, and nothing looks editable that is not. What is currently in effect can only be seen by navigating away.                                                                               |
-| **c** | Starting an override copies the series' entries in as real, editable rows.                                                                                                     | Familiar, but it severs inheritance at the first press: a later change to the series list never reaches the event, and "not overridden" becomes indistinguishable from "overridden identically". |
-| **d** | An explicit switch per category — "own entries for this event" — off by default, with option a's greyed list beneath it while off.                                             | Makes the state a control rather than an inference. One more control per page.                                                                                                                   |
 
 ### Q3 — Is ten entries enough for every list, or only for the ones that multiply?
 
