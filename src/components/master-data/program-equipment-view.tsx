@@ -16,6 +16,7 @@ import {
   programTrail,
 } from "@/lib/master-data/hierarchy";
 import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
+import { programReport } from "@/lib/master-data/report-tree";
 import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
 import {
   EQUIPMENT_RENTAL_LABEL,
@@ -77,6 +78,7 @@ export function ProgramEquipmentView({
       tabs={tabs}
       marked="required-equipment"
       labels={EQUIPMENT_LABELS}
+      report={program === null ? undefined : [programReport(program)]}
       items={items}
       loading={loading}
       error={error}

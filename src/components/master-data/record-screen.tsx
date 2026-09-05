@@ -5,14 +5,20 @@
  */
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { Button } from "@/components/ui/button";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { Tag, TagName } from "@/components/ui/tag";
 import { Tooltip } from "@/components/ui/tooltip";
+import {
+  MasterDataReport,
+  MASTER_DATA_REPORT_LABEL,
+} from "@/components/master-data/master-data-report";
 import type { Crumb, RecordTab } from "@/lib/master-data/hierarchy";
+import type { ReportSection } from "@/lib/master-data/report-tree";
 
 /** The row names what the record on screen is made of, whatever level of the hierarchy it is. */
 export const RECORD_TABS_LABEL = "Bereiche";
@@ -28,6 +34,8 @@ type RecordScreenProps = {
   marked: string;
   /** Held while a write of the screen's is out, so a second press cannot follow the first. */
   busy?: boolean;
+  /** What this record looks like as a whole; absent where there is nothing to report on. */
+  report?: readonly ReportSection[];
   onAdd: () => void;
   /** What the marked collection holds — a list, and whatever the screen puts above it. */
   children: ReactNode;
@@ -52,10 +60,12 @@ export function RecordScreen({
   tabs,
   marked,
   busy = false,
+  report,
   onAdd,
   children,
 }: RecordScreenProps) {
   const router = useRouter();
+  const [showingReport, setShowingReport] = useState(false);
   const openTab = tabs.find((tab) => tab.key === marked);
   // A collection is a step of the path when its entries are records — something the teacher can
   // go on down through. A list of bare names is where the path stops, so it is named on its tag
@@ -68,7 +78,7 @@ export function RecordScreen({
   // Adding to the marked collection is what the screen is for, so Enter does it wherever the
   // teacher happens to be — short of a control or a dialog that already answers Enter itself.
   useEffect(() => {
-    if (busy) return;
+    if (busy || showingReport) return;
 
     function addOnEnter(event: KeyboardEvent) {
       if (event.key !== "Enter" || event.defaultPrevented) return;
@@ -82,44 +92,65 @@ export function RecordScreen({
 
     window.addEventListener("keydown", addOnEnter);
     return () => window.removeEventListener("keydown", addOnEnter);
-  }, [busy, onAdd]);
+  }, [busy, showingReport, onAdd]);
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <BusyRegion busy={busy}>
         <div className="flex flex-col gap-4">
-          <Breadcrumb trail={path} />
+          {/* The path stays put; the report takes the place of what is edited beneath it. */}
+          <Breadcrumb
+            trail={path}
+            actions={
+              report === undefined ? undefined : (
+                <Button
+                  variant={showingReport ? "default" : "outline"}
+                  aria-pressed={showingReport}
+                  onClick={() => setShowingReport(!showingReport)}
+                >
+                  <FileText aria-hidden data-icon="inline-start" />
+                  {MASTER_DATA_REPORT_LABEL}
+                </Button>
+              )
+            }
+          />
 
-          <div
-            role="group"
-            aria-label={RECORD_TABS_LABEL}
-            className="flex flex-wrap items-center gap-2"
-          >
-            {tabs.map((tab) =>
-              tab.key === marked ? (
-                <Tooltip key={tab.key} label={tab.addLabel}>
-                  {/* The tag is the control, so the tooltip hangs on a wrapper it fills. */}
-                  <span className="inline-flex">
-                    <Tag
-                      pressed
-                      disabled={busy}
-                      label={`${tab.label}: ${tab.addLabel}`}
-                      onClick={onAdd}
-                    >
-                      <span className="max-w-60 truncate px-0.5">{tab.label}</span>
-                      <Plus aria-hidden />
+          {showingReport && report !== undefined ? (
+            <MasterDataReport sections={report} />
+          ) : (
+            <>
+              <div
+                role="group"
+                aria-label={RECORD_TABS_LABEL}
+                className="flex flex-wrap items-center gap-2"
+              >
+                {tabs.map((tab) =>
+                  tab.key === marked ? (
+                    <Tooltip key={tab.key} label={tab.addLabel}>
+                      {/* The tag is the control, so the tooltip hangs on a wrapper it fills. */}
+                      <span className="inline-flex">
+                        <Tag
+                          pressed
+                          disabled={busy}
+                          label={`${tab.label}: ${tab.addLabel}`}
+                          onClick={onAdd}
+                        >
+                          <span className="max-w-60 truncate px-0.5">{tab.label}</span>
+                          <Plus aria-hidden />
+                        </Tag>
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    <Tag key={tab.key} disabled={busy}>
+                      <TagName label={tab.label} onPress={() => router.push(tab.href)} />
                     </Tag>
-                  </span>
-                </Tooltip>
-              ) : (
-                <Tag key={tab.key} disabled={busy}>
-                  <TagName label={tab.label} onPress={() => router.push(tab.href)} />
-                </Tag>
-              ),
-            )}
-          </div>
+                  ),
+                )}
+              </div>
 
-          {children}
+              {children}
+            </>
+          )}
         </div>
       </BusyRegion>
     </div>

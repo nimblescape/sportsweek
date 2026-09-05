@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { storedEventSeries } from "@/test/event-series";
 import { render, screen } from "@testing-library/react";
 
 const useMasterData = vi.fn();
@@ -19,7 +20,7 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
 // The screen names the record it is about, which reaches Firebase no test here has cause to start.
 vi.mock("@/lib/event-series/use-selected-event-series", () => ({
   useSelectedEventSeries: () => ({
-    eventSeries: { id: "s1", name: "Wintersportwoche" },
+    eventSeries: { id: "s1", ...storedEventSeries({ name: "Wintersportwoche" }) },
     loading: false,
     error: null,
   }),

@@ -18,6 +18,7 @@ import { visibleEventSeries } from "@/lib/event-series/event-series-state";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import { useShowArchived } from "@/lib/event-series/show-archived";
 import { ROOT_TABS, rootTrail } from "@/lib/master-data/hierarchy";
+import { allEventSeriesReport } from "@/lib/master-data/report-tree";
 import { Tag, TagName } from "@/components/ui/tag";
 
 type OpenDialog =
@@ -32,6 +33,7 @@ export function EventSeriesView() {
   const { busyId, pending, run } = useRowAction();
   const [actionError, setActionError] = React.useState<string | null>(null);
 
+  // What is listed is also what is reported, so revealing the archived ones takes them in too.
   const listed = visibleEventSeries(eventSeries, showArchived);
 
   // The list is a live Firestore subscription, so a successful write shows up on its own.
@@ -63,6 +65,7 @@ export function EventSeriesView() {
         tabs={ROOT_TABS}
         marked={ROOT_TABS[0].key}
         busy={pending}
+        report={allEventSeriesReport(listed)}
         onAdd={() => setDialog({ kind: "form", eventSeries: null })}
       >
         <div>

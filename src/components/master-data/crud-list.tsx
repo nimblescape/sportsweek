@@ -19,6 +19,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { listItemNameSchema } from "@/lib/schemas/master-data";
 import type { Crumb, RecordTab } from "@/lib/master-data/hierarchy";
+import type { ReportSection } from "@/lib/master-data/report-tree";
 import { IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
 
 const formSchema = z.object({ name: listItemNameSchema });
@@ -74,6 +75,8 @@ type CrudListProps<TExtra> = {
   fixedItemsHint?: string;
   /** Where an entry's own record page is, for a list whose entries have children (US-33). */
   openHref?: (item: CrudItem) => string;
+  /** What this record looks like as a whole, shown in place of the editor (US-33). */
+  report?: readonly ReportSection[];
   extraField?: ExtraField<TExtra>;
   /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
   onSubmit: (name: string, item: CrudItem | null, extra: TExtra) => Promise<void>;
@@ -105,6 +108,7 @@ export function CrudList<TExtra = undefined>({
   fixedItems = [],
   fixedItemsHint,
   openHref,
+  report,
   extraField,
   onSubmit,
   onDelete,
@@ -142,6 +146,7 @@ export function CrudList<TExtra = undefined>({
         tabs={tabs}
         marked={marked}
         busy={pending}
+        report={report}
         onAdd={() => setDialog({ kind: "form", item: null })}
       >
         <RecordList

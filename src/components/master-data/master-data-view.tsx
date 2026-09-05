@@ -15,6 +15,7 @@ import {
   type MasterDataCategoryKey,
 } from "@/lib/master-data/categories";
 import { categoryTabs, eventSeriesTrail, eventTabs, eventTrail } from "@/lib/master-data/hierarchy";
+import { eventReport, eventSeriesReport } from "@/lib/master-data/report-tree";
 import { useMasterData, useUsageReport } from "@/lib/master-data/use-master-data";
 import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
 import { FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
@@ -74,12 +75,26 @@ export function MasterDataView({
       ? category.labels
       : { ...category.labels, empty: inheritsSeriesHint(category) };
 
+  // The record on screen, expanded downwards: the whole series, or the one event these lists
+  // belong to (US-33).
+  const openEvent =
+    eventName === undefined
+      ? undefined
+      : eventSeries?.events.find((candidate) => candidate.name === eventName);
+  const wholeRecord =
+    eventSeries === null
+      ? undefined
+      : eventName === undefined
+        ? [eventSeriesReport(eventSeries)]
+        : openEvent && [eventReport(openEvent)];
+
   return (
     <CrudList
       trail={trail}
       tabs={tabs}
       marked={key}
       labels={labels}
+      report={wholeRecord}
       items={items.map((name) => ({ id: name, name }))}
       loading={loading}
       error={error}

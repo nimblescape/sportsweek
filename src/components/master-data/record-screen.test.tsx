@@ -3,9 +3,11 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BREADCRUMB_LABEL } from "@/components/layout/breadcrumb";
+import { MASTER_DATA_REPORT_LABEL } from "@/components/master-data/master-data-report";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -216,5 +218,53 @@ describe("RecordScreen", () => {
 
     expect(screen.getByRole("button", { name: "Events" })).toBeDisabled();
     expect(markedTag()).toBeDisabled();
+  });
+
+  describe("the report", () => {
+    const REPORT = [{ title: "Wintersportwoche", entries: ["3AHIT"], sections: [] }];
+    const reportButton = () => screen.getByRole("button", { name: MASTER_DATA_REPORT_LABEL });
+
+    /** Nothing to report on is not the same as an empty report, so the button is simply absent. */
+    it("offers no report where the screen has none", () => {
+      setup();
+
+      expect(screen.queryByRole("button", { name: MASTER_DATA_REPORT_LABEL })).toBeNull();
+    });
+
+    it("shows the report in place of what is edited, and the path either way", () => {
+      setup({ report: REPORT });
+
+      expect(screen.getByRole("group", { name: RECORD_TABS_LABEL })).toBeInTheDocument();
+
+      fireEvent.click(reportButton());
+
+      expect(screen.queryByRole("group", { name: RECORD_TABS_LABEL })).toBeNull();
+      expect(screen.queryByText("Liste")).toBeNull();
+      expect(screen.getByText("3AHIT")).toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: BREADCRUMB_LABEL })).toBeInTheDocument();
+      expect(reportButton()).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("goes back to the editor when the report is closed again", () => {
+      setup({ report: REPORT });
+
+      fireEvent.click(reportButton());
+      fireEvent.click(reportButton());
+
+      expect(screen.getByRole("group", { name: RECORD_TABS_LABEL })).toBeInTheDocument();
+      expect(screen.getByText("Liste")).toBeInTheDocument();
+      expect(reportButton()).toHaveAttribute("aria-pressed", "false");
+    });
+
+    /** Enter adds to the marked collection; while the report is up there is nothing to add to. */
+    it("leaves Enter alone while the report is up", async () => {
+      const onAdd = vi.fn();
+      setup({ report: REPORT, onAdd });
+
+      fireEvent.click(reportButton());
+      await userEvent.keyboard("{Enter}");
+
+      expect(onAdd).not.toHaveBeenCalled();
+    });
   });
 });
