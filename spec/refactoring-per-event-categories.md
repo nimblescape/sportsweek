@@ -54,7 +54,7 @@ no correct answer at the time it is put.
 | Seven sibling category pages                                         | A master list, a record page per series, a record page per event                 |
 | Nav: Eventreihen · Events · Klassen · …                              | Nav: five fixed entries; the categories move onto the record page as a tag row   |
 | Gender is male or female                                             | Gender is male, female or diverse                                                |
-| Form: Registrierung · Persönliches · Notfallkontakt · … · Gesundheit | Form: Registrierung · Persönliches · Gesundheit · Notfallkontakt · Veranstaltung |
+| Form: Registrierung · Persönliches · Notfallkontakt · … · Gesundheit | Form: Registrierung · Persönliches · Notfallkontakt · Gesundheit · Veranstaltung |
 | One registration step, complete only when everything is answered     | Two steps where any event carries lists of its own                               |
 
 ## The shape it moves to
@@ -424,11 +424,13 @@ reads the way the form asks:
 
 1. **Registrierung** — name, class, attendance
 2. **Persönliches** — gender, then date of birth, then phone number
-3. **Gesundheit**
-4. **Notfallkontakt**
+3. **Notfallkontakt**
+4. **Gesundheit**
 5. **Veranstaltung** — the answers drawn from the five overridable lists
 
-Gender moves above date of birth, and Gesundheit moves above Notfallkontakt.
+Gender moves above date of birth, and Gesundheit moves ahead of Veranstaltung rather than
+trailing it. Everything a student can answer about themselves is then asked before anything that
+depends on where they are going — which is also the seam the two-step registration cuts along.
 
 ### Gender gains a third value
 
@@ -478,23 +480,22 @@ seasonPassOption · busPickupPoint · foodOption · health · completeness
 The schema declares its fields in the form's order, so the stored record reads the way the
 student was asked. Cards, and the fields within them, exactly as the form section above states.
 
-### What is not settled: where "Gesundheit" sits in the report
+### The report's field row does not follow the form
 
-The field row above quietly assumes the report does **not** follow the form's card reshuffle, and
-that assumption should be made deliberately rather than inherited.
+Only one thing moves in the field row: class ahead of event, following the menu. The form's card
+reshuffle deliberately does **not** propagate, so `health` stays where it is, after the
+Veranstaltung answers, even though Gesundheit now precedes them in the form.
 
-Today the field row already mirrors the form's cards: `contact` sits where Notfallkontakt sat, and
-`health` after the Veranstaltung answers, where Gesundheit sat. Moving Gesundheit above
-Notfallkontakt in the form therefore argues for `health` moving above `contact` in the report —
-and, through the field row, up the filter row as well.
+The two orders answer different questions. A form is asked in the order that suits a student
+filling it in; a report is read in the order that suits a teacher scanning a class, and the
+registration's own facts sit better at its end. Tying them together would also force a decision
+nobody wants: `contact` bundles the student's own `phoneNumber`, which the form asks in
+Persönliches, with the three emergency contact fields it asks in Notfallkontakt — so a strict
+mirror is unavailable without splitting that tag, which changes what a teacher can switch on and
+off in a report.
 
-What stops that being automatic is that **`contact` spans two cards**: it bundles the student's own
-`phoneNumber`, which the form asks in Persönliches, with the three emergency contact fields, which
-it asks in Notfallkontakt. A strict mirror is therefore not available without splitting that tag
-in two, which is a change to what a teacher can switch on and off in a report.
-
-So: leave the report row as written above, or move `health` ahead of `contact` — and if the
-latter, does `contact` split so the student's own number stays with Persönliches?
+What stays tied is the part that has one source: the six list-backed fields follow the master data
+menu, and the filter row follows the field row. Those are the invariants tests pin.
 
 ### Two steps, when the events differ
 
