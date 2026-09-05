@@ -306,6 +306,30 @@ second sentence beneath it:
 Dieses Programm benötigt keine Ausrüstung.
 ```
 
+### An event may add, and never take away
+
+The two meanings of "empty" leave one thing unsayable: an event cannot refuse a question its
+series asks. An array carries two states, inheritance uses both of them, and there is no third
+for "asked nothing here".
+
+That is accepted rather than worked around. Expressing it would need absence and emptiness to say
+different things — the field missing meaning "inherit", `[]` meaning "asked nothing" — and with
+it a control to move between two states that look identical on screen. The cost lands on every
+category of every event to serve the one case that wanted it.
+
+**So the rule for a teacher is: put a list on the series only when every event asks it.** Where
+the events disagree, the series leaves that list empty and each event that wants the question
+names its own entries:
+
+| The school wants                         | Where the list goes                                |
+| ---------------------------------------- | -------------------------------------------------- |
+| Every event asks the same access cards   | On the series; no event names any                  |
+| Every event asks, but two of them differ | On the series, and those two name their own        |
+| Only some events ask at all              | Nowhere on the series; only on the events that ask |
+
+The price is that two events wanting the same list type it twice. The alternative price was a
+third state on all five lists of every event, and a switch whose two positions render the same.
+
 ## Registration
 
 ### The form, reordered
@@ -374,6 +398,8 @@ Nothing about Veranstaltung is stored during the first step.
 - A list left empty is inherited from the series and says so where its entries would be; a list
   with entries replaces the series' list outright. Adding the first entry is what overrides, and
   removing the last is what returns to inheriting — there is no separate control.
+- An event may add to what its series asks, never take away: a question the series asks is asked
+  of every event. A category only some events need is left off the series and named on those.
 - An event whose program is renamed or removed is refused while a student of that event has
   chosen it, on the same terms as the series-level rule.
 
