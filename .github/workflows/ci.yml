@@ -19,7 +19,50 @@ permissions:
   contents: read
 
 jobs:
+  # Which gates a pull request has to pass depends on what it touches, and the condition has to
+  # live on the jobs rather than on the workflow: a workflow filtered out by `paths-ignore`
+  # reports nothing at all, and a required check that never reports leaves the pull request
+  # pending for ever. A job skipped by a condition still reports, so the branch rule is met.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The comparison reaches back to the base commit, which a shallow clone does not hold.
+          fetch-depth: 0
+      - id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          # Nothing to compare against on a manual dispatch, and the cheap answer is the unsafe
+          # one, so it is never the default.
+          if [ -z "${BASE_SHA}" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed=$(git diff --name-only "${BASE_SHA}" HEAD)
+          echo "Changed files:"
+          echo "${changed}"
+
+          # `spec/` is prose the application never reads. Everything else — source,
+          # configuration, the workflows themselves — counts as code. An empty diff matches
+          # nothing here and so reads as code, which errs towards running the gates.
+          if printf '%s\n' "${changed}" | grep -qvE '^spec/'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Runs whatever a pull request touches, because the licence headers and the formatting cover
+  # `spec/` as well — a specification arrives unstamped or unformatted as easily as anything
+  # else. Only the steps that read the source are conditional.
   lint-and-unit:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -30,16 +73,22 @@ jobs:
       - run: npm ci
       - run: npm run license:check
       - run: npm run format:check
-      - run: npm run lint
+      - if: needs.changes.outputs.code == 'true'
+        run: npm run lint
       # Route types follow pageExtensions, which follows the sign-in mode: generated for
       # production they would omit /api/auth/fake, and the code that calls it fails to compile.
-      - run: npx next typegen
+      - if: needs.changes.outputs.code == 'true'
+        run: npx next typegen
         env:
           APP_HOSTING_ENV: development
-      - run: npx tsc --noEmit
-      - run: npm test
+      - if: needs.changes.outputs.code == 'true'
+        run: npx tsc --noEmit
+      - if: needs.changes.outputs.code == 'true'
+        run: npm test
 
   rules:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -57,6 +106,8 @@ jobs:
   # Asserts on the artifact rather than on the decision that produces it: every unit test
   # still passes if a page extension or an import puts the fake login back into production.
   production-build:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -68,6 +119,8 @@ jobs:
       - run: npm run check:production-build
 
   e2e:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
