@@ -205,6 +205,16 @@ describe("assignmentGroups", () => {
     expect(groups(roster).map((group) => group.students.length)).toEqual([0, 0, 0]);
   });
 
+  /**
+   * Someone who has only followed the link is still deciding, not declining — leaving them off
+   * the board would hide whose registration a teacher still has to chase (US-13).
+   */
+  it("holds a student who has not answered yet", () => {
+    const roster = [student({ event: null, isAttending: null, isIncomplete: true })];
+
+    expect(groups(roster)[0].students).toHaveLength(1);
+  });
+
   /** The card is the name, so an event another series happens to spell the same way is its own. */
   it("holds only the students naming an event this list offers", () => {
     const roster = [student({ event: "Montafon" }), student({ event: "Sommerwoche" })];

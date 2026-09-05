@@ -380,11 +380,12 @@ function Cloud({
                     the tooltip says the same to everyone else (US-13). */}
                 {student.isIncomplete ? (
                   <Tooltip label={INCOMPLETE_REGISTRATION_HINT}>
-                    <span className="inline-flex">
-                      <TriangleAlert
-                        aria-label={INCOMPLETE_REGISTRATION_HINT}
-                        className="size-4 shrink-0"
-                      />
+                    <span
+                      role="img"
+                      aria-label={INCOMPLETE_REGISTRATION_HINT}
+                      className="text-destructive inline-flex shrink-0"
+                    >
+                      <TriangleAlert aria-hidden className="size-3.5" />
                     </span>
                   </Tooltip>
                 ) : null}

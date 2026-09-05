@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { assignmentGroups } from "@/lib/assignment/statistics";
+import { immovableReason } from "@/lib/assignment/movability";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
@@ -79,6 +80,7 @@ export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
                 columns={columns}
                 registered={students}
                 filterGroups={filterGroups}
+                immovable={(student) => immovableReason(eventSeries, student.record)}
                 onMove={assign}
               />
             )}

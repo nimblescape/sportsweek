@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { asUid } from "@/lib/schemas/common";
 import { assignmentGroups, skillColumns } from "@/lib/assignment/statistics";
+import type { ImmovableReason } from "@/lib/assignment/movability";
 import { filterGroups } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -56,7 +57,11 @@ const ELIAS = student("Elias", "Egger", {
 
 const onMove = vi.fn();
 
-function setup(roster: RosterStudent[] = [BENE, ANNA, CLARA, DORA]) {
+/** Everyone can move unless a test says otherwise; which students cannot is movability's own subject. */
+function setup(
+  roster: RosterStudent[] = [BENE, ANNA, CLARA, DORA],
+  immovable: (student: RosterStudent) => ImmovableReason | null = () => null,
+) {
   render(
     <AssignmentBoard
       groups={assignmentGroups(roster, EVENTS, COLUMNS)}
@@ -65,6 +70,7 @@ function setup(roster: RosterStudent[] = [BENE, ANNA, CLARA, DORA]) {
       columns={COLUMNS}
       registered={roster}
       filterGroups={FILTERS}
+      immovable={immovable}
       onMove={onMove}
     />,
   );
@@ -274,6 +280,58 @@ describe("AssignmentBoard", () => {
 
     expect(
       await screen.findByText("Wer nicht teilnimmt, kann keinem Event zugeteilt werden."),
+    ).toBeInTheDocument();
+  });
+});
+
+/**
+ * A student the rule refuses every move for is one no drop would accept, so the handle a teacher
+ * would otherwise drag is taken away rather than offered for a drag that could only fail (US-12).
+ */
+describe("AssignmentBoard — a student who cannot be moved", () => {
+  const HINT = "Wer die Registrierung noch nicht abgeschlossen hat, kann keinem Event zugeteilt werden."; // prettier-ignore
+  const immovableAnna = (candidate: RosterStudent) => (candidate.id === ANNA.id ? "incomplete" : null); // prettier-ignore
+  // A second movable student besides Bene, so excluding Anna still leaves an "Alle" worth showing.
+  const FYNN = student("Fynn", "Fink");
+  const roster = [BENE, ANNA, CLARA, DORA, FYNN];
+
+  it("offers no handle to drag, and marks the row instead", () => {
+    setup(roster, immovableAnna);
+
+    expect(
+      card("Nicht zugeteilt").queryByRole("button", { name: "Muster Anna verschieben" }),
+    ).not.toBeInTheDocument();
+    expect(card("Nicht zugeteilt").getByRole("img", { name: HINT })).toBeInTheDocument();
+  });
+
+  it("cannot be picked", async () => {
+    setup(roster, immovableAnna);
+
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Muster Anna" }));
+
+    expect(
+      card("Nicht zugeteilt").getByRole("button", { name: "Muster Anna" }),
+    ).not.toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("leaves them out of 'Alle', and out of what it carries", async () => {
+    setup(roster, immovableAnna);
+
+    await dragTo(
+      card("Nicht zugeteilt").getByRole("button", { name: "Alle auswählen verschieben" }),
+      "{ArrowDown}",
+    );
+
+    await waitFor(() =>
+      expect(onMove).toHaveBeenCalledWith(["record-Berger", "record-Fink"], "Montafon"),
+    );
+  });
+
+  it("still offers a movable student's own handle on the same card", () => {
+    setup(roster, immovableAnna);
+
+    expect(
+      card("Nicht zugeteilt").getByRole("button", { name: "Berger Bene verschieben" }),
     ).toBeInTheDocument();
   });
 });

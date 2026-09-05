@@ -146,18 +146,20 @@ export function classOverview(
  * The cards a teacher drags between: the students with no week yet, then one card per week of
  * the event series, in the order the teacher put the weeks in (US-12).
  *
- * A student who answered "no" appears in none of them — only someone who is coming can be
- * assigned — which is why the class cards above are the one place they are counted.
+ * A student who answered "no" appears in none of them — only someone who might still come can be
+ * assigned — but one who has not answered yet is still deciding, and is held here rather than
+ * hidden, so a teacher sees whose registration to chase (US-13). The class cards above are where
+ * a "no" is counted; here it never was.
  */
 export function assignmentGroups(
   students: readonly RosterStudent[],
   events: readonly string[],
   columns: readonly SkillColumn[],
 ): AssignmentGroup[] {
-  const attending = students.filter((student) => student.isAttending);
+  const notDeclined = students.filter((student) => student.isAttending !== false);
 
   const group = (id: string, title: string, event: string | null): AssignmentGroup => {
-    const own = attending.filter((student) => student.event === event);
+    const own = notDeclined.filter((student) => student.event === event);
     return { id, title, event, students: own, ...attendingCounts(own, columns) };
   };
 
