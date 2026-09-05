@@ -12,6 +12,7 @@ import { useBusyWhile } from "@/lib/api/busy";
 import { buildInfo } from "@/lib/build-info";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { EMPTY_FILTER, filterStudents, filterSummary, scopeFilterToGroups } from "@/lib/filters/student-filter"; // prettier-ignore
+import { seriesWideLists } from "@/lib/master-data/resolution";
 import { fieldTagsFor, offeredFieldTags, reportFieldsOf } from "@/lib/report/report-fields";
 import {
   downloadReportPdf,
@@ -84,7 +85,7 @@ export function ReportView({
   );
 
   const offeredTags = useMemo(
-    () => (eventSeries === null ? [] : fieldTagsFor(eventSeries)),
+    () => (eventSeries === null ? [] : fieldTagsFor(seriesWideLists(eventSeries))),
     [eventSeries],
   );
 

@@ -17,6 +17,7 @@ import {
 } from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { prunedToLists } from "@/lib/filters/student-filter";
+import { seriesWideLists } from "@/lib/master-data/resolution";
 import { savedReportPath } from "@/lib/report/saved-reports";
 import { savedReportSchema } from "@/lib/schemas/saved-report";
 import type { EventSeriesListField } from "@/lib/master-data/categories";
@@ -150,7 +151,7 @@ export async function createEventSeries(input: CreateEventSeries): Promise<Event
 
       transaction.set(adminDb.collection(savedReportPath(reference.id)).doc(), {
         ...parsed.data,
-        filter: prunedToLists(parsed.data.filter, data),
+        filter: prunedToLists(parsed.data.filter, seriesWideLists(data)),
       });
     }
 

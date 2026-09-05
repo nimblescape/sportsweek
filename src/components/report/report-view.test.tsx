@@ -451,6 +451,11 @@ describe("the saved reports", () => {
       fields: [],
     };
     useSavedReports.mockReturnValue({ reports: [pickup], loading: false, error: null });
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, busPickupPoints: [] }],
+      loading: false,
+      error: null,
+    });
     useMasterData.mockImplementation((key: string) => {
       if (key === "bus-pickup-points") return listOf();
       if (key === "classes") return listOf("5AHIF", "5BHIF");
