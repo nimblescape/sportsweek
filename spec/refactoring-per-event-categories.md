@@ -446,27 +446,73 @@ them is not something the school does.
 | The measurements           | Unchanged, and still behind the rental answer — which now cannot be reached by a program that lends nothing                                                  |
 | `scopeRentalToProgram`     | Scopes a student's rentals to the chosen program's **borrowable** names, and clears the rental answer when the program has none                              |
 | The completeness check     | Unchanged in shape; the rental branch is simply unreachable where nothing is borrowable                                                                      |
-| The report's rental field  | Offered by `rentsEquipment`, so it disappears for a series that lends nothing                                                                                |
-| The in-use guard           | Unchanged: it matches a student's stored rental by name, and a name nobody could rent is a name nobody holds                                                 |
+| The report                 | Gains a second field, "Ausrüstung", beside the existing "Leihausrüstung" — see below                                                                         |
+| The in-use guard           | Gains the flag: withdrawing it is refused while a student holds that item                                                                                    |
 
 A student's `rentedEquipment` stays an array of names, so nothing about a stored registration
 changes shape.
 
-### Three things to settle
+### The flag is set as a pair of tags, not a switch
 
-**The wording.** The flag needs a label on the equipment row, and a non-borrowable item needs to
-read as the student's own responsibility on the form. Neither word is chosen here, because the
-right one is the school's.
+The dialog that names an equipment item gains one more control: two tags, exactly one of which is
+chosen.
 
-**Whether the flag may be withdrawn while somebody holds the item.** A student who has already
-ticked "Helm" has an answer that only made sense while it was borrowable. Turning the flag off is
-the same kind of act as renaming an entry a student has chosen, which is already refused — so it
-could be refused on the same terms, or allowed on the grounds that the stored answer remains true
-of the day it was given.
+```
+Name  [ Lange, wasserdichte Hose        ]
 
-**Whether the report shows the non-borrowable items.** They are the program's data rather than
-the student's answer, so they do not obviously belong in a report about students — but a teacher
-packing a coach may want exactly that list.
+      [Keine Leihausrüstung]  Leihausrüstung
+```
+
+Both words are already constants — the filter offers the same pair for whether a student needs to
+borrow anything. The noun carries over cleanly: there, a student does or does not need rental
+equipment; here, an item either is rental equipment or is not. One vocabulary, used of the two
+things it can sensibly be used of.
+
+Three things follow from it being one choice rather than two switches:
+
+- **It is a radio group, not two pressed buttons.** Two independent `aria-pressed` tags would be
+  heard as two unrelated toggles, either or neither of which might be on. A single choice reads as
+  one, so the pair carries radio semantics and the tags are its options.
+- **The shared list does not learn about it.** `CrudList` serves all seven categories and only
+  equipment has a second field; teaching it a rental flag would be one module changing for one
+  caller's reason. The equipment leaf supplies the extra control to the dialog instead.
+- **A new item needs a side to start on.** Whichever it is, it is stated once and the seeded
+  defaults follow it, rather than each caller assuming.
+
+### Withdrawing the flag is refused while somebody holds the item
+
+A student who has ticked "Helm" gave an answer that only meant anything while "Helm" was
+borrowable. Taking the flag away is therefore the same act as renaming or removing an entry a
+student has chosen, which the in-use guard already refuses, and it is refused on the same terms:
+not while a registration of this series names it.
+
+The consistency is the point. Three different ways of invalidating the same answer — renaming the
+entry, deleting it, and withdrawing its flag — should not have three different outcomes, and a
+teacher should not have to learn which of them is the one that quietly changes what a student
+said.
+
+### The report names both halves of the list
+
+The two halves answer different questions, so they are two fields rather than one with a
+qualifier, and a teacher switches on whichever they need — or both:
+
+| Field            | Shows                                                     |
+| ---------------- | --------------------------------------------------------- |
+| "Ausrüstung"     | The student's program's **non-borrowable** required items |
+| "Leihausrüstung" | What the student actually asked to **borrow**             |
+
+"Ausrüstung" comes first in the field selector and in the printed lines, because a student packs
+their own things before collecting anything from the school.
+
+The two are different in kind, and the difference is deliberate rather than an oversight to be
+tidied away later. "Leihausrüstung" is the student's own answer and differs from student to
+student. "Ausrüstung" is their **program's** data, read through their choice of program — so every
+student on the same program shows the same list. That is what makes it useful for packing a coach,
+and it is why it is offered whenever any program requires something non-borrowable, mirroring the
+way `rentsEquipment` offers the rental field.
+
+With per-event programs, both resolve the program list from the student's event and fall back to
+the series, exactly as every other program-dependent answer does.
 
 ## Registration
 
@@ -520,9 +566,13 @@ Class moves ahead of event, following the menu, and `health` comes up from the e
 
 ```
 attendance · class · event · gender · dateOfBirth · contact · health · program ·
-rentedEquipment · measurements · skillLevel · seasonPassOption · busPickupPoint · food ·
-completeness
+ownEquipment · rentedEquipment · measurements · skillLevel · seasonPassOption ·
+busPickupPoint · food · completeness
 ```
+
+`ownEquipment` is the new one, labelled "Ausrüstung", and it sits ahead of `rentedEquipment`
+("Leihausrüstung"). Both stay beside the program they are drawn from, and the measurements stay
+behind them, because a shoe size is asked for in order to borrow.
 
 The order runs inside a tag as well as between them, because a tag that gathers several fields is
 still read as one run of lines:
