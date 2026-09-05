@@ -54,7 +54,7 @@ no correct answer at the time it is put.
 | Seven sibling category pages                                         | A master list, a record page per series, a record page per event                 |
 | Nav: Eventreihen · Events · Klassen · …                              | Nav: five fixed entries; the categories move onto the record page as a tag row   |
 | Gender is male or female                                             | Gender is male, female or diverse                                                |
-| Form: Registrierung · Persönliches · Notfallkontakt · … · Gesundheit | Form: Registrierung · Persönliches · Notfallkontakt · Gesundheit · Veranstaltung |
+| Form: Registrierung · Persönliches · Notfallkontakt · … · Gesundheit | Form: Registrierung · Persönliches · Gesundheit · Notfallkontakt · Veranstaltung |
 | One registration step, complete only when everything is answered     | Two steps where any event carries lists of its own                               |
 
 ## The shape it moves to
@@ -424,13 +424,14 @@ reads the way the form asks:
 
 1. **Registrierung** — name, class, attendance
 2. **Persönliches** — gender, then date of birth, then phone number
-3. **Notfallkontakt**
-4. **Gesundheit**
+3. **Gesundheit**
+4. **Notfallkontakt**
 5. **Veranstaltung** — the answers drawn from the five overridable lists
 
-Gender moves above date of birth, and Gesundheit moves ahead of Veranstaltung rather than
-trailing it. Everything a student can answer about themselves is then asked before anything that
-depends on where they are going — which is also the seam the two-step registration cuts along.
+Gender moves above date of birth, and Gesundheit moves out from behind Veranstaltung to sit
+between the student's own details and the person to ring about them. Everything a student can
+answer about themselves is then asked before anything that depends on where they are going —
+which is also the seam the two-step registration cuts along.
 
 ### Gender gains a third value
 
@@ -459,11 +460,13 @@ record, and an event's row is the same list without Klassen and Events.
 
 ### The report's field row
 
-Class moves ahead of event, following the menu. Everything else keeps its place:
+Class moves ahead of event, following the menu, and `health` comes up from the end to sit behind
+`contact`:
 
 ```
-attendance · class · event · gender · dateOfBirth · contact · program · rentedEquipment ·
-measurements · skillLevel · seasonPassOption · busPickupPoint · food · health · completeness
+attendance · class · event · gender · dateOfBirth · contact · health · program ·
+rentedEquipment · measurements · skillLevel · seasonPassOption · busPickupPoint · food ·
+completeness
 ```
 
 ### The filter's category row
@@ -471,8 +474,8 @@ measurements · skillLevel · seasonPassOption · busPickupPoint · food · heal
 Follows the field row, skipping what nothing filters on:
 
 ```
-attendance · class · event · gender · program · equipmentRental · skillLevel ·
-seasonPassOption · busPickupPoint · foodOption · health · completeness
+attendance · class · event · gender · health · program · equipmentRental · skillLevel ·
+seasonPassOption · busPickupPoint · foodOption · completeness
 ```
 
 ### The registration form and its schema
@@ -480,19 +483,20 @@ seasonPassOption · busPickupPoint · foodOption · health · completeness
 The schema declares its fields in the form's order, so the stored record reads the way the
 student was asked. Cards, and the fields within them, exactly as the form section above states.
 
-### The report's field row does not follow the form
+### Why the report puts contact before Gesundheit and the form does not
 
-Only one thing moves in the field row: class ahead of event, following the menu. The form's card
-reshuffle deliberately does **not** propagate, so `health` stays where it is, after the
-Veranstaltung answers, even though Gesundheit now precedes them in the form.
+Both rows put everything about the student ahead of everything about the trip, and both are
+readable — but they disagree about one adjacency, deliberately.
 
-The two orders answer different questions. A form is asked in the order that suits a student
-filling it in; a report is read in the order that suits a teacher scanning a class, and the
-registration's own facts sit better at its end. Tying them together would also force a decision
-nobody wants: `contact` bundles the student's own `phoneNumber`, which the form asks in
-Persönliches, with the three emergency contact fields it asks in Notfallkontakt — so a strict
-mirror is unavailable without splitting that tag, which changes what a teacher can switch on and
-off in a report.
+The form asks Gesundheit between Persönliches and Notfallkontakt. The report puts `contact`
+first, because its "Kontaktdaten" tag **is** part of Persönliches there: it opens with the
+student's own `phoneNumber` and only then lists who to ring. Grouped that way, contact before
+Gesundheit is the same grouping the form makes, read through a tag that happens to gather both
+numbers into one switch.
+
+That tag is also why the two cannot simply be identical. `contact` spans two of the form's cards,
+so a strict mirror would need it split in two — which changes what a teacher can switch on and off
+in a report, to remove a difference nobody reading either one would trip over.
 
 What stays tied is the part that has one source: the six list-backed fields follow the master data
 menu, and the filter row follows the field row. Those are the invariants tests pin.
