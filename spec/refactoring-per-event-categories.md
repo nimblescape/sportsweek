@@ -52,7 +52,7 @@ no correct answer at the time it is put.
 | `/app/{seriesId}/master-data/{category}`                             | `/app/event-series/{seriesId}/{category}` — no `master-data` segment left        |
 | The header selection scopes Stammdaten too                           | The header rows are hidden in Stammdaten; the record being edited is the URL     |
 | Seven sibling category pages                                         | A master list, a record page per series, a record page per event                 |
-| Nav: Eventreihen · Events · Klassen · …                              | Nav: Eventreihen · Klassen · Events · … , the categories indented under it       |
+| Nav: Eventreihen · Events · Klassen · …                              | Nav: five fixed entries; the categories move onto the record page as a tag row   |
 | Gender is male or female                                             | Gender is male, female or diverse                                                |
 | Form: Registrierung · Persönliches · Notfallkontakt · … · Gesundheit | Form: Registrierung · Persönliches · Gesundheit · Notfallkontakt · Veranstaltung |
 | One registration step, complete only when everything is answered     | Two steps where any event carries its own programs                               |
@@ -159,61 +159,95 @@ from there; a breadcrumb names the trail back.
 
 The event series id leaves the global scope segment, which is what takes Stammdaten out of the
 header selection. `/app/event-series` is already a segment the selection ignores, so the whole
-tree moves beneath it and the `master-data` segment disappears:
+tree moves beneath it and the `master-data` segment disappears.
+
+### Every level is a record with child collections
+
+The hierarchy has one shape, repeated. A screen shows **one record**; its **child collections** are
+offered as a row of tags, and the marked tag's entries are the list beneath.
+
+| The record              | Its child collections                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| "Stammdaten" — the root | "Eventreihen"                                                                                          |
+| One event series        | "Klassen", "Events", "Programme", "Leistungsstufen", "Zugangskarten", "Zustiegsstellen", "Verpflegung" |
+| One event               | "Programme", "Leistungsstufen", "Zugangskarten", "Zustiegsstellen", "Verpflegung"                      |
+| One program             | "Benötigte Ausrüstung"                                                                                 |
+
+Reading the root as a record is what makes the rule hold everywhere. A tag row with one tag — at
+the root, and at the equipment leaf — is the same screen as one with seven, with fewer tags.
+
+### The four screens
 
 ```
-/app/event-series                                   Eventreihen — the master list
-/app/event-series/{series}                          → redirects to classes
-/app/event-series/{series}/classes                  ┐
-/app/event-series/{series}/events                   │ the Eventreihe's own lists
-/app/event-series/{series}/programs      ?equipment=│
-/app/event-series/{series}/skill-levels             │
-/app/event-series/{series}/season-pass-options      │
-/app/event-series/{series}/bus-pickup-points        │
-/app/event-series/{series}/food-options             ┘
-/app/event-series/{series}/events/{event}           → redirects to programs
-/app/event-series/{series}/events/{event}/programs  ?equipment=   ┐ the five overridable
-/app/event-series/{series}/events/{event}/skill-levels            │ lists, at event level
-/app/event-series/{series}/events/{event}/season-pass-options     │
-/app/event-series/{series}/events/{event}/bus-pickup-points       │
-/app/event-series/{series}/events/{event}/food-options            ┘
-/app/users                                          Benutzerrechte
+L1  /app/event-series
+    ┈ breadcrumb row, empty ┈
+    Stammdaten
+    [Eventreihen ＋]
+    ⠿ Wintersportwoche 2026/27     Öffnen ›        ✎  Ὕ1
+
+L2  /app/event-series/{series}/{category}
+    Stammdaten › Eventreihen
+    Wintersportwoche 2026/27
+    Klassen  [Events ＋]  Programme  Leistungsstufen  Zugangskarten
+    Zustiegsstellen  Verpflegung
+    ⠿ Woche 1                      Öffnen ›        ✎  Ὕ1
+
+L3  /app/event-series/{series}/events/{event}/{category}
+    Stammdaten › Eventreihen › Wintersportwoche 2026/27 › Events
+    Woche 2
+    [Programme ＋]  Leistungsstufen  Zugangskarten  Zustiegsstellen  Verpflegung
+    ⠿ Ski                          Ausrüstung ›    ✎  Ὕ1
+
+L4  /app/event-series/{series}/events/{event}/programs?equipment={program}
+    Stammdaten › … › Woche 2 › Programme
+    Ski
+    [Benötigte Ausrüstung ＋]
+    ⠿ Helm                                         ✎  Ὕ1
 ```
 
-The header's event series rows are **not rendered** anywhere under `/app/event-series`. What is
-being edited is named by the page and by the breadcrumb, which is a place the reader is already
-looking, and which can name an archived series the header would not offer.
+A series-level program's equipment is the same leaf one level up, at
+`/app/event-series/{series}/programs?equipment={program}`.
 
-Equipment keeps the `?equipment=` search parameter rather than a path segment, because a program
-name is its identity and may hold characters a segment cannot carry.
+`{category}` is a dynamic segment and `events` is a static one, because it is the only category
+whose entries have children of their own and a static segment wins over a dynamic one. Equipment
+keeps the `?equipment=` search parameter rather than a segment, because a program name is its
+identity and may hold characters a segment cannot carry.
 
-### Navigation — open, see Q1
+### What the four screens share
 
-The requested order and indentation is settled at the series level:
+- **The side navigation never changes.** Five entries: "Registrierungen", "Zuteilungen" and
+  "Berichte", which the header scopes; then "Stammdaten" and "Benutzerrechte", which nothing
+  scopes. "Stammdaten" is the marked entry at every depth beneath it, and the rights page is
+  reached and rendered exactly as it is today.
+- **The header's event series rows are not rendered under `/app/event-series`.** What is being
+  edited is named by the title and the breadcrumb — which can also name an archived series, where
+  the header would offer none.
+- **One tag row per screen, and only the marked tag carries its add control.** The control's
+  accessible name is that category's own wording, so it reads "Neues Event" on one tag and "Neue
+  Klasse" on the next; pressing it opens a name form below the row. This is the tag row that
+  already carries per-tag controls on the marked tag, applied to a second row.
+- **The breadcrumb names the ancestors only**, stopping at the collection the record was reached
+  through — never at the record itself, which the title beneath already names.
+- **The title is the record.**
 
-```
-Registrierungen                 ┐
-Zuteilungen                     │ scoped by the header selection
-Berichte                        ┘
-Stammdaten
-  Eventreihen                   ← the master list
-    Klassen
-    Events
-    Programme
-    Leistungsstufen
-    Zugangskarten
-    Zustiegsstellen
-    Verpflegung
-  Benutzerrechte
-```
+### The breadcrumb's row is reserved even when it is empty
 
-Where the **per-event** lists belong is the open question. The nav cannot list them per event —
-there are as many sets as there are events, and data does not go in a navigation. Q1 states the
-candidates.
+The root has no ancestors and so draws no breadcrumb. Left at that, its title would sit a row
+higher than every other title and jump as a teacher moved down the hierarchy. So the breadcrumb
+occupies a row with a floor under its height, and at the root that row is simply empty — the same
+trick that already keeps a page with buttons and a page without them at one height.
 
-**Reordering the menu is not local.** The master data menu is the single source of answer order:
-the report fields, the filter categories and the registration form's card all follow it, each
-pinned by a test. Putting Klassen before Events moves class ahead of event in all four.
+It has to be reserved height rather than a hidden element: a screen-reader-only class is
+absolutely positioned and contributes none.
+
+One consequence is worth having deliberately. Whether the trail also names the record it ends at
+becomes a single decision in a single component — so if the empty root row proves worse than
+saying the record's name twice, that is a one-place change.
+
+**The tag order is the master data menu order, and reordering it is not local.** That order is the
+single source of answer order: the report fields, the filter categories and the registration form's
+card all follow it, each pinned by a test. Putting Klassen before Events moves class ahead of event
+in all four.
 
 ### Inherited state — open, see Q2
 
@@ -270,10 +304,13 @@ Nothing about Veranstaltung is stored during the first step.
 - Stammdaten opens on the list of Eventreihen. Opening one shows what that series is made of.
 - The lists of one series are reached from that series' record, never from a header selection;
   the header's series rows are not shown anywhere in Stammdaten.
-- A breadcrumb names the trail and every step of it is a link.
-- Menu order is Eventreihen, then Klassen, Events, Programme, Leistungsstufen, Zugangskarten,
-  Zustiegsstellen, Verpflegung; the categories are indented under Eventreihen, and Benutzerrechte
-  sits beside Eventreihen rather than under it.
+- A breadcrumb names the ancestors of what is open and every step of it is a link; the title names
+  the record itself.
+- A record's categories are offered as one row of tags, in the master data menu order — Klassen,
+  Events, Programme, Leistungsstufen, Zugangskarten, Zustiegsstellen, Verpflegung. Only the marked
+  tag offers to add an entry.
+- The side navigation holds five fixed entries and names no category, so it can never claim a
+  scope the page is not in. "Benutzerrechte" sits beside "Stammdaten" rather than under it.
 
 ### US-34: An event carries master data of its own
 
@@ -310,31 +347,18 @@ Each slice is a pull request of its own, and each is green on the whole gate bef
 starts — tests, lint, types, formatting, licence headers, and the rules tests against the
 emulator. Test-driven throughout: the failing test that states the new behaviour comes first.
 
-| Slice | What lands                                                                                                                                                                                             |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **1** | The editor concept: the route tree moves under `/app/event-series/{id}`, the nav is reordered and indented, the breadcrumb arrives, the header rows are hidden in Stammdaten. No stored shape changes. |
-| **2** | An event becomes a record — `events` goes from `string[]` to objects with a name. Registrations still store the event's name.                                                                          |
-| **3** | The five per-event lists, the resolution rule, and the per-event editor pages.                                                                                                                         |
-| **4** | The registration form order, the schema field order, and `"diverse"`.                                                                                                                                  |
-| **5** | The two-step registration and its steering condition.                                                                                                                                                  |
-| **6** | Merge this document and `spec/refactoring-event-series.md` into `spec/requirements.md`, and delete both.                                                                                               |
+| Slice | What lands                                                                                                                                                                                                                                    |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | The editor concept: the route tree moves under `/app/event-series/{id}`, the navigation shrinks to its five fixed entries, the category tag row and the breadcrumb arrive, the header rows are hidden in Stammdaten. No stored shape changes. |
+| **2** | An event becomes a record — `events` goes from `string[]` to objects with a name. Registrations still store the event's name.                                                                                                                 |
+| **3** | The five per-event lists, the resolution rule, and the per-event editor pages.                                                                                                                                                                |
+| **4** | The registration form order, the schema field order, and `"diverse"`.                                                                                                                                                                         |
+| **5** | The two-step registration and its steering condition.                                                                                                                                                                                         |
+| **6** | Merge this document and `spec/refactoring-event-series.md` into `spec/requirements.md`, and delete both.                                                                                                                                      |
 
 Environments are purged and reseeded after slices 2, 3 and 4.
 
 ## Open questions
-
-### Q1 — Where do the per-event lists live in the navigation?
-
-The nav is three levels deep already (Stammdaten › Eventreihen › Klassen), it collapses to an
-icon rail on a wide screen and to a strip across the top on a narrow one, and it may not contain
-data rows.
-
-|       | Option                                                                                                                                                   | Consequence                                                                                                                      |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **a** | Nav stops at the Eventreihe. Per-event lists are reached by opening an event; the breadcrumb carries the trail.                                          | Three levels, unchanged shape. While editing an event's programs the nav marks only "Events".                                    |
-| **b** | Nav grows a fourth, contextual level under Events while an event is open, headed by the event name.                                                      | The whole trail is visible, but the nav's contents change as you navigate, and a fourth level cannot survive the collapsed rail. |
-| **c** | Drop "Stammdaten" as a level: Eventreihen and Benutzerrechte become top-level items with icons of their own. Option b then costs three levels, not four. | Buys back the level option b needs; costs the grouping that tells the two apart from the header-scoped pages.                    |
-| **d** | Nav lists only Eventreihen and Benutzerrechte; every category becomes a tab on its record page.                                                          | Purest Concept A and it scales to any depth, but it drops the indented category list that was asked for.                         |
 
 ### Q2 — How is an inherited list shown on a per-event page?
 
