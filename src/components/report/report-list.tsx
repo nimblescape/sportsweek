@@ -37,7 +37,7 @@ export function ReportList({ students, fields }: ReportListProps) {
               {student.firstName} {student.lastName}
             </span>
             <span className="text-muted-foreground break-all">({student.email})</span>
-            {student.record.isIncomplete ? (
+            {student.isIncomplete ? (
               <span className="text-destructive text-xs">{INCOMPLETE_REGISTRATION_HINT}</span>
             ) : null}
           </p>

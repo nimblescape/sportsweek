@@ -12,7 +12,7 @@ import {
   type AnswerField,
   type EventSeriesListField,
 } from "@/lib/master-data/categories";
-import { resolveEventLists } from "@/lib/master-data/resolution";
+import { resolveEventLists, questionsFor } from "@/lib/master-data/resolution";
 import {
   FOOD_OPTION_OTHER,
   FOOD_OPTION_OTHER_LABEL,
@@ -20,6 +20,7 @@ import {
 } from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import type { Registration } from "@/lib/schemas/registration";
+import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import {
   COMPLETENESS_LABELS,
   EQUIPMENT_RENTAL_LABEL,
@@ -44,13 +45,19 @@ export type ReportField = {
 
 /**
  * What a field needs that the record does not hold: the equipment the student's program requires,
- * which is the program's data read through their choice of program and their event (US-33, US-36).
+ * which is the program's data read through their choice of program and their event (US-33, US-36),
+ * and whether the registration is complete, which depends on what the series currently asks
+ * rather than on anything the record itself carries (US-13, US-36).
  */
 export type ReportFieldContext = {
   requiredEquipmentOf: (record: Registration) => readonly EquipmentItem[];
+  isIncompleteOf: (record: Registration) => boolean;
 };
 
-const NOTHING_REQUIRED: ReportFieldContext = { requiredEquipmentOf: () => [] };
+const NOTHING_REQUIRED: ReportFieldContext = {
+  requiredEquipmentOf: () => [],
+  isIncompleteOf: () => false,
+};
 
 /** A field before its context is bound to it, which is what the tags are declared with. */
 type ReportFieldSource = {
@@ -230,8 +237,8 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
     ],
   },
   // Last, because it is a fact about the registration rather than one of the answers in it.
-  answer("completeness", "Registrierung", (record) =>
-    record.isIncomplete ? COMPLETENESS_LABELS.incomplete : COMPLETENESS_LABELS.complete,
+  answer("completeness", "Registrierung", (record, context) =>
+    context.isIncompleteOf(record) ? COMPLETENESS_LABELS.incomplete : COMPLETENESS_LABELS.complete,
   ),
 ];
 
@@ -268,6 +275,8 @@ export function reportFieldContext(
       resolveEventLists(eventSeries, record.event).programs.find(
         (program) => program.name === record.program,
       )?.requiredEquipment ?? [],
+    isIncompleteOf: (record) =>
+      isRegistrationIncomplete(record, questionsFor(eventSeries, record.event)),
   };
 }
 

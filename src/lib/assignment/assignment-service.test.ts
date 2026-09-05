@@ -263,47 +263,42 @@ describe("assignStudents — while the event series is open to students", () => 
 });
 
 describe("assignStudents — completeness", () => {
-  const markOf = (id: string) => firestore.get(REGISTRATIONS, id)?.isIncomplete;
-
   /** Incomplete for two unrelated reasons at once is a state the board cannot tell apart. */
   it("refuses a student who has not finished answering", async () => {
-    seedRecord(ANNA, { isIncomplete: true });
+    seedRecord(ANNA, { phoneNumber: null });
 
     await expect(assign([ANNA], "Woche 1")).rejects.toMatchObject({ code: "CONFLICT" });
     expect(eventOf(ANNA)).toBeNull();
   });
 
   it("still unassigns one, so nobody is stuck in an event they cannot complete", async () => {
-    seedRecord(ANNA, { event: "Woche 1", isIncomplete: true });
+    seedRecord(ANNA, { event: "Woche 1", phoneNumber: null });
 
     await assign([ANNA], null);
 
     expect(eventOf(ANNA)).toBeNull();
   });
 
-  /** Assignment begins step two, so the questions it adds are outstanding from that moment. */
-  it("marks a two-step registration incomplete again once it has an event", async () => {
+  /**
+   * Assigning is what begins step two (US-36), so a question only the event asks cannot be
+   * outstanding yet — there was no way to answer it before now. Checked fresh against what the
+   * series asks before any event, rather than trusted from a mark nothing ever writes (US-13).
+   */
+  it("refuses a two-step registration missing a base answer, even into an event", async () => {
     seedTwoStepSeries();
-    seedRecord(ANNA, { program: null, isIncomplete: false });
+    seedRecord(ANNA, { phoneNumber: null });
+
+    await expect(assign([ANNA], "Woche 2")).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(eventOf(ANNA)).toBeNull();
+  });
+
+  it("allows assigning a two-step registration that has not reached its event's own question yet", async () => {
+    seedTwoStepSeries();
+    seedRecord(ANNA, { program: null });
 
     await assign([ANNA], "Woche 2");
 
-    expect(markOf(ANNA)).toBe(true);
-  });
-
-  it("marks it complete again when the event is taken away", async () => {
-    seedTwoStepSeries();
-    seedRecord(ANNA, { event: "Woche 2", program: null, isIncomplete: true });
-
-    await assign([ANNA], null);
-
-    expect(markOf(ANNA)).toBe(false);
-  });
-
-  it("leaves the mark alone where nothing about the questions changes", async () => {
-    await assign([ANNA], "Woche 1");
-
-    expect(markOf(ANNA)).toBe(false);
+    expect(eventOf(ANNA)).toBe("Woche 2");
   });
 });
 

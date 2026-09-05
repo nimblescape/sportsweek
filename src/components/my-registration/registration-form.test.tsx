@@ -45,7 +45,6 @@ const storedRecord: Registration = {
   lastName: "Doe",
   email: "jane@student.htldornbirn.at",
   event: null,
-  isIncomplete: false,
   isAttendingSportsWeek: true,
   class: "3AHME",
   program: "Ski",

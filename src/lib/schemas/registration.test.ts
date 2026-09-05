@@ -28,7 +28,6 @@ const validRecord = {
   lastName: "Doe",
   email: "jane.doe@student.htldornbirn.at",
   event: null,
-  isIncomplete: false,
   isAttendingSportsWeek: true,
   class: "3AHME",
   program: "Ski",
@@ -69,18 +68,6 @@ describe("registrationSchema", () => {
     const started = { ...validRecord, isAttendingSportsWeek: false, class: null };
 
     expect(registrationSchema.parse(started).class).toBeNull();
-  });
-
-  it("marks a record the student has not finished, for the report to pick up (US-13)", () => {
-    expect(registrationSchema.parse({ ...validRecord, isIncomplete: true }).isIncomplete).toBe(
-      true,
-    );
-  });
-
-  it("treats a record stored before that flag existed as unfinished", () => {
-    expect(registrationSchema.parse({ ...validRecord, isIncomplete: undefined }).isIncomplete).toBe(
-      true,
-    );
   });
 
   it("keeps the record unassigned with a null event", () => {
@@ -191,7 +178,6 @@ describe("registrationLockedFields", () => {
       "email",
       "event",
       "firstName",
-      "isIncomplete",
       "lastName",
       "studentUid",
     ]);
@@ -212,7 +198,6 @@ describe("the order the fields are declared in", () => {
       "lastName",
       "email",
       "event",
-      "isIncomplete",
       "isAttendingSportsWeek",
       "class",
       "gender",
@@ -271,7 +256,7 @@ describe("registrationInputSchema", () => {
     expect(parse(attending).success).toBe(true);
   });
 
-  it.each(["id", "studentUid", "firstName", "lastName", "email", "event", "class", "isIncomplete"])(
+  it.each(["id", "studentUid", "firstName", "lastName", "email", "event", "class"])(
     "refuses to take %s from the student, since the server owns it",
     (field) => {
       expect(parse({ ...attending, [field]: "smuggled" }).success).toBe(false);

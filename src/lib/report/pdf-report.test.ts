@@ -77,7 +77,7 @@ describe("reportDocument", () => {
   });
 
   it("marks a registration that is still missing answers", () => {
-    const chasing = rosterStudent({ id: asUid("r3"), lastName: "Cerny" }, { isIncomplete: true });
+    const chasing = rosterStudent({ id: asUid("r3"), lastName: "Cerny", isIncomplete: true });
 
     expect(textOf(document([chasing]).content)).toContain("Registrierung unvollständig");
     expect(textOf(document([ANNA]).content)).not.toContain("Registrierung unvollständig");

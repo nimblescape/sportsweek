@@ -21,7 +21,10 @@ import {
 
 const keys = REPORT_FIELD_TAGS.map((tag) => tag.key);
 
-const NO_EQUIPMENT: ReportFieldContext = { requiredEquipmentOf: () => [] };
+const NO_EQUIPMENT: ReportFieldContext = {
+  requiredEquipmentOf: () => [],
+  isIncompleteOf: () => false,
+};
 
 const lineFor = (label: string, record: Registration, context = NO_EQUIPMENT) => {
   const field = REPORT_FIELD_TAGS.flatMap((tag) => tag.fields).find(
@@ -188,6 +191,7 @@ describe("a field's value", () => {
   describe(OWN_EQUIPMENT_LABEL, () => {
     const requiring = (...items: EquipmentItem[]): ReportFieldContext => ({
       requiredEquipmentOf: () => items,
+      isIncompleteOf: () => false,
     });
 
     const SKI_LIST = requiring(
@@ -230,8 +234,10 @@ describe("a field's value", () => {
   });
 
   it("states whether the registration is still missing answers (US-11, US-13)", () => {
+    const incomplete: ReportFieldContext = { ...NO_EQUIPMENT, isIncompleteOf: () => true };
+
     expect(lineFor("Registrierung", studentRecord())).toBe("Vollständig");
-    expect(lineFor("Registrierung", studentRecord({ isIncomplete: true }))).toBe("Unvollständig");
+    expect(lineFor("Registrierung", studentRecord(), incomplete)).toBe("Unvollständig");
   });
 
   // The record holds the name rather than a reference, so the line needs nothing but the record.

@@ -336,33 +336,6 @@ describe("saveRegistration", () => {
     expect(record.program).toBeNull();
   });
 
-  it("marks a registration that is still missing answers (US-13)", async () => {
-    seedEventSeries("s1");
-
-    const record = await saveRegistration(target(), { ...attending, gender: null });
-
-    expect(record.isIncomplete).toBe(true);
-    expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({ isIncomplete: true });
-  });
-
-  it("clears the mark once nothing is missing", async () => {
-    seedEventSeries("s1");
-
-    const record = await saveRegistration(target(), attending);
-
-    expect(record.isIncomplete).toBe(false);
-  });
-
-  /** The client cannot be the judge of it: the report marks students by this (US-13). */
-  it("works the mark out itself rather than taking it from the client", async () => {
-    seedEventSeries("s1");
-    const claimed = { ...attending, gender: null, isIncomplete: false };
-
-    await expect(saveRegistration(target(), claimed as RegistrationInput)).rejects.toMatchObject({
-      code: "VALIDATION_ERROR",
-    });
-  });
-
   it("reports which field was wrong, so the form can point at it", async () => {
     seedEventSeries("s1");
 
@@ -499,7 +472,6 @@ describe("deleteRegistration", () => {
       email: "jane.doe@student.htldornbirn.at",
       class: "3AHME",
       isAttendingSportsWeek: true,
-      isIncomplete: false,
     });
   }
 
@@ -603,7 +575,6 @@ describe("joinEventSeries", () => {
       // Neither yes nor no: joining is not answering, and calling it "no" would file every
       // invited student as having declined.
       isAttendingSportsWeek: null,
-      isIncomplete: true,
     });
   });
 

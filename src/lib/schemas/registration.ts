@@ -77,12 +77,6 @@ const registrationFields = z.object({
    */
   event: snapshotValueSchema.nullable(),
   /**
-   * Whether answers are still outstanding, recomputed by the server on every save. Denormalised
-   * so the report can mark the students a teacher has to chase (US-13) without re-deriving it
-   * per row; the student's own view never shows it. Defaulted for records written before it.
-   */
-  isIncomplete: z.boolean().default(true),
-  /**
    * Null until the student answers. Following the link is what joins them (US-23), so a
    * registration exists before anything has been said in it — and a boolean would have to call
    * that silence a refusal, which would file every invited student as having declined.
@@ -134,7 +128,6 @@ const SERVER_OWNED = {
   email: true,
   event: true,
   class: true,
-  isIncomplete: true,
 } as const;
 
 /** Keep in sync with the student denylist in firestore.rules — students must never write these. */

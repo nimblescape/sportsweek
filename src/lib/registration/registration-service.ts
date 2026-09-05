@@ -28,7 +28,6 @@ import {
   ARCHIVED_IS_READ_ONLY_HINT,
   NO_SUCH_EVENT_SERIES,
 } from "@/lib/event-series/event-series-state";
-import { isRegistrationIncomplete } from "./completeness";
 import {
   ANSWER_NO_LONGER_OFFERED_HINT,
   EMPTY_REGISTRATION,
@@ -197,9 +196,6 @@ export async function saveRegistration(
       ...identity,
       class: studentClass,
       event,
-      // Recomputed here rather than trusted from the client: it is what the report marks a
-      // student by (US-13), so it has to follow the answers actually stored.
-      isIncomplete: isRegistrationIncomplete(fields, asked),
       ...fields,
     };
     const record = registrationSchema.parse({ id: identity.studentUid, ...data });
@@ -246,7 +242,6 @@ export async function joinEventSeries(
         ...identity,
         class: className,
         event: null,
-        isIncomplete: isRegistrationIncomplete(EMPTY_REGISTRATION, questionsFor(eventSeries, null)),
         ...EMPTY_REGISTRATION,
       });
     }

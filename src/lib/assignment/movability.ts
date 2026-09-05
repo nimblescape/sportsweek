@@ -4,10 +4,11 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { ASSIGN_OPEN_HINT } from "@/lib/event-series/event-series-state";
-import { answersOwnedByEvent } from "@/lib/master-data/resolution";
-import type { AnswerField, EventSeriesListField } from "@/lib/master-data/categories";
+import { answersOwnedByEvent, questionsFor } from "@/lib/master-data/resolution";
+import type { EventSeriesListField } from "@/lib/master-data/categories";
 import type { EventSeries } from "@/lib/schemas/event-series";
-import type { Registration } from "@/lib/schemas/registration";
+import type { Registration, RegistrationInput } from "@/lib/schemas/registration";
+import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 
 /**
  * Why the assignment refuses, in the teacher's words. Held here rather than in the service
@@ -25,7 +26,7 @@ export const IMMOVABLE_HINTS = {
 export type ImmovableReason = keyof typeof IMMOVABLE_HINTS;
 
 type AssignableSeries = Pick<EventSeries, "isOpenToStudents" | EventSeriesListField>;
-type AssignableStudent = Pick<Registration, "event" | "isIncomplete" | AnswerField>;
+type AssignableStudent = RegistrationInput & Pick<Registration, "event">;
 
 /**
  * Why a teacher may not move this student at all, or `null` where they may (US-12, US-36).
@@ -45,7 +46,14 @@ export function immovableReason(
 ): ImmovableReason | null {
   // Checked before the series' own state, so a registration still incomplete is what a teacher
   // hears about — the more useful thing to chase — rather than a lock that lifts on its own.
-  if (student.event === null && student.isIncomplete) return "incomplete";
+  // Recomputed rather than read off a stored mark, which a master-data edit since the student's
+  // last save could have made stale without the record itself ever changing (US-13, US-36).
+  if (
+    student.event === null &&
+    isRegistrationIncomplete(student, questionsFor(eventSeries, student.event))
+  ) {
+    return "incomplete";
+  }
 
   if (eventSeries.isOpenToStudents) return "seriesOpen";
 

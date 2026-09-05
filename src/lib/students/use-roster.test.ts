@@ -22,9 +22,11 @@ vi.mock("firebase/auth", () => ({ onAuthStateChanged }));
 vi.mock("@/lib/firebase/client", () => ({ auth: {}, db: {} }));
 
 const { useRoster } = await import("./use-roster");
+const { storedEventSeries } = await import("@/test/event-series");
 
 const ANNA = "uidAnna";
 const REGISTRATIONS = "eventSeries/s1/registrations";
+const SERIES = storedEventSeries();
 
 const emit = (docs: Doc[]) =>
   act(() => (onSnapshot.mock.calls.at(-1)![1] as (snapshot: { docs: Doc[] }) => void)({ docs }));
@@ -37,7 +39,6 @@ const storedRecord = (overrides: Record<string, unknown> = {}) => ({
   lastName: "Muster",
   email: ANNA,
   event: null,
-  isIncomplete: false,
   isAttendingSportsWeek: true,
   class: "5AHIF",
   program: "Ski",
@@ -75,21 +76,21 @@ beforeEach(() => {
 describe("useRoster", () => {
   /** Which series a registration belongs to is its path, so the read needs no filter (US-26). */
   it("reads the registrations beneath the event series it was given", () => {
-    renderHook(() => useRoster("s1"));
+    renderHook(() => useRoster("s1", SERIES));
     signIn();
 
     expect(collection).toHaveBeenCalledWith(expect.anything(), REGISTRATIONS);
   });
 
   it("reads nothing else, because the registration carries the name itself", () => {
-    renderHook(() => useRoster("s1"));
+    renderHook(() => useRoster("s1", SERIES));
     signIn();
 
     expect(onSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it("names a student from their own registration", async () => {
-    const { result } = renderHook(() => useRoster("s1"));
+    const { result } = renderHook(() => useRoster("s1", SERIES));
     signIn();
 
     emit([doc(ANNA, storedRecord())]);
@@ -103,7 +104,7 @@ describe("useRoster", () => {
   });
 
   it("is loading until the registrations have arrived", () => {
-    const { result } = renderHook(() => useRoster("s1"));
+    const { result } = renderHook(() => useRoster("s1", SERIES));
     signIn();
 
     expect(result.current.loading).toBe(true);
@@ -111,7 +112,7 @@ describe("useRoster", () => {
   });
 
   it("reads no registrations while no event series is active, and says so by not loading", () => {
-    const { result } = renderHook(() => useRoster(null));
+    const { result } = renderHook(() => useRoster(null, null));
     signIn();
 
     expect(onSnapshot).not.toHaveBeenCalled();
@@ -121,7 +122,7 @@ describe("useRoster", () => {
 
   it("leaves out a record that does not match its schema rather than losing the rest", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const { result } = renderHook(() => useRoster("s1"));
+    const { result } = renderHook(() => useRoster("s1", SERIES));
     signIn();
 
     emit([doc("broken", { studentUid: ANNA }), doc(ANNA, storedRecord())]);
@@ -131,7 +132,7 @@ describe("useRoster", () => {
 
   it("surfaces a failed read rather than showing an empty roster", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const { result } = renderHook(() => useRoster("s1"));
+    const { result } = renderHook(() => useRoster("s1", SERIES));
     signIn();
 
     act(() =>

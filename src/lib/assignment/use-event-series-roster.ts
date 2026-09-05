@@ -77,7 +77,11 @@ export function useEventSeriesRoster(
     error: eventSeriesError,
   } = useSelectedEventSeries(eventSeriesId);
 
-  const { students, loading: rosterLoading, error: rosterError } = useRoster(selected?.id ?? null);
+  const {
+    students,
+    loading: rosterLoading,
+    error: rosterError,
+  } = useRoster(selected?.id ?? null, selected);
   // The events are a field of the series, so they arrive with it rather than on their own (US-21).
   // Reduced to their names here, once, since every reader downstream — the board, the filter tags,
   // the report — only ever matches an event by the name a registration holds (US-11).

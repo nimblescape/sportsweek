@@ -174,10 +174,12 @@ describe("ReportView", () => {
   });
 
   it("marks a registration that is still missing answers, so a teacher knows whom to chase", () => {
-    const incomplete = rosterStudent(
-      { id: asUid("record-Cerny"), firstName: "Clara", lastName: "Cerny" },
-      { isIncomplete: true },
-    );
+    const incomplete = rosterStudent({
+      id: asUid("record-Cerny"),
+      firstName: "Clara",
+      lastName: "Cerny",
+      isIncomplete: true,
+    });
     useRoster.mockReturnValue({ students: [incomplete, ANNA], loading: false, error: null });
 
     render(<ReportView />);
@@ -218,10 +220,12 @@ describe("ReportView", () => {
   });
 
   it("filters by whether a registration is still missing answers", async () => {
-    const chasing = rosterStudent(
-      { id: asUid("record-Cerny"), firstName: "Clara", lastName: "Cerny", isIncomplete: true },
-      { isIncomplete: true },
-    );
+    const chasing = rosterStudent({
+      id: asUid("record-Cerny"),
+      firstName: "Clara",
+      lastName: "Cerny",
+      isIncomplete: true,
+    });
     useRoster.mockReturnValue({ students: [chasing, ANNA], loading: false, error: null });
 
     render(<ReportView />);

@@ -706,12 +706,13 @@ async function main(): Promise<void> {
         class: className,
         // Unassigned on purpose: putting students into events is what the board is for (US-12).
         event: null,
-        // Nobody has an event yet, so a two-step series asks nothing an event could answer
-        // differently here either (US-36) — the same rule a real registration is saved under.
-        isIncomplete: isRegistrationIncomplete(registration, questionsFor(eventSeries, null)),
         ...registration,
       });
-      if (record.isIncomplete) written.incomplete += 1;
+      // Nobody has an event yet, so a two-step series asks nothing an event could answer
+      // differently here either (US-36) — the same rule a real registration is read under.
+      if (isRegistrationIncomplete(record, questionsFor(eventSeries, null))) {
+        written.incomplete += 1;
+      }
 
       const { id: userId, ...userFields } = user;
       const { id: recordId, ...recordFields } = record;

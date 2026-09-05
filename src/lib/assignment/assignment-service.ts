@@ -79,9 +79,6 @@ export async function assignStudents(
   }
 
   const assigned = event === null ? null : eventOfEventSeries(eventSeries, event);
-  // Assigning is what begins step two, so what the student is asked changes with it (US-36) and
-  // the mark the report chases them by has to follow (US-13).
-  const asked = questionsFor(eventSeries, assigned);
 
   // Beneath that series by construction, so "is this registration one of ours?" is the path
   // rather than a field a caller could point elsewhere (US-26).
@@ -106,10 +103,15 @@ export async function assignStudents(
       );
     }
 
-    // The stored mark was computed for the questions this student is asked as they stand, which
-    // is exactly the sense the rule means: everything in a one-step series, everything outside
-    // Veranstaltung in a two-step one.
-    if (assigned !== null && record.isIncomplete) {
+    // Recomputed here rather than trusted from a stored mark, which a master-data edit since the
+    // last save could have made stale without ever touching this record (US-13, US-36). Checked
+    // only before a student's first event, the same as the board itself (movability.ts): once
+    // assigned, a question their event owns is answered afterwards, not gated on before (US-36).
+    if (
+      assigned !== null &&
+      record.event === null &&
+      isRegistrationIncomplete(record, questionsFor(eventSeries, null))
+    ) {
       throw new ServiceError(ErrorCode.Conflict, IMMOVABLE_HINTS.incomplete);
     }
 
@@ -124,11 +126,7 @@ export async function assignStudents(
       throw new ServiceError(ErrorCode.Conflict, IMMOVABLE_HINTS.eventAnswered);
     }
 
-    return (batch) =>
-      batch.update(references[index], {
-        event: assigned,
-        isIncomplete: isRegistrationIncomplete(record, asked),
-      });
+    return (batch) => batch.update(references[index], { event: assigned });
   });
 
   await commitInChunks(operations);

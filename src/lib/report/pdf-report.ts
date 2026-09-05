@@ -88,7 +88,7 @@ function studentBlock(student: RosterStudent, fields: readonly ReportField[]): C
     text: [
       { text: `${student.firstName} ${student.lastName}`, bold: true },
       { text: ` (${student.email})`, color: MUTED },
-      ...(student.record.isIncomplete
+      ...(student.isIncomplete
         ? [{ text: `  ${INCOMPLETE_REGISTRATION_HINT}`, italics: true }]
         : []),
     ],
