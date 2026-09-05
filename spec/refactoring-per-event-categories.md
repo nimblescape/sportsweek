@@ -485,15 +485,22 @@ one. Assigning somebody who has not finished answering produces a registration t
 for two unrelated reasons at once, and a teacher cannot tell from the board which one they are
 looking at. Today the board's rule is only that the student is attending; this narrows it.
 
-**In a two-step series, a student who has chosen a program cannot be reassigned.** The program
-came from that event's own list — that is what made the series two-step in the first place — so
-moving the student elsewhere, or taking their event away, would leave an answer sourced from an
-event they are no longer in. The write is refused rather than the answer quietly cleared, which
-is the same shape as the rule that already refuses to rename a list entry a student has chosen.
+**A student who has answered anything drawn from their event's own list cannot be reassigned.**
+That answer came from the event rather than from the series, so moving the student elsewhere, or
+taking their event away, would leave an answer sourced from an event they are no longer in. The
+write is refused rather than the answer quietly cleared, which is the same shape as the rule that
+already refuses to rename a list entry a student has chosen.
 
-The last rule is narrow on purpose. It does not apply in a one-step series, where the program came
-from the series and survives any move; and it does not fire before a program is chosen, when there
-is nothing yet to invalidate.
+It follows the steering condition rather than naming one category, for the reason an event is a
+place: a lift pass bought for one resort is worthless at the other, and a pickup point on the way
+to Montafon is not on the way to Lech. Naming only the program would let through exactly the
+moves the change of place makes wrong — and would need a reason why a program invalidates a move
+while an access card does not, which there is not one of.
+
+The rule is still bounded by where the answer came from, not by what it is. It does not fire on an
+answer the series supplied, which survives any move; and it does not fire before the student has
+answered anything the event owns, when there is nothing yet to invalidate. In a one-step series no
+event owns a list at all, so it never fires there.
 
 ### An event that students have answered against cannot be removed
 
@@ -560,8 +567,8 @@ way out, and it says what it is doing.
 - Assigning, reassigning and un-assigning are refused while the series is open to students.
 - A student may only be assigned once their registration is complete in the sense that applies to
   their series.
-- In a two-step series, a student who has chosen a program may not be reassigned or un-assigned;
-  the attempt is refused, and nothing is cleared on their behalf.
+- A student who has answered anything drawn from their event's own list may not be reassigned or
+  un-assigned; the attempt is refused, and nothing is cleared on their behalf.
 - A student may amend either step at any time while the series is open to them.
 
 ## Sequencing
@@ -580,26 +587,3 @@ emulator. Test-driven throughout: the failing test that states the new behaviour
 | **6** | Merge this document and `spec/refactoring-event-series.md` into `spec/requirements.md`, and delete both.                                                                                                                                      |
 
 Environments are purged and reseeded after slices 2, 3 and 4.
-
-## Open questions
-
-### Q7 — Does the reassignment refusal follow the steering condition?
-
-The trigger for two steps is now any per-event list, not programs alone. The refusal that protects
-an answer did not move with it: it still names the program.
-
-The reason given for it generalises word for word. A student's access card, drawn from their
-event's own list, is invalidated by a move exactly as their program is — so on the same argument
-the rule reads "a student who has answered anything drawn from their event's own list cannot be
-reassigned", and the program is one case of it.
-
-Reading an event as a place rather than a week makes that stronger rather than weaker. Moving a
-student from Montafon to Lech invalidates their lift pass and their pickup point as surely as
-their program — arguably more plainly, since a pass bought for one resort is worthless at the
-other, while a program named "Ski" may well exist at both. A refusal that names only the program
-would let exactly the moves through that the place makes wrong.
-
-Against that: the narrower rule is easier to explain to a teacher, and the program is the answer
-most likely to exist. It would leave a student whose only per-event answer was a pickup point
-movable, and their pickup point silently unoffered afterwards — which the completeness check would
-report, though only after the fact.
