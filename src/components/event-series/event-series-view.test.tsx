@@ -114,14 +114,14 @@ describe("EventSeriesView — archived visibility", () => {
     expect(screen.queryByRole("heading", { name: "Winter 2025" })).not.toBeInTheDocument();
   });
 
-  it("takes the archived ones into the report once they are revealed", async () => {
+  it("takes the archived ones into the report once they are revealed, and says so", async () => {
     stubFetch(noContent);
     renderView();
 
     await userEvent.click(screen.getByRole("button", { name: "Archivierte Eventreihen anzeigen" }));
     await userEvent.click(screen.getByRole("button", { name: MASTER_DATA_REPORT_LABEL }));
 
-    expect(screen.getByRole("heading", { name: "Winter 2025" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Winter 2025 (Archiviert)" })).toBeInTheDocument();
   });
 });
 

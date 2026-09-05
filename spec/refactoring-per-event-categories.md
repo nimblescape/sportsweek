@@ -843,7 +843,7 @@ emulator. Test-driven throughout: the failing test that states the new behaviour
 | **2** | An event becomes a record — `events` goes from `string[]` to objects with a name. Registrations still store the event's name.                                                                                                                 |
 | **3** | The five per-event lists, the resolution rule, the per-event editor pages, and the borrowable flag on required equipment.                                                                                                                     |
 | **4** | The order of the fields within the form's cards, the schema field order, and `"diverse"`.                                                                                                                                                     |
-| **5** | The two-step registration and its steering condition.                                                                                                                                                                                         |
+| **5** | The two-step registration, its steering condition, and the three rules assignment carries.                                                                                                                                                   |
 | **6** | Merge this document and `spec/refactoring-event-series.md` into `spec/requirements.md`, and delete both. **Deferred** — the two documents stay as they are until it is asked for.                                                             |
 
 Environments are purged and reseeded after slices 2, 3 and 4.

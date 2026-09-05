@@ -13,10 +13,24 @@ import { COLLECTIONS } from "@/lib/schemas/collections";
 import { registrationPath } from "@/lib/registration/registration";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema } from "@/lib/schemas/registration";
-import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
+import { answersOwnedByEvent, questionsFor } from "@/lib/master-data/resolution";
+import { isRegistrationIncomplete } from "@/lib/registration/completeness";
+import { ASSIGN_OPEN_HINT, NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 
-/** The one answer the assignment turns on, derived so a rename cannot pass this by. */
-const assignableSchema = registrationSchema.pick({ isAttendingSportsWeek: true });
+/**
+ * Every answer the assignment turns on: whether the student may be assigned at all, and what a
+ * move would invalidate. The id is the document's, so it is supplied rather than stored.
+ */
+const assignableSchema = registrationSchema.omit({ id: true });
+
+/** Assigning is refused rather than the answer cleared, the same as renaming a chosen list entry. */
+const EVENT_ANSWERED_HINT =
+  "Diese Person hat bereits etwas beantwortet, das nur ihr Event anbietet. " +
+  "Die Zuteilung kann deshalb nicht mehr geändert werden.";
+
+/** A registration incomplete for two unrelated reasons cannot be told apart on the board. */
+const INCOMPLETE_HINT =
+  "Wer die Registrierung noch nicht abgeschlossen hat, kann keinem Event zugeteilt werden.";
 
 /**
  * The series the teacher is working in, named by the path (Q8). Archived is refused because
@@ -68,7 +82,14 @@ export async function assignStudents(
   event: string | null,
 ): Promise<void> {
   const eventSeries = await requireEventSeries(eventSeriesId);
+  if (eventSeries.isOpenToStudents) {
+    throw new ServiceError(ErrorCode.Conflict, ASSIGN_OPEN_HINT);
+  }
+
   const assigned = event === null ? null : eventOfEventSeries(eventSeries, event);
+  // Assigning is what begins step two, so what the student is asked changes with it (US-36) and
+  // the mark the report chases them by has to follow (US-13).
+  const asked = questionsFor(eventSeries, assigned);
 
   // Beneath that series by construction, so "is this registration one of ours?" is the path
   // rather than a field a caller could point elsewhere (US-26).
@@ -93,7 +114,29 @@ export async function assignStudents(
       );
     }
 
-    return (batch) => batch.update(references[index], { event: assigned });
+    // The stored mark was computed for the questions this student is asked as they stand, which
+    // is exactly the sense the rule means: everything in a one-step series, everything outside
+    // Veranstaltung in a two-step one.
+    if (assigned !== null && record.isIncomplete) {
+      throw new ServiceError(ErrorCode.Conflict, INCOMPLETE_HINT);
+    }
+
+    // Moving elsewhere and taking the event away both count; assigning the same event again is
+    // neither, so a repeated drop is not turned into a refusal.
+    const leaving = record.event;
+    if (
+      leaving !== null &&
+      (assigned === null || normalizeName(leaving) !== normalizeName(assigned)) &&
+      answersOwnedByEvent(eventSeries, leaving, record).length > 0
+    ) {
+      throw new ServiceError(ErrorCode.Conflict, EVENT_ANSWERED_HINT);
+    }
+
+    return (batch) =>
+      batch.update(references[index], {
+        event: assigned,
+        isIncomplete: isRegistrationIncomplete(record, asked),
+      });
   });
 
   await commitInChunks(operations);

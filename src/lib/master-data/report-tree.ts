@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { eventSeriesLabel } from "@/lib/event-series/event-series-state";
 import type { EquipmentItem, Program } from "@/lib/schemas/master-data";
 import {
   EQUIPMENT_LABELS,
@@ -19,8 +20,8 @@ import {
 
 type EventRecord = EventSeries["events"][number];
 type ListEntries = readonly (string | Program | EventRecord)[];
-/** Everything the report reads of a series: its name and its lists, never its stored identity. */
-type ReportableSeries = Pick<EventSeries, "name" | EventSeriesListField>;
+/** Everything the report reads of a series: what to call it and its lists, never its stored identity. */
+type ReportableSeries = Pick<EventSeries, "name" | "isArchived" | EventSeriesListField>;
 
 /**
  * The master data of one record, written out as headings and entries (US-33). A section holds
@@ -91,7 +92,7 @@ export function eventSeriesReport(eventSeries: ReportableSeries): ReportSection 
   const keys = Object.keys(MASTER_DATA_CATEGORIES) as MasterDataCategoryKey[];
 
   return section(
-    eventSeries.name,
+    eventSeriesLabel(eventSeries),
     [],
     keys.map((key) => categorySection(key, eventSeries[MASTER_DATA_CATEGORIES[key].field])),
   );

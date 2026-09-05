@@ -34,6 +34,15 @@ export const ARCHIVE_NO_DATA_HINT =
 export const ARCHIVE_OPEN_HINT =
   "Eine offene Eventreihe kann nicht archiviert werden. Bitte zuerst für Schüler:innen schließen.";
 
+/**
+ * While a series is open a student may be answering the questions their event decides at the
+ * moment a teacher moves them, and neither of them would ever know. Closing is the teacher's own
+ * act, so the write is refused rather than the series closed on their behalf.
+ */
+export const ASSIGN_OPEN_HINT =
+  "In einer offenen Eventreihe kann nicht zugeteilt werden. " +
+  "Bitte zuerst für Schüler:innen schließen.";
+
 /** What every write refuses with when the series it names has been deleted meanwhile. */
 export const NO_SUCH_EVENT_SERIES = "Diese Eventreihe gibt es nicht.";
 
@@ -63,6 +72,16 @@ export const EVENT_SERIES_STATE_LABELS: Record<EventSeriesState, string> = {
   open: "Registrierung für Schüler:innen offen",
   closed: "Registrierung für Schüler:innen geschlossen",
 };
+
+/**
+ * How a series is named where several are listed together. Archived is said in words rather than
+ * by colour, so a list that mixes the two reads the same wherever it is shown (US-19, US-22).
+ */
+export function eventSeriesLabel(eventSeries: Pick<EventSeries, "name" | "isArchived">): string {
+  return eventSeries.isArchived
+    ? `${eventSeries.name} (${EVENT_SERIES_STATE_LABELS.archived})`
+    : eventSeries.name;
+}
 
 /** Archived event series are hidden by default; the list offers a toggle to bring them back (US-19). */
 export function visibleEventSeries<T extends Pick<EventSeries, "isArchived">>(

@@ -102,6 +102,15 @@ describe("eventSeriesReport", () => {
     );
   });
 
+  /** A report listing several says which of them are no longer in use, in words (US-19). */
+  it("says of an archived series that it is archived", () => {
+    const report = eventSeriesReport(
+      storedEventSeries({ name: "Wintersportwoche", isArchived: true }),
+    );
+
+    expect(report.title).toBe("Wintersportwoche (Archiviert)");
+  });
+
   it("lists the entries of a category of bare names", () => {
     const report = eventSeriesReport(storedEventSeries({ classOptions: ["2aWI", "2bWI"] }));
 

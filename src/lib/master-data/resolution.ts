@@ -91,6 +91,32 @@ export function registersInTwoSteps(eventSeries: Lists): boolean {
 }
 
 /**
+ * Which of this student's answers came from lists their own event names rather than the series'
+ * (US-33). An answer sourced from an event is only valid inside it, so moving the student or
+ * taking their event away would leave it pointing at a list they are no longer offered — which is
+ * what the assignment refuses on.
+ *
+ * Bounded by where the answer came from, not by what it is: an answer the series supplied
+ * survives any move, and a question the event owns but the student has not reached yet has
+ * nothing to invalidate.
+ */
+export function answersOwnedByEvent(
+  eventSeries: Lists,
+  eventName: string,
+  answers: Partial<Record<AnswerField, unknown>>,
+): AnswerField[] {
+  const wanted = normalizeName(eventName);
+  const event = eventSeries.events.find((candidate) => normalizeName(candidate.name) === wanted);
+  if (event === undefined) return [];
+
+  return PER_EVENT_CATEGORY_KEYS.filter(
+    (key) => event[MASTER_DATA_CATEGORIES[key].field].length > 0,
+  )
+    .map((key) => MASTER_DATA_CATEGORIES[key].usage.field)
+    .filter((field) => answers[field] !== null && answers[field] !== undefined);
+}
+
+/**
  * What this student is asked (US-35, US-36): the questions the lists their event resolves to
  * stand behind — less, until they have an event in a two-step series, everything an event could
  * answer differently. The one function the form, the completeness check and the server all ask,
