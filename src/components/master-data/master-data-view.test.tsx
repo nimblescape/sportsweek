@@ -14,6 +14,7 @@ import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 const useMasterData = vi.fn();
 const useUsageReport = vi.fn();
+const useSelectedEventSeries = vi.fn();
 const push = vi.fn();
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -25,11 +26,7 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
 
 // The screen names the record it is about, which reaches Firebase no test here has cause to start.
 vi.mock("@/lib/event-series/use-selected-event-series", () => ({
-  useSelectedEventSeries: () => ({
-    eventSeries: { id: "s1", ...storedEventSeries({ name: "Wintersportwoche" }) },
-    loading: false,
-    error: null,
-  }),
+  useSelectedEventSeries: (...args: unknown[]) => useSelectedEventSeries(...args),
 }));
 
 const { MasterDataView } = await import("./master-data-view");
@@ -62,6 +59,11 @@ const conflict = (message: string) =>
 beforeEach(() => {
   stubRowLayout();
   useMasterData.mockReturnValue({ items, loading: false, error: null });
+  useSelectedEventSeries.mockReturnValue({
+    eventSeries: { id: "s1", ...storedEventSeries({ name: "Wintersportwoche" }) },
+    loading: false,
+    error: null,
+  });
   useUsageReport.mockReturnValue({
     blockedNames: new Set<string>(),
     blockedEquipment: {},
@@ -582,6 +584,55 @@ describe("MasterDataView — an event's own page (US-33)", () => {
       screen.getByText("Dieses Event verwendet die Leistungsstufen der Eventreihe."),
     ).toBeInTheDocument();
     expect(screen.queryByText(/noch keine Leistungsstufe/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * The first entry of an event's own list is what turns a one-step series into a two-step one
+   * (US-36) — unsafe once the series already has registrations, since an answer already saved
+   * against the series' own list was never checked against a narrower one.
+   */
+  it("blocks starting an event's own list once the series already has registrations", async () => {
+    useMasterData.mockReturnValue({ items: [], loading: false, error: null });
+    useSelectedEventSeries.mockReturnValue({
+      eventSeries: { id: "s1", ...storedEventSeries({ name: "Wintersportwoche", hasRegistrations: true }) }, // prettier-ignore
+      loading: false,
+      error: null,
+    });
+    renderEventView();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    );
+
+    expect(
+      screen.getByText(
+        "Diese Eventreihe hat bereits Registrierungen. Ein Event kann ihr deshalb keine " +
+          "eigenen Leistungsstufen mehr geben.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Verstanden" })).not.toHaveFocus();
+
+    await userEvent.keyboard("{Enter}");
+
+    expect(screen.queryByText(/kann nicht hinzugefügt werden/)).not.toBeInTheDocument();
+  });
+
+  /** Widening a list this event already keeps of its own invalidates nothing already checked against it. */
+  it("still allows adding once this event already has its own list for the category", async () => {
+    useMasterData.mockReturnValue({ items: ["Fortgeschritten"], loading: false, error: null });
+    useSelectedEventSeries.mockReturnValue({
+      eventSeries: { id: "s1", ...storedEventSeries({ name: "Wintersportwoche", hasRegistrations: true }) }, // prettier-ignore
+      loading: false,
+      error: null,
+    });
+    renderEventView();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    );
+
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
   });
 });
 

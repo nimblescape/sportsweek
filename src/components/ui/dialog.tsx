@@ -55,13 +55,34 @@ export function Dialog({
     if (open && !element.open) {
       element.showModal();
       // `showModal()` focuses whatever it reaches first, which is the close cross in the corner.
-      // A dialog that opens asking for a name should be ready to be typed into.
-      element
-        .querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled])")
-        ?.focus();
+      // A dialog that opens asking for a name should be ready to be typed into; one with nothing
+      // to fill in opens with nothing marked as selected instead, the dialog itself holding focus.
+      const field = element.querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled])"); // prettier-ignore
+      if (field) field.focus();
+      else element.focus();
     }
     if (!open && element.open) element.close();
   }, [open, element]);
+
+  // Nothing is marked as selected, so Enter would otherwise reach nobody; it presses the one
+  // control the dialog names as its default instead, the same way a form presses its submit.
+  React.useEffect(() => {
+    if (!element || !open) return;
+
+    function pressDefaultAction(event: KeyboardEvent) {
+      if (event.key !== "Enter" || event.defaultPrevented) return;
+      if ((event.target as HTMLElement | null)?.closest("input, textarea, select, button, a, [contenteditable='true']")) return; // prettier-ignore
+
+      const control = element?.querySelector<HTMLElement>("[data-default-action]");
+      if (!control) return;
+
+      event.preventDefault();
+      control.click();
+    }
+
+    element.addEventListener("keydown", pressDefaultAction);
+    return () => element.removeEventListener("keydown", pressDefaultAction);
+  }, [element, open]);
 
   if (!open) return null;
 
@@ -84,11 +105,12 @@ export function Dialog({
   return (
     <dialog
       ref={setElement}
+      tabIndex={-1}
       aria-labelledby={titleId}
       onClose={close}
       onCancel={close}
       className={cn(
-        "bg-card text-card-foreground ring-foreground/10 shadow-card relative m-auto w-[calc(100vw-(--spacing(8)))] max-w-md rounded-xl p-0 ring-1 backdrop:bg-black/40",
+        "bg-card text-card-foreground ring-foreground/10 shadow-card relative m-auto w-[calc(100vw-(--spacing(8)))] max-w-md rounded-xl p-0 ring-1 outline-none backdrop:bg-black/40",
         className,
       )}
     >

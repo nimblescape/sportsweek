@@ -57,6 +57,72 @@ describe("Dialog", () => {
     expect(screen.getByRole("button", { name: "Löschen" })).not.toHaveFocus();
   });
 
+  /** A dialog with nothing to fill in opens with nothing marked as selected, not even its default. */
+  it("leaves the default action unselected, even though it names one", () => {
+    render(
+      <Dialog
+        open
+        title="Verpflegungsoption kann nicht hinzugefügt werden"
+        onClose={vi.fn()}
+        footer={
+          <button type="button" data-default-action="">
+            Verstanden
+          </button>
+        }
+      >
+        <p>Diese Eventreihe hat bereits Registrierungen.</p>
+      </Dialog>,
+    );
+
+    expect(screen.getByRole("button", { name: "Verstanden" })).not.toHaveFocus();
+  });
+
+  /** Nothing being selected would leave Enter reaching nobody, so the dialog presses it itself. */
+  it("presses the control named as the default action on Enter", async () => {
+    const onClick = vi.fn();
+    render(
+      <Dialog
+        open
+        title="Verpflegungsoption kann nicht hinzugefügt werden"
+        onClose={vi.fn()}
+        footer={
+          <button type="button" data-default-action="" onClick={onClick}>
+            Verstanden
+          </button>
+        }
+      >
+        <p>Diese Eventreihe hat bereits Registrierungen.</p>
+      </Dialog>,
+    );
+
+    await userEvent.keyboard("{Enter}");
+
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  /** Typing a name already answers its own Enter, so the shortcut leaves it to the field. */
+  it("leaves Enter alone on a control that answers it itself", async () => {
+    const onClick = vi.fn();
+    render(
+      <Dialog
+        open
+        title="Klasse umbenennen"
+        onClose={vi.fn()}
+        footer={
+          <button type="button" data-default-action="" onClick={onClick}>
+            Speichern
+          </button>
+        }
+      >
+        <input aria-label="Name" defaultValue="5AHIF" />
+      </Dialog>,
+    );
+
+    await userEvent.keyboard("{Enter}");
+
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
   it("opens as a modal, so the browser traps focus and handles Escape", () => {
     const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
 

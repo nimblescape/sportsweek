@@ -38,7 +38,10 @@ export type CrudLabels = {
 };
 
 type OpenDialog =
-  { kind: "none" } | { kind: "form"; item: CrudItem | null } | { kind: "delete"; item: CrudItem };
+  | { kind: "none" }
+  | { kind: "form"; item: CrudItem | null }
+  | { kind: "delete"; item: CrudItem }
+  | { kind: "blocked" };
 
 /**
  * A second answer a list's entries carry beyond their name. Only the equipment list has one
@@ -73,6 +76,8 @@ type CrudListProps<TExtra> = {
   /** Options offered to students that the teacher does not maintain, such as "Sonstiges" (US-9). */
   fixedItems?: readonly string[];
   fixedItemsHint?: string;
+  /** Set once adding is not allowed at all; a press then explains why instead of opening the form. */
+  addBlockedHint?: string;
   /** Where an entry's own record page is, for a list whose entries have children (US-33). */
   openHref?: (item: CrudItem) => string;
   /** What this record looks like as a whole, shown in place of the editor (US-33). */
@@ -110,6 +115,7 @@ export function CrudList<TExtra = undefined>({
   openHref,
   report,
   extraField,
+  addBlockedHint,
   onSubmit,
   onDelete,
   onReorder,
@@ -147,7 +153,11 @@ export function CrudList<TExtra = undefined>({
         marked={marked}
         busy={pending}
         report={report}
-        onAdd={() => setDialog({ kind: "form", item: null })}
+        onAdd={() =>
+          setDialog(
+            addBlockedHint === undefined ? { kind: "form", item: null } : { kind: "blocked" },
+          )
+        }
       >
         <RecordList
           singular={labels.singular}
@@ -187,7 +197,36 @@ export function CrudList<TExtra = undefined>({
           onClose={closeDialog}
         />
       ) : null}
+
+      {dialog.kind === "blocked" && addBlockedHint !== undefined ? (
+        <AddBlockedDialog labels={labels} hint={addBlockedHint} onClose={closeDialog} />
+      ) : null}
     </>
+  );
+}
+
+function AddBlockedDialog({
+  labels,
+  hint,
+  onClose,
+}: {
+  labels: CrudLabels;
+  hint: string;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog
+      open
+      title={`${labels.singular} kann nicht hinzugefügt werden`}
+      onClose={onClose}
+      footer={
+        <Button type="button" data-default-action="" onClick={onClose}>
+          Verstanden
+        </Button>
+      }
+    >
+      <p className="text-sm">{hint}</p>
+    </Dialog>
   );
 }
 

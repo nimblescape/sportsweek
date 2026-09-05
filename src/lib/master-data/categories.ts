@@ -308,3 +308,12 @@ export function categoryOf(key: MasterDataCategoryKey): MasterDataCategory {
  */
 export const inheritsSeriesHint = (category: MasterDataCategory) =>
   `Dieses Event verwendet die ${category.labels.title} der Eventreihe.`;
+
+/**
+ * Why an event may not start a list of its own once its series already has registrations
+ * (US-33, US-36). Its first entry is what turns a one-step series into a two-step one, and an
+ * answer already saved against the series' own list was never checked against a narrower one.
+ */
+export const twoStepBlockedHint = (category: MasterDataCategory) =>
+  `Diese Eventreihe hat bereits Registrierungen. Ein Event kann ihr deshalb keine eigenen ` +
+  `${category.labels.title} mehr geben.`;

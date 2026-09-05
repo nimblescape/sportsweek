@@ -12,6 +12,7 @@ import {
   categoryOf,
   CHILD_IN_USE_HINT,
   inheritsSeriesHint,
+  twoStepBlockedHint,
   type MasterDataCategoryKey,
 } from "@/lib/master-data/categories";
 import { categoryTabs, eventSeriesTrail, eventTabs, eventTrail } from "@/lib/master-data/hierarchy";
@@ -75,6 +76,14 @@ export function MasterDataView({
       ? category.labels
       : { ...category.labels, empty: inheritsSeriesHint(category) };
 
+  // An event's own list is empty while it inherits the series' (US-33); its first entry is what
+  // stops doing that. Once the series already has registrations, an answer already saved against
+  // the series' list for this very event was never checked against a narrower one of its own.
+  const addBlockedHint =
+    eventName !== undefined && eventSeries?.hasRegistrations === true && items.length === 0
+      ? twoStepBlockedHint(category)
+      : undefined;
+
   // The record on screen, expanded downwards: the whole series, or the one event these lists
   // belong to (US-33).
   const openEvent =
@@ -105,6 +114,7 @@ export function MasterDataView({
       fixedItems={fixed?.items}
       fixedItemsHint={fixed?.hint}
       openHref={openHref}
+      addBlockedHint={addBlockedHint}
       onSubmit={(name, item) =>
         item === null
           ? apiRequest(endpoint, { method: "POST", body: { name } }).then(() => {})
