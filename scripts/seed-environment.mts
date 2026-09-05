@@ -86,8 +86,23 @@ const USER_PAGE_SIZE = 1000;
  */
 const CATEGORY_DEFAULTS = {
   programs: [
-    { name: "Ski", requiredEquipment: ["Ski", "Skischuhe", "Stöcke", "Helm"] },
-    { name: "Snowboard", requiredEquipment: ["Board", "Boots", "Helm"] },
+    {
+      name: "Ski",
+      requiredEquipment: [
+        { name: "Ski", isRentable: true },
+        { name: "Skischuhe", isRentable: true },
+        { name: "Stöcke", isRentable: true },
+        { name: "Helm", isRentable: true },
+      ],
+    },
+    {
+      name: "Snowboard",
+      requiredEquipment: [
+        { name: "Board", isRentable: true },
+        { name: "Boots", isRentable: true },
+        { name: "Helm", isRentable: true },
+      ],
+    },
     { name: "Alternativ", requiredEquipment: [] },
   ],
   skillLevels: ["Keine Vorkenntnisse", "Anfänger:in", "Fortgeschritten", "Profi"],
@@ -381,7 +396,11 @@ function registrationOf(
     };
   }
 
-  const rents = program.requiredEquipment.length > 0 && chance(RENTAL_SHARE);
+  // Only what the school lends can be asked for, so a program that lends nothing asks nothing.
+  const rentable = program.requiredEquipment
+    .filter((item) => item.isRentable)
+    .map((item) => item.name);
+  const rents = rentable.length > 0 && chance(RENTAL_SHARE);
   const wantsOtherFood = chance(OTHER_FOOD_SHARE);
 
   const answers: RegistrationInput = {
@@ -398,8 +417,8 @@ function registrationOf(
     emergencyContact: emergencyContact(person),
     healthNotes: chance(HEALTH_NOTE_SHARE) ? pick(HEALTH_NOTES) : null,
     hasMedication: chance(MEDICATION_SHARE),
-    equipmentRentalNeeded: program.requiredEquipment.length > 0 ? rents : null,
-    rentedEquipment: rents ? program.requiredEquipment.filter(() => chance(0.75)).slice(0, 4) : [],
+    equipmentRentalNeeded: rentable.length > 0 ? rents : null,
+    rentedEquipment: rents ? rentable.filter(() => chance(0.75)).slice(0, 4) : [],
     shoeSize: rents ? String(intBetween(36, 47)) : null,
     heightCm: rents ? intBetween(155, 192) : null,
     weightKg: rents ? intBetween(45, 92) : null,

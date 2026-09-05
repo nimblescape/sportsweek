@@ -18,6 +18,7 @@ import {
   namedListSchema,
   programListSchema,
   requiredEquipmentSchema,
+  type EquipmentItem,
   type Program,
 } from "@/lib/schemas/master-data";
 import {
@@ -43,9 +44,9 @@ const SERIES_SCOPE: MasterDataScope = { kind: "series" };
  * store a bare name; only a program carries a list of its own (US-5), so the field is absent
  * rather than empty wherever it would mean nothing.
  */
-export type MasterDataItem = { name: string; requiredEquipment?: string[] };
+export type MasterDataItem = { name: string; requiredEquipment?: EquipmentItem[] };
 
-export type MasterDataUpdate = { name?: string; requiredEquipment?: readonly string[] };
+export type MasterDataUpdate = { name?: string; requiredEquipment?: readonly EquipmentItem[] };
 
 function parseName(value: string): string {
   const parsed = listItemNameSchema.safeParse(value);
@@ -62,7 +63,10 @@ function parseName(value: string): string {
  * Uniqueness within the program needs no reservation: the whole list lives in one document, so
  * the write that changes it already sees every sibling (US-5).
  */
-function parseEquipment(category: MasterDataCategory, value: readonly string[]): string[] {
+function parseEquipment(
+  category: MasterDataCategory,
+  value: readonly EquipmentItem[],
+): EquipmentItem[] {
   if (category.equipmentField === undefined) {
     throw new ServiceError(
       ErrorCode.ValidationError,
@@ -272,7 +276,7 @@ export async function readMasterDataItems(
 export async function createMasterDataItem(
   eventSeriesId: string,
   key: MasterDataCategoryKey,
-  input: { name: string; requiredEquipment?: readonly string[] },
+  input: { name: string; requiredEquipment?: readonly EquipmentItem[] },
   scope: MasterDataScope = SERIES_SCOPE,
 ): Promise<MasterDataItem> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
@@ -349,11 +353,15 @@ export async function updateMasterDataItem(
     }
 
     if (equipment !== undefined) {
-      const kept = new Set(equipment.map(normalizeName));
-      const dropped = (current.requiredEquipment ?? []).filter(
-        (entry) => !kept.has(normalizeName(entry)),
+      // An item stops being borrowable by going, by being renamed away, or by having the flag
+      // taken off it — three ways of invalidating the same answer, refused on the same terms.
+      const stillLent = new Set(
+        equipment.filter((entry) => entry.isRentable).map((entry) => normalizeName(entry.name)),
       );
-      await assertEquipmentNotInUse(transaction, eventSeriesId, dropped);
+      const withdrawn = (current.requiredEquipment ?? [])
+        .filter((entry) => entry.isRentable && !stillLent.has(normalizeName(entry.name)))
+        .map((entry) => entry.name);
+      await assertEquipmentNotInUse(transaction, eventSeriesId, withdrawn);
     }
 
     const clash = indexOf(items, name ?? current.name);
@@ -392,7 +400,11 @@ export async function deleteMasterDataItem(
     const current = items[index]!;
 
     await assertNotInUse(transaction, eventSeriesId, category, current.name);
-    await assertEquipmentNotInUse(transaction, eventSeriesId, current.requiredEquipment ?? []);
+    await assertEquipmentNotInUse(
+      transaction,
+      eventSeriesId,
+      (current.requiredEquipment ?? []).map((entry) => entry.name),
+    );
 
     return items.filter((_, at) => at !== index);
   });

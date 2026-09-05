@@ -8,16 +8,23 @@ import {
   ANSWER_LABELS,
   questionsAsked,
   rentsEquipment,
+  requiresOwnEquipment,
   type AnswerField,
   type EventSeriesListField,
 } from "@/lib/master-data/categories";
-import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
+import { resolveEventLists } from "@/lib/master-data/resolution";
+import {
+  FOOD_OPTION_OTHER,
+  FOOD_OPTION_OTHER_LABEL,
+  type EquipmentItem,
+} from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import type { Registration } from "@/lib/schemas/registration";
 import {
   COMPLETENESS_LABELS,
   EQUIPMENT_RENTAL_LABEL,
   GENDER_LABELS,
+  OWN_EQUIPMENT_LABEL,
   RELATIONSHIP_LABELS,
   yesNo,
 } from "@/lib/registration/answer-labels";
@@ -36,6 +43,23 @@ export type ReportField = {
 };
 
 /**
+ * What a field needs that the record does not hold: the equipment the student's program requires,
+ * which is the program's data read through their choice of program and their event (US-33, US-36).
+ */
+export type ReportFieldContext = {
+  requiredEquipmentOf: (record: Registration) => readonly EquipmentItem[];
+};
+
+const NOTHING_REQUIRED: ReportFieldContext = { requiredEquipmentOf: () => [] };
+
+/** A field before its context is bound to it, which is what the tags are declared with. */
+type ReportFieldSource = {
+  key: string;
+  label: string;
+  valueOf: (record: Registration, context: ReportFieldContext) => string | null;
+};
+
+/**
  * One tag in the fields tag list. Most stand for a single detail line; contact data, body
  * measurements and health each stand for a group, which US-13 asks to be activated together
  * while still producing a detail line per field.
@@ -43,7 +67,7 @@ export type ReportField = {
 export type ReportFieldTag = {
   key: string;
   label: string;
-  fields: readonly ReportField[];
+  fields: readonly ReportFieldSource[];
   /**
    * Whether the series asks what this reports on. Absent where nothing has to be maintained for
    * the question to be put — a gender, a date of birth, a phone number — which is always.
@@ -86,7 +110,11 @@ function foodOf(record: Registration): string | null {
   return text === null ? FOOD_OPTION_OTHER_LABEL : `${FOOD_OPTION_OTHER_LABEL}: ${text}`;
 }
 
-const field = (key: string, label: string, valueOf: ReportField["valueOf"]): ReportField => ({
+const field = (
+  key: string,
+  label: string,
+  valueOf: ReportFieldSource["valueOf"],
+): ReportFieldSource => ({
   key,
   label,
   valueOf,
@@ -96,7 +124,7 @@ const field = (key: string, label: string, valueOf: ReportField["valueOf"]): Rep
 const answer = (
   key: string,
   label: string,
-  valueOf: ReportField["valueOf"],
+  valueOf: ReportFieldSource["valueOf"],
   offered?: ReportFieldTag["offered"],
 ): ReportFieldTag => ({
   key,
@@ -137,6 +165,20 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
     ],
   },
   answer("program", ANSWER_LABELS.program, (record) => record.program, asksFor("program")),
+  // What the student brings and what they borrow are two questions, so they are two fields; the
+  // first is their program's data read through their choice, the second is their own answer.
+  answer(
+    "ownEquipment",
+    OWN_EQUIPMENT_LABEL,
+    (record, context) => {
+      const own = context
+        .requiredEquipmentOf(record)
+        .filter((item) => !item.isRentable)
+        .map((item) => item.name);
+      return own.length > 0 ? own.join(", ") : null;
+    },
+    requiresOwnEquipment,
+  ),
   answer(
     "rentedEquipment",
     EQUIPMENT_RENTAL_LABEL,
@@ -195,9 +237,35 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
  * order the tags happened to be pressed — and skipping a tag nobody offers any more, so a saved
  * selection from an older release still reads.
  */
-export function reportFieldsOf(selected: readonly string[]): ReportField[] {
+export function reportFieldsOf(
+  selected: readonly string[],
+  context: ReportFieldContext = NOTHING_REQUIRED,
+): ReportField[] {
   const picked = new Set(selected);
-  return REPORT_FIELD_TAGS.filter((tag) => picked.has(tag.key)).flatMap((tag) => tag.fields);
+  return REPORT_FIELD_TAGS.filter((tag) => picked.has(tag.key))
+    .flatMap((tag) => tag.fields)
+    .map(({ key, label, valueOf }) => ({
+      key,
+      label,
+      valueOf: (record: Registration) => valueOf(record, context),
+    }));
+}
+
+/**
+ * The context the fields read from: the program list the student's own event resolves to, so a
+ * per-event program is reported on exactly as the student was asked about it (US-33, US-35).
+ */
+export function reportFieldContext(
+  eventSeries: Pick<EventSeries, EventSeriesListField> | null,
+): ReportFieldContext {
+  if (eventSeries === null) return NOTHING_REQUIRED;
+
+  return {
+    requiredEquipmentOf: (record) =>
+      resolveEventLists(eventSeries, record.event).programs.find(
+        (program) => program.name === record.program,
+      )?.requiredEquipment ?? [],
+  };
 }
 
 /**

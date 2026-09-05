@@ -39,7 +39,17 @@ export type CrudLabels = {
 type OpenDialog =
   { kind: "none" } | { kind: "form"; item: CrudItem | null } | { kind: "delete"; item: CrudItem };
 
-type CrudListProps = {
+/**
+ * A second answer a list's entries carry beyond their name. Only the equipment list has one
+ * (US-36), so the dialog is told how to seed it and what control to show rather than learning
+ * what it means — one module changing for one caller's reason is what this avoids.
+ */
+export type ExtraField<TExtra> = {
+  initial: (item: CrudItem | null) => TExtra;
+  render: (value: TExtra, set: (next: TExtra) => void) => React.ReactNode;
+};
+
+type CrudListProps<TExtra> = {
   /** The path down to the record on screen, ending at it — its last step is the heading (US-33). */
   trail: readonly Crumb[];
   /** The record's child collections; the marked one's entries are the list beneath. */
@@ -64,8 +74,9 @@ type CrudListProps = {
   fixedItemsHint?: string;
   /** Where an entry's own record page is, for a list whose entries have children (US-33). */
   openHref?: (item: CrudItem) => string;
+  extraField?: ExtraField<TExtra>;
   /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
-  onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
+  onSubmit: (name: string, item: CrudItem | null, extra: TExtra) => Promise<void>;
   onDelete: (item: CrudItem) => Promise<void>;
   /** Receives the ids in their new order after a drag (see Ordering). */
   onReorder: (orderedIds: string[]) => void | Promise<void>;
@@ -79,7 +90,7 @@ type CrudListProps = {
  * and the marked collection's entries beneath. It takes items and callbacks rather than reading
  * anything itself, which is what lets every level of the hierarchy present the identical shape.
  */
-export function CrudList({
+export function CrudList<TExtra = undefined>({
   trail,
   tabs,
   marked,
@@ -94,12 +105,13 @@ export function CrudList({
   fixedItems = [],
   fixedItemsHint,
   openHref,
+  extraField,
   onSubmit,
   onDelete,
   onReorder,
   deleteNote,
   editNote,
-}: CrudListProps) {
+}: CrudListProps<TExtra>) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
   const { busyId, pending, run } = useRowAction();
 
@@ -108,8 +120,8 @@ export function CrudList({
   // A write started from a row holds that row until it is answered, and every write holds the
   // list. The list refreshes from a separate subscription, so until then the other controls
   // would act on data this write may already have changed. A new item has no row to hold.
-  const submit = (name: string, item: CrudItem | null) =>
-    run(item?.id ?? null, () => onSubmit(name, item));
+  const submit = (name: string, item: CrudItem | null, extra: TExtra) =>
+    run(item?.id ?? null, () => onSubmit(name, item, extra));
 
   const lockedHint = usagePending ? USAGE_PENDING_HINT : IN_USE_HINT;
   const rows: RecordRow[] = items.map((item) => {
@@ -154,6 +166,7 @@ export function CrudList({
           labels={labels}
           item={dialog.item}
           note={dialog.item === null ? null : editNote(dialog.item)}
+          extraField={extraField}
           onSubmit={submit}
           onClose={closeDialog}
         />
@@ -173,21 +186,24 @@ export function CrudList({
   );
 }
 
-function ItemFormDialog({
+function ItemFormDialog<TExtra>({
   labels,
   item,
   note,
+  extraField,
   onSubmit,
   onClose,
 }: {
   labels: CrudLabels;
   item: CrudItem | null;
   note: React.ReactNode;
-  onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
+  extraField?: ExtraField<TExtra>;
+  onSubmit: (name: string, item: CrudItem | null, extra: TExtra) => Promise<void>;
   onClose: () => void;
 }) {
   const isEdit = item !== null;
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [extra, setExtra] = React.useState(() => extraField?.initial(item) as TExtra);
   const nameId = React.useId();
   const errorId = React.useId();
 
@@ -204,7 +220,7 @@ function ItemFormDialog({
   const submit = handleSubmit(async (values) => {
     setSubmitError(null);
     try {
-      await onSubmit(values.name, item);
+      await onSubmit(values.name, item, extra);
       onClose();
     } catch (caught) {
       // A duplicate name, and an item that turned out to be in use, are both problems with what
@@ -240,6 +256,8 @@ function ItemFormDialog({
             </p>
           ) : null}
         </div>
+
+        {extraField?.render(extra, setExtra)}
 
         {submitError ? (
           <p role="alert" className="text-destructive text-sm">

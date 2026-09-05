@@ -49,7 +49,7 @@ describe("useMasterData", () => {
     useEventSeries.mockReturnValue(
       delivered(
         eventSeriesOf("s1", {
-          programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+          programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
         }),
       ),
     );
@@ -136,7 +136,15 @@ describe("usePrograms", () => {
     useEventSeries.mockReturnValue(
       delivered(
         eventSeriesOf("s1", {
-          programs: [{ name: "Ski", requiredEquipment: ["Helm", "Stöcke"] }],
+          programs: [
+            {
+              name: "Ski",
+              requiredEquipment: [
+                { name: "Helm", isRentable: true },
+                { name: "Stöcke", isRentable: true },
+              ],
+            },
+          ],
         }),
       ),
     );
@@ -144,7 +152,13 @@ describe("usePrograms", () => {
     const { result } = renderHook(() => usePrograms("s1"));
 
     expect(result.current.programs).toEqual([
-      { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] },
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Helm", isRentable: true },
+          { name: "Stöcke", isRentable: true },
+        ],
+      },
     ]);
   });
 
@@ -162,7 +176,7 @@ describe("useProgram", () => {
     delivered(
       eventSeriesOf("s1", {
         programs: [
-          { name: "Ski", requiredEquipment: ["Helm"] },
+          { name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] },
           { name: "Snowboard", requiredEquipment: [] },
         ],
       }),
@@ -173,7 +187,10 @@ describe("useProgram", () => {
 
     const { result } = renderHook(() => useProgram("Ski", "s1"));
 
-    expect(result.current.program).toEqual({ name: "Ski", requiredEquipment: ["Helm"] });
+    expect(result.current.program).toEqual({
+      name: "Ski",
+      requiredEquipment: [{ name: "Helm", isRentable: true }],
+    });
   });
 
   /** A name that names nothing is the honest answer to a program since renamed or removed. */

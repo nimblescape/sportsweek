@@ -166,6 +166,7 @@ export function RegistrationForm({
   ];
 
   const equipment = equipmentOf(programName);
+  const lendsAnything = equipment.some((item) => item.isRentable);
   // Told, not enforced: a registration is filled in over time and saved as often as the student
   // likes, so what is left to answer is a note to them rather than a locked button (US-11).
   const missing = missingAnswers(
@@ -326,14 +327,17 @@ export function RegistrationForm({
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
                   <span className="text-sm leading-none font-medium">Benötigte Ausrüstung</span>
-                  <RadioField
-                    control={control}
-                    name="equipmentRentalNeeded"
-                    label="Musst du etwas ausleihen?"
-                    options={YES_NO}
-                    error={errors.equipmentRentalNeeded?.message ?? hint("equipmentRentalNeeded")}
-                    inline
-                  />
+                  {/* A program that lends nothing shows a packing list and asks nothing (US-36). */}
+                  {lendsAnything ? (
+                    <RadioField
+                      control={control}
+                      name="equipmentRentalNeeded"
+                      label="Musst du etwas ausleihen?"
+                      options={YES_NO}
+                      error={errors.equipmentRentalNeeded?.message ?? hint("equipmentRentalNeeded")}
+                      inline
+                    />
+                  ) : null}
                 </div>
                 <Controller
                   control={control}
@@ -350,7 +354,7 @@ export function RegistrationForm({
                 />
               </div>
             ) : null}
-            {equipment.length > 0 && needsRental === true ? (
+            {lendsAnything && needsRental === true ? (
               <>
                 <Field label="Schuhgröße" error={errors.shoeSize?.message ?? hint("shoeSize")}>
                   {(id) => (

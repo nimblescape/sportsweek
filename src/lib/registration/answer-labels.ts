@@ -60,6 +60,12 @@ export const EQUIPMENT_RENTAL_LABEL = "Leihausrüstung";
 export const NO_EQUIPMENT_RENTAL_LABEL = "Keine Leihausrüstung";
 
 /**
+ * What a student brings themselves: the other half of the same list, and a field of its own in
+ * the report because it answers a different question from what they borrow (US-36).
+ */
+export const OWN_EQUIPMENT_LABEL = "Ausrüstung";
+
+/**
  * The two health answers are read as one question — is there anything to look out for — so the
  * report's tag names both halves rather than the category they sit under (US-11, US-13).
  */

@@ -6,10 +6,11 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import type { EquipmentItem } from "@/lib/schemas/master-data";
 
 type EquipmentChecklistProps = {
   /** The selected program's required equipment, in the order the teacher set (US-5). */
-  items: readonly string[];
+  items: readonly EquipmentItem[];
   /** Ticking only becomes possible once the student says they need to borrow something. */
   selectable: boolean;
   value: readonly string[];
@@ -18,13 +19,14 @@ type EquipmentChecklistProps = {
 };
 
 /**
- * The program's required equipment, and which of it the student borrows (US-11).
+ * The program's required equipment, and which of it the student borrows (US-11, US-36).
  *
  * One list serves both: it is what the student has to bring either way, so answering the rental
- * question turns the same rows into choices instead of repeating the list underneath. The boxes
- * are always laid out and only hidden while the answer is "no", so the entries do not shift
- * sideways when it changes. Unticked entries stay muted, so what is being borrowed reads down
- * the column at a glance.
+ * question turns the same rows into choices instead of repeating the list underneath. An item the
+ * school does not lend stays a row and never a choice — that is the whole of what the flag says.
+ * The boxes are always laid out and only hidden while the answer is "no", so the entries do not
+ * shift sideways when it changes. Unticked entries stay muted, so what is being borrowed reads
+ * down the column at a glance.
  *
  * "Alle" is a control rather than an item — derived from the others and never stored, so
  * ticking every box by hand ticks it and unticking any one drops it, with no state of its own
@@ -38,12 +40,13 @@ export function EquipmentChecklist({
   error,
 }: EquipmentChecklistProps) {
   const selected = new Set(value);
-  const allSelected = items.length > 0 && items.every((item) => selected.has(item));
+  const borrowable = items.filter((item) => item.isRentable).map((item) => item.name);
+  const allSelected = borrowable.length > 0 && borrowable.every((name) => selected.has(name));
 
-  function toggle(item: string) {
-    const next = selected.has(item)
-      ? items.filter((candidate) => candidate !== item && selected.has(candidate))
-      : items.filter((candidate) => candidate === item || selected.has(candidate));
+  function toggle(name: string) {
+    const next = selected.has(name)
+      ? borrowable.filter((candidate) => candidate !== name && selected.has(candidate))
+      : borrowable.filter((candidate) => candidate === name || selected.has(candidate));
     onChange([...next]);
   }
 
@@ -52,19 +55,19 @@ export function EquipmentChecklist({
       <ul className="flex flex-col gap-2">
         {items.map((item) => (
           <Row
-            key={item}
-            label={item}
-            selectable={selectable}
-            checked={selected.has(item)}
-            onToggle={() => toggle(item)}
+            key={item.name}
+            label={item.name}
+            selectable={selectable && item.isRentable}
+            checked={selected.has(item.name)}
+            onToggle={() => toggle(item.name)}
           />
         ))}
-        {selectable ? (
+        {selectable && borrowable.length > 0 ? (
           <Row
             label="Alles"
             selectable
             checked={allSelected}
-            onToggle={() => onChange(allSelected ? [] : [...items])}
+            onToggle={() => onChange(allSelected ? [] : [...borrowable])}
           />
         ) : null}
       </ul>

@@ -5,21 +5,30 @@
  */
 import { describe, expect, it } from "vitest";
 import { ANSWER_LABELS, MASTER_DATA_CATEGORIES } from "@/lib/master-data/categories";
-import { EQUIPMENT_RENTAL_LABEL } from "@/lib/registration/answer-labels";
+import { EQUIPMENT_RENTAL_LABEL, OWN_EQUIPMENT_LABEL } from "@/lib/registration/answer-labels";
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import type { Registration } from "@/lib/schemas/registration";
 import { studentRecord } from "@/test/roster-student";
 import { event } from "@/test/event-series";
-import { fieldTagsFor, NO_ANSWER, REPORT_FIELD_TAGS, reportFieldsOf } from "./report-fields";
+import type { EquipmentItem } from "@/lib/schemas/master-data";
+import {
+  fieldTagsFor,
+  NO_ANSWER,
+  REPORT_FIELD_TAGS,
+  reportFieldsOf,
+  type ReportFieldContext,
+} from "./report-fields";
 
 const keys = REPORT_FIELD_TAGS.map((tag) => tag.key);
 
-const lineFor = (label: string, record: Registration) => {
+const NO_EQUIPMENT: ReportFieldContext = { requiredEquipmentOf: () => [] };
+
+const lineFor = (label: string, record: Registration, context = NO_EQUIPMENT) => {
   const field = REPORT_FIELD_TAGS.flatMap((tag) => tag.fields).find(
     (candidate) => candidate.label === label,
   );
   if (!field) throw new Error(`No report field labelled ${label}`);
-  return field.valueOf(record);
+  return field.valueOf(record, context);
 };
 
 describe("REPORT_FIELD_TAGS", () => {
@@ -32,6 +41,7 @@ describe("REPORT_FIELD_TAGS", () => {
       "dateOfBirth",
       "contact",
       "program",
+      "ownEquipment",
       "rentedEquipment",
       "measurements",
       "skillLevel",
@@ -171,6 +181,36 @@ describe("a field's value", () => {
     expect(lineFor(EQUIPMENT_RENTAL_LABEL, studentRecord())).toBe("Nein");
   });
 
+  /**
+   * What a student brings is their program's data read through their choice of program, so every
+   * student on the same program shows the same list (US-36).
+   */
+  describe(OWN_EQUIPMENT_LABEL, () => {
+    const requiring = (...items: EquipmentItem[]): ReportFieldContext => ({
+      requiredEquipmentOf: () => items,
+    });
+
+    it("lists what the program requires and does not lend", () => {
+      const context = requiring(
+        { name: "Ski", isRentable: true },
+        { name: "Lange Hose", isRentable: false },
+        { name: "Handschuhe", isRentable: false },
+      );
+
+      expect(lineFor(OWN_EQUIPMENT_LABEL, studentRecord(), context)).toBe("Lange Hose, Handschuhe");
+    });
+
+    it("says nothing where the school lends the whole list", () => {
+      const context = requiring({ name: "Ski", isRentable: true });
+
+      expect(lineFor(OWN_EQUIPMENT_LABEL, studentRecord(), context)).toBeNull();
+    });
+
+    it("says nothing where the program requires nothing at all", () => {
+      expect(lineFor(OWN_EQUIPMENT_LABEL, studentRecord())).toBeNull();
+    });
+  });
+
   it("leaves an unanswered field to the placeholder rather than inventing one", () => {
     expect(lineFor("Klasse", studentRecord({ class: null }))).toBeNull();
     expect(lineFor("Geburtsdatum", studentRecord({ dateOfBirth: null }))).toBeNull();
@@ -201,7 +241,15 @@ describe("fieldTagsFor", () => {
   const lists = {
     events: [event("Woche 1")],
     classOptions: ["5AHIF"],
-    programs: [{ name: "Ski", requiredEquipment: ["Ski"] }],
+    programs: [
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Ski", isRentable: true },
+          { name: "Hose", isRentable: false },
+        ],
+      },
+    ],
     skillLevels: ["Profi"],
     seasonPassOptions: ["Keine"],
     busPickupPoints: ["HTL"],

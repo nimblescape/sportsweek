@@ -54,10 +54,13 @@ entity "EventSeries" as eventSeries {
                        ' than a bare name because an event may come to carry lists of its own
                        ' (US-33); a registration still stores the plain name, not a reference.
   classOptions : string[]  ' Klasse (US-6)
-  programs : { name, requiredEquipment[] }[]  ' the one list whose entries are not bare names,
-                                              ' because a program carries the equipment it
-                                              ' requires (US-5): e.g. ski, ski boots, poles,
-                                              ' helmet. Unique within their own program, so two
+  programs : { name, requiredEquipment: { name, isRentable }[] }[]  ' the one list whose entries
+                                              ' are not bare names, because a program carries the
+                                              ' equipment it requires (US-5): e.g. ski, ski boots,
+                                              ' poles, helmet. Each entry says whether the school
+                                              ' lends it (US-36), so a program can require
+                                              ' something a student has to bring themselves.
+                                              ' Unique within their own program, so two
                                               ' programs may each require a helmet. The whole
                                               ' list is rewritten in one step, so adding,
                                               ' renaming and removing are atomic.
@@ -117,8 +120,9 @@ entity "Registration" as registration {
   healthNotes : text
   hasMedication : boolean
   equipmentRentalNeeded : boolean
-  rentedEquipment : string[]  ' the entries of the selected program's requiredEquipment the student
-                              ' rents (US-11), copied by name at selection time — not foreign keys.
+  rentedEquipment : string[]  ' the borrowable entries of the selected program's requiredEquipment
+                              ' the student rents (US-11, US-36), copied by name at selection time
+                              ' — not foreign keys.
                               ' A field for the same reason as the contact above, and rewritten
                               ' whole with the rest of the record, so a save is one atomic change.
   shoeSize : string <<nullable>>

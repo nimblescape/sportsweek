@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   eventListSchema,
   eventSchema,
+  equipmentItemSchema,
   FOOD_OPTION_OTHER,
   FOOD_OPTION_OTHER_LABEL,
   listItemNameSchema,
@@ -66,35 +67,73 @@ describe("namedListSchema", () => {
   });
 });
 
+describe("equipmentItemSchema", () => {
+  it("says of every item whether the school lends it (US-36)", () => {
+    expect(equipmentItemSchema.parse({ name: "Helm", isRentable: true })).toEqual({
+      name: "Helm",
+      isRentable: true,
+    });
+  });
+
+  /** The list is what a student needs, not only what they can borrow. */
+  it("keeps an item the student has to bring themselves", () => {
+    expect(
+      equipmentItemSchema.parse({ name: "Lange, wasserdichte Hose", isRentable: false }),
+    ).toEqual({ name: "Lange, wasserdichte Hose", isRentable: false });
+  });
+
+  it("trims the name", () => {
+    expect(equipmentItemSchema.parse({ name: "  Helm  ", isRentable: true }).name).toBe("Helm");
+  });
+
+  /** An item that says nothing about lending would be a third state neither the form nor the report can read. */
+  it("refuses an item that does not say which it is", () => {
+    expect(equipmentItemSchema.safeParse({ name: "Helm" }).success).toBe(false);
+  });
+
+  it("carries nothing else: the name identifies it, the array orders it", () => {
+    expect(Object.keys(equipmentItemSchema.shape).sort()).toEqual(["isRentable", "name"]);
+  });
+});
+
 describe("requiredEquipmentSchema", () => {
-  it("accepts a list of names", () => {
-    expect(requiredEquipmentSchema.parse(["Ski", "Helm"])).toEqual(["Ski", "Helm"]);
+  const item = (name: string, isRentable = true) => ({ name, isRentable });
+  const itemsOfLength = (count: number) => namesOfLength(count).map((name) => item(name));
+
+  it("accepts a list of items", () => {
+    expect(requiredEquipmentSchema.parse([item("Ski"), item("Helm")])).toEqual([
+      item("Ski"),
+      item("Helm"),
+    ]);
   });
 
   it("accepts an empty list, which is what Alternativ needs", () => {
     expect(requiredEquipmentSchema.parse([])).toEqual([]);
   });
 
-  it("trims each name", () => {
-    expect(requiredEquipmentSchema.parse(["  Helm  "])).toEqual(["Helm"]);
-  });
-
-  it("rejects a blank entry", () => {
-    expect(requiredEquipmentSchema.safeParse(["Helm", "   "]).success).toBe(false);
+  it("rejects a blank name", () => {
+    expect(requiredEquipmentSchema.safeParse([item("Helm"), item("   ")]).success).toBe(false);
   });
 
   it("rejects a duplicate within the same program, ignoring case and surrounding space", () => {
-    expect(requiredEquipmentSchema.safeParse(["Helm", " helm "]).success).toBe(false);
+    expect(requiredEquipmentSchema.safeParse([item("Helm"), item(" helm ")]).success).toBe(false);
+  });
+
+  /** Two entries of one name are one item, whichever side of the flag each of them is on. */
+  it("rejects a duplicate even where the two disagree about lending", () => {
+    expect(
+      requiredEquipmentSchema.safeParse([item("Helm", true), item("Helm", false)]).success,
+    ).toBe(false);
   });
 
   it("accepts as many entries as there is equipment to hand out", () => {
-    expect(requiredEquipmentSchema.safeParse(namesOfLength(MAX_EQUIPMENT_ITEMS)).success).toBe(
+    expect(requiredEquipmentSchema.safeParse(itemsOfLength(MAX_EQUIPMENT_ITEMS)).success).toBe(
       true,
     );
   });
 
   it("rejects a list longer than that, which no equipment room could serve", () => {
-    expect(requiredEquipmentSchema.safeParse(namesOfLength(MAX_EQUIPMENT_ITEMS + 1)).success).toBe(
+    expect(requiredEquipmentSchema.safeParse(itemsOfLength(MAX_EQUIPMENT_ITEMS + 1)).success).toBe(
       false,
     );
   });
@@ -102,9 +141,11 @@ describe("requiredEquipmentSchema", () => {
 
 describe("programSchema", () => {
   it("carries its required equipment rather than pointing at records of its own", () => {
-    expect(programSchema.parse({ name: "Ski", requiredEquipment: ["Helm"] })).toEqual({
+    const requiredEquipment = [{ name: "Helm", isRentable: true }];
+
+    expect(programSchema.parse({ name: "Ski", requiredEquipment })).toEqual({
       name: "Ski",
-      requiredEquipment: ["Helm"],
+      requiredEquipment,
     });
   });
 
@@ -139,9 +180,10 @@ describe("programListSchema", () => {
   });
 
   it("allows two programs to require the same equipment", () => {
+    const helmet = [{ name: "Helm", isRentable: true }];
     const programs = [
-      { name: "Ski", requiredEquipment: ["Helm"] },
-      { name: "Snowboard", requiredEquipment: ["Helm"] },
+      { name: "Ski", requiredEquipment: helmet },
+      { name: "Snowboard", requiredEquipment: helmet },
     ];
 
     expect(programListSchema.safeParse(programs).success).toBe(true);

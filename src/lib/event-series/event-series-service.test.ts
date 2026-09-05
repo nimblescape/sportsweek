@@ -95,7 +95,13 @@ describe("createEventSeries — from a source", () => {
     events: [event("Woche 1"), event("Woche 2")],
     classOptions: ["5AHIF", "5BHIF"],
     programs: [
-      { name: "Ski", requiredEquipment: ["Ski", "Helm"] },
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Ski", isRentable: true },
+          { name: "Helm", isRentable: true },
+        ],
+      },
       { name: "Snowboard", requiredEquipment: [] },
     ],
     skillLevels: ["Anfänger:in", "Profi"],

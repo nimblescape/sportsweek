@@ -7,6 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IN_USE_HINT } from "@/lib/master-data/categories";
+import {
+  EQUIPMENT_RENTAL_LABEL,
+  NO_EQUIPMENT_RENTAL_LABEL,
+} from "@/lib/registration/answer-labels";
+import { DEFAULT_IS_RENTABLE } from "@/lib/schemas/master-data";
 import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 const useMasterData = vi.fn();
@@ -64,7 +69,13 @@ function ProgramEquipmentView({
   );
 }
 
-const ski = { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] };
+const ski = {
+  name: "Ski",
+  requiredEquipment: [
+    { name: "Helm", isRentable: true },
+    { name: "Stöcke", isRentable: true },
+  ],
+};
 
 function stubFetch() {
   const fetchMock = vi.fn(() =>
@@ -257,8 +268,57 @@ describe("ProgramEquipmentView", () => {
     expect(init.method).toBe("PATCH");
     expect(bodyOf(fetchMock)).toEqual({
       item: "Ski",
-      requiredEquipment: ["Helm", "Stöcke", "Brille"],
+      requiredEquipment: [
+        { name: "Helm", isRentable: true },
+        { name: "Stöcke", isRentable: true },
+        { name: "Brille", isRentable: DEFAULT_IS_RENTABLE },
+      ],
     });
+  });
+
+  /** The pair is one choice, so a new item starts on the side the schema names (US-36). */
+  it("offers both sides of the lending question, with the default one chosen", async () => {
+    stubFetch();
+    render(<ProgramEquipmentView program="Ski" />);
+
+    await userEvent.click(screen.getByRole("button", { name: /neuer ausrüstungsgegenstand/i }));
+
+    const group = screen.getByRole("radiogroup", { name: EQUIPMENT_RENTAL_LABEL });
+    expect(within(group).getByRole("radio", { name: NO_EQUIPMENT_RENTAL_LABEL })).toBeChecked();
+    expect(within(group).getByRole("radio", { name: EQUIPMENT_RENTAL_LABEL })).not.toBeChecked();
+  });
+
+  it("stores the side the teacher chose", async () => {
+    const fetchMock = stubFetch();
+    render(<ProgramEquipmentView program="Ski" />);
+
+    await userEvent.click(screen.getByRole("button", { name: /neuer ausrüstungsgegenstand/i }));
+    await userEvent.type(screen.getByLabelText("Name"), "Brille");
+    await userEvent.click(screen.getByRole("radio", { name: EQUIPMENT_RENTAL_LABEL }));
+    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(bodyOf(fetchMock).requiredEquipment.at(-1)).toEqual({
+      name: "Brille",
+      isRentable: true,
+    });
+  });
+
+  /** Editing an item opens on the side it is already on, not on the default. */
+  it("opens an existing item on the side it stands", async () => {
+    useProgram.mockReturnValue({
+      program: { name: "Ski", requiredEquipment: [{ name: "Hose", isRentable: false }] },
+      loading: false,
+      error: null,
+    });
+    stubFetch();
+    render(<ProgramEquipmentView program="Ski" />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Ausrüstungsgegenstand Hose bearbeiten" }),
+    );
+
+    expect(screen.getByRole("radio", { name: NO_EQUIPMENT_RENTAL_LABEL })).toBeChecked();
   });
 
   it("renames an entry in place, keeping the order", async () => {
@@ -274,7 +334,13 @@ describe("ProgramEquipmentView", () => {
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(bodyOf(fetchMock)).toEqual({ item: "Ski", requiredEquipment: ["Skihelm", "Stöcke"] });
+    expect(bodyOf(fetchMock)).toEqual({
+      item: "Ski",
+      requiredEquipment: [
+        { name: "Skihelm", isRentable: true },
+        { name: "Stöcke", isRentable: true },
+      ],
+    });
   });
 
   it("removes an entry by rewriting the list without it", async () => {
@@ -288,7 +354,10 @@ describe("ProgramEquipmentView", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Löschen" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(bodyOf(fetchMock)).toEqual({ item: "Ski", requiredEquipment: ["Stöcke"] });
+    expect(bodyOf(fetchMock)).toEqual({
+      item: "Ski",
+      requiredEquipment: [{ name: "Stöcke", isRentable: true }],
+    });
   });
 
   it("warns that removing an entry cannot be undone", async () => {

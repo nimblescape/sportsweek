@@ -33,15 +33,32 @@ export const namedListSchema = z
 export const MAX_EQUIPMENT_ITEMS = 10;
 
 /**
+ * One thing a program requires (US-5, US-36). The list says what a student needs in order to take
+ * part, which is not the same as what the school lends — so each entry states which it is, and a
+ * teacher can ask for long waterproof trousers without offering to supply them.
+ */
+export const equipmentItemSchema = z.object({
+  name: listItemNameSchema,
+  isRentable: z.boolean(),
+});
+export type EquipmentItem = z.infer<typeof equipmentItemSchema>;
+
+/** Which side a new item starts on, said once so the dialog and the seeded defaults agree. */
+export const DEFAULT_IS_RENTABLE = false;
+
+/**
  * Required equipment lives on the program rather than in records of its own (US-5): an item has
  * no identity outside the program that requires it, and nothing references one. Holding the list
  * in a single field is also what makes uniqueness checkable without a query — the whole list is
  * right there, and rewriting it is one atomic change.
  */
 export const requiredEquipmentSchema = z
-  .array(requiredText(120))
+  .array(equipmentItemSchema)
   .max(MAX_EQUIPMENT_ITEMS, `Höchstens ${MAX_EQUIPMENT_ITEMS} Einträge.`)
-  .refine(hasUniqueNames, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
+  .refine(
+    (items) => hasUniqueNames(items.map((item) => item.name)),
+    "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.",
+  );
 
 /** The one list whose entries are not bare names, because a program carries its equipment (US-5). */
 export const programSchema = z.object({

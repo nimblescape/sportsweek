@@ -10,6 +10,7 @@ import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { registrationPath } from "@/lib/registration/registration";
+import type { EquipmentItem } from "@/lib/schemas/master-data";
 import { IN_USE_HINT, type MasterDataCategory } from "./categories";
 
 /**
@@ -103,7 +104,7 @@ function normalizedNames(values: unknown[]): string[] {
 export async function usageReport(
   eventSeriesId: string,
   category: MasterDataCategory,
-  items: readonly { name: string; requiredEquipment?: readonly string[] }[],
+  items: readonly { name: string; requiredEquipment?: readonly EquipmentItem[] }[],
 ): Promise<MasterDataUsageReport> {
   const registrations = (await adminDb.collection(registrationPath(eventSeriesId)).get()).docs;
 
@@ -127,9 +128,9 @@ export async function usageReport(
 
   const blockedEquipment: Record<string, string[]> = {};
   for (const item of items) {
-    const stillRented = (item.requiredEquipment ?? []).filter((entry) =>
-      rented.has(normalizeName(entry)),
-    );
+    const stillRented = (item.requiredEquipment ?? [])
+      .filter((entry) => rented.has(normalizeName(entry.name)))
+      .map((entry) => entry.name);
     if (stillRented.length > 0) blockedEquipment[item.name] = stillRented;
   }
 

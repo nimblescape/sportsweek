@@ -82,7 +82,15 @@ const eventSeries = {
     // The same lists the hooks below are mocked with: they are fields of this document, and it
     // is the document the fields row asks what the series wants asking about (US-21).
     classOptions: ["5AHIF", "5BHIF"],
-    programs: [{ name: "Ski", requiredEquipment: ["Ski", "Stöcke"] }],
+    programs: [
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Ski", isRentable: true },
+          { name: "Stöcke", isRentable: true },
+        ],
+      },
+    ],
     skillLevels: ["Profi"],
     seasonPassOptions: ["Keine"],
     busPickupPoints: ["Dornbirn", "Bregenz"],
@@ -104,7 +112,15 @@ beforeEach(() => {
     return listOf("Profi");
   });
   usePrograms.mockReturnValue({
-    programs: [{ name: "Ski", requiredEquipment: ["Ski", "Stöcke"] }],
+    programs: [
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Ski", isRentable: true },
+          { name: "Stöcke", isRentable: true },
+        ],
+      },
+    ],
     loading: false,
     error: null,
   });

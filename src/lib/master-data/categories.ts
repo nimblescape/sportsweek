@@ -209,12 +209,25 @@ export function questionsAsked(
 }
 
 /**
- * Whether renting is asked at all. It is put to a student whose chosen program requires
- * something, so a series where no program requires anything never puts the question — which
- * makes it US-21's rule again, with the list one step further off than the other six.
+ * Whether renting is asked at all. It is put to a student whose chosen program lends something,
+ * so a series whose programs lend nothing never puts the question — which makes it US-21's rule
+ * again, with the list one step further off than the other six. A program may still require
+ * equipment nobody can borrow (US-36); that is a packing list, not a question.
  */
 export function rentsEquipment(eventSeries: Pick<EventSeries, "programs">): boolean {
-  return eventSeries.programs.some((program) => program.requiredEquipment.length > 0);
+  return eventSeries.programs.some((program) =>
+    program.requiredEquipment.some((item) => item.isRentable),
+  );
+}
+
+/**
+ * Whether any program requires something the school does not lend (US-36). What the report's
+ * "Ausrüstung" field is offered on, mirroring the way `rentsEquipment` offers the rental one.
+ */
+export function requiresOwnEquipment(eventSeries: Pick<EventSeries, "programs">): boolean {
+  return eventSeries.programs.some((program) =>
+    program.requiredEquipment.some((item) => !item.isRentable),
+  );
 }
 
 /**

@@ -13,7 +13,12 @@ import { buildInfo } from "@/lib/build-info";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { EMPTY_FILTER, filterStudents, filterSummary, scopeFilterToGroups } from "@/lib/filters/student-filter"; // prettier-ignore
 import { seriesWideLists } from "@/lib/master-data/resolution";
-import { fieldTagsFor, offeredFieldTags, reportFieldsOf } from "@/lib/report/report-fields";
+import {
+  fieldTagsFor,
+  offeredFieldTags,
+  reportFieldContext,
+  reportFieldsOf,
+} from "@/lib/report/report-fields";
 import {
   downloadReportPdf,
   downloadReportWorkbook,
@@ -77,7 +82,10 @@ export function ReportView({
   useBusyWhile(exporting);
 
   const shown = useMemo(() => filterStudents(students, filter), [students, filter]);
-  const fields = useMemo(() => reportFieldsOf(activeFields), [activeFields]);
+  const fields = useMemo(
+    () => reportFieldsOf(activeFields, reportFieldContext(eventSeries)),
+    [activeFields, eventSeries],
+  );
   // What a saved report holds, and so what one is compared against and what a save keeps.
   const selection = useMemo<ReportSelection>(
     () => ({ filter, fields: activeFields }),

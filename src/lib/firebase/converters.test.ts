@@ -21,7 +21,7 @@ const storedEventSeries = {
   position: 0,
   events: [event("Woche 1")],
   classOptions: ["3AHIT"],
-  programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+  programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
   skillLevels: ["Keine Vorkenntnisse"],
   seasonPassOptions: ["Saisonkarte"],
   busPickupPoints: ["Dornbirn"],

@@ -68,6 +68,11 @@ type TagProps = {
   onClick?: () => void;
   /** The accessible name, where the tag is the control and its text alone does not say enough. */
   label?: string;
+  /**
+   * Radio semantics, for a row that is one choice rather than several toggles (US-36). Two
+   * pressed tags would be heard as two unrelated questions, either or neither answered.
+   */
+  role?: "radio";
   children: ReactNode;
   className?: string;
   /** A tag in a sortable list is positioned by its box rather than by the name inside it. */
@@ -82,6 +87,7 @@ export function Tag({
   disabled = false,
   onClick,
   label,
+  role,
   children,
   className,
   ref,
@@ -101,8 +107,10 @@ export function Tag({
         <button
           type="button"
           data-slot="tag"
+          role={role}
           aria-label={label}
-          aria-pressed={pressed}
+          aria-pressed={role === undefined ? pressed : undefined}
+          aria-checked={role === undefined ? undefined : pressed}
           disabled={inert}
           style={style}
           onPointerDown={onPointerDown}

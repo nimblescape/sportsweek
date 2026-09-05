@@ -25,7 +25,7 @@ const validEventSeries = {
     },
   ],
   classOptions: ["3AHIT"],
-  programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+  programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
   skillLevels: ["Keine Vorkenntnisse"],
   seasonPassOptions: ["Saisonkarte"],
   busPickupPoints: ["Dornbirn"],

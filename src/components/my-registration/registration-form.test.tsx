@@ -23,7 +23,13 @@ const { ApiRequestError } = await import("@/lib/api/client");
 
 const LISTS = {
   programs: [
-    { name: "Ski", requiredEquipment: ["Ski", "Helm"] },
+    {
+      name: "Ski",
+      requiredEquipment: [
+        { name: "Ski", isRentable: true },
+        { name: "Helm", isRentable: true },
+      ],
+    },
     { name: "Alternativ", requiredEquipment: [] },
   ],
   skillLevels: ["Anfänger", "Profi"],
