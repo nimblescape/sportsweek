@@ -121,9 +121,28 @@ const BARE_LISTS = {
   ...CATEGORY_DEFAULTS,
 } satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
 
+/**
+ * What an event's own five lists look like when it names none — inheriting the series' (US-33).
+ * Every seeded event starts here; a school-specific environment can go on to override one.
+ */
+const CATEGORY_DEFAULTS_INHERITED = {
+  programs: [],
+  skillLevels: [],
+  seasonPassOptions: [],
+  busPickupPoints: [],
+  foodOptions: [],
+} satisfies Pick<
+  EventSeries["events"][number],
+  "programs" | "skillLevels" | "seasonPassOptions" | "busPickupPoints" | "foodOptions"
+>;
+
 /** The seven maintained lists as a test environment wants them, filled in far enough to use. */
 const MASTER_DATA_DEFAULTS = {
-  events: ["Woche 1", "Woche 2", "Woche 3"],
+  events: [
+    { name: "Woche 1", ...CATEGORY_DEFAULTS_INHERITED },
+    { name: "Woche 2", ...CATEGORY_DEFAULTS_INHERITED },
+    { name: "Woche 3", ...CATEGORY_DEFAULTS_INHERITED },
+  ],
   classOptions: ["2aWI", "2bWI", "2cWI"],
   ...CATEGORY_DEFAULTS,
 } satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;

@@ -8,6 +8,9 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const useEventSeries = vi.fn();
+const push = vi.fn();
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 vi.mock("@/lib/event-series/use-event-series", () => ({
   useEventSeries: () => useEventSeries(),
@@ -101,7 +104,7 @@ describe("EventSeriesView — creating and editing", () => {
     stubFetch(okJson);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Neue Eventreihe" }));
+    await userEvent.click(screen.getByRole("button", { name: "Eventreihen: Neue Eventreihe" }));
 
     expect(screen.getByRole("dialog")).toHaveAccessibleName("Neue Eventreihe");
     expect(screen.getByLabelText("Name")).toHaveValue("");

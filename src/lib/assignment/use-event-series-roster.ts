@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { skillColumns, type SkillColumn } from "@/lib/assignment/statistics";
 import { filterGroups, type FilterGroup } from "@/lib/filters/student-filter";
 import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
+import { seriesWideLists } from "@/lib/master-data/resolution";
 import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import type { RosterStudent } from "@/lib/students/roster";
@@ -78,8 +79,10 @@ export function useEventSeriesRoster(
 
   const { students, loading: rosterLoading, error: rosterError } = useRoster(selected?.id ?? null);
   // The events are a field of the series, so they arrive with it rather than on their own (US-21).
+  // Reduced to their names here, once, since every reader downstream — the board, the filter tags,
+  // the report — only ever matches an event by the name a registration holds (US-11).
   // Memoised because the fallback would otherwise be a new array on every render.
-  const events = useMemo(() => selected?.events ?? [], [selected]);
+  const events = useMemo(() => selected?.events.map((event) => event.name) ?? [], [selected]);
   const classes = useMasterData("classes", eventSeriesId);
   const skillLevels = useMasterData("skill-levels", eventSeriesId);
   const busPickupPoints = useMasterData("bus-pickup-points", eventSeriesId);
@@ -93,23 +96,27 @@ export function useEventSeriesRoster(
   );
   const programNames = useMemo(() => programs.map((program) => program.name), [programs]);
   const skillLevelNames = skillLevels.items;
+  // Widened across the series' own lists and every event's own (US-33, US-35): the report and
+  // the filter span every student regardless of which event they are in, so a value only one
+  // event names is still one they may report and filter on.
+  const wide = useMemo(() => (selected === null ? null : seriesWideLists(selected)), [selected]);
   const groups = useMemo(
     () =>
       filterGroups(
         {
           classes: classes.items,
-          programs,
-          skillLevels: skillLevels.items,
-          busPickupPoints: busPickupPoints.items,
-          seasonPassOptions: seasonPassOptions.items,
-          foodOptions: foodOptions.items,
+          programs: wide?.programs ?? programs,
+          skillLevels: wide?.skillLevels ?? skillLevels.items,
+          busPickupPoints: wide?.busPickupPoints ?? busPickupPoints.items,
+          seasonPassOptions: wide?.seasonPassOptions ?? seasonPassOptions.items,
+          foodOptions: wide?.foodOptions ?? foodOptions.items,
         },
         {
           attendance,
           completeness,
           // Asked only where some program requires something, which is US-21 one step further off.
           equipmentRental:
-            equipmentRental && programs.some((one) => one.requiredEquipment.length > 0),
+            equipmentRental && (wide?.programs ?? programs).some((one) => one.requiredEquipment.length > 0), // prettier-ignore
           health,
           busPickupPoint: answerLists,
           seasonPassOption: answerLists,
@@ -131,6 +138,7 @@ export function useEventSeriesRoster(
       busPickupPoints.items,
       seasonPassOptions.items,
       foodOptions.items,
+      wide,
     ],
   );
 

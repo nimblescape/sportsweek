@@ -43,12 +43,12 @@ async function requireEventSeries(eventSeriesId: string): Promise<EventSeries> {
  */
 function eventOfEventSeries(eventSeries: EventSeries, event: string): string {
   const wanted = normalizeName(event);
-  const offered = eventSeries.events.find((candidate) => normalizeName(candidate) === wanted);
+  const offered = eventSeries.events.find((candidate) => normalizeName(candidate.name) === wanted);
 
   if (offered === undefined) {
     throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es in dieser Eventreihe nicht.");
   }
-  return offered;
+  return offered.name;
 }
 
 /**

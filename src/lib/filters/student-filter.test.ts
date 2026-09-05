@@ -14,7 +14,7 @@ import {
 } from "@/lib/registration/answer-labels";
 import { REPORT_FIELD_TAGS } from "@/lib/report/report-fields";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import {
   ATTENDANCE_VALUES,
   COMPLETENESS_VALUES,
@@ -372,8 +372,8 @@ describe("filterGroups", () => {
   it("offers every category once the report asks for them all", () => {
     expect(filterGroups(lists, everything).map((group) => group.category)).toEqual([
       "attendance",
-      "event",
       "class",
+      "event",
       "gender",
       "program",
       "equipmentRental",
@@ -569,7 +569,7 @@ describe("scopeFilterToGroups", () => {
  */
 describe("prunedToLists", () => {
   const series = storedEventSeries({
-    events: ["Woche 1"],
+    events: [event("Woche 1")],
     classOptions: ["5AHIF"],
     programs: [{ name: "Ski", requiredEquipment: [] }],
     skillLevels: ["Profi"],

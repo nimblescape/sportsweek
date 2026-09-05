@@ -9,6 +9,7 @@ import { EQUIPMENT_RENTAL_LABEL } from "@/lib/registration/answer-labels";
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import type { Registration } from "@/lib/schemas/registration";
 import { studentRecord } from "@/test/roster-student";
+import { event } from "@/test/event-series";
 import { fieldTagsFor, NO_ANSWER, REPORT_FIELD_TAGS, reportFieldsOf } from "./report-fields";
 
 const keys = REPORT_FIELD_TAGS.map((tag) => tag.key);
@@ -25,8 +26,8 @@ describe("REPORT_FIELD_TAGS", () => {
   it("offers every field US-13 lists, in the order it lists them", () => {
     expect(keys).toEqual([
       "attendance",
-      "event",
       "class",
+      "event",
       "gender",
       "dateOfBirth",
       "contact",
@@ -49,8 +50,8 @@ describe("REPORT_FIELD_TAGS", () => {
    */
   it("lists the answers a teacher's own lists supply in the menu's order (US-5 to US-10)", () => {
     const categoryOfField: Record<string, string> = {
-      event: "events",
       class: "classes",
+      event: "events",
       program: "programs",
       skillLevel: "skill-levels",
       busPickupPoint: "bus-pickup-points",
@@ -198,7 +199,7 @@ describe("a field's value", () => {
  */
 describe("fieldTagsFor", () => {
   const lists = {
-    events: ["Woche 1"],
+    events: [event("Woche 1")],
     classOptions: ["5AHIF"],
     programs: [{ name: "Ski", requiredEquipment: ["Ski"] }],
     skillLevels: ["Profi"],

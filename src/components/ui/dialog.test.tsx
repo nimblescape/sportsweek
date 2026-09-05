@@ -95,6 +95,28 @@ describe("Dialog", () => {
   });
 
   /**
+   * Escape hands focus back to whatever opened the dialog, and the browser counts that as a
+   * keyboard focus — so the control it came from was left ringed with its tooltip showing, which
+   * closing by a button never does.
+   */
+  it("leaves the control it was opened from alone, however it is closed", async () => {
+    render(
+      <>
+        <button type="button">Neue Klasse</button>
+        <Dialog open title="Neue Klasse" onClose={vi.fn()}>
+          <p>Inhalt</p>
+        </Dialog>
+      </>,
+    );
+    const opener = screen.getByRole("button", { name: "Neue Klasse" });
+    opener.focus();
+
+    screen.getByRole("dialog").dispatchEvent(new Event("close"));
+
+    await waitFor(() => expect(opener).not.toHaveFocus());
+  });
+
+  /**
    * One indicator answers for the whole app, from the header (US-14, US-15). A second one in the
    * footer says the same thing twice, and says it somewhere the eye has to learn separately.
    */

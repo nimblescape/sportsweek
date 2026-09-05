@@ -5,6 +5,23 @@
  */
 import { normalizeName } from "@/lib/firebase/name-key";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import type { Event } from "@/lib/schemas/master-data";
+
+/**
+ * One event exactly as the document holds it, with its five overridable lists (US-33) defaulted
+ * to empty — inheriting the series' — unless a test names what it overrides.
+ */
+export function event(name: string, overrides: Partial<Omit<Event, "name">> = {}): Event {
+  return {
+    name,
+    programs: [],
+    skillLevels: [],
+    seasonPassOptions: [],
+    busPickupPoints: [],
+    foodOptions: [],
+    ...overrides,
+  };
+}
 
 /**
  * An event series exactly as the document holds it — no id, since that lives in the path. The

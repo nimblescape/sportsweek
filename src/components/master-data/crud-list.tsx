@@ -9,23 +9,22 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BusyRegion } from "@/components/ui/busy-region";
-import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SortableList } from "@/components/ui/sortable-list";
-import { Tooltip } from "@/components/ui/tooltip";
-import { PageHeading } from "@/components/layout/page-heading";
+import { RecordList, type RecordRow } from "@/components/master-data/record-list";
+import { RecordScreen } from "@/components/master-data/record-screen";
 import { ApiRequestError } from "@/lib/api/client";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { listItemNameSchema } from "@/lib/schemas/master-data";
+import type { Crumb, RecordTab } from "@/lib/master-data/hierarchy";
 import { IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
 
 const formSchema = z.object({ name: listItemNameSchema });
 type FormValues = z.infer<typeof formSchema>;
+
+const NAME_LABEL = "Name";
 
 /** An item has no id of its own: its name is what identifies it within its list (US-21). */
 export type CrudItem = { id: string; name: string };
@@ -41,11 +40,12 @@ type OpenDialog =
   { kind: "none" } | { kind: "form"; item: CrudItem | null } | { kind: "delete"; item: CrudItem };
 
 type CrudListProps = {
+  /** The path down to the record on screen, ending at it — its last step is the heading (US-33). */
+  trail: readonly Crumb[];
+  /** The record's child collections; the marked one's entries are the list beneath. */
+  tabs: readonly RecordTab[];
+  marked: string;
   labels: CrudLabels;
-  /** Overrides the heading, so a program's equipment list can name the program. */
-  title?: string;
-  /** Rendered above the heading, e.g. the way back out of a nested list. */
-  children?: React.ReactNode;
   items: CrudItem[];
   loading: boolean;
   error: string | null;
@@ -62,8 +62,8 @@ type CrudListProps = {
   /** Options offered to students that the teacher does not maintain, such as "Sonstiges" (US-9). */
   fixedItems?: readonly string[];
   fixedItemsHint?: string;
-  /** One extra control per row, ahead of edit and delete — the programs list uses it. */
-  renderRowAction?: (item: CrudItem, options: { disabled: boolean }) => React.ReactNode;
+  /** Where an entry's own record page is, for a list whose entries have children (US-33). */
+  openHref?: (item: CrudItem) => string;
   /** Rejects with an ApiRequestError; a CONFLICT is reported on the name field. */
   onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
   onDelete: (item: CrudItem) => Promise<void>;
@@ -75,15 +75,15 @@ type CrudListProps = {
 };
 
 /**
- * The one CRUD list every teacher-maintained category uses (US-5 to US-10), and the one a
- * program's required equipment uses too. It takes items and callbacks rather than reading
- * anything itself, which is what lets a Firestore collection and a field on a single document
- * present the identical pattern the requirements ask for.
+ * One master data screen (US-33): the record's path and name, a tag per child collection it has,
+ * and the marked collection's entries beneath. It takes items and callbacks rather than reading
+ * anything itself, which is what lets every level of the hierarchy present the identical shape.
  */
 export function CrudList({
+  trail,
+  tabs,
+  marked,
   labels,
-  title,
-  children,
   items,
   loading,
   error,
@@ -93,7 +93,7 @@ export function CrudList({
   undeletableHint = IN_USE_HINT,
   fixedItems = [],
   fixedItemsHint,
-  renderRowAction,
+  openHref,
   onSubmit,
   onDelete,
   onReorder,
@@ -111,42 +111,42 @@ export function CrudList({
   const submit = (name: string, item: CrudItem | null) =>
     run(item?.id ?? null, () => onSubmit(name, item));
 
+  const lockedHint = usagePending ? USAGE_PENDING_HINT : IN_USE_HINT;
+  const rows: RecordRow[] = items.map((item) => {
+    const locked = usagePending || blockedIds.has(item.id);
+
+    return {
+      ...item,
+      href: openHref?.(item),
+      edit: locked ? lockedHint : true,
+      remove: locked ? lockedHint : undeletableIds.has(item.id) ? undeletableHint : true,
+    };
+  });
+
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6">
-      {children}
-
-      <BusyRegion busy={pending}>
-        <div className="flex flex-col gap-4">
-          <PageHeading
-            actions={
-              <Button onClick={() => setDialog({ kind: "form", item: null })}>
-                <Plus aria-hidden data-icon="inline-start" />
-                {labels.add}
-              </Button>
-            }
-          >
-            {title ?? labels.title}
-          </PageHeading>
-
-          <ItemList
-            labels={labels}
-            items={items}
-            loading={loading}
-            error={error}
-            blockedIds={blockedIds}
-            usagePending={usagePending}
-            undeletableIds={undeletableIds}
-            undeletableHint={undeletableHint}
-            fixedItems={fixedItems}
-            fixedItemsHint={fixedItemsHint}
-            renderRowAction={renderRowAction}
-            busyId={busyId}
-            onEdit={(item) => setDialog({ kind: "form", item })}
-            onDelete={(item) => setDialog({ kind: "delete", item })}
-            onReorder={(orderedIds) => run(null, async () => onReorder(orderedIds))}
-          />
-        </div>
-      </BusyRegion>
+    <>
+      <RecordScreen
+        trail={trail}
+        tabs={tabs}
+        marked={marked}
+        busy={pending}
+        onAdd={() => setDialog({ kind: "form", item: null })}
+      >
+        <RecordList
+          singular={labels.singular}
+          title={labels.title}
+          empty={labels.empty}
+          rows={rows}
+          loading={loading}
+          error={error}
+          fixedItems={fixedItems}
+          fixedItemsHint={fixedItemsHint}
+          busyId={busyId}
+          onEdit={(row) => setDialog({ kind: "form", item: { id: row.id, name: row.name } })}
+          onDelete={(row) => setDialog({ kind: "delete", item: { id: row.id, name: row.name } })}
+          onReorder={(orderedIds) => run(null, async () => onReorder(orderedIds))}
+        />
+      </RecordScreen>
 
       {dialog.kind === "form" ? (
         <ItemFormDialog
@@ -169,155 +169,7 @@ export function CrudList({
           onClose={closeDialog}
         />
       ) : null}
-    </div>
-  );
-}
-
-type ItemListProps = Required<
-  Pick<
-    CrudListProps,
-    "labels" | "items" | "loading" | "blockedIds" | "usagePending" | "undeletableIds"
-  >
-> & {
-  error: string | null;
-  undeletableHint: string;
-  fixedItems: readonly string[];
-  fixedItemsHint?: string;
-  renderRowAction?: (item: CrudItem, options: { disabled: boolean }) => React.ReactNode;
-  busyId: string | null;
-  onEdit: (item: CrudItem) => void;
-  onDelete: (item: CrudItem) => void;
-  onReorder: (orderedIds: string[]) => void | Promise<void>;
-};
-
-function ItemList({
-  labels,
-  items,
-  loading,
-  error,
-  blockedIds,
-  usagePending,
-  undeletableIds,
-  undeletableHint,
-  fixedItems,
-  fixedItemsHint,
-  renderRowAction,
-  busyId,
-  onEdit,
-  onDelete,
-  onReorder,
-}: ItemListProps) {
-  const { title, singular, empty } = labels;
-
-  // The header spinner says the app is working; a second one on the list would say it twice.
-  if (loading) return null;
-
-  if (error) {
-    return (
-      <Card>
-        <p role="alert" className="text-destructive px-(--card-spacing) text-sm">
-          {title} konnten nicht geladen werden.
-        </p>
-      </Card>
-    );
-  }
-
-  if (items.length === 0 && fixedItems.length === 0) {
-    return (
-      <Card>
-        <p className="text-muted-foreground px-(--card-spacing) text-sm">{empty}</p>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="[--card-spacing:--spacing(0)]">
-      <SortableList
-        items={items}
-        onReorder={onReorder}
-        busyId={busyId}
-        renderItem={(item) => {
-          const busy = item.id === busyId;
-          const locked = usagePending || blockedIds.has(item.id);
-          const undeletable = locked || undeletableIds.has(item.id);
-          const lockedHint = usagePending ? USAGE_PENDING_HINT : IN_USE_HINT;
-          const deleteHint = locked ? lockedHint : undeletableHint;
-          const hintId = `${item.id}-in-use-hint`;
-
-          return (
-            <div className="flex items-center justify-between gap-4 py-3 pr-4 pl-2">
-              <span className="truncate text-sm font-medium">{item.name}</span>
-
-              <div className="flex shrink-0 items-center gap-1">
-                {renderRowAction?.(item, { disabled: busy })}
-
-                {/* Wrapped in a span because a disabled button emits no pointer events, and the
-                    reason it is disabled is exactly what needs explaining here. */}
-                <Tooltip label={locked ? lockedHint : "Bearbeiten"}>
-                  <span className="inline-flex">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={locked || busy}
-                      aria-label={`${singular} ${item.name} bearbeiten`}
-                      aria-describedby={locked ? hintId : undefined}
-                      onClick={() => onEdit(item)}
-                    >
-                      <Pencil aria-hidden />
-                    </Button>
-                  </span>
-                </Tooltip>
-
-                <Tooltip label={undeletable ? deleteHint : "Löschen"}>
-                  <span className="inline-flex">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={undeletable || busy}
-                      aria-label={`${singular} ${item.name} löschen`}
-                      aria-describedby={undeletable ? hintId : undefined}
-                      onClick={() => onDelete(item)}
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 aria-hidden />
-                    </Button>
-                  </span>
-                </Tooltip>
-
-                {undeletable ? (
-                  <span id={hintId} className="sr-only">
-                    {deleteHint}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          );
-        }}
-        className="[&>li]:border-border [&>li]:border-b [&>li:last-child]:border-b-0"
-      />
-
-      <ul className="border-border [&>li]:border-border empty:hidden [&>li]:border-t">
-        {/* Always offered to students and never a row of its own, so it carries no controls (US-9). */}
-        {fixedItems.map((name) => {
-          const hint = fixedItemsHint ?? "Diese Option ist fix und kann nicht geändert werden.";
-
-          return (
-            <li
-              key={name}
-              className="text-muted-foreground flex items-center justify-between gap-4 py-3 pr-4 pl-9"
-            >
-              <span className="text-sm font-medium">{name}</span>
-              <Tooltip label={hint}>
-                <span className="inline-flex p-1.5">
-                  <Lock aria-hidden className="size-4" />
-                  <span className="sr-only">{hint}</span>
-                </span>
-              </Tooltip>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
+    </>
   );
 }
 
@@ -374,7 +226,7 @@ function ItemFormDialog({
         {note === null ? null : <p className="text-muted-foreground text-sm">{note}</p>}
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={nameId}>Name</Label>
+          <Label htmlFor={nameId}>{NAME_LABEL}</Label>
           <Input
             id={nameId}
             autoFocus

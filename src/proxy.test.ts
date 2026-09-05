@@ -52,8 +52,8 @@ describe("proxy", () => {
     "/app/s1/report",
     "/app/s1/assignment",
     "/app/s1/registrations",
-    "/app/s1/master-data/classes",
     "/app/event-series",
+    "/app/event-series/s1/classes",
   ])("lets a teacher reach %s", (pathname) => {
     const response = proxy(makeRequest(pathname, asTeacher));
     expect(response.status).toBe(200);
@@ -63,8 +63,8 @@ describe("proxy", () => {
     "/app/s1/report",
     "/app/s1/assignment",
     "/app/s1/registrations",
-    "/app/s1/master-data/classes",
     "/app/event-series",
+    "/app/event-series/s1/classes",
   ])("redirects a student away from %s", (pathname) => {
     const response = proxy(makeRequest(pathname, asStudent));
     expect(response.status).toBe(307);

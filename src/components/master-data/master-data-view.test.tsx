@@ -8,14 +8,27 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { stubRowLayout } from "@/test/stub-row-layout";
 import { CHILD_IN_USE_HINT, IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
+import { FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 const useMasterData = vi.fn();
 const useUsageReport = vi.fn();
+const push = vi.fn();
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (...args: unknown[]) => useMasterData(...args),
   useUsageReport: (...args: unknown[]) => useUsageReport(...args),
+}));
+
+// The screen names the record it is about, which reaches Firebase no test here has cause to start.
+vi.mock("@/lib/event-series/use-selected-event-series", () => ({
+  useSelectedEventSeries: () => ({
+    eventSeries: { id: "s1", name: "Wintersportwoche" },
+    loading: false,
+    error: null,
+  }),
 }));
 
 const { MasterDataView } = await import("./master-data-view");
@@ -66,10 +79,51 @@ function renderView(props: Record<string, unknown> = {}) {
 }
 
 describe("MasterDataView — reading the list", () => {
-  it("titles the view from the category", () => {
+  /** Classes are bare names, so the path stops at the record and the heading is its name. */
+  it("names the event series, and marks the category on show", () => {
     renderView();
 
-    expect(screen.getByRole("heading", { name: "Klassen" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
+    expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  /** Every category of the series is one press away, in the menu's order. */
+  it("offers a tag for every category of the series", () => {
+    renderView();
+
+    expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toBeInTheDocument();
+    for (const label of [
+      "Events",
+      "Programme",
+      "Leistungsstufen",
+      "Zugangskarten",
+      "Zustiegsstellen",
+      "Verpflegung",
+    ]) {
+      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it("names the whole path down to the record", () => {
+    renderView();
+
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+
+    expect(within(trail).getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
+    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
+  });
+
+  /** The programs are a step down rather than a leaf, so the path names them (US-33). */
+  it("names the category on show where its entries open records", () => {
+    render(<MasterDataView category="programs" eventSeriesId="s1" />);
+
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+
+    expect(within(trail).getByRole("link", { name: "Wintersportwoche" })).toBeInTheDocument();
+    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Programme");
   });
 
   it("lists every item", () => {
@@ -106,8 +160,10 @@ describe("MasterDataView — reading the list", () => {
   it("subscribes to the category it was configured with, for the series the page names", () => {
     render(<MasterDataView category="skill-levels" eventSeriesId="s1" />);
 
-    expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1");
-    expect(screen.getByRole("heading", { name: "Leistungsstufen" })).toBeInTheDocument();
+    expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1", undefined);
+    expect(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 });
 
@@ -116,7 +172,7 @@ describe("MasterDataView — adding", () => {
     const fetchMock = stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: /neue klasse/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Klassen: Neue Klasse" }));
     await userEvent.type(screen.getByLabelText("Name"), "5CHIT");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
@@ -127,11 +183,19 @@ describe("MasterDataView — adding", () => {
     expect(JSON.parse(String(init.body))).toEqual({ name: "5CHIT" });
   });
 
+  /** Only the marked tag adds, so a press cannot land on a list that is not shown. */
+  it("offers to add under the marked category alone", () => {
+    renderView();
+
+    expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Neues Event/ })).not.toBeInTheDocument();
+  });
+
   it("refuses a blank name without calling the server", async () => {
     const fetchMock = stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: /neue klasse/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Klassen: Neue Klasse" }));
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
     expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
@@ -142,7 +206,7 @@ describe("MasterDataView — adding", () => {
     stubFetch(() => conflict("Den Namen „3AHIT\u201c gibt es bereits."));
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: /neue klasse/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Klassen: Neue Klasse" }));
     await userEvent.type(screen.getByLabelText("Name"), "3AHIT");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
@@ -290,30 +354,16 @@ describe("MasterDataView — while a write is in flight", () => {
     expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeEnabled();
   });
 
-  it("locks the extra action a category contributes, which acts on the same item", async () => {
+  it("locks the way into the row's own record, which the same write is changing", async () => {
     stubFetch(() => new Promise(() => {}));
-    renderView({
-      renderRowAction: (
-        item: { id: string; name: string },
-        { disabled }: { disabled: boolean },
-      ) => (
-        <a href={`/detail/${item.id}`} aria-disabled={disabled || undefined}>
-          Details zu {item.name}
-        </a>
-      ),
-    });
+    renderView({ openHref: (item: { name: string }) => `/detail/${item.name}` });
 
     await confirmDelete();
 
     await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toHaveAttribute(
-        "aria-disabled",
-        "true",
-      ),
+      expect(screen.getByRole("link", { name: "3AHIT" })).toHaveAttribute("aria-disabled", "true"),
     );
-    expect(screen.getByRole("link", { name: "Details zu 4BHIT" })).not.toHaveAttribute(
-      "aria-disabled",
-    );
+    expect(screen.getByRole("link", { name: "4BHIT" })).not.toHaveAttribute("aria-disabled");
   });
 });
 
@@ -349,7 +399,7 @@ describe("MasterDataView — the in-use restriction", () => {
   it("asks the guard about the category it is showing, for the series the page names", () => {
     renderView();
 
-    expect(useUsageReport).toHaveBeenCalledWith("classes", "s1");
+    expect(useUsageReport).toHaveBeenCalledWith("classes", "s1", undefined);
   });
 });
 
@@ -412,47 +462,125 @@ describe("MasterDataView — while the in-use check is still running", () => {
 
 describe("MasterDataView — fixed options", () => {
   it("lists an option that is always available alongside the maintained ones", () => {
-    renderView({ fixedItems: ["Sonstiges"] });
+    renderView({ category: "food-options" });
 
-    expect(screen.getByText("Sonstiges")).toBeInTheDocument();
+    expect(screen.getByText(FOOD_OPTION_OTHER_LABEL)).toBeInTheDocument();
   });
 
   it("gives a fixed option no edit or delete control", () => {
-    renderView({ fixedItems: ["Sonstiges"] });
+    renderView({ category: "food-options" });
 
-    expect(screen.queryByRole("button", { name: /Sonstiges bearbeiten/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Sonstiges löschen/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: new RegExp(`${FOOD_OPTION_OTHER_LABEL} bearbeiten`) }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: new RegExp(`${FOOD_OPTION_OTHER_LABEL} löschen`) }),
+    ).not.toBeInTheDocument();
+  });
+
+  /** Only the one list offers it; the others are the teacher's alone (US-9). */
+  it("adds nothing to a category that has no fixed option", () => {
+    renderView();
+
+    expect(screen.queryByText(FOOD_OPTION_OTHER_LABEL)).not.toBeInTheDocument();
   });
 });
 
-describe("MasterDataView — per-row actions", () => {
-  it("renders the extra action a category contributes, once per item", () => {
-    renderView({
-      renderRowAction: (item: { id: string; name: string }) => (
-        <a href={`/detail/${item.id}`}>Details zu {item.name}</a>
-      ),
-    });
+describe("MasterDataView — a row that opens a record of its own", () => {
+  const opening = { openHref: (item: { name: string }) => `/detail/${item.name}` };
 
-    expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toHaveAttribute(
-      "href",
-      "/detail/3AHIT",
-    );
-    expect(screen.getByRole("link", { name: "Details zu 4BHIT" })).toBeInTheDocument();
+  /** A row with children beneath it is opened by its name, as an event series row is (US-33). */
+  it("makes the name the way in", () => {
+    renderView(opening);
+
+    expect(screen.getByRole("link", { name: "3AHIT" })).toHaveAttribute("href", "/detail/3AHIT");
+    expect(screen.getByRole("link", { name: "4BHIT" })).toBeInTheDocument();
   });
 
-  it("leaves the extra action reachable for an item the in-use guard blocks", () => {
+  /** The two are blocked separately: what a student holds is the entry, not what hangs off it. */
+  it("stays reachable for an item the in-use guard blocks", () => {
     useUsageReport.mockReturnValue({
       blockedNames: new Set(["3AHIT"]),
       blockedEquipment: {},
       loading: false,
     });
-    renderView({
-      renderRowAction: (item: { id: string; name: string }) => (
-        <a href={`/detail/${item.id}`}>Details zu {item.name}</a>
-      ),
-    });
+    renderView(opening);
 
-    expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "3AHIT" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled();
+  });
+
+  it("leaves a row without children as plain text", () => {
+    renderView();
+
+    expect(screen.queryByRole("link", { name: "3AHIT" })).not.toBeInTheDocument();
+    expect(screen.getByText("3AHIT")).toBeInTheDocument();
+  });
+});
+
+describe("MasterDataView — an event's own page (US-33)", () => {
+  function renderEventView(props: Record<string, unknown> = {}) {
+    render(
+      <MasterDataView category="skill-levels" eventSeriesId="s1" eventName="Woche 1" {...props} />,
+    );
+  }
+
+  it("reads and reports usage scoped to the event it was given", () => {
+    renderEventView();
+
+    expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1", "Woche 1");
+    expect(useUsageReport).toHaveBeenCalledWith("skill-levels", "s1", "Woche 1");
+  });
+
+  it("writes to the event-scoped handler, the event named in the query", async () => {
+    const fetchMock = stubFetch(created);
+    renderEventView();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    );
+    await userEvent.type(screen.getByLabelText("Name"), "Fortgeschritten");
+    await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/event-series/s1/events/master-data/skill-levels?event=Woche%201");
+  });
+
+  it("names the whole path down to the event, ending at it", () => {
+    renderEventView();
+
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+
+    expect(within(trail).getByRole("link", { name: "Events" })).toBeInTheDocument();
+    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Woche 1");
+  });
+
+  it("offers only the five categories an event may override", () => {
+    renderEventView();
+
+    for (const label of [
+      "Programme",
+      "Leistungsstufen",
+      "Zugangskarten",
+      "Zustiegsstellen",
+      "Verpflegung",
+    ]) {
+      expect(screen.getByRole("button", { name: new RegExp(`^${label}`) })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: /^Klassen/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Events/ })).not.toBeInTheDocument();
+  });
+
+  /** Empty means the event takes the series' list instead, not that nobody is asked (US-33). */
+  it("explains an empty list as inheriting the series', not as nothing maintained", () => {
+    useMasterData.mockReturnValue({ items: [], loading: false, error: null });
+    renderEventView();
+
+    expect(
+      screen.getByText("Dieses Event verwendet die Leistungsstufen der Eventreihe."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/noch keine Leistungsstufe/i)).not.toBeInTheDocument();
   });
 });
 

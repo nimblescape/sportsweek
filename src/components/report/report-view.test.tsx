@@ -10,7 +10,7 @@ import { asUid } from "@/lib/schemas/common";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 
 const useEventSeries = vi.fn();
 const useRoster = vi.fn();
@@ -78,7 +78,7 @@ const eventSeries = {
     name: "2026",
     isOpenToStudents: true,
     hasRegistrations: true,
-    events: ["Woche 1"],
+    events: [event("Woche 1")],
     // The same lists the hooks below are mocked with: they are fields of this document, and it
     // is the document the fields row asks what the series wants asking about (US-21).
     classOptions: ["5AHIF", "5BHIF"],
@@ -451,6 +451,11 @@ describe("the saved reports", () => {
       fields: [],
     };
     useSavedReports.mockReturnValue({ reports: [pickup], loading: false, error: null });
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, busPickupPoints: [] }],
+      loading: false,
+      error: null,
+    });
     useMasterData.mockImplementation((key: string) => {
       if (key === "bus-pickup-points") return listOf();
       if (key === "classes") return listOf("5AHIF", "5BHIF");

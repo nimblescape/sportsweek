@@ -10,7 +10,6 @@ import {
   CHILD_IN_USE_HINT,
   IN_USE_HINT,
   MASTER_DATA_CATEGORIES,
-  masterDataSections,
   masterDataCategorySchema,
   type AnswerField,
   type MasterDataCategory,
@@ -73,6 +72,19 @@ describe("MASTER_DATA_CATEGORIES", () => {
       expect(category.labels.answer).not.toBe("");
     }
   });
+
+  /** The menu order is the single source of answer order, so it is stated here in full. */
+  it("is in the order a teacher works through it", () => {
+    expect(Object.values(MASTER_DATA_CATEGORIES).map((category) => category.labels.title)).toEqual([
+      "Klassen",
+      "Events",
+      "Programme",
+      "Leistungsstufen",
+      "Zugangskarten",
+      "Zustiegsstellen",
+      "Verpflegung",
+    ]);
+  });
 });
 
 describe("ANSWER_LABELS", () => {
@@ -92,48 +104,6 @@ describe("ANSWER_LABELS", () => {
   it("is not simply the singular, which names a row rather than the answer", () => {
     expect(MASTER_DATA_CATEGORIES["food-options"].labels.singular).toBe("Verpflegungsoption");
     expect(ANSWER_LABELS.foodOption).toBe("Verpflegung");
-  });
-});
-
-describe("masterDataSections", () => {
-  const sections = masterDataSections("s1");
-
-  it("leads with the event series list and adds nothing beyond the categories", () => {
-    expect(sections[0]).toEqual({ href: "/app/event-series", label: "Eventreihen" });
-    expect(sections).toHaveLength(Object.keys(MASTER_DATA_CATEGORIES).length + 1);
-  });
-
-  /** A student is asked their class before their program, and the menu is read in that order. */
-  it("puts the menu in the order a teacher works through it", () => {
-    expect(sections.map((section) => section.label)).toEqual([
-      "Eventreihen",
-      "Events",
-      "Klassen",
-      "Programme",
-      "Leistungsstufen",
-      "Zugangskarten",
-      "Zustiegsstellen",
-      "Verpflegung",
-    ]);
-  });
-
-  it("links each category beneath the selected event series", () => {
-    for (const [key, category] of Object.entries(MASTER_DATA_CATEGORIES)) {
-      expect(sections).toContainEqual({
-        href: `/app/s1/master-data/${key}`,
-        label: category.labels.title,
-      });
-    }
-  });
-
-  /** An id is opaque and never typed, but a path segment it corrupted would be silent. */
-  it("encodes the event series id it builds the paths from", () => {
-    expect(masterDataSections("a/b")[1].href).toBe("/app/a%2Fb/master-data/events");
-  });
-
-  /** With no series selected the six lists have nothing to be about, so only the list itself is offered. */
-  it("offers the event series list alone when nothing is selected", () => {
-    expect(masterDataSections(null)).toEqual([{ href: "/app/event-series", label: "Eventreihen" }]);
   });
 });
 

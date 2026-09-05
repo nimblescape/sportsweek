@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import { FakeFirestore } from "@/test/fake-firestore";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import { registrationPath } from "@/lib/registration/registration";
 import { savedReportPath } from "@/lib/report/saved-reports";
 import { ARCHIVE_OPEN_HINT } from "@/lib/event-series/event-series-state";
@@ -92,7 +92,7 @@ describe("createEventSeries", () => {
  */
 describe("createEventSeries — from a source", () => {
   const lists = {
-    events: ["Woche 1", "Woche 2"],
+    events: [event("Woche 1"), event("Woche 2")],
     classOptions: ["5AHIF", "5BHIF"],
     programs: [
       { name: "Ski", requiredEquipment: ["Ski", "Helm"] },
@@ -429,7 +429,10 @@ describe("deleteEventSeries", () => {
   });
 
   it("takes the events of the event series with it, since they are fields of its document", async () => {
-    seedEventSeries("s1", { isArchived: true, events: ["Montafon", "Lech"] });
+    seedEventSeries("s1", {
+      isArchived: true,
+      events: [{ name: "Montafon" }, { name: "Lech" }],
+    });
 
     await deleteEventSeries("s1");
 
@@ -500,8 +503,8 @@ describe("deleteEventSeries", () => {
   });
 
   it("leaves documents of other event series untouched", async () => {
-    seedEventSeries("s1", { isArchived: true, events: ["Montafon"] });
-    seedEventSeries("s2", { events: ["Behalten"] });
+    seedEventSeries("s1", { isArchived: true, events: [{ name: "Montafon" }] });
+    seedEventSeries("s2", { events: [{ name: "Behalten" }] });
     firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
     firestore.seed(registrationPath("s2"), "keep", { studentUid: "u2" });
     firestore.seed("invitations", "tok1", { eventSeriesId: "s1", class: "5AHIF" });
@@ -511,7 +514,7 @@ describe("deleteEventSeries", () => {
 
     await deleteEventSeries("s1");
 
-    expect(firestore.get("eventSeries", "s2")).toMatchObject({ events: ["Behalten"] });
+    expect(firestore.get("eventSeries", "s2")).toMatchObject({ events: [{ name: "Behalten" }] });
     expect(Object.keys(firestore.docs(registrationPath("s2")))).toEqual(["keep"]);
     expect(Object.keys(firestore.docs("invitations"))).toEqual(["keep"]);
     expect(Object.keys(firestore.docs(savedReportPath("s2")))).toEqual(["keep"]);
