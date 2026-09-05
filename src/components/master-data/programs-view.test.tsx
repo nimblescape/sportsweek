@@ -24,12 +24,18 @@ const { ProgramEquipmentView: ScopedProgramEquipmentView } =
   await import("./program-equipment-view");
 
 // Which series the lists belong to comes from the page (Q8); the data hooks are mocked here.
-function ProgramsView() {
-  return <ScopedProgramsView eventSeriesId="s1" />;
+function ProgramsView({ eventSeriesId = "s1" }: { eventSeriesId?: string }) {
+  return <ScopedProgramsView eventSeriesId={eventSeriesId} />;
 }
 
-function ProgramEquipmentView({ program }: { program: string }) {
-  return <ScopedProgramEquipmentView program={program} eventSeriesId="s1" />;
+function ProgramEquipmentView({
+  program,
+  eventSeriesId = "s1",
+}: {
+  program: string;
+  eventSeriesId?: string;
+}) {
+  return <ScopedProgramEquipmentView program={program} eventSeriesId={eventSeriesId} />;
 }
 
 const ski = { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] };
@@ -144,12 +150,41 @@ describe("ProgramEquipmentView", () => {
     expect(screen.getByText("Stöcke")).toBeInTheDocument();
   });
 
-  it("offers a way back to the programs list", () => {
+  it("offers a way back to the programs list of the same series", () => {
     render(<ProgramEquipmentView program="Ski" />);
 
     expect(screen.getByRole("link", { name: /alle programme/i })).toHaveAttribute(
       "href",
-      "/app/master-data/programs",
+      "/app/s1/master-data/programs",
+    );
+  });
+
+  /**
+   * Both views are the same page, told apart by the equipment parameter — so the way in and the
+   * way back are one address. Checking each against its own literal is what let the way back keep
+   * a path from before the series was a segment, which answers 404.
+   */
+  it("goes back to the address the equipment link came from", () => {
+    const { unmount } = render(<ProgramsView />);
+    const wayIn = screen
+      .getByRole("link", { name: "Benötigte Ausrüstung für Ski" })
+      .getAttribute("href");
+    unmount();
+
+    render(<ProgramEquipmentView program="Ski" />);
+
+    expect(screen.getByRole("link", { name: /alle programme/i })).toHaveAttribute(
+      "href",
+      wayIn?.split("?")[0],
+    );
+  });
+
+  it("percent-encodes a series id a URL would otherwise read as structure", () => {
+    render(<ProgramEquipmentView program="Ski" eventSeriesId="winter 2026/27" />);
+
+    expect(screen.getByRole("link", { name: /alle programme/i })).toHaveAttribute(
+      "href",
+      "/app/winter%202026%2F27/master-data/programs",
     );
   });
 
