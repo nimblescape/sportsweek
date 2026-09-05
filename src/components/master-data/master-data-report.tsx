@@ -58,13 +58,13 @@ function Section({ section, depth }: { section: ReportSection; depth: number }) 
 
       {/* What a level holds hangs under a rail from its heading: the nesting reaches assistive
           technology as heading levels, and this is the same nesting made visible. */}
-      <div className="border-border ml-1.5 flex flex-col gap-2 border-l pl-4">
+      <div className="border-muted-foreground/30 ml-1.5 flex flex-col gap-2 border-l pl-4">
         {section.entries.length === 0 ? null : (
-          <ul className="text-muted-foreground flex flex-col gap-1 pl-4 text-sm">
+          // Not a flex column: a flex item is a block, and a list marker is only drawn for a
+          // list item.
+          <ul className="text-muted-foreground list-disc space-y-1 pl-4 text-sm">
             {section.entries.map((entry) => (
-              <li key={entry} className="list-disc">
-                {entry}
-              </li>
+              <li key={entry}>{entry}</li>
             ))}
           </ul>
         )}
