@@ -233,6 +233,12 @@ segment is normalised by proxies and frameworks at several points between the br
 page, and where it is decoded early the segment splits in two and the route stops matching. It
 works until the day somebody names an event "Woche 1/2".
 
+The existing segment is no precedent for it, which is easy to assume and wrong. The event series
+id in `/app/event-series/{series}` is a Firestore auto-id, and `documentIdSchema` refuses a `/`
+outright — so that segment has never carried an encoded slash and never can. Nothing in this
+application has yet put teacher-typed text in a path segment, and where a name genuinely could
+hold anything, the existing answer was a search parameter.
+
 |       | What names the event                     | What it costs                                                                                                                                                                                     |
 | ----- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **a** | The percent-encoded name, in the segment | Reads well and needs no stored change. Fails on the characters a path cannot carry, and fails in a way that looks like a routing bug rather than a bad name.                                      |
