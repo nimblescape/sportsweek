@@ -436,6 +436,66 @@ Gender moves above date of birth, and Gesundheit moves above Notfallkontakt.
 like the other two, not a fallback: the report prints it, the filter offers it as a tag, and the
 figures table counts it in a column of its own beside `"Männlich"` and `"Weiblich"`.
 
+The three are always in that order — `male`, `female`, `diverse` — in the enum, in the labels, in
+the form's options, in the filter's tags and in the figures table, whose columns become
+`"Männlich" | "Weiblich" | "Divers" | "Gesamt" | "Teilnahme"`.
+
+## One order, everywhere
+
+Three orders change in this refactoring, and each of them is copied in several places that a test
+already pins. They are written out here in full so an implementation has one thing to compare
+against rather than several to reconcile.
+
+### The master data menu, which everything else follows
+
+```
+Klassen · Events · Programme · Leistungsstufen · Zugangskarten · Zustiegsstellen · Verpflegung
+```
+
+Klassen and Events swap; the rest is unchanged. This is the tag row's order on an event series
+record, and an event's row is the same list without Klassen and Events.
+
+### The report's field row
+
+Class moves ahead of event, following the menu. Everything else keeps its place:
+
+```
+attendance · class · event · gender · dateOfBirth · contact · program · rentedEquipment ·
+measurements · skillLevel · seasonPassOption · busPickupPoint · food · health · completeness
+```
+
+### The filter's category row
+
+Follows the field row, skipping what nothing filters on:
+
+```
+attendance · class · event · gender · program · equipmentRental · skillLevel ·
+seasonPassOption · busPickupPoint · foodOption · health · completeness
+```
+
+### The registration form and its schema
+
+The schema declares its fields in the form's order, so the stored record reads the way the
+student was asked. Cards, and the fields within them, exactly as the form section above states.
+
+### What is not settled: where "Gesundheit" sits in the report
+
+The field row above quietly assumes the report does **not** follow the form's card reshuffle, and
+that assumption should be made deliberately rather than inherited.
+
+Today the field row already mirrors the form's cards: `contact` sits where Notfallkontakt sat, and
+`health` after the Veranstaltung answers, where Gesundheit sat. Moving Gesundheit above
+Notfallkontakt in the form therefore argues for `health` moving above `contact` in the report —
+and, through the field row, up the filter row as well.
+
+What stops that being automatic is that **`contact` spans two cards**: it bundles the student's own
+`phoneNumber`, which the form asks in Persönliches, with the three emergency contact fields, which
+it asks in Notfallkontakt. A strict mirror is therefore not available without splitting that tag
+in two, which is a change to what a teacher can switch on and off in a report.
+
+So: leave the report row as written above, or move `health` ahead of `contact` — and if the
+latter, does `contact` split so the student's own number stays with Persönliches?
+
 ### Two steps, when the events differ
 
 The steering condition is per series and derived, never stored:
