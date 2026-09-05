@@ -3,6 +3,8 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
+"use client";
+
 import { MasterDataView } from "@/components/master-data/master-data-view";
 import { eventRecordPath } from "@/lib/master-data/hierarchy";
 
