@@ -5,7 +5,11 @@
  */
 import { describe, expect, it } from "vitest";
 import { event, storedEventSeries } from "@/test/event-series";
+import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
+import { MASTER_DATA_CATEGORIES } from "./categories";
 import {
+  answersNotOfferedByEvent,
+  isAnswerOffered,
   questionsFor,
   registersInTwoSteps,
   resolveEventLists,
@@ -257,5 +261,94 @@ describe("seriesWideLists", () => {
     const eventSeries = storedEventSeries({ classOptions: ["2aWI"] });
 
     expect(seriesWideLists(eventSeries).classOptions).toEqual(["2aWI"]);
+  });
+});
+
+describe("isAnswerOffered", () => {
+  const lists = storedEventSeries({ skillLevels: ["Anfänger"], foodOptions: [] });
+
+  it("is offered where blank, since there is nothing to check yet", () => {
+    expect(isAnswerOffered(lists, MASTER_DATA_CATEGORIES["skill-levels"], null)).toBe(true);
+    expect(isAnswerOffered(lists, MASTER_DATA_CATEGORIES["skill-levels"], "")).toBe(true);
+  });
+
+  it("is offered where the list names it", () => {
+    expect(isAnswerOffered(lists, MASTER_DATA_CATEGORIES["skill-levels"], "Anfänger")).toBe(true);
+  });
+
+  it("is not offered where the list has never named it", () => {
+    expect(isAnswerOffered(lists, MASTER_DATA_CATEGORIES["skill-levels"], "Profi")).toBe(false);
+  });
+
+  it("is not offered where the question is not put at all", () => {
+    expect(isAnswerOffered(lists, MASTER_DATA_CATEGORIES["food-options"], "Vegetarisch")).toBe(
+      false,
+    );
+  });
+
+  /** Never a row a teacher keeps, but offered alongside a non-empty list (US-9, US-21). */
+  it("offers the free-text food choice only where the food list has rows to offer", () => {
+    const withFood = storedEventSeries({ foodOptions: ["Vegetarisch"] });
+
+    expect(isAnswerOffered(lists, MASTER_DATA_CATEGORIES["food-options"], FOOD_OPTION_OTHER)).toBe(
+      false,
+    );
+    expect(
+      isAnswerOffered(withFood, MASTER_DATA_CATEGORIES["food-options"], FOOD_OPTION_OTHER),
+    ).toBe(true);
+  });
+});
+
+describe("answersNotOfferedByEvent", () => {
+  /**
+   * A one-step answer is chosen against the series' own lists (US-33); an event that later keeps
+   * a narrower list of its own never rechecked it until now.
+   */
+  it("clears an answer chosen before the event kept a list of its own", () => {
+    const eventSeries = storedEventSeries({
+      programs: [{ name: "Ski", requiredEquipment: [] }],
+      events: [event("Woche 2", { programs: [{ name: "Snowboard", requiredEquipment: [] }] })],
+    });
+
+    expect(answersNotOfferedByEvent(eventSeries, "Woche 2", { program: "Ski" })).toEqual([
+      "program",
+    ]);
+  });
+
+  it("keeps an answer the event's own list still names", () => {
+    const eventSeries = storedEventSeries({
+      events: [event("Woche 2", { programs: [{ name: "Snowboard", requiredEquipment: [] }] })],
+    });
+
+    expect(answersNotOfferedByEvent(eventSeries, "Woche 2", { program: "Snowboard" })).toEqual([]);
+  });
+
+  /** Named none of its own, so the series' list still stands behind the answer (US-33). */
+  it("leaves alone what the event does not override at all", () => {
+    const eventSeries = storedEventSeries({
+      skillLevels: ["Anfänger"],
+      events: [event("Woche 2", { programs: [{ name: "Snowboard", requiredEquipment: [] }] })],
+    });
+
+    expect(answersNotOfferedByEvent(eventSeries, "Woche 2", { skillLevel: "Anfänger" })).toEqual(
+      [],
+    );
+  });
+
+  it("has nothing to clear where nothing was answered", () => {
+    const eventSeries = storedEventSeries({
+      events: [event("Woche 2", { programs: [{ name: "Snowboard", requiredEquipment: [] }] })],
+    });
+
+    expect(answersNotOfferedByEvent(eventSeries, "Woche 2", { program: null })).toEqual([]);
+  });
+
+  /** An empty list is a question nobody puts, so a stray answer for it is nobody's to clear. */
+  it("leaves alone a category nothing has ever asked about", () => {
+    const eventSeries = storedEventSeries({
+      events: [event("Woche 2", { programs: [{ name: "Snowboard", requiredEquipment: [] }] })],
+    });
+
+    expect(answersNotOfferedByEvent(eventSeries, "Woche 2", { skillLevel: "Profi" })).toEqual([]);
   });
 });

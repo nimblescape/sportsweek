@@ -5,12 +5,14 @@
  */
 import { normalizeName } from "@/lib/firebase/name-key";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import {
   MASTER_DATA_CATEGORIES,
   PER_EVENT_CATEGORY_KEYS,
   questionsAsked,
   type AnswerField,
   type EventSeriesListField,
+  type MasterDataCategory,
 } from "./categories";
 
 type Lists = Pick<EventSeries, EventSeriesListField>;
@@ -114,6 +116,58 @@ export function answersOwnedByEvent(
   )
     .map((key) => MASTER_DATA_CATEGORIES[key].usage.field)
     .filter((field) => answers[field] !== null && answers[field] !== undefined);
+}
+
+/**
+ * Whether a category's list, resolved for one event or the series at large, still names this
+ * answer (US-9, US-21, US-33). The one comparison the student's own save and an assignment
+ * moving them both need, so a value good enough for one cannot come to be too strict for the
+ * other.
+ */
+export function isAnswerOffered(
+  lists: Lists,
+  category: MasterDataCategory,
+  answer: unknown,
+): boolean {
+  if (typeof answer !== "string" || answer === "") return true;
+
+  const offered = lists[category.field].map(named);
+  // The free-text choice is never a row a teacher keeps, but it is offered alongside a
+  // non-empty list, so it is a legitimate answer wherever the question is asked.
+  const permitted =
+    category.usage.field === "foodOption" && offered.length > 0
+      ? [...offered, FOOD_OPTION_OTHER]
+      : offered;
+
+  return permitted.includes(answer);
+}
+
+/**
+ * Which of this student's answers the event they are being assigned to does not offer (US-33,
+ * US-36) — a one-step answer chosen against the series' own lists before this event kept any of
+ * its own, or one a teacher has since narrowed an event's list away from. What an assignment
+ * clears rather than carries forward, since writing it into an event it was never checked
+ * against would leave the record naming something nothing offers.
+ *
+ * Bounded to what the event actually asks, the same as a save is (US-21): an empty list is a
+ * question nobody puts, so an unrelated answer sitting in a field nothing has ever asked about is
+ * not this function's to clear.
+ */
+export function answersNotOfferedByEvent(
+  eventSeries: Lists,
+  eventName: string,
+  answers: Partial<Record<AnswerField, unknown>>,
+): AnswerField[] {
+  const lists = resolveEventLists(eventSeries, eventName);
+  const asked = questionsAsked(lists);
+
+  return PER_EVENT_CATEGORY_KEYS.filter((key) => {
+    const category = MASTER_DATA_CATEGORIES[key];
+    return (
+      asked.has(category.usage.field) &&
+      !isAnswerOffered(lists, category, answers[category.usage.field])
+    );
+  }).map((key) => MASTER_DATA_CATEGORIES[key].usage.field);
 }
 
 /**

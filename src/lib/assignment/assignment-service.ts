@@ -13,7 +13,11 @@ import { COLLECTIONS } from "@/lib/schemas/collections";
 import { registrationPath } from "@/lib/registration/registration";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema } from "@/lib/schemas/registration";
-import { answersOwnedByEvent, questionsFor } from "@/lib/master-data/resolution";
+import {
+  answersNotOfferedByEvent,
+  answersOwnedByEvent,
+  questionsFor,
+} from "@/lib/master-data/resolution";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import { IMMOVABLE_HINTS } from "@/lib/assignment/movability";
 import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
@@ -126,7 +130,15 @@ export async function assignStudents(
       throw new ServiceError(ErrorCode.Conflict, IMMOVABLE_HINTS.eventAnswered);
     }
 
-    return (batch) => batch.update(references[index], { event: assigned });
+    // What this event does not offer among what the student already answered — a one-step
+    // answer chosen before this event kept lists of its own, or one narrower than the series'
+    // (US-33, US-36). Left in place it would name something nothing offers, so the assignment
+    // clears it rather than carrying it into an event it was never checked against.
+    const invalidated =
+      assigned !== null ? answersNotOfferedByEvent(eventSeries, assigned, record) : [];
+    const clears = Object.fromEntries(invalidated.map((field) => [field, null]));
+
+    return (batch) => batch.update(references[index], { event: assigned, ...clears });
   });
 
   await commitInChunks(operations);

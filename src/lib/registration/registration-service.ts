@@ -10,13 +10,12 @@ import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
-import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import {
   MASTER_DATA_CATEGORIES,
   type AnswerField,
   type EventSeriesListField,
 } from "@/lib/master-data/categories";
-import { questionsFor, resolveEventLists } from "@/lib/master-data/resolution";
+import { isAnswerOffered, questionsFor, resolveEventLists } from "@/lib/master-data/resolution";
 import {
   registrationInputSchema,
   registrationSchema,
@@ -104,17 +103,7 @@ function assertAnswersAreOffered(
     // over from before the student was unassigned, not one this save is making (US-36).
     if (!asked.has(category.usage.field)) continue;
 
-    const list = lists[category.field];
-    const offered = list.map((entry) => (typeof entry === "string" ? entry : entry.name));
-
-    // The free-text choice is never a row a teacher keeps, but it is offered alongside a
-    // non-empty list (US-9, US-21), so it is a legitimate answer wherever the question is asked.
-    const permitted =
-      category.usage.field === "foodOption" && offered.length > 0
-        ? [...offered, FOOD_OPTION_OTHER]
-        : offered;
-
-    if (!permitted.includes(answer)) {
+    if (!isAnswerOffered(lists, category, answer)) {
       throw new ServiceError(ErrorCode.Conflict, ANSWER_NO_LONGER_OFFERED_HINT);
     }
   }

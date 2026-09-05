@@ -300,6 +300,29 @@ describe("assignStudents — completeness", () => {
 
     expect(eventOf(ANNA)).toBe("Woche 2");
   });
+
+  /**
+   * A one-step answer is chosen against the series' own list (US-33); the event later keeping a
+   * narrower list of its own is what makes the series two-step, and nothing rechecked the answer
+   * against it until this assignment.
+   */
+  it("clears an answer no longer valid for the event a student is assigned into", async () => {
+    seedTwoStepSeries();
+    seedRecord(ANNA, { program: "Ski" });
+
+    await assign([ANNA], "Woche 2");
+
+    expect(firestore.get(REGISTRATIONS, ANNA)).toMatchObject({ event: "Woche 2", program: null });
+  });
+
+  it("keeps an answer that is still one the assigned event offers", async () => {
+    seedTwoStepSeries();
+    seedRecord(ANNA, { program: "Langlauf" });
+
+    await assign([ANNA], "Woche 2");
+
+    expect(firestore.get(REGISTRATIONS, ANNA)).toMatchObject({ program: "Langlauf" });
+  });
 });
 
 /**
