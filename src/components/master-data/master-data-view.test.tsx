@@ -109,7 +109,6 @@ describe("MasterDataView — reading the list", () => {
 
     const trail = screen.getByRole("navigation", { name: "Pfad" });
 
-    expect(within(trail).getByRole("link", { name: "Stammdaten" })).toBeInTheDocument();
     expect(within(trail).getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
     expect(within(trail).getByText("Wintersportwoche")).toHaveAttribute("aria-current", "page");
   });

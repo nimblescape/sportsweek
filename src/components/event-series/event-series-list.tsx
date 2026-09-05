@@ -5,9 +5,9 @@
  */
 "use client";
 
-import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -117,16 +117,18 @@ export function EventSeriesList({
                 tabIndex={busy ? -1 : undefined}
                 onClick={busy ? (clicked) => clicked.preventDefault() : undefined}
                 className={cn(
-                  "hover:text-primary focus-visible:ring-ring/50 flex-1 rounded-md text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3",
+                  buttonVariants({ variant: "ghost" }),
+                  "max-w-full min-w-0 justify-start",
                   busy && "pointer-events-none opacity-50",
                 )}
               >
-                {eventSeries.name}
+                <span className="truncate">{eventSeries.name}</span>
+                <ChevronRight aria-hidden data-icon="inline-end" />
               </Link>
 
               <span
                 className={cn(
-                  "shrink-0 rounded-full border px-2 py-0.5 text-xs",
+                  "ml-auto shrink-0 rounded-full border px-2 py-0.5 text-xs",
                   state === "open"
                     ? "bg-accent text-accent-foreground border-transparent"
                     : "text-muted-foreground",

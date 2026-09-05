@@ -12,7 +12,6 @@ import {
   eventSeriesRecordPath,
   eventSeriesTrail,
   masterDataPath,
-  MASTER_DATA_TITLE,
   programTrail,
   ROOT_TABS,
   rootTrail,
@@ -107,14 +106,13 @@ describe("the tabs of a record", () => {
 });
 
 describe("the breadcrumb trails", () => {
-  /** No screen is left without a path, so the root names itself rather than showing nothing. */
-  it("gives the root the one word it is called", () => {
-    expect(rootTrail()).toEqual([{ label: MASTER_DATA_TITLE, href: "/app/event-series" }]);
+  /** The navigation already says the teacher is in Stammdaten, so the trail does not repeat it. */
+  it("starts at the event series collection rather than at the root", () => {
+    expect(rootTrail()).toEqual([{ label: "Eventreihen", href: "/app/event-series" }]);
   });
 
   it("names the whole path down to a series' record", () => {
     expect(eventSeriesTrail("s1", "Wintersportwoche")).toEqual([
-      { label: MASTER_DATA_TITLE, href: "/app/event-series" },
       { label: "Eventreihen", href: "/app/event-series" },
       { label: "Wintersportwoche", href: "/app/event-series/s1/classes" },
     ]);
@@ -122,7 +120,6 @@ describe("the breadcrumb trails", () => {
 
   it("names the whole path down to a program", () => {
     expect(programTrail("s1", "Wintersportwoche", "Ski")).toEqual([
-      { label: MASTER_DATA_TITLE, href: "/app/event-series" },
       { label: "Eventreihen", href: "/app/event-series" },
       { label: "Wintersportwoche", href: "/app/event-series/s1/classes" },
       { label: "Programme", href: "/app/event-series/s1/programs" },
@@ -132,7 +129,6 @@ describe("the breadcrumb trails", () => {
 
   /** The title repeats the last step, so the trail is the full address of the page. */
   it("ends at the record the page is about", () => {
-    expect(rootTrail().at(-1)?.label).toBe(MASTER_DATA_TITLE);
     expect(eventSeriesTrail("s1", "Wintersportwoche").at(-1)?.label).toBe("Wintersportwoche");
     expect(programTrail("s1", "Wintersportwoche", "Ski").at(-1)?.label).toBe("Ski");
   });

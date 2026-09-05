@@ -230,26 +230,26 @@ the root, and at the equipment leaf — is the same screen as one with seven, wi
 
 ```
 L1  /app/event-series
-    Stammdaten
+    Eventreihen
     Stammdaten
     [Eventreihen ＋]
-    ⠿ Wintersportwoche 2026/27                     ✎  ὕ1
+    ⠿ Wintersportwoche 2026/27 ›                    ✎  ὕ1
 
 L2  /app/event-series/{series}/{category}
-    Stammdaten › Eventreihen › Wintersportwoche 2026/27
+    Eventreihen › Wintersportwoche 2026/27
     Wintersportwoche 2026/27
     Klassen  [Events ＋]  Programme  Leistungsstufen  Zugangskarten
     Zustiegsstellen  Verpflegung
-    ⠿ Woche 1                                      ✎  ὕ1
+    ⠿ Woche 1 ›                                    ✎  ὕ1
 
 L3  /app/event-series/{series}/events/{category}?event={event}
-    Stammdaten › Eventreihen › Wintersportwoche 2026/27 › Events › Woche 2
+    Eventreihen › Wintersportwoche 2026/27 › Events › Woche 2
     Woche 2
     [Programme ＋]  Leistungsstufen  Zugangskarten  Zustiegsstellen  Verpflegung
     ⠿ Ski                          Ausrüstung ›    ✎  Ὕ1
 
 L4  /app/event-series/{series}/events/programs?event={event}&equipment={program}
-    Stammdaten › … › Woche 2 › Programme › Ski
+    Eventreihen › … › Woche 2 › Programme › Ski
     Ski
     [Benötigte Ausrüstung ＋]
     ⠿ Helm                                         ✎  Ὕ1
@@ -328,9 +328,9 @@ rename — at which point it is an id that merely looks readable.
   Klasse" on the next; pressing it opens the dialog that names a new entry, the same one renaming
   uses. This is the tag row that already carries per-tag controls on the marked tag, applied to a
   second row.
-- **A row with a record page of its own is opened by its name**, which is the link — there is no
-  separate control for it. A row whose entry leads somewhere more particular says where instead,
-  as a program's does for its equipment.
+- **A row with a record page of its own is opened by its name**, which carries the chevron and
+  reads as the control it is — there is no separate control beside it. A row whose entry leads
+  somewhere more particular says where instead, as a program's does for its equipment.
 - **The breadcrumb names the whole path**, ending at the record the page is about — so its last
   step and the title beneath it say the same word, at every level including the root.
 - **The title is the record.**
@@ -344,7 +344,12 @@ always there, always the full address of the page, and never has to explain itse
 
 The last step is where the teacher already is, so it is the one that is not a link: it is plain
 text, marked `aria-current="page"`, exactly as a breadcrumb is expected to be. Every step before
-it is a link, and the root's trail is the single word the root is called.
+it is a link.
+
+The trail begins at "Eventreihen" rather than at "Stammdaten": the navigation already says which
+of its five entries the teacher is in, and a first step that never changes carries nothing. At the
+root that leaves one step, which is the collection listed beneath — the only screen whose trail
+does not end at a record, because the root has no record page under it.
 
 **The tag order is the master data menu order, and reordering it is not local.** That order is the
 single source of answer order: the report fields, the filter categories and the registration form's

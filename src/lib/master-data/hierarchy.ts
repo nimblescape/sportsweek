@@ -82,18 +82,17 @@ export function equipmentTabs(eventSeriesId: string, program: string): RecordTab
   ];
 }
 
-const ROOT_CRUMB: Crumb = { label: MASTER_DATA_TITLE, href: ROUTES.eventSeries };
+const EVENT_SERIES_CRUMB: Crumb = { label: EVENT_SERIES_TAB.label, href: EVENT_SERIES_TAB.href };
 
-/** The root's own trail: the one word it is called, so no screen is left without a path. */
+/** The root's own trail: the one collection it lists, which the title above it does not name. */
 export function rootTrail(): Crumb[] {
-  return [ROOT_CRUMB];
+  return [EVENT_SERIES_CRUMB];
 }
 
 /** The path down to one event series' record. */
 export function eventSeriesTrail(eventSeriesId: string, eventSeriesName: string): Crumb[] {
   return [
-    ROOT_CRUMB,
-    { label: EVENT_SERIES_TAB.label, href: EVENT_SERIES_TAB.href },
+    EVENT_SERIES_CRUMB,
     { label: eventSeriesName, href: eventSeriesRecordPath(eventSeriesId) },
   ];
 }

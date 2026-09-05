@@ -65,12 +65,28 @@ export function Dialog({
 
   if (!open) return null;
 
+  /**
+   * Closing a modal hands focus back to whatever opened it. After Escape the browser counts that
+   * as a keyboard focus, so the control is left ringed with its tooltip showing, while closing by
+   * a button leaves focus nowhere — letting go of it is what makes the two ways out look alike.
+   */
+  function releaseFocus() {
+    requestAnimationFrame(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+  }
+
+  function close() {
+    releaseFocus();
+    onClose();
+  }
+
   return (
     <dialog
       ref={setElement}
       aria-labelledby={titleId}
-      onClose={onClose}
-      onCancel={onClose}
+      onClose={close}
+      onCancel={close}
       className={cn(
         "bg-card text-card-foreground ring-foreground/10 shadow-card relative m-auto w-[calc(100vw-(--spacing(8)))] max-w-md rounded-xl p-0 ring-1 backdrop:bg-black/40",
         className,
@@ -88,7 +104,7 @@ export function Dialog({
         </h2>
         <button
           type="button"
-          onClick={onClose}
+          onClick={close}
           aria-label="Schließen"
           className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -m-1 rounded-lg p-1 transition-colors outline-none focus-visible:ring-3"
         >

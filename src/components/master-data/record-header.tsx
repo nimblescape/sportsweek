@@ -54,16 +54,25 @@ export function RecordHeader({
         aria-label={RECORD_TABS_LABEL}
         className="flex flex-wrap items-center gap-2"
       >
-        {tabs.map((tab) => (
-          <Tag key={tab.key} pressed={tab.key === marked} disabled={disabled}>
-            <TagName label={tab.label} onPress={() => router.push(tab.href)} />
-            {tab.key === marked ? (
-              <TagAction label={tab.addLabel} onClick={onAdd}>
-                <Plus aria-hidden />
-              </TagAction>
-            ) : null}
-          </Tag>
-        ))}
+        {tabs.map((tab) => {
+          const isMarked = tab.key === marked;
+
+          return (
+            <Tag key={tab.key} pressed={isMarked} disabled={disabled}>
+              {/* Pressing the marked tag adds to the list it is already showing; there is
+                  nowhere else for it to go. */}
+              <TagName
+                label={tab.label}
+                onPress={() => (isMarked ? onAdd() : router.push(tab.href))}
+              />
+              {isMarked ? (
+                <TagAction label={tab.addLabel} onClick={onAdd}>
+                  <Plus aria-hidden />
+                </TagAction>
+              ) : null}
+            </Tag>
+          );
+        })}
       </div>
     </div>
   );

@@ -176,13 +176,12 @@ describe("ProgramEquipmentView", () => {
     );
   });
 
-  /** The path is the record's whole address, so it names the series and the root above it too. */
+  /** The path is the record's whole address, so it names the series and the collection above it. */
   it("names every step down to the program", () => {
     render(<ProgramEquipmentView program="Ski" />);
 
     const trail = screen.getByRole("navigation", { name: "Pfad" });
 
-    expect(within(trail).getByRole("link", { name: "Stammdaten" })).toBeInTheDocument();
     expect(within(trail).getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
     expect(within(trail).getByRole("link", { name: "Wintersportwoche" })).toHaveAttribute(
       "href",

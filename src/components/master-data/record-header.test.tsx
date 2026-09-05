@@ -70,6 +70,17 @@ describe("RecordHeader", () => {
     expect(push).toHaveBeenCalledWith("/app/event-series/s1/events");
   });
 
+  /** The marked tag is already open, so pressing it does what its control does. */
+  it("adds to the marked collection when its own tag is pressed", async () => {
+    const onAdd = vi.fn();
+    setup({ onAdd });
+
+    await userEvent.click(screen.getByRole("button", { name: "Klassen" }));
+
+    expect(onAdd).toHaveBeenCalledOnce();
+    expect(push).not.toHaveBeenCalled();
+  });
+
   /** The control's accessible name is the collection's own wording, not one shared word. */
   it("carries the add control on the marked tag alone, worded as that collection", () => {
     setup();
