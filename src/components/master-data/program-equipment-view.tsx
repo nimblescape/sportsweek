@@ -47,7 +47,6 @@ export function ProgramEquipmentView({
   return (
     <CrudList
       trail={programTrail(eventSeriesId, eventSeries?.name ?? "", named)}
-      title={named}
       tabs={equipmentTabs(eventSeriesId, named)}
       marked="required-equipment"
       labels={EQUIPMENT_LABELS}

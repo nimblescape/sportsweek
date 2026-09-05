@@ -104,7 +104,7 @@ describe("EventSeriesView — creating and editing", () => {
     stubFetch(okJson);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Neue Eventreihe" }));
+    await userEvent.click(screen.getByRole("button", { name: "Eventreihen: Neue Eventreihe" }));
 
     expect(screen.getByRole("dialog")).toHaveAccessibleName("Neue Eventreihe");
     expect(screen.getByLabelText("Name")).toHaveValue("");

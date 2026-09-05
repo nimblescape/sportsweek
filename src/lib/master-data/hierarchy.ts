@@ -29,9 +29,6 @@ export type RecordTab = {
   addLabel: string;
 };
 
-/** The root of the hierarchy: a record with one child collection and no ancestors. */
-export const MASTER_DATA_TITLE = "Stammdaten";
-
 const EVENT_SERIES_TAB: RecordTab = {
   key: "event-series",
   label: "Eventreihen",

@@ -44,10 +44,8 @@ type OpenDialog =
   { kind: "none" } | { kind: "form"; item: CrudItem | null } | { kind: "delete"; item: CrudItem };
 
 type CrudListProps = {
-  /** The path down to the record on screen, ending at it (US-33). */
+  /** The path down to the record on screen, ending at it — its last step is the heading (US-33). */
   trail: readonly Crumb[];
-  /** The record the screen is about — a series, or the program whose equipment this is. */
-  title: string;
   /** The record's child collections; the marked one's entries are the list beneath. */
   tabs: readonly RecordTab[];
   marked: string;
@@ -87,7 +85,6 @@ type CrudListProps = {
  */
 export function CrudList({
   trail,
-  title,
   tabs,
   marked,
   labels,
@@ -124,7 +121,6 @@ export function CrudList({
         <div className="flex flex-col gap-4">
           <RecordHeader
             trail={trail}
-            title={title}
             tabs={tabs}
             marked={marked}
             disabled={pending}

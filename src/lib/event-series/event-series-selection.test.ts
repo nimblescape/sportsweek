@@ -5,36 +5,10 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  isMasterDataPath,
   rescopedPath,
   liveSelection,
   selectedEventSeriesIdFrom,
 } from "@/lib/event-series/event-series-selection";
-
-/**
- * The master data hierarchy is the whole of what lives under `/app/event-series`, and it is what
- * the header does not scope: those pages name in the URL, the title and the breadcrumb which
- * series they are editing, and it may be an archived one the header offers none of (US-33).
- */
-describe("isMasterDataPath", () => {
-  it.each([
-    "/app/event-series",
-    "/app/event-series/s1",
-    "/app/event-series/s1/classes",
-    "/app/event-series/s1/programs",
-  ])("counts %s as maintaining master data", (pathname) => {
-    expect(isMasterDataPath(pathname)).toBe(true);
-  });
-
-  it.each([
-    "/app/s1/registrations",
-    "/app/s1/assignment",
-    "/app/s1/report",
-    "/app/my-registration",
-  ])("counts %s as looking at students", (pathname) => {
-    expect(isMasterDataPath(pathname)).toBe(false);
-  });
-});
 
 describe("selectedEventSeriesIdFrom", () => {
   it.each([
@@ -54,6 +28,7 @@ describe("selectedEventSeriesIdFrom", () => {
     "/app/event-series",
     "/app/event-series/s1",
     "/app/event-series/s1/classes",
+    "/app/users",
     "/app/my-registration",
   ])("reads no selection out of %s", (pathname) => {
     expect(selectedEventSeriesIdFrom(pathname)).toBeNull();

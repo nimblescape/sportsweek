@@ -55,7 +55,6 @@ export function MasterDataView({
   return (
     <CrudList
       trail={eventSeriesTrail(eventSeriesId, name)}
-      title={name}
       tabs={categoryTabs(eventSeriesId)}
       marked={key}
       labels={category.labels}

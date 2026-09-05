@@ -9,6 +9,7 @@ export const ROUTES = {
   signIn: "/sign-in",
   appRoot: "/app",
   eventSeries: "/app/event-series",
+  users: "/app/users",
   myRegistration: "/app/my-registration",
 } as const;
 

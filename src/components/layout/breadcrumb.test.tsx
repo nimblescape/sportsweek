@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Breadcrumb, BREADCRUMB_LABEL } from "./breadcrumb";
 
@@ -17,15 +17,9 @@ describe("Breadcrumb", () => {
   it("names every step of the path, in order", () => {
     render(<Breadcrumb trail={TRAIL} />);
 
-    const steps = within(screen.getByRole("navigation", { name: BREADCRUMB_LABEL })).getAllByRole(
-      "listitem",
-    );
+    const trail = screen.getByRole("navigation", { name: BREADCRUMB_LABEL });
 
-    expect(steps.map((step) => step.textContent)).toEqual([
-      "Stammdaten",
-      "Eventreihen",
-      "Wintersportwoche",
-    ]);
+    expect(trail).toHaveTextContent("StammdatenEventreihenWintersportwoche");
   });
 
   it("makes every step but the last a way back", () => {
@@ -42,18 +36,27 @@ describe("Breadcrumb", () => {
     expect(screen.queryByRole("link", { name: "Wintersportwoche" })).not.toBeInTheDocument();
   });
 
-  /** The last step is where the teacher already is, and the title beneath repeats it. */
-  it("marks the last step as the page itself", () => {
+  /** The last step is where the teacher already is, and it is the page's heading. */
+  it("heads the page with its last step", () => {
     render(<Breadcrumb trail={TRAIL} />);
 
-    expect(screen.getByText("Wintersportwoche")).toHaveAttribute("aria-current", "page");
+    const heading = screen.getByRole("heading", { level: 1 });
+
+    expect(heading).toHaveTextContent("Wintersportwoche");
+    expect(heading).toHaveAttribute("aria-current", "page");
   });
 
-  /** The root is one step deep, and still draws a path rather than an empty row. */
+  /** A page with no ancestors is a trail of one step, which is still its heading. */
   it("draws a path of one step", () => {
-    render(<Breadcrumb trail={[{ label: "Stammdaten", href: "/app/event-series" }]} />);
+    render(<Breadcrumb trail={[{ label: "Benutzerrechte", href: "/app/users" }]} />);
 
-    expect(screen.getByText("Stammdaten")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Benutzerrechte");
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("keeps whatever controls belong beside the heading", () => {
+    render(<Breadcrumb trail={TRAIL} actions={<button type="button">Exportieren</button>} />);
+
+    expect(screen.getByRole("button", { name: "Exportieren" })).toBeInTheDocument();
   });
 });

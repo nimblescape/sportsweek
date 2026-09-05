@@ -51,7 +51,7 @@ function navItems(eventSeriesId: string | null, reachable: readonly PageKey[]): 
           { key: "report" as const, href: scoped.report, label: "Berichte", Icon: FileText },
         ]),
     { key: "masterData", href: ROUTES.eventSeries, label: "Stammdaten", Icon: Database },
-    { key: "users", href: `${ROUTES.appRoot}/users`, label: "Benutzerrechte", Icon: Users },
+    { key: "users", href: ROUTES.users, label: "Benutzerrechte", Icon: Users },
   ];
 
   return all.filter((item) => reachable.includes(item.key));

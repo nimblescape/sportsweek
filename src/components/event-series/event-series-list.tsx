@@ -106,7 +106,7 @@ export function EventSeriesList({
           const busy = busyEventSeriesId === eventSeries.id;
 
           return (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 pr-4 pl-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 pr-4 pl-2">
               {/* The name is the way in: what the series is made of hangs beneath it, archived
                   or not, and that record page is where its lists are maintained (US-33). */}
               <Link
@@ -126,89 +126,91 @@ export function EventSeriesList({
                 <ChevronRight aria-hidden data-icon="inline-end" />
               </Link>
 
-              <span
-                className={cn(
-                  "ml-auto shrink-0 rounded-full border px-2 py-0.5 text-xs",
-                  state === "open"
-                    ? "bg-accent text-accent-foreground border-transparent"
-                    : "text-muted-foreground",
-                )}
-              >
-                {EVENT_SERIES_STATE_LABELS[state]}
-              </span>
-
-              <div className="flex shrink-0 items-center gap-1">
-                {/* An archived eventSeries is finished with: it can be unarchived or removed, but
-                    not rewritten, and neither its name nor its place is up for change (US-19). */}
-                {eventSeries.isArchived ? null : (
-                  <Tooltip label="Bearbeiten">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={busy}
-                      aria-label={`Eventreihe ${eventSeries.name} bearbeiten`}
-                      onClick={() => onEdit(eventSeries)}
-                    >
-                      <Pencil aria-hidden />
-                    </Button>
-                  </Tooltip>
-                )}
-                <Tooltip
-                  label={
-                    archiveHint ?? (eventSeries.isArchived ? "Wiederherstellen" : "Archivieren")
-                  }
+              <div className="flex shrink-0 items-center gap-4">
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full border px-2 py-0.5 text-xs",
+                    state === "open"
+                      ? "bg-accent text-accent-foreground border-transparent"
+                      : "text-muted-foreground",
+                  )}
                 >
-                  <span className="inline-flex">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={archivingDisabled || busy}
-                      aria-label={
-                        eventSeries.isArchived
-                          ? `Eventreihe ${eventSeries.name} wiederherstellen`
-                          : `Eventreihe ${eventSeries.name} archivieren`
-                      }
-                      aria-describedby={archivingDisabled ? archiveHintId : undefined}
-                      onClick={() => onArchivedChange(eventSeries, !eventSeries.isArchived)}
-                    >
-                      {eventSeries.isArchived ? (
-                        <ArchiveRestore aria-hidden />
-                      ) : (
-                        <Archive aria-hidden />
-                      )}
-                    </Button>
-                  </span>
-                </Tooltip>
+                  {EVENT_SERIES_STATE_LABELS[state]}
+                </span>
 
-                {archiveHint === null ? null : (
-                  <span id={archiveHintId} className="sr-only">
-                    {archiveHint}
-                  </span>
-                )}
+                <div className="flex shrink-0 items-center gap-1">
+                  {/* An archived eventSeries is finished with: it can be unarchived or removed, but
+                    not rewritten, and neither its name nor its place is up for change (US-19). */}
+                  {eventSeries.isArchived ? null : (
+                    <Tooltip label="Bearbeiten">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={busy}
+                        aria-label={`Eventreihe ${eventSeries.name} bearbeiten`}
+                        onClick={() => onEdit(eventSeries)}
+                      >
+                        <Pencil aria-hidden />
+                      </Button>
+                    </Tooltip>
+                  )}
+                  <Tooltip
+                    label={
+                      archiveHint ?? (eventSeries.isArchived ? "Wiederherstellen" : "Archivieren")
+                    }
+                  >
+                    <span className="inline-flex">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={archivingDisabled || busy}
+                        aria-label={
+                          eventSeries.isArchived
+                            ? `Eventreihe ${eventSeries.name} wiederherstellen`
+                            : `Eventreihe ${eventSeries.name} archivieren`
+                        }
+                        aria-describedby={archivingDisabled ? archiveHintId : undefined}
+                        onClick={() => onArchivedChange(eventSeries, !eventSeries.isArchived)}
+                      >
+                        {eventSeries.isArchived ? (
+                          <ArchiveRestore aria-hidden />
+                        ) : (
+                          <Archive aria-hidden />
+                        )}
+                      </Button>
+                    </span>
+                  </Tooltip>
 
-                {/* Wrapped in a span because a disabled button emits no pointer events, and the
+                  {archiveHint === null ? null : (
+                    <span id={archiveHintId} className="sr-only">
+                      {archiveHint}
+                    </span>
+                  )}
+
+                  {/* Wrapped in a span because a disabled button emits no pointer events, and the
                     reason it is disabled is exactly what needs explaining here (US-19). */}
-                <Tooltip label={deleteHint ?? "Löschen"}>
-                  <span className="inline-flex">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={deletingDisabled || busy}
-                      aria-label={`Eventreihe ${eventSeries.name} löschen`}
-                      aria-describedby={deletingDisabled ? deleteHintId : undefined}
-                      onClick={() => onDelete(eventSeries)}
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 aria-hidden />
-                    </Button>
-                  </span>
-                </Tooltip>
+                  <Tooltip label={deleteHint ?? "Löschen"}>
+                    <span className="inline-flex">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={deletingDisabled || busy}
+                        aria-label={`Eventreihe ${eventSeries.name} löschen`}
+                        aria-describedby={deletingDisabled ? deleteHintId : undefined}
+                        onClick={() => onDelete(eventSeries)}
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 aria-hidden />
+                      </Button>
+                    </span>
+                  </Tooltip>
 
-                {deleteHint === null ? null : (
-                  <span id={deleteHintId} className="sr-only">
-                    {deleteHint}
-                  </span>
-                )}
+                  {deleteHint === null ? null : (
+                    <span id={deleteHintId} className="sr-only">
+                      {deleteHint}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           );

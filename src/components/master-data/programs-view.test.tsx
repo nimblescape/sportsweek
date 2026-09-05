@@ -87,7 +87,7 @@ describe("ProgramsView", () => {
   it("lists the programs", () => {
     render(<ProgramsView />);
 
-    expect(screen.getByRole("button", { name: "Programme" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Programme: Neues Programm" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -160,7 +160,7 @@ describe("ProgramEquipmentView", () => {
   it("lists the entries the program carries, and names the program", () => {
     render(<ProgramEquipmentView program="Ski" />);
 
-    expect(screen.getByRole("heading", { name: "Ski" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ski");
     expect(screen.getByText("Helm")).toBeInTheDocument();
     expect(screen.getByText("Stöcke")).toBeInTheDocument();
   });
@@ -187,7 +187,7 @@ describe("ProgramEquipmentView", () => {
       "href",
       "/app/event-series/s1/classes",
     );
-    expect(within(trail).getByText("Ski")).toHaveAttribute("aria-current", "page");
+    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Ski");
   });
 
   /**

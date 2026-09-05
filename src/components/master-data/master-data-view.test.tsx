@@ -79,20 +79,23 @@ function renderView(props: Record<string, unknown> = {}) {
 }
 
 describe("MasterDataView — reading the list", () => {
-  /** The title is the record the screen is about; the category is the tag that is marked. */
+  /** The heading is the record the path ends at; the category is the tag that is marked. */
   it("names the event series, and marks the category being maintained", () => {
     renderView();
 
-    expect(screen.getByRole("heading", { name: "Wintersportwoche" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Klassen" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
+    expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   /** Every category of the series is one press away, in the menu's order. */
   it("offers a tag for every category of the series", () => {
     renderView();
 
+    expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toBeInTheDocument();
     for (const label of [
-      "Klassen",
       "Events",
       "Programme",
       "Leistungsstufen",
@@ -110,7 +113,7 @@ describe("MasterDataView — reading the list", () => {
     const trail = screen.getByRole("navigation", { name: "Pfad" });
 
     expect(within(trail).getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
-    expect(within(trail).getByText("Wintersportwoche")).toHaveAttribute("aria-current", "page");
+    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
   });
 
   it("lists every item", () => {
@@ -148,10 +151,9 @@ describe("MasterDataView — reading the list", () => {
     render(<MasterDataView category="skill-levels" eventSeriesId="s1" />);
 
     expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1");
-    expect(screen.getByRole("button", { name: "Leistungsstufen" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 });
 
@@ -160,7 +162,7 @@ describe("MasterDataView — adding", () => {
     const fetchMock = stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Neue Klasse" }));
+    await userEvent.click(screen.getByRole("button", { name: "Klassen: Neue Klasse" }));
     await userEvent.type(screen.getByLabelText("Name"), "5CHIT");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
@@ -171,19 +173,19 @@ describe("MasterDataView — adding", () => {
     expect(JSON.parse(String(init.body))).toEqual({ name: "5CHIT" });
   });
 
-  /** Only the marked tag offers to add, so a press cannot land on a list that is not shown. */
+  /** Only the marked tag adds, so a press cannot land on a list that is not shown. */
   it("offers to add under the marked category alone", () => {
     renderView();
 
-    expect(screen.getByRole("button", { name: "Neue Klasse" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Neues Event" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Neues Event/ })).not.toBeInTheDocument();
   });
 
   it("refuses a blank name without calling the server", async () => {
     const fetchMock = stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Neue Klasse" }));
+    await userEvent.click(screen.getByRole("button", { name: "Klassen: Neue Klasse" }));
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
     expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
@@ -194,7 +196,7 @@ describe("MasterDataView — adding", () => {
     stubFetch(() => conflict("Den Namen „3AHIT\u201c gibt es bereits."));
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Neue Klasse" }));
+    await userEvent.click(screen.getByRole("button", { name: "Klassen: Neue Klasse" }));
     await userEvent.type(screen.getByLabelText("Name"), "3AHIT");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 

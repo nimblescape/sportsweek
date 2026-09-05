@@ -318,38 +318,39 @@ rename — at which point it is an id that merely looks readable.
 
 - **The side navigation never changes.** Five entries: "Registrierungen", "Zuteilungen" and
   "Berichte", which the header scopes; then "Stammdaten" and "Benutzerrechte", which nothing
-  scopes. "Stammdaten" is the marked entry at every depth beneath it, and the rights page is
-  reached and rendered exactly as it is today.
-- **The header's event series rows are not rendered under `/app/event-series`.** What is being
-  edited is named by the title and the breadcrumb — which can also name an archived series, where
-  the header would offer none.
-- **One tag row per screen, and only the marked tag carries its add control.** The control's
-  accessible name is that category's own wording, so it reads "Neues Event" on one tag and "Neue
-  Klasse" on the next; pressing it opens the dialog that names a new entry, the same one renaming
-  uses. This is the tag row that already carries per-tag controls on the marked tag, applied to a
-  second row.
+  scopes. "Stammdaten" is the marked entry at every depth beneath it.
+- **The header's event series rows are rendered only where the URL names a series.** The master
+  data pages say which series they are editing in the address and the breadcrumb — and it may be
+  an archived one, which the header offers none of; the rights page is about no series at all.
+- **One tag row per screen, and the marked tag is the control.** The whole of it adds to the list
+  it is already showing, since there is nowhere else for a marked tag to go — by the pointer, by
+  Enter, and by the `＋` it carries, which is part of the tag rather than a control inside it. Its
+  tooltip and its accessible name are the collection's own wording, so it reads "Neues Event" on
+  one tag and "Neue Klasse" on the next, and pressing it opens the dialog that names a new entry
+  — the same one renaming uses. Every other tag opens the collection it names.
+- **Enter adds, wherever the teacher is on the screen**, short of a control or a dialog that
+  answers Enter itself. Adding is what these screens are for.
 - **A row with a record page of its own is opened by its name**, which carries the chevron and
   reads as the control it is — there is no separate control beside it. A row whose entry leads
   somewhere more particular says where instead, as a program's does for its equipment.
-- **The breadcrumb names the whole path**, ending at the record the page is about — so its last
-  step and the title beneath it say the same word, at every level including the root.
-- **The title is the record.**
+- **The breadcrumb names the whole path, and its last step is the heading.** There is no separate
+  title: the record is named once, at the end of its own address.
 
-### The breadcrumb ends where the page does
+### The breadcrumb is the heading
 
-A trail that stopped one step short would be a different trail on every screen: at the root it
-would be empty, and a teacher reading down the hierarchy would watch the title jump up a row and
-back down again. Naming the record at the end costs one repeated word and buys a row that is
-always there, always the full address of the page, and never has to explain itself.
-
-The last step is where the teacher already is, so it is the one that is not a link: it is plain
-text, marked `aria-current="page"`, exactly as a breadcrumb is expected to be. Every step before
-it is a link.
+A trail and a title beneath it would say the same word twice, so the last step of the trail is
+the `h1`. The steps before it are links in a lighter weight, the last is plain text marked
+`aria-current="page"`, and the row is floored at the height of a button so a page with controls
+beside the heading and a page without them put it in the same place.
 
 The trail begins at "Eventreihen" rather than at "Stammdaten": the navigation already says which
 of its five entries the teacher is in, and a first step that never changes carries nothing. At the
 root that leaves one step, which is the collection listed beneath — the only screen whose trail
 does not end at a record, because the root has no record page under it.
+
+**"Benutzerrechte" is the same shape with nothing above it.** It is not part of the master data
+hierarchy, but it is a page with a name, so it heads itself the same way: a trail of one step,
+which is its heading. One way of titling a page rather than two.
 
 **The tag order is the master data menu order, and reordering it is not local.** That order is the
 single source of answer order: the report fields, the filter categories and the registration form's
@@ -745,12 +746,15 @@ way out, and it says what it is doing.
 
 - Stammdaten opens on the list of Eventreihen. Opening one shows what that series is made of.
 - The lists of one series are reached from that series' record, never from a header selection;
-  the header's series rows are not shown anywhere in Stammdaten.
-- A breadcrumb names the whole path down to what is open, ending at the record itself; every step
-  but the last is a link, and the title beneath repeats that last step.
+  the header's series rows are shown only where the URL names a series, so neither Stammdaten nor
+  the rights page carries them.
+- A breadcrumb names the whole path down to what is open, ending at the record itself, and its
+  last step is the page's heading; every step before it is a link. "Benutzerrechte" heads itself
+  the same way, as a trail of one step.
 - A record's categories are offered as one row of tags, in the master data menu order — Klassen,
-  Events, Programme, Leistungsstufen, Zugangskarten, Zustiegsstellen, Verpflegung. Only the marked
-  tag offers to add an entry.
+  Events, Programme, Leistungsstufen, Zugangskarten, Zustiegsstellen, Verpflegung. The marked tag
+  is the control that adds: the whole of it, by pointer or by Enter, and Enter adds from anywhere
+  on the screen.
 - The side navigation holds five fixed entries and names no category, so it can never claim a
   scope the page is not in. "Benutzerrechte" sits beside "Stammdaten" rather than under it.
 

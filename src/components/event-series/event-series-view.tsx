@@ -18,7 +18,7 @@ import type { EventSeries } from "@/lib/schemas/event-series";
 import { visibleEventSeries } from "@/lib/event-series/event-series-state";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import { useShowArchived } from "@/lib/event-series/show-archived";
-import { MASTER_DATA_TITLE, ROOT_TABS, rootTrail } from "@/lib/master-data/hierarchy";
+import { ROOT_TABS, rootTrail } from "@/lib/master-data/hierarchy";
 import { Tag, TagName } from "@/components/ui/tag";
 
 type OpenDialog =
@@ -63,7 +63,6 @@ export function EventSeriesView() {
         <div className="flex flex-col gap-4">
           <RecordHeader
             trail={rootTrail()}
-            title={MASTER_DATA_TITLE}
             tabs={ROOT_TABS}
             marked={ROOT_TABS[0].key}
             disabled={pending}

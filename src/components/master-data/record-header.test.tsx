@@ -13,7 +13,6 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 const { RecordHeader, RECORD_TABS_LABEL } = await import("./record-header");
 
 const TRAIL = [
-  { label: "Stammdaten", href: "/app/event-series" },
   { label: "Eventreihen", href: "/app/event-series" },
   { label: "Wintersportwoche", href: "/app/event-series/s1/classes" },
 ];
@@ -30,22 +29,18 @@ const TABS = [
 
 const setup = (overrides: Partial<Parameters<typeof RecordHeader>[0]> = {}) =>
   render(
-    <RecordHeader
-      trail={TRAIL}
-      title="Wintersportwoche"
-      tabs={TABS}
-      marked="classes"
-      onAdd={vi.fn()}
-      {...overrides}
-    />,
+    <RecordHeader trail={TRAIL} tabs={TABS} marked="classes" onAdd={vi.fn()} {...overrides} />,
   );
+
+/** The marked tag is the control, so it says both what it is and what pressing it does. */
+const markedTag = () => screen.getByRole("button", { name: "Klassen: Neue Klasse" });
 
 describe("RecordHeader", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("names the record it is about, and the path down to it", () => {
+  it("heads the page with the record its path ends at", () => {
     setup();
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
@@ -55,10 +50,8 @@ describe("RecordHeader", () => {
   it("offers one tag per child collection of the record", () => {
     setup();
 
-    const row = screen.getByRole("group", { name: RECORD_TABS_LABEL });
-
-    expect(row).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Klassen" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("group", { name: RECORD_TABS_LABEL })).toBeInTheDocument();
+    expect(markedTag()).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Events" })).toHaveAttribute("aria-pressed", "false");
   });
 
@@ -70,39 +63,78 @@ describe("RecordHeader", () => {
     expect(push).toHaveBeenCalledWith("/app/event-series/s1/events");
   });
 
-  /** The marked tag is already open, so pressing it does what its control does. */
-  it("adds to the marked collection when its own tag is pressed", async () => {
+  /** The marked tag is already open, so the whole of it adds rather than navigating nowhere. */
+  it("adds to the marked collection when its tag is pressed", async () => {
     const onAdd = vi.fn();
     setup({ onAdd });
 
-    await userEvent.click(screen.getByRole("button", { name: "Klassen" }));
+    await userEvent.click(markedTag());
 
     expect(onAdd).toHaveBeenCalledOnce();
     expect(push).not.toHaveBeenCalled();
   });
 
-  /** The control's accessible name is the collection's own wording, not one shared word. */
-  it("carries the add control on the marked tag alone, worded as that collection", () => {
-    setup();
-
-    expect(screen.getByRole("button", { name: "Neue Klasse" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Neues Event" })).not.toBeInTheDocument();
-  });
-
-  it("moves the add control with the mark", () => {
-    setup({ marked: "events" });
-
-    expect(screen.getByRole("button", { name: "Neues Event" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Neue Klasse" })).not.toBeInTheDocument();
-  });
-
-  it("asks the screen to add, rather than deciding how a name is taken", async () => {
+  it("adds on Enter, the tag being the control rather than holding one", async () => {
     const onAdd = vi.fn();
     setup({ onAdd });
 
-    await userEvent.click(screen.getByRole("button", { name: "Neue Klasse" }));
+    markedTag().focus();
+    await userEvent.keyboard("{Enter}");
 
     expect(onAdd).toHaveBeenCalledOnce();
+  });
+
+  /** Adding is what the screen is for, so Enter does it wherever the teacher happens to be. */
+  it("adds on Enter from anywhere on the screen", async () => {
+    const onAdd = vi.fn();
+    setup({ onAdd });
+
+    document.body.focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(onAdd).toHaveBeenCalledOnce();
+  });
+
+  it("leaves Enter alone on a control that answers it itself", async () => {
+    const onAdd = vi.fn();
+    setup({ onAdd });
+
+    screen.getByRole("button", { name: "Events" }).focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/app/event-series/s1/events");
+  });
+
+  it("leaves Enter alone while a write of the screen's is out", async () => {
+    const onAdd = vi.fn();
+    setup({ onAdd, disabled: true });
+
+    document.body.focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  /** The wording is the collection's own, and only the marked tag says it. */
+  it("says what adding means on the marked tag alone", () => {
+    setup();
+
+    expect(markedTag()).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Neues Event/ })).not.toBeInTheDocument();
+  });
+
+  it("moves the mark, and with it what a press does", async () => {
+    const onAdd = vi.fn();
+    setup({ marked: "events", onAdd });
+
+    await userEvent.click(screen.getByRole("button", { name: "Events: Neues Event" }));
+
+    expect(onAdd).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Klassen" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
   /** A row of one tag is the same row with fewer tags — the root, and the equipment leaf. */
@@ -117,20 +149,18 @@ describe("RecordHeader", () => {
         },
       ],
       marked: "event-series",
-      title: "Stammdaten",
     });
 
-    expect(screen.getByRole("button", { name: "Eventreihen" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Eventreihen: Neue Eventreihe" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    expect(screen.getByRole("button", { name: "Neue Eventreihe" })).toBeInTheDocument();
   });
 
   it("holds every tag while a write of the screen's is out", () => {
     setup({ disabled: true });
 
     expect(screen.getByRole("button", { name: "Events" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Neue Klasse" })).toBeDisabled();
+    expect(markedTag()).toBeDisabled();
   });
 });

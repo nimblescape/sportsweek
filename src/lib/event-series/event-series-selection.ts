@@ -19,9 +19,11 @@ export const EVENT_SERIES_COOKIE_NAME = "sportsweek_event_series";
  * segment over a dynamic one, so these resolve to their own pages — but the id has to be read
  * from the same position, and a Firestore id is never one of these words.
  */
-const UNSCOPED_SEGMENTS: readonly string[] = [ROUTES.eventSeries, ROUTES.myRegistration].map(
-  (route) => route.slice(`${ROUTES.appRoot}/`.length),
-);
+const UNSCOPED_SEGMENTS: readonly string[] = [
+  ROUTES.eventSeries,
+  ROUTES.users,
+  ROUTES.myRegistration,
+].map((route) => route.slice(`${ROUTES.appRoot}/`.length));
 
 export function selectedEventSeriesIdFrom(pathname: string): string | null {
   const [, app, candidate] = pathname.split("/");
@@ -29,15 +31,6 @@ export function selectedEventSeriesIdFrom(pathname: string): string | null {
   if (UNSCOPED_SEGMENTS.includes(candidate)) return null;
 
   return decodeURIComponent(candidate);
-}
-
-/**
- * Whether the page belongs to the master data hierarchy, which the header does not scope (US-33).
- * What is being edited is named by the URL, the title and the breadcrumb — and may be an archived
- * series, which the header offers none of.
- */
-export function isMasterDataPath(pathname: string): boolean {
-  return pathname === ROUTES.eventSeries || pathname.startsWith(`${ROUTES.eventSeries}/`);
 }
 
 /** What choosing a series needs to know about one, and no more. */
