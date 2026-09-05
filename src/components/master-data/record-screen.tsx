@@ -57,11 +57,13 @@ export function RecordScreen({
 }: RecordScreenProps) {
   const router = useRouter();
   const openTab = tabs.find((tab) => tab.key === marked);
-  // A row of one tag offers no choice, so naming it in the path would add nothing the row does
-  // not already say — the path ends at the record instead. Unless the record has no ancestors,
-  // where that one collection is the whole path there is.
-  const namesCollection = openTab !== undefined && (tabs.length > 1 || trail.length === 0);
-  const path = namesCollection ? [...trail, { label: openTab.label, href: openTab.href }] : trail;
+  // A collection is a step of the path when its entries are records — something the teacher can
+  // go on down through. A list of bare names is where the path stops, so it is named on its tag
+  // and nowhere else: opening a program would otherwise add two steps to one press.
+  const path =
+    openTab?.opensRecords === true
+      ? [...trail, { label: openTab.label, href: openTab.href }]
+      : trail;
 
   // Adding to the marked collection is what the screen is for, so Enter does it wherever the
   // teacher happens to be — short of a control or a dialog that already answers Enter itself.

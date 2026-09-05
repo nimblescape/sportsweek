@@ -79,11 +79,11 @@ function renderView(props: Record<string, unknown> = {}) {
 }
 
 describe("MasterDataView — reading the list", () => {
-  /** The heading is the collection on show; the record it belongs to is a step back. */
-  it("names the category on show, and marks its tag", () => {
+  /** Classes are bare names, so the path stops at the record and the heading is its name. */
+  it("names the event series, and marks the category on show", () => {
     renderView();
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Klassen");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
     expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -107,14 +107,23 @@ describe("MasterDataView — reading the list", () => {
     }
   });
 
-  it("names the whole path down to the category on show", () => {
+  it("names the whole path down to the record", () => {
     renderView();
 
     const trail = screen.getByRole("navigation", { name: "Pfad" });
 
     expect(within(trail).getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
+    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
+  });
+
+  /** The programs are a step down rather than a leaf, so the path names them (US-33). */
+  it("names the category on show where its entries open records", () => {
+    render(<MasterDataView category="programs" eventSeriesId="s1" />);
+
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+
     expect(within(trail).getByRole("link", { name: "Wintersportwoche" })).toBeInTheDocument();
-    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Klassen");
+    expect(within(trail).getByRole("heading", { level: 1 })).toHaveTextContent("Programme");
   });
 
   it("lists every item", () => {

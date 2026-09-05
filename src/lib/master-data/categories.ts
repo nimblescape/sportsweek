@@ -26,6 +26,11 @@ export type MasterDataCategory = {
   field: EventSeriesListField;
   usage: MasterDataUsage;
   /**
+   * Whether an entry has a record page of its own — a program and its required equipment so far.
+   * Such a list is a step of the hierarchy rather than a leaf of it (US-33).
+   */
+  opensRecords: boolean;
+  /**
    * Set only for a category whose items carry a list of their own. Its entries are matched
    * against the students' rental selections, not against the field above (US-5).
    */
@@ -60,6 +65,7 @@ export const MASTER_DATA_CATEGORIES = {
   classes: {
     field: "classOptions",
     usage: { kind: "masterData", field: "class" },
+    opensRecords: false,
     labels: {
       title: "Klassen",
       singular: "Klasse",
@@ -73,6 +79,7 @@ export const MASTER_DATA_CATEGORIES = {
     // The one list nobody is asked for: a teacher assigns the event (US-12), so this field is
     // matched only by the in-use guard, which refuses to remove an event somebody is assigned to.
     usage: { kind: "masterData", field: "event" },
+    opensRecords: false,
     labels: {
       title: "Events",
       singular: "Event",
@@ -84,6 +91,7 @@ export const MASTER_DATA_CATEGORIES = {
   programs: {
     field: "programs",
     usage: { kind: "masterData", field: "program" },
+    opensRecords: true,
     equipmentField: "requiredEquipment",
     labels: {
       title: "Programme",
@@ -96,6 +104,7 @@ export const MASTER_DATA_CATEGORIES = {
   "skill-levels": {
     field: "skillLevels",
     usage: { kind: "masterData", field: "skillLevel" },
+    opensRecords: false,
     labels: {
       title: "Leistungsstufen",
       singular: "Leistungsstufe",
@@ -107,6 +116,7 @@ export const MASTER_DATA_CATEGORIES = {
   "season-pass-options": {
     field: "seasonPassOptions",
     usage: { kind: "masterData", field: "seasonPassOption" },
+    opensRecords: false,
     labels: {
       title: "Zugangskarten",
       singular: "Zugangskarte",
@@ -118,6 +128,7 @@ export const MASTER_DATA_CATEGORIES = {
   "bus-pickup-points": {
     field: "busPickupPoints",
     usage: { kind: "masterData", field: "busPickupPoint" },
+    opensRecords: false,
     labels: {
       title: "Zustiegsstellen",
       singular: "Zustiegsstelle",
@@ -129,6 +140,7 @@ export const MASTER_DATA_CATEGORIES = {
   "food-options": {
     field: "foodOptions",
     usage: { kind: "masterData", field: "foodOption" },
+    opensRecords: false,
     labels: {
       title: "Verpflegung",
       singular: "Verpflegungsoption",

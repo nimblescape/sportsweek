@@ -27,6 +27,8 @@ export type RecordTab = {
   href: string;
   /** The wording of the add control the marked tag carries, which is the collection's own. */
   addLabel: string;
+  /** Whether its entries have record pages of their own, which is what makes it a step down. */
+  opensRecords: boolean;
 };
 
 const EVENT_SERIES_TAB: RecordTab = {
@@ -34,6 +36,7 @@ const EVENT_SERIES_TAB: RecordTab = {
   label: "Eventreihen",
   href: ROUTES.eventSeries,
   addLabel: "Neue Eventreihe",
+  opensRecords: true,
 };
 
 export const ROOT_TABS: readonly RecordTab[] = [EVENT_SERIES_TAB];
@@ -64,6 +67,7 @@ export function categoryTabs(eventSeriesId: string): RecordTab[] {
     label: category.labels.title,
     href: masterDataPath(eventSeriesId, key as MasterDataCategoryKey),
     addLabel: category.labels.add,
+    opensRecords: category.opensRecords,
   }));
 }
 
@@ -75,6 +79,7 @@ export function equipmentTabs(eventSeriesId: string, program: string): RecordTab
       label: EQUIPMENT_LABELS.title,
       href: equipmentPath(eventSeriesId, program),
       addLabel: EQUIPMENT_LABELS.add,
+      opensRecords: false,
     },
   ];
 }

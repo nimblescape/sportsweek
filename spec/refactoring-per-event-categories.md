@@ -242,7 +242,7 @@ L1  /app/event-series
     ⠿ Wintersportwoche 2026/27 ›                    ✎  ὕ1
 
 L2  /app/event-series/{series}/{category}
-    Eventreihen › Wintersportwoche 2026/27 › Events
+    Eventreihen › Wintersportwoche 2026/27
     Klassen  [Events ＋]  Programme  Leistungsstufen  Zugangskarten
     Zustiegsstellen  Verpflegung
     ⠿ Woche 1 ›                                    ✎  ὕ1
@@ -347,17 +347,21 @@ the `h1`. The steps before it are links in a lighter weight, the last is plain t
 `aria-current="page"`, and the row is floored at the height of a button so a page with controls
 beside the heading and a page without them put it in the same place.
 
-**The trail ends at the collection on show, not at the record above it** — so it says what the
-list beneath is, and it follows the tag that is pressed rather than standing still while the page
-changes under it. The record is the step before, which is what makes it something to go back to.
-The screen appends that last step itself, from the marked tag, so the path and the tag row cannot
-come to disagree.
+**A collection is a step of the path when its entries are records** — something a teacher can go
+on down through: Eventreihen, Programme, and Events once an event carries lists of its own. A list
+of bare names is where the path stops, so it is named on its tag and nowhere else.
 
-**A row of one tag is the exception, because it offers no choice.** Naming it in the path would
-repeat what the row beneath already says and nothing would ever change it, so the path ends at
-the record instead — "… › Programme › Ski", with "Benötigte Ausrüstung" said once, on its tag.
-Where the record has no ancestors at all that one collection is the whole path there is, which is
-why the root reads "Eventreihen".
+That one rule settles what several others could not:
+
+| It gives                                                            | Which is what stopped the alternative                                                       |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Opening a program adds one step, "Ski", rather than two             | Naming every marked collection made one press add "Ski" and "Benötigte Ausrüstung" together |
+| Pressing "Programme" in the path leaves "Programme" in the path     | Naming no marked collection dropped the very word the teacher had just used                 |
+| The root reads "Eventreihen"                                        | Its one collection does open records, so it needs no exception of its own                   |
+| The path reads alike on a record with one collection and with seven | A rule counting tags meant reading the tag row before you could read where you were         |
+
+Switching between the categories of a series therefore leaves the path alone, and rightly: they
+are all one record, and the tag row is what says which of its lists is open.
 
 The trail begins at "Eventreihen" rather than at "Stammdaten": the navigation already says which
 of its five entries the teacher is in, and a first step that never changes carries nothing.
@@ -762,10 +766,10 @@ way out, and it says what it is doing.
 - The lists of one series are reached from that series' record, never from a header selection;
   the header's series rows are shown only where the URL names a series, so neither Stammdaten nor
   the rights page carries them.
-- A breadcrumb names the whole path down to what is open, ending at the collection on show, and
-  its last step is the page's heading; every step before it is a link, the record among them. A
-  row of one tag names no collection, since the row already does and nothing can change it.
-  "Benutzerrechte" heads itself the same way, as a trail of one step.
+- A breadcrumb names the whole path down to what is open and its last step is the page's heading;
+  every step before it is a link. A collection is a step of that path where its entries are
+  records, and is named on its tag alone where they are bare names. "Benutzerrechte" heads itself
+  the same way, as a trail of one step.
 - A record's categories are offered as one row of tags, in the master data menu order — Klassen,
   Events, Programme, Leistungsstufen, Zugangskarten, Zustiegsstellen, Verpflegung. The marked tag
   is the control that adds: the whole of it, by pointer or by Enter, and Enter adds from anywhere

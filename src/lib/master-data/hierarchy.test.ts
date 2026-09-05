@@ -82,8 +82,20 @@ describe("the tabs of a record", () => {
         label: category.labels.title,
         href: `/app/event-series/s1/${key}`,
         addLabel: category.labels.add,
+        opensRecords: category.opensRecords,
       });
     }
+  });
+
+  /** A collection whose entries are records is a step of the path; a list of names is a leaf. */
+  it("says which categories open records of their own", () => {
+    const opening = categoryTabs("s1")
+      .filter((tab) => tab.opensRecords)
+      .map((tab) => tab.key);
+
+    expect(opening).toEqual(["programs"]);
+    expect(ROOT_TABS[0].opensRecords).toBe(true);
+    expect(equipmentTabs("s1", "Ski")[0].opensRecords).toBe(false);
   });
 
   /** The control's accessible name is the category's own wording, not one shared word. */

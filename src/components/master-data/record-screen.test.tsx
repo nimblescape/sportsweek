@@ -23,8 +23,22 @@ const TABS = [
     label: "Klassen",
     href: "/app/event-series/s1/classes",
     addLabel: "Neue Klasse",
+    opensRecords: false,
   },
-  { key: "events", label: "Events", href: "/app/event-series/s1/events", addLabel: "Neues Event" },
+  {
+    key: "programs",
+    label: "Programme",
+    href: "/app/event-series/s1/programs",
+    addLabel: "Neues Programm",
+    opensRecords: true,
+  },
+  {
+    key: "events",
+    label: "Events",
+    href: "/app/event-series/s1/events",
+    addLabel: "Neues Event",
+    opensRecords: false,
+  },
 ];
 
 const setup = (overrides: Partial<Parameters<typeof RecordScreen>[0]> = {}) =>
@@ -42,19 +56,25 @@ describe("RecordScreen", () => {
     vi.clearAllMocks();
   });
 
-  it("heads the page with the collection on show, the record being a step back", () => {
+  /** A list of bare names is where the path stops, so the heading is the record it belongs to. */
+  it("heads the page with the record when the collection on show holds bare names", () => {
     setup();
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Klassen");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
     const trail = screen.getByRole("navigation", { name: "Pfad" });
-    expect(within(trail).getByRole("link", { name: "Wintersportwoche" })).toBeInTheDocument();
+    expect(within(trail).queryByText("Klassen")).not.toBeInTheDocument();
   });
 
-  /** Switching tags stays on the record but changes what is shown, so the path follows. */
-  it("moves its last step with the marked tag", () => {
-    setup({ marked: "events" });
+  /** A collection whose entries are records is a step the teacher can go on down through. */
+  it("names the collection on show when its entries open records of their own", () => {
+    setup({ marked: "programs" });
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Events");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Programme");
+    expect(
+      within(screen.getByRole("navigation", { name: "Pfad" })).getByRole("link", {
+        name: "Wintersportwoche",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("offers one tag per child collection of the record", () => {
@@ -147,16 +167,20 @@ describe("RecordScreen", () => {
     );
   });
 
-  /** A row of one tag offers no choice, so the path ends at the record it belongs to. */
+  /** Equipment is a leaf, so opening a program adds one step to the path rather than two. */
   it("draws a row of one tag", () => {
     setup({
-      trail: [{ label: "Programme", href: "/app/event-series/s1/programs" }],
+      trail: [
+        { label: "Programme", href: "/app/event-series/s1/programs" },
+        { label: "Ski", href: "/app/event-series/s1/programs?equipment=Ski" },
+      ],
       tabs: [
         {
           key: "required-equipment",
           label: "Benötigte Ausrüstung",
           href: "/app/event-series/s1/programs?equipment=Ski",
           addLabel: "Neuer Ausrüstungsgegenstand",
+          opensRecords: false,
         },
       ],
       marked: "required-equipment",
@@ -165,10 +189,10 @@ describe("RecordScreen", () => {
     expect(
       screen.getByRole("button", { name: "Benötigte Ausrüstung: Neuer Ausrüstungsgegenstand" }),
     ).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Programme");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ski");
   });
 
-  /** Where nothing sits above it, that one collection is the whole path there is. */
+  /** The root has no record above it, and its one collection does open records. */
   it("names the one collection where the record has no ancestors", () => {
     setup({
       trail: [],
@@ -178,6 +202,7 @@ describe("RecordScreen", () => {
           label: "Eventreihen",
           href: "/app/event-series",
           addLabel: "Neue Eventreihe",
+          opensRecords: true,
         },
       ],
       marked: "event-series",
