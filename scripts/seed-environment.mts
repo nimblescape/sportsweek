@@ -7,8 +7,8 @@
  * Resets a project to its defaults: everything is deleted, and what this script writes is then
  * all it holds.
  *
- * | production              | one event series with the lists that are the same every year |
- * | development, staging    | that series, filled in, plus a roster and its registrations  |
+ * | production              | one event series with the lists that are the same every year        |
+ * | development, staging    | that series and a second one, both filled in with a roster and registrations |
  *
  * Seeding on top of what a project already holds says nothing about whether the application put
  * it there, so the point of a seeded environment — that its contents are known — needs the delete
@@ -122,9 +122,12 @@ const CATEGORY_DEFAULTS = {
 /**
  * What a purged environment gets so there is somewhere to put students. The application seeds
  * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
- * Kulturwoche — so a fresh project holds only what is written here.
+ * Kulturwoche — so a fresh project holds only what is written here. Only the winter series is
+ * bare-seeded (US-33): it is the one a school cannot be without, and a summer one is invented
+ * only where students are invented too.
  */
-const DEFAULT_EVENT_SERIES_NAME = "Wintersportwochen 2026/2027";
+const WINTER_EVENT_SERIES_NAME = "Wintersportwochen 26/27";
+const SUMMER_EVENT_SERIES_NAME = "Sommersportwochen 26/27";
 
 /**
  * What production gets: the five lists that are the same every year, and nothing for the two that
@@ -152,7 +155,7 @@ const CATEGORY_DEFAULTS_INHERITED = {
 >;
 
 /** The seven maintained lists as a test environment wants them, filled in far enough to use. */
-const MASTER_DATA_DEFAULTS = {
+const WINTER_MASTER_DATA = {
   events: [
     { name: "Woche 1", ...CATEGORY_DEFAULTS_INHERITED },
     { name: "Woche 2", ...CATEGORY_DEFAULTS_INHERITED },
@@ -160,6 +163,47 @@ const MASTER_DATA_DEFAULTS = {
   ],
   classOptions: ["2aWI", "2bWI", "2cWI"],
   ...CATEGORY_DEFAULTS,
+} satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
+
+/**
+ * The second series a test environment gets, so a two-step registration (US-36) has a real
+ * example: Kärnten names its own programs, the other two events inherit the series'.
+ */
+const SUMMER_MASTER_DATA = {
+  events: [
+    { name: "Salzburg 1", ...CATEGORY_DEFAULTS_INHERITED },
+    { name: "Salzburg 2", ...CATEGORY_DEFAULTS_INHERITED },
+    {
+      name: "Kärnten",
+      ...CATEGORY_DEFAULTS_INHERITED,
+      programs: [
+        { name: "Windsurfen", requiredEquipment: [] },
+        { name: "Segeln", requiredEquipment: [] },
+        {
+          name: "Mountainbiken",
+          requiredEquipment: [
+            { name: "Bike", isRentable: true },
+            { name: "Helm", isRentable: true },
+            { name: "Protektoren", isRentable: true },
+            { name: "Handschuhe", isRentable: true },
+          ],
+        },
+      ],
+    },
+  ],
+  classOptions: ["3aCI", "3aMD", "3aWI", "3aWL", "3aWM", "3aWP", "3bWI", "3cWI"],
+  programs: [
+    { name: "Kajak", requiredEquipment: [] },
+    { name: "Klettern", requiredEquipment: [] },
+    { name: "Tennis", requiredEquipment: [] },
+  ],
+  // Follows the programs (US-33), and these are graded no differently from the winter ones.
+  skillLevels: CATEGORY_DEFAULTS.skillLevels,
+  // No resort lift pass applies to any of these, so the question is never put at all.
+  seasonPassOptions: [],
+  // Shared by every event rather than named per event — Kärnten does not override it either.
+  busPickupPoints: ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch"],
+  foodOptions: CATEGORY_DEFAULTS.foodOptions,
 } satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
 
 /** The shape of the sports week as it is wanted in a test environment. */
@@ -193,9 +237,13 @@ const AGE_RANGE = { min: 15, max: 16 };
  * Matched against the programs a teacher maintains (US-5), so a renamed one stops the run rather
  * than quietly changing the split. Whatever is left over goes to the programs not named here.
  */
-const PROGRAM_SHARES = [
+const WINTER_PROGRAM_SHARES = [
   ["Ski", 0.6],
   ["Snowboard", 0.3],
+] as const;
+const SUMMER_PROGRAM_SHARES = [
+  ["Kajak", 0.4],
+  ["Klettern", 0.3],
 ] as const;
 
 /** How many attendees on a program that requires equipment rent it rather than bring their own. */
@@ -505,17 +553,19 @@ async function purgeAuth(auth: Auth): Promise<number> {
  */
 async function createEventSeries(
   db: Firestore,
-  lists: typeof BARE_LISTS | typeof MASTER_DATA_DEFAULTS,
+  name: string,
+  position: number,
+  lists: typeof BARE_LISTS | typeof WINTER_MASTER_DATA | typeof SUMMER_MASTER_DATA,
   isOpenToStudents: boolean,
 ): Promise<EventSeries> {
   // The lists live in this document (US-21), so seeding them is part of creating it.
   const data = {
-    name: DEFAULT_EVENT_SERIES_NAME,
-    nameKey: normalizeName(DEFAULT_EVENT_SERIES_NAME),
+    name,
+    nameKey: normalizeName(name),
     isArchived: false,
     isOpenToStudents,
     hasRegistrations: false,
-    position: 0,
+    position,
     ...lists,
   };
   const reference = db.collection(COLLECTIONS.eventSeries).doc();
@@ -578,70 +628,34 @@ async function inviteAdministrators(db: Firestore): Promise<void> {
   );
 }
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const environment = ENVIRONMENTS.find((allowed) => args.includes(allowed));
-  const unknown = args.filter((arg) => arg !== environment && arg !== BARE);
-  if (environment === undefined || unknown.length > 0) {
-    fail(
-      `Usage: npm run seed:<environment> [-- ${BARE}],`,
-      `where <environment> is ${ENVIRONMENTS.join(", ")}.`,
-      `${BARE} leaves a test environment as bare as production.`,
-    );
-  }
-
-  const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
-  const isTest = TEST_ENVIRONMENTS.includes(environment);
-  // Production is bare whatever is asked, so the flag changes nothing there and is not refused.
-  const seedsStudents = isTest && !args.includes(BARE);
-
-  if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
-
-  // Its own app rather than @/lib/firebase/admin: that one addresses whichever project the
-  // ambient environment names, and this must address the one just named and nothing else.
-  const app = initializeApp({ projectId });
-  const db = getFirestore(app);
-  const auth = getAuth(app);
-
-  const collections = await purgeFirestore(db);
-  const accounts = await purgeAuth(auth);
-
-  console.log(`Purged ${projectId}:`);
-  for (const [name, count] of collections) console.log(`  ${name}: ${count} document(s)`);
-  if (collections.length === 0) console.log("  no collections");
-  console.log(`  ${accounts} account(s)`);
-
-  // The lists are fields of the event series (US-21), so there is nothing to read until it
-  // exists — and creating it is what seeds them, since the application no longer does.
-  const eventSeries = await createEventSeries(
-    db,
-    seedsStudents ? MASTER_DATA_DEFAULTS : BARE_LISTS,
-    seedsStudents,
-  );
-  console.log(`Created the event series "${eventSeries.name}".`);
-
-  await inviteAdministrators(db);
-  console.log(`Invited ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
-
-  // Production is done here, and so is a test environment asked for the same bare state.
-  if (!seedsStudents) return;
-
+/**
+ * Registers a class list of students into one event series, split across its programs by the
+ * shares asked for. `taken` is shared across every series seeded in the same run, so the same
+ * generated name is never handed to two different students under two different series.
+ */
+async function seedRegistrations(
+  db: Firestore,
+  auth: Auth,
+  eventSeries: EventSeries,
+  programShares: typeof WINTER_PROGRAM_SHARES | typeof SUMMER_PROGRAM_SHARES,
+  taken: Set<string>,
+): Promise<void> {
   const programs = eventSeries.programs;
-  const named = PROGRAM_SHARES.map(([name]) => programs.find((program) => program.name === name));
-  const others = programs.filter((program) => !PROGRAM_SHARES.some(([n]) => n === program.name));
+  const named = programShares.map(([name]) => programs.find((program) => program.name === name));
+  const others = programs.filter((program) => !programShares.some(([n]) => n === program.name));
 
   if (named.some((program) => program === undefined) || others.length === 0) {
     fail(
-      `The programs of "${eventSeries.name}" in ${projectId} do not match the split this script seeds.`,
-      `  wanted: ${PROGRAM_SHARES.map(([name, share]) => `${name} ${share * 100}%`).join(", ")}, plus at least one more for the rest`,
+      `The programs of "${eventSeries.name}" do not match the split this script seeds.`,
+      `  wanted: ${programShares.map(([name, share]) => `${name} ${share * 100}%`).join(", ")}, plus at least one more for the rest`,
       `  found:  ${programs.map((program) => program.name).join(", ") || "none"}`,
     );
   }
 
   const ordered = [...(named as Program[]), ...others];
-  const restShare = 1 - PROGRAM_SHARES.reduce((sum, [, share]) => sum + share, 0);
-  const programShares = [
-    ...PROGRAM_SHARES.map(([, share]) => share),
+  const restShare = 1 - programShares.reduce((sum, [, share]) => sum + share, 0);
+  const shares = [
+    ...programShares.map(([, share]) => share),
     ...others.slice(0, -1).map(() => restShare / others.length),
   ];
 
@@ -654,12 +668,12 @@ async function main(): Promise<void> {
 
   const classNames = eventSeries.classOptions;
   if (classNames.length === 0) {
-    fail(`"${eventSeries.name}" in ${projectId} has no classes to register students into.`);
+    fail(`"${eventSeries.name}" has no classes to register students into.`);
   }
 
-  const taken = new Set<string>();
   const writes: ((batch: WriteBatch) => void)[] = [];
   const summary: string[] = [];
+  let seeded = 0;
 
   for (const className of classNames) {
     const size = intBetween(STUDENTS_PER_CLASS.min, STUDENTS_PER_CLASS.max);
@@ -684,7 +698,7 @@ async function main(): Promise<void> {
     const written = { attending: 0, incomplete: 0 };
     // Null is the absentee's "no program", which is why it is dealt alongside the real ones.
     const chosen = shuffle([
-      ...deal<Program | null>(ordered, split(attending, programShares)),
+      ...deal<Program | null>(ordered, split(attending, shares)),
       ...Array<Program | null>(absent).fill(null),
     ]);
 
@@ -722,6 +736,7 @@ async function main(): Promise<void> {
       );
     }
 
+    seeded += size;
     const counted = genderSchema.options
       .map((gender) => `${genders.filter((one) => one === gender).length} ${gender}`)
       .join(" / ");
@@ -744,8 +759,68 @@ async function main(): Promise<void> {
 
   await inBatches(db, writes);
 
-  console.log(`Seeded ${taken.size} students into "${eventSeries.name}":`);
+  console.log(`Seeded ${seeded} students into "${eventSeries.name}":`);
   for (const line of summary) console.log(line);
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const environment = ENVIRONMENTS.find((allowed) => args.includes(allowed));
+  const unknown = args.filter((arg) => arg !== environment && arg !== BARE);
+  if (environment === undefined || unknown.length > 0) {
+    fail(
+      `Usage: npm run seed:<environment> [-- ${BARE}],`,
+      `where <environment> is ${ENVIRONMENTS.join(", ")}.`,
+      `${BARE} leaves a test environment as bare as production.`,
+    );
+  }
+
+  const projectId = apphostingValue(environment, "NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+  const isTest = TEST_ENVIRONMENTS.includes(environment);
+  // Production is bare whatever is asked, so the flag changes nothing there and is not refused.
+  const seedsStudents = isTest && !args.includes(BARE);
+
+  if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
+
+  // Its own app rather than @/lib/firebase/admin: that one addresses whichever project the
+  // ambient environment names, and this must address the one just named and nothing else.
+  const app = initializeApp({ projectId });
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  const collections = await purgeFirestore(db);
+  const accounts = await purgeAuth(auth);
+
+  console.log(`Purged ${projectId}:`);
+  for (const [name, count] of collections) console.log(`  ${name}: ${count} document(s)`);
+  if (collections.length === 0) console.log("  no collections");
+  console.log(`  ${accounts} account(s)`);
+
+  // The lists are fields of the event series (US-21), so there is nothing to read until it
+  // exists — and creating it is what seeds them, since the application no longer does. Only the
+  // winter series is bare-seeded: production gets the one a school cannot be without, and the
+  // second is invented only where students are invented too.
+  const winter = await createEventSeries(
+    db,
+    WINTER_EVENT_SERIES_NAME,
+    0,
+    seedsStudents ? WINTER_MASTER_DATA : BARE_LISTS,
+    seedsStudents,
+  );
+  console.log(`Created the event series "${winter.name}".`);
+
+  await inviteAdministrators(db);
+  console.log(`Invited ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
+
+  // Production is done here, and so is a test environment asked for the same bare state.
+  if (!seedsStudents) return;
+
+  const summer = await createEventSeries(db, SUMMER_EVENT_SERIES_NAME, 1, SUMMER_MASTER_DATA, true);
+  console.log(`Created the event series "${summer.name}".`);
+
+  const taken = new Set<string>();
+  await seedRegistrations(db, auth, winter, WINTER_PROGRAM_SHARES, taken);
+  await seedRegistrations(db, auth, summer, SUMMER_PROGRAM_SHARES, taken);
 }
 
 await main();
