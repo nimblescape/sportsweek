@@ -107,6 +107,32 @@ series.
 }
 ```
 
+### An event is a place as well as a week
+
+Which five categories an event may override is not an arbitrary selection, and the reason is worth
+stating because it decides what belongs in the list and what does not. In this application an
+event names **where** the school goes as much as **when** it goes there — "Woche 2" is a week in
+Lech, not merely the second week.
+
+Everything that follows from the place is therefore the event's to say:
+
+| Category                      | Why it moves with the event                                                      |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| "Zugangskarten"               | A lift pass is sold by the resort; another resort sells another pass             |
+| "Zustiegsstellen"             | The coach picks up on the way to _this_ destination                              |
+| "Programme"                   | A place offers what its terrain and its school offer                             |
+| "Leistungsstufen"             | Follows the programs — different programs are graded differently                 |
+| "Verpflegung"                 | Weakest of the five: catering is often identical everywhere, but need not be     |
+| "Klassen" — **not** per event | A class is the school's own structure and has nothing to do with the destination |
+
+Two of those are worth their own note. "Leistungsstufen" is per event because it follows the
+programs rather than the place directly, so an event that names its own programs will usually want
+its own levels too. "Verpflegung" earns its place by consistency rather than by need — a school
+that caters the same everywhere simply never overrides it, which costs nothing.
+
+And "Klassen" is the one that stays with the series precisely because it describes the school
+rather than the trip. That is why it is not among the five, and why an event never has one.
+
 ### The resolution rule
 
 One function answers what a given event offers, and every caller asks it — the form, the
@@ -566,6 +592,12 @@ The reason given for it generalises word for word. A student's access card, draw
 event's own list, is invalidated by a move exactly as their program is — so on the same argument
 the rule reads "a student who has answered anything drawn from their event's own list cannot be
 reassigned", and the program is one case of it.
+
+Reading an event as a place rather than a week makes that stronger rather than weaker. Moving a
+student from Montafon to Lech invalidates their lift pass and their pickup point as surely as
+their program — arguably more plainly, since a pass bought for one resort is worthless at the
+other, while a program named "Ski" may well exist at both. A refusal that names only the program
+would let exactly the moves through that the place makes wrong.
 
 Against that: the narrower rule is easier to explain to a teacher, and the program is the answer
 most likely to exist. It would leave a student whose only per-event answer was a pickup point
