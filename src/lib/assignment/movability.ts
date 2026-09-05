@@ -35,8 +35,9 @@ type AssignableStudent = Pick<Registration, "event" | "isIncomplete" | AnswerFie
  * immovable is one every drop would refuse, and the handle is taken away rather than offered for
  * a drag that could only fail.
  *
- * Attendance is not among the answers: the board lists nobody who has answered "no" and nobody
- * who has yet to answer at all, so a student it shows is always somebody who is coming.
+ * A student who has answered "no" is not among the answers: the board lists nobody who has
+ * declined, only those still coming or still deciding — and a student still deciding is exactly
+ * the "incomplete" case below.
  */
 export function immovableReason(
   eventSeries: AssignableSeries,

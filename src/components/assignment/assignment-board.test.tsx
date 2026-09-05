@@ -57,12 +57,12 @@ const ELIAS = student("Elias", "Egger", {
 
 const onMove = vi.fn();
 
-/** Everyone can move unless a test says otherwise; which students cannot is movability's own subject. */
-function setup(
-  roster: RosterStudent[] = [BENE, ANNA, CLARA, DORA],
-  immovable: (student: RosterStudent) => ImmovableReason | null = () => null,
+/** What every render of the board under test is built from, so a rerender can vary just one part. */
+function board(
+  roster: readonly RosterStudent[],
+  immovable: (student: RosterStudent) => ImmovableReason | null,
 ) {
-  render(
+  return (
     <AssignmentBoard
       groups={assignmentGroups(roster, EVENTS, COLUMNS)}
       programs={PROGRAMS}
@@ -72,8 +72,16 @@ function setup(
       filterGroups={FILTERS}
       immovable={immovable}
       onMove={onMove}
-    />,
+    />
   );
+}
+
+/** Everyone can move unless a test says otherwise; which students cannot is movability's own subject. */
+function setup(
+  roster: RosterStudent[] = [BENE, ANNA, CLARA, DORA],
+  immovable: (student: RosterStudent) => ImmovableReason | null = () => null,
+) {
+  return render(board(roster, immovable));
 }
 
 const card = (name: string) => within(screen.getByRole("group", { name }));
@@ -333,6 +341,27 @@ describe("AssignmentBoard — a student who cannot be moved", () => {
     expect(
       card("Nicht zugeteilt").getByRole("button", { name: "Berger Bene verschieben" }),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * The rules can take every move away without a drag ever happening here — the series a teacher
+   * had open in another tab is reopened to students — and a tag left looking picked would promise
+   * a move that no drop will now accept.
+   */
+  it("deselects everyone the moment the rules refuse every move", async () => {
+    const { rerender } = setup(roster, () => null);
+
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Berger Bene" }));
+    expect(card("Nicht zugeteilt").getByRole("button", { name: "Berger Bene" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    rerender(board(roster, () => "seriesOpen"));
+
+    expect(
+      card("Nicht zugeteilt").getByRole("button", { name: "Berger Bene" }),
+    ).not.toHaveAttribute("aria-pressed", "true");
   });
 });
 

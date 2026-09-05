@@ -306,12 +306,17 @@ function Row({
           </button>
         ) : (
           // In the handle's place rather than beside it: there is nothing to grab, and the mark
-          // says why (US-13).
+          // says why (US-13). Red is reserved for what the registration itself is missing; a
+          // move refused for another reason is worth noting, not worth alarming over.
           <Tooltip label={IMMOVABLE_HINTS[immovable]}>
             <span
               role="img"
               aria-label={IMMOVABLE_HINTS[immovable]}
-              className={cn(TAG_GRIP, "text-destructive inline-flex")}
+              className={cn(
+                TAG_GRIP,
+                "inline-flex",
+                immovable === "incomplete" && "text-destructive",
+              )}
             >
               <TriangleAlert aria-hidden className="size-3.5" />
             </span>

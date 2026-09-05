@@ -109,6 +109,18 @@ export function AssignmentBoard({
 
   const carried = drag?.ids ?? NOTHING_CARRIED;
 
+  /**
+   * The rules can take every move away without a drag ever happening here — the series a picked
+   * student belongs to reopens to students — and a tag left looking picked would promise a move
+   * that no drop will now accept. Adjusted during render rather than in an effect, so the answer
+   * is never shown stale for a frame.
+   */
+  const stillMovable = picked.filter((id) => {
+    const student = registered.find((one) => one.id === id);
+    return student === undefined || immovable(student) === null;
+  });
+  if (stillMovable.length !== picked.length) setPicked(stillMovable);
+
   const sensors = useSensors(
     // A short distance threshold, so a tap on a row is not mistaken for the start of a drag.
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
