@@ -78,8 +78,10 @@ export function useEventSeriesRoster(
 
   const { students, loading: rosterLoading, error: rosterError } = useRoster(selected?.id ?? null);
   // The events are a field of the series, so they arrive with it rather than on their own (US-21).
+  // Reduced to their names here, once, since every reader downstream — the board, the filter tags,
+  // the report — only ever matches an event by the name a registration holds (US-11).
   // Memoised because the fallback would otherwise be a new array on every render.
-  const events = useMemo(() => selected?.events ?? [], [selected]);
+  const events = useMemo(() => selected?.events.map((event) => event.name) ?? [], [selected]);
   const classes = useMasterData("classes", eventSeriesId);
   const skillLevels = useMasterData("skill-levels", eventSeriesId);
   const busPickupPoints = useMasterData("bus-pickup-points", eventSeriesId);

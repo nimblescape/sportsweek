@@ -123,7 +123,7 @@ const BARE_LISTS = {
 
 /** The seven maintained lists as a test environment wants them, filled in far enough to use. */
 const MASTER_DATA_DEFAULTS = {
-  events: ["Woche 1", "Woche 2", "Woche 3"],
+  events: [{ name: "Woche 1" }, { name: "Woche 2" }, { name: "Woche 3" }],
   classOptions: ["2aWI", "2bWI", "2cWI"],
   ...CATEGORY_DEFAULTS,
 } satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;

@@ -41,7 +41,7 @@ beforeEach(() => {
       name: "2026",
       isOpenToStudents: true,
       hasRegistrations: true,
-      events: ["Woche 1", "Woche 2"],
+      events: [{ name: "Woche 1" }, { name: "Woche 2" }],
     }),
   );
   firestore.seed(
@@ -52,7 +52,7 @@ beforeEach(() => {
       isArchived: true,
       hasRegistrations: true,
       position: 1,
-      events: ["Gardasee"],
+      events: [{ name: "Gardasee" }],
     }),
   );
   seedRecord(ANNA);
@@ -134,7 +134,7 @@ describe("assignStudents", () => {
         isArchived: true,
         hasRegistrations: true,
         position: 1,
-        events: ["woche 1"],
+        events: [{ name: "woche 1" }],
       }),
     );
 

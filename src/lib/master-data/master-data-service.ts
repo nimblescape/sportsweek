@@ -13,6 +13,7 @@ import { COLLECTIONS } from "@/lib/schemas/collections";
 import { NO_SUCH_EVENT_SERIES } from "@/lib/event-series/event-series-state";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import {
+  eventListSchema,
   listItemNameSchema,
   namedListSchema,
   programListSchema,
@@ -77,18 +78,30 @@ function itemsOf(series: EventSeries, category: MasterDataCategory): MasterDataI
 }
 
 /**
+ * The three shapes a list is stored in, matched to the schema that validates it. A program's
+ * equipment goes with it; an event is a record with nothing else on it yet (US-33); every other
+ * list is bare names.
+ */
+function shapedList(category: MasterDataCategory, items: readonly MasterDataItem[]) {
+  if (category.equipmentField !== undefined) {
+    const value: Program[] = items.map((item) => ({
+      name: item.name,
+      requiredEquipment: item.requiredEquipment ?? [],
+    }));
+    return { schema: programListSchema, value };
+  }
+  if (category.entriesAreRecords === true) {
+    return { schema: eventListSchema, value: items.map((item) => ({ name: item.name })) };
+  }
+  return { schema: namedListSchema, value: items.map((item) => item.name) };
+}
+
+/**
  * Back to what the document holds, validated on the way — which is where uniqueness and the
  * length cap are decided, so no caller can write a list the schema would refuse (US-21).
  */
 function storedList(category: MasterDataCategory, items: readonly MasterDataItem[]) {
-  const schema = category.equipmentField === undefined ? namedListSchema : programListSchema;
-  const value =
-    category.equipmentField === undefined
-      ? items.map((item) => item.name)
-      : items.map((item): Program => ({
-          name: item.name,
-          requiredEquipment: item.requiredEquipment ?? [],
-        }));
+  const { schema, value } = shapedList(category, items);
 
   const parsed = schema.safeParse(value);
   if (!parsed.success) {

@@ -5,6 +5,8 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  eventListSchema,
+  eventSchema,
   FOOD_OPTION_OTHER,
   FOOD_OPTION_OTHER_LABEL,
   listItemNameSchema,
@@ -149,6 +151,44 @@ describe("programListSchema", () => {
     const tooMany = namesOfLength(MAX_LIST_ITEMS + 1).map((name) => ({ name }));
 
     expect(programListSchema.safeParse(tooMany).success).toBe(false);
+  });
+});
+
+describe("eventSchema", () => {
+  it("carries a name and nothing else yet", () => {
+    expect(Object.keys(eventSchema.shape)).toEqual(["name"]);
+  });
+
+  it("requires a non-empty name", () => {
+    expect(eventSchema.safeParse({ name: "  " }).success).toBe(false);
+  });
+});
+
+describe("eventListSchema", () => {
+  it("keeps the teacher's order rather than sorting by name", () => {
+    const events = [{ name: "Woche 2" }, { name: "Woche 1" }];
+
+    expect(eventListSchema.parse(events).map((event) => event.name)).toEqual([
+      "Woche 2",
+      "Woche 1",
+    ]);
+  });
+
+  it("accepts an empty list, which is what a series starts with", () => {
+    expect(eventListSchema.parse([])).toEqual([]);
+  });
+
+  /** A registration stores the name it was assigned (US-11), so two events may not share one. */
+  it("rejects two events of the same name, ignoring case and surrounding space", () => {
+    expect(eventListSchema.safeParse([{ name: "Woche 1" }, { name: " woche 1 " }]).success).toBe(
+      false,
+    );
+  });
+
+  it("rejects a list longer than a school could plausibly need", () => {
+    const tooMany = namesOfLength(MAX_LIST_ITEMS + 1).map((name) => ({ name }));
+
+    expect(eventListSchema.safeParse(tooMany).success).toBe(false);
   });
 });
 

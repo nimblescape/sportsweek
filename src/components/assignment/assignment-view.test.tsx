@@ -68,7 +68,7 @@ const eventSeries = {
     name: "2026",
     isOpenToStudents: true,
     hasRegistrations: true,
-    events: ["Montafon", "Gardasee"],
+    events: [{ name: "Montafon" }, { name: "Gardasee" }],
   }),
 };
 

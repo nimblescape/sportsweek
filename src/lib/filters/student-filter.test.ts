@@ -569,7 +569,7 @@ describe("scopeFilterToGroups", () => {
  */
 describe("prunedToLists", () => {
   const series = storedEventSeries({
-    events: ["Woche 1"],
+    events: [{ name: "Woche 1" }],
     classOptions: ["5AHIF"],
     programs: [{ name: "Ski", requiredEquipment: [] }],
     skillLevels: ["Profi"],

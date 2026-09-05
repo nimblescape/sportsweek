@@ -35,9 +35,9 @@ async function reset() {
   await wipe("eventSeries");
 }
 
-async function eventsOf(eventSeriesId: string): Promise<string[]> {
+async function eventsOf(eventSeriesId: string): Promise<Array<{ name: string }>> {
   const snapshot = await adminDb.collection("eventSeries").doc(eventSeriesId).get();
-  return (snapshot.data()?.events ?? []) as string[];
+  return (snapshot.data()?.events ?? []) as Array<{ name: string }>;
 }
 
 beforeEach(reset);
@@ -125,7 +125,8 @@ describe("event name uniqueness against a real Firestore", () => {
     );
     const elapsed = Date.now() - started;
 
-    for (const series of eventSeries) expect(await eventsOf(series.id)).toEqual(["Montafon"]);
+    for (const series of eventSeries)
+      expect(await eventsOf(series.id)).toEqual([{ name: "Montafon" }]);
     // Four separate documents, so nothing is shared to contend over. A sibling query used to
     // lock the index range it scanned and take seconds over exactly this.
     expect(elapsed).toBeLessThan(3000);
@@ -139,7 +140,7 @@ describe("event name uniqueness against a real Firestore", () => {
       createEvent({ eventSeriesId: eventSeries.id, name: "Montafon" }),
     ]);
 
-    expect(await eventsOf(eventSeries.id)).toEqual(["Montafon"]);
+    expect(await eventsOf(eventSeries.id)).toEqual([{ name: "Montafon" }]);
   });
 
   it("treats a case-only difference as the same name under contention", async () => {
@@ -164,8 +165,8 @@ describe("event name uniqueness against a real Firestore", () => {
       createEvent({ eventSeriesId: b!.id, name: "Montafon" }),
     ]);
 
-    expect(await eventsOf(a!.id)).toEqual(["Montafon"]);
-    expect(await eventsOf(b!.id)).toEqual(["Montafon"]);
+    expect(await eventsOf(a!.id)).toEqual([{ name: "Montafon" }]);
+    expect(await eventsOf(b!.id)).toEqual([{ name: "Montafon" }]);
   });
 });
 

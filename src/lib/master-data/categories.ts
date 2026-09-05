@@ -35,6 +35,12 @@ export type MasterDataCategory = {
    * against the students' rental selections, not against the field above (US-5).
    */
   equipmentField?: string;
+  /**
+   * Whether this list stores its entries as name-only records rather than bare strings — true
+   * only for events, which need an identity of their own to carry lists of their own later
+   * (US-33). A program also stores objects, but that is already said by `equipmentField`.
+   */
+  entriesAreRecords?: boolean;
   labels: {
     title: string;
     singular: string;
@@ -80,6 +86,7 @@ export const MASTER_DATA_CATEGORIES = {
     // matched only by the in-use guard, which refuses to remove an event somebody is assigned to.
     usage: { kind: "masterData", field: "event" },
     opensRecords: false,
+    entriesAreRecords: true,
     labels: {
       title: "Events",
       singular: "Event",

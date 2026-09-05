@@ -41,7 +41,7 @@ const complete: RegistrationInput = {
 /** A series whose lists are all filled in, so every question it can ask is asked. */
 const ALL_ASKED = questionsAsked(
   storedEventSeries({
-    events: ["Woche 1"],
+    events: [{ name: "Woche 1" }],
     classOptions: ["3AHME"],
     programs: [{ name: "Ski", requiredEquipment: [] }],
     skillLevels: ["Anfänger"],

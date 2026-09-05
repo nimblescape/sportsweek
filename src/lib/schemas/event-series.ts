@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { documentIdSchema, requiredText } from "./common";
-import { namedListSchema, programListSchema } from "./master-data";
+import { eventListSchema, namedListSchema, programListSchema } from "./master-data";
 import { positionSchema } from "./position";
 
 // What the list shows about a series is derived from these flags, never stored.
@@ -39,11 +39,13 @@ export const eventSeriesSchema = z.object({
    *
    * The events lead, because they are the series itself divided into weeks and are maintained on
    * a page of their own (US-4); the rest follow in the order the master data menu states (US-14).
+   * An event is a record rather than a bare name, so it may come to carry lists of its own that
+   * override the series' (US-33) — a registration still stores its plain name (US-11).
    *
    * Each defaults to empty, which is what a series created before the field existed looks like —
    * and an empty list is a question the student is never asked (US-21).
    */
-  events: namedListSchema.default([]),
+  events: eventListSchema.default([]),
   classOptions: namedListSchema.default([]),
   programs: programListSchema.default([]),
   skillLevels: namedListSchema.default([]),

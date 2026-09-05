@@ -55,7 +55,11 @@ function collectSnapshots(builtQuery: ReturnType<typeof query>) {
     (snapshot) =>
       emissions.push({
         ids: snapshot.docs.map((d) => d.id),
-        events: snapshot.docs.flatMap((d) => (d.data() as { events?: string[] }).events ?? []),
+        events: snapshot.docs.flatMap(
+          (d) =>
+            (d.data() as { events?: Array<{ name: string }> }).events?.map((event) => event.name) ??
+            [],
+        ),
       }),
     (error) => {
       failure = error as Error;
@@ -153,7 +157,7 @@ describe("events list stays live", () => {
       db
         .collection("eventSeries")
         .doc("s1")
-        .update({ events: ["Montafon"] }),
+        .update({ events: [{ name: "Montafon" }] }),
     );
 
     await listener.waitFor((emission) => emission.events.includes("Montafon"));
@@ -165,7 +169,12 @@ describe("events list stays live", () => {
       db
         .collection("eventSeries")
         .doc("s2")
-        .set({ name: "2027/2028", isOpenToStudents: false, isArchived: false, events: ["Lech"] }),
+        .set({
+          name: "2027/2028",
+          isOpenToStudents: false,
+          isArchived: false,
+          events: [{ name: "Lech" }],
+        }),
     );
     const listener = collectSnapshots(
       query(
@@ -183,7 +192,7 @@ describe("events list stays live", () => {
           name: "2026/2027",
           isOpenToStudents: true,
           isArchived: false,
-          events: ["Montafon"],
+          events: [{ name: "Montafon" }],
         }),
     );
 

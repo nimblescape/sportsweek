@@ -198,7 +198,7 @@ describe("a field's value", () => {
  */
 describe("fieldTagsFor", () => {
   const lists = {
-    events: ["Woche 1"],
+    events: [{ name: "Woche 1" }],
     classOptions: ["5AHIF"],
     programs: [{ name: "Ski", requiredEquipment: ["Ski"] }],
     skillLevels: ["Profi"],

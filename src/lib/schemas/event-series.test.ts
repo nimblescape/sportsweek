@@ -14,7 +14,7 @@ const validEventSeries = {
   isOpenToStudents: false,
   hasRegistrations: false,
   position: 0,
-  events: ["Woche 1"],
+  events: [{ name: "Woche 1" }],
   classOptions: ["3AHIT"],
   programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
   skillLevels: ["Keine Vorkenntnisse"],
@@ -95,7 +95,10 @@ describe("eventSeriesSchema", () => {
 
   it("refuses two events of the same name, since a name is what a registration holds", () => {
     expect(
-      eventSeriesSchema.safeParse({ ...validEventSeries, events: ["Woche 1", "woche 1"] }).success,
+      eventSeriesSchema.safeParse({
+        ...validEventSeries,
+        events: [{ name: "Woche 1" }, { name: "woche 1" }],
+      }).success,
     ).toBe(false);
   });
 });

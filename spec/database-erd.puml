@@ -50,7 +50,9 @@ entity "EventSeries" as eventSeries {
   ' identity within its own list, so none carries an id. Uniqueness is decided in the write that
   ' changes the list, because the whole list is present in it — no reservation document is needed,
   ' and two event series may each hold a "Montafon" without either ever looking at the other.
-  events : string[]  ' the weeks of this event series, assigned to in US-12
+  events : { name }[]  ' the weeks of this event series, assigned to in US-12. A record rather
+                       ' than a bare name because an event may come to carry lists of its own
+                       ' (US-33); a registration still stores the plain name, not a reference.
   classOptions : string[]  ' Klasse (US-6)
   programs : { name, requiredEquipment[] }[]  ' the one list whose entries are not bare names,
                                               ' because a program carries the equipment it

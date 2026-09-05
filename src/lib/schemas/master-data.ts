@@ -58,6 +58,21 @@ export const programListSchema = z
     "Jeder Eintrag darf nur einmal vorkommen.",
   );
 
+/**
+ * One event of an event series (US-21, US-33). A record rather than a bare name because it may
+ * come to carry lists of its own that override the series' — the name is all it holds for now.
+ */
+export const eventSchema = z.object({ name: listItemNameSchema });
+export type Event = z.infer<typeof eventSchema>;
+
+export const eventListSchema = z
+  .array(eventSchema)
+  .max(MAX_LIST_ITEMS, `Höchstens ${MAX_LIST_ITEMS} Einträge.`)
+  .refine(
+    (events) => hasUniqueNames(events.map((event) => event.name)),
+    "Jeder Eintrag darf nur einmal vorkommen.",
+  );
+
 /** Always offered to students and not editable by teachers, so it is never a foodOptions row (US-9). */
 export const FOOD_OPTION_OTHER = "other";
 
