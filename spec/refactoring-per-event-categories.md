@@ -506,8 +506,8 @@ event owns a list at all, so it never fires there.
 
 The refusals compose into a dead end, and it is the intended one. Removing an event is already
 refused while a registration names it, and un-assigning is now refused once the student has
-answered against it — so in a two-step series an event with answered students cannot be taken
-away at all.
+answered something that event owns — so an event whose students have answered against it cannot
+be taken away at all.
 
 That is the right answer rather than a gap to be patched. Removing an event mid-series is not a
 correction, it is a change of plan: the students assigned to it answered questions that only that
