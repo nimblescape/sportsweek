@@ -73,8 +73,16 @@ series.
   "classOptions": ["2aWI", "2bWI"],
 
   // The five overridable categories, at series level. These apply to any event that names none
-  // of its own.
-  "programs": [{ "name": "Ski", "requiredEquipment": ["Helm", "Stöcke"] }],
+  // of its own. Each equipment entry says whether the school lends it — see "Required equipment".
+  "programs": [
+    {
+      "name": "Ski",
+      "requiredEquipment": [
+        { "name": "Helm", "isRentable": true },
+        { "name": "Lange, wasserdichte Hose", "isRentable": false },
+      ],
+    },
+  ],
   "skillLevels": ["Keine Vorkenntnisse", "Fortgeschritten"],
   "seasonPassOptions": ["Montafon"],
   "busPickupPoints": ["Dornbirn"],
@@ -97,7 +105,15 @@ series.
       "name": "Woche 2",
       // This event runs elsewhere, so it names its own programs — and with them their equipment,
       // because equipment belongs to the program that requires it and travels with it.
-      "programs": [{ "name": "Ski", "requiredEquipment": ["Helm", "Stöcke", "Lawinenpiepser"] }],
+      "programs": [
+        {
+          "name": "Ski",
+          "requiredEquipment": [
+            { "name": "Helm", "isRentable": true },
+            { "name": "Lawinenpiepser", "isRentable": true },
+          ],
+        },
+      ],
       "skillLevels": [],
       "seasonPassOptions": ["Arlberg"],
       "busPickupPoints": [],
@@ -504,6 +520,11 @@ qualifier, and a teacher switches on whichever they need — or both:
 "Ausrüstung" comes first in the field selector and in the printed lines, because a student packs
 their own things before collecting anything from the school.
 
+**The form does not split the same way.** It keeps one block, headed "Benötigte Ausrüstung", with
+every required item in it and only the borrowable ones tickable. A student is answering one
+question — what do I need, and what can I borrow — while a teacher is reading two, so the split
+earns its place in the report and not in the form.
+
 The two are different in kind, and the difference is deliberate rather than an oversight to be
 tidied away later. "Leihausrüstung" is the student's own answer and differs from student to
 student. "Ausrüstung" is their **program's** data, read through their choice of program — so every
@@ -757,6 +778,18 @@ way out, and it says what it is doing.
 - A student who has answered anything drawn from their event's own list may not be reassigned or
   un-assigned; the attempt is refused, and nothing is cleared on their behalf.
 - A student may amend either step at any time while the series is open to them.
+
+### US-37: Teacher says which required equipment the school lends
+
+- Every entry of a program's required equipment is either borrowable or the student's own to
+  bring, chosen in the dialog that names it as one of two tags.
+- A student is shown everything their program requires, and may tick only what is borrowable.
+- The rental question, and the measurements behind it, are asked only where the chosen program
+  has something borrowable; a program that lends nothing shows a packing list and asks nothing.
+- Making an entry non-borrowable is refused while a student of this series has borrowed it, on
+  the same terms as renaming or removing it.
+- The report offers the two halves as separate fields, "Ausrüstung" for what the student brings
+  and "Leihausrüstung" for what they borrow, either or both.
 
 ## Sequencing
 
