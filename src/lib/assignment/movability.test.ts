@@ -28,6 +28,13 @@ describe("immovableReason", () => {
     expect(immovableReason(series, studentRecord({ isIncomplete: true }))).toBe("incomplete");
   });
 
+  /** Incomplete is what a teacher can still do something about; a lock that lifts on its own is not. */
+  it("says a registration is incomplete even while the series is open to students", () => {
+    const open = storedEventSeries({ ...series, isOpenToStudents: true });
+
+    expect(immovableReason(open, studentRecord({ isIncomplete: true }))).toBe("incomplete");
+  });
+
   /** Unassigning is the move they have left, and it is what keeps nobody stuck in an event. */
   it("still lets an unfinished registration be taken out of its event", () => {
     const assigned = studentRecord({ event: "Woche 1", isIncomplete: true, program: null });

@@ -14,7 +14,7 @@ import {
   type PointerEventHandler,
 } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { GripVertical, TriangleAlert } from "lucide-react";
+import { GripVertical, Lock, TriangleAlert } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Card, CardContent, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -306,8 +306,8 @@ function Row({
           </button>
         ) : (
           // In the handle's place rather than beside it: there is nothing to grab, and the mark
-          // says why (US-13). Red is reserved for what the registration itself is missing; a
-          // move refused for another reason is worth noting, not worth alarming over.
+          // says why (US-13). The triangle is what needs fixing; the lock is what nobody can
+          // change from here, whichever it is, so it does not read as an alarm.
           <Tooltip label={IMMOVABLE_HINTS[immovable]}>
             <span
               role="img"
@@ -318,7 +318,11 @@ function Row({
                 immovable === "incomplete" && "text-destructive",
               )}
             >
-              <TriangleAlert aria-hidden className="size-3.5" />
+              {immovable === "incomplete" ? (
+                <TriangleAlert aria-hidden className="size-3.5" />
+              ) : (
+                <Lock aria-hidden className="size-3.5" />
+              )}
             </span>
           </Tooltip>
         )}

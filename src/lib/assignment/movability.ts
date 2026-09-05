@@ -43,9 +43,13 @@ export function immovableReason(
   eventSeries: AssignableSeries,
   student: AssignableStudent,
 ): ImmovableReason | null {
+  // Checked before the series' own state, so a registration still incomplete is what a teacher
+  // hears about — the more useful thing to chase — rather than a lock that lifts on its own.
+  if (student.event === null && student.isIncomplete) return "incomplete";
+
   if (eventSeries.isOpenToStudents) return "seriesOpen";
 
-  if (student.event === null) return student.isIncomplete ? "incomplete" : null;
+  if (student.event === null) return null;
 
   // Somebody already in an event can always be taken out of it again, so an unfinished
   // registration is no obstacle here: unassigning is the move they have left.
