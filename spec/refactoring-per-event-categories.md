@@ -432,6 +432,9 @@ Gender moves above date of birth, and Gesundheit moves out from behind Veranstal
 student can answer about themselves is then asked before anything that depends on where they are
 going — which is also the seam the two-step registration cuts along.
 
+Within Veranstaltung the measurements a rental asks for are weight, then height, then shoe size,
+which is the reverse of the order the form uses today.
+
 ### Gender gains a third value
 
 `"male" | "female"` becomes `"male" | "female" | "diverse"`, labelled `"Divers"`. It is a value
@@ -469,16 +472,17 @@ completeness
 ```
 
 The order runs inside a tag as well as between them, because a tag that gathers several fields is
-still read as one run of lines. Each is in the order the form asks for it:
+still read as one run of lines:
 
-| Tag            | Its fields, in order                                                                   |
-| -------------- | -------------------------------------------------------------------------------------- |
-| `contact`      | the student's own number, then the emergency contact's name, relationship and number   |
-| `health`       | the illness note, then whether medication is carried                                   |
-| `measurements` | **shoe size, then height, then weight** — the form's order, and the reverse of today's |
+| Tag            | Its fields, in order                                                                 |
+| -------------- | ------------------------------------------------------------------------------------ |
+| `contact`      | the student's own number, then the emergency contact's name, relationship and number |
+| `health`       | the illness note, then whether medication is carried                                 |
+| `measurements` | **weight, then height, then shoe size**                                              |
 
-`measurements` is the one that actually moves: it currently reads weight, height, shoe size while
-the form asks the other way round.
+`measurements` is the one that actually moves, and it moves in the **form** rather than the
+report: the form asks shoe size, height, weight today, and is reordered to agree with the report.
+The other two already agree.
 
 ### The filter's category row
 
