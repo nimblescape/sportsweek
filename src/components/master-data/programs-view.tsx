@@ -5,43 +5,20 @@
  */
 "use client";
 
-import Link from "next/link";
-import { Package } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { Tooltip } from "@/components/ui/tooltip";
 import { MasterDataView } from "@/components/master-data/master-data-view";
 import { equipmentPath } from "@/lib/master-data/hierarchy";
-import { cn } from "@/lib/utils";
 
 /**
- * The programs list, plus the way into each program's own required equipment (US-5). The nested
- * list stays reachable even while the program itself is locked: its items are matched through
- * the students' rental selections, so the two are blocked independently.
+ * The programs list, whose entries have a record page of their own: the equipment a program
+ * requires (US-5, US-33). A program is opened by its name, as every other record is — and it
+ * stays reachable while the program itself is locked, since its equipment is blocked separately.
  */
 export function ProgramsView({ eventSeriesId }: { eventSeriesId: string }) {
   return (
     <MasterDataView
       category="programs"
       eventSeriesId={eventSeriesId}
-      renderRowAction={(program, { disabled }) => (
-        <Tooltip label="Benötigte Ausrüstung">
-          <Link
-            href={equipmentPath(eventSeriesId, program.name)}
-            aria-label={`Benötigte Ausrüstung für ${program.name}`}
-            // A link has no disabled state of its own, so a write running on this program has to
-            // be spelled out for the pointer, the keyboard and assistive technology separately.
-            aria-disabled={disabled || undefined}
-            tabIndex={disabled ? -1 : undefined}
-            onClick={disabled ? (clicked) => clicked.preventDefault() : undefined}
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "icon" }),
-              disabled && "pointer-events-none opacity-50",
-            )}
-          >
-            <Package aria-hidden className="size-4" />
-          </Link>
-        </Tooltip>
-      )}
+      openHref={(program) => equipmentPath(eventSeriesId, program.name)}
     />
   );
 }

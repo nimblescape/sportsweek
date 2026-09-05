@@ -98,7 +98,7 @@ describe("ProgramsView", () => {
   it("names the program its equipment list belongs to in a search parameter", () => {
     render(<ProgramsView />);
 
-    expect(screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Ski" })).toHaveAttribute(
       "href",
       "/app/event-series/s1/programs?equipment=Ski",
     );
@@ -109,9 +109,10 @@ describe("ProgramsView", () => {
 
     render(<ProgramsView />);
 
-    expect(
-      screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski & Board" }),
-    ).toHaveAttribute("href", "/app/event-series/s1/programs?equipment=Ski%20%26%20Board");
+    expect(screen.getByRole("link", { name: "Ski & Board" })).toHaveAttribute(
+      "href",
+      "/app/event-series/s1/programs?equipment=Ski%20%26%20Board",
+    );
   });
 
   it("keeps the equipment list reachable for a program the in-use guard blocks", () => {
@@ -122,11 +123,11 @@ describe("ProgramsView", () => {
     });
     render(<ProgramsView />);
 
-    expect(screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ski" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Programm Ski bearbeiten" })).toBeDisabled();
   });
 
-  it("locks the equipment link while a write on that program is in flight", async () => {
+  it("locks the way into the equipment while a write on that program is in flight", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() => new Promise(() => {})),
@@ -139,14 +140,9 @@ describe("ProgramsView", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski" })).toHaveAttribute(
-        "aria-disabled",
-        "true",
-      ),
+      expect(screen.getByRole("link", { name: "Ski" })).toHaveAttribute("aria-disabled", "true"),
     );
-    expect(
-      screen.getByRole("link", { name: "Benötigte Ausrüstung für Alternativ" }),
-    ).not.toHaveAttribute("aria-disabled");
+    expect(screen.getByRole("link", { name: "Alternativ" })).not.toHaveAttribute("aria-disabled");
   });
 });
 
@@ -197,9 +193,7 @@ describe("ProgramEquipmentView", () => {
    */
   it("goes back to the address the equipment link came from", () => {
     const { unmount } = render(<ProgramsView />);
-    const wayIn = screen
-      .getByRole("link", { name: "Benötigte Ausrüstung für Ski" })
-      .getAttribute("href");
+    const wayIn = screen.getByRole("link", { name: "Ski" }).getAttribute("href");
     unmount();
 
     render(<ProgramEquipmentView program="Ski" />);

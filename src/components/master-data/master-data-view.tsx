@@ -33,15 +33,12 @@ const FIXED_ITEMS: Partial<
 type MasterDataViewProps = {
   category: MasterDataCategoryKey;
   eventSeriesId: string;
-  renderRowAction?: (item: CrudItem, options: { disabled: boolean }) => React.ReactNode;
+  /** Where an entry's own record page is, for a category whose entries have children (US-33). */
+  openHref?: (item: CrudItem) => string;
 };
 
 /** One category of one event series, as a record screen of the master data hierarchy (US-33). */
-export function MasterDataView({
-  category: key,
-  eventSeriesId,
-  renderRowAction,
-}: MasterDataViewProps) {
+export function MasterDataView({ category: key, eventSeriesId, openHref }: MasterDataViewProps) {
   const category = categoryOf(key);
   const { items, loading, error } = useMasterData(key, eventSeriesId);
   const report = useUsageReport(key, eventSeriesId);
@@ -67,7 +64,7 @@ export function MasterDataView({
       undeletableHint={CHILD_IN_USE_HINT}
       fixedItems={fixed?.items}
       fixedItemsHint={fixed?.hint}
-      renderRowAction={renderRowAction}
+      openHref={openHref}
       onSubmit={(name, item) =>
         item === null
           ? apiRequest(endpoint, { method: "POST", body: { name } }).then(() => {})

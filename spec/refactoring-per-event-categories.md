@@ -207,6 +207,13 @@ The most common editor for a master-detail relationship, and the one this adopts
 page; opening a row navigates to that record's page; the record's child collections are reached
 from there; a breadcrumb names the trail back.
 
+**Every master-detail editor in the application follows it — there is no second pattern.** Not the
+event series and their categories alone, but a program and its required equipment, an event and
+its five lists, and whatever is nested next. One screen shape, one way in, one way back, one place
+the add control lives. A pattern that held for some of the levels and not the others would be two
+patterns, and a teacher would have to learn which screen they were on before knowing how to use
+it.
+
 The event series id leaves the global scope segment, which is what takes Stammdaten out of the
 header selection. `/app/event-series` is already a segment the selection ignores, so the whole
 tree moves beneath it and the `master-data` segment disappears.
@@ -246,7 +253,7 @@ L3  /app/event-series/{series}/events/{category}?event={event}
     Eventreihen › Wintersportwoche 2026/27 › Events › Woche 2
     Woche 2
     [Programme ＋]  Leistungsstufen  Zugangskarten  Zustiegsstellen  Verpflegung
-    ⠿ Ski                          Ausrüstung ›    ✎  Ὕ1
+    ⠿ Ski ›                                        ✎  Ὕ1
 
 L4  /app/event-series/{series}/events/programs?event={event}&equipment={program}
     Eventreihen › … › Woche 2 › Programme › Ski
@@ -331,8 +338,9 @@ rename — at which point it is an id that merely looks readable.
 - **Enter adds, wherever the teacher is on the screen**, short of a control or a dialog that
   answers Enter itself. Adding is what these screens are for.
 - **A row with a record page of its own is opened by its name**, which carries the chevron and
-  reads as the control it is — there is no separate control beside it. A row whose entry leads
-  somewhere more particular says where instead, as a program's does for its equipment.
+  reads as the control it is — there is no separate control beside it. That is one rule for every
+  level: an event series row at the root, a program row wherever programs are listed, and an
+  event row once events carry lists of their own.
 - **The breadcrumb names the whole path, and its last step is the heading.** There is no separate
   title: the record is named once, at the end of its own address.
 

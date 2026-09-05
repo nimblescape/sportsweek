@@ -344,30 +344,16 @@ describe("MasterDataView — while a write is in flight", () => {
     expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeEnabled();
   });
 
-  it("locks the extra action a category contributes, which acts on the same item", async () => {
+  it("locks the way into the row's own record, which the same write is changing", async () => {
     stubFetch(() => new Promise(() => {}));
-    renderView({
-      renderRowAction: (
-        item: { id: string; name: string },
-        { disabled }: { disabled: boolean },
-      ) => (
-        <a href={`/detail/${item.id}`} aria-disabled={disabled || undefined}>
-          Details zu {item.name}
-        </a>
-      ),
-    });
+    renderView({ openHref: (item: { name: string }) => `/detail/${item.name}` });
 
     await confirmDelete();
 
     await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toHaveAttribute(
-        "aria-disabled",
-        "true",
-      ),
+      expect(screen.getByRole("link", { name: "3AHIT" })).toHaveAttribute("aria-disabled", "true"),
     );
-    expect(screen.getByRole("link", { name: "Details zu 4BHIT" })).not.toHaveAttribute(
-      "aria-disabled",
-    );
+    expect(screen.getByRole("link", { name: "4BHIT" })).not.toHaveAttribute("aria-disabled");
   });
 });
 
@@ -490,34 +476,35 @@ describe("MasterDataView — fixed options", () => {
   });
 });
 
-describe("MasterDataView — per-row actions", () => {
-  it("renders the extra action a category contributes, once per item", () => {
-    renderView({
-      renderRowAction: (item: { id: string; name: string }) => (
-        <a href={`/detail/${item.id}`}>Details zu {item.name}</a>
-      ),
-    });
+describe("MasterDataView — a row that opens a record of its own", () => {
+  const opening = { openHref: (item: { name: string }) => `/detail/${item.name}` };
 
-    expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toHaveAttribute(
-      "href",
-      "/detail/3AHIT",
-    );
-    expect(screen.getByRole("link", { name: "Details zu 4BHIT" })).toBeInTheDocument();
+  /** A row with children beneath it is opened by its name, as an event series row is (US-33). */
+  it("makes the name the way in", () => {
+    renderView(opening);
+
+    expect(screen.getByRole("link", { name: "3AHIT" })).toHaveAttribute("href", "/detail/3AHIT");
+    expect(screen.getByRole("link", { name: "4BHIT" })).toBeInTheDocument();
   });
 
-  it("leaves the extra action reachable for an item the in-use guard blocks", () => {
+  /** The two are blocked separately: what a student holds is the entry, not what hangs off it. */
+  it("stays reachable for an item the in-use guard blocks", () => {
     useUsageReport.mockReturnValue({
       blockedNames: new Set(["3AHIT"]),
       blockedEquipment: {},
       loading: false,
     });
-    renderView({
-      renderRowAction: (item: { id: string; name: string }) => (
-        <a href={`/detail/${item.id}`}>Details zu {item.name}</a>
-      ),
-    });
+    renderView(opening);
 
-    expect(screen.getByRole("link", { name: "Details zu 3AHIT" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "3AHIT" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled();
+  });
+
+  it("leaves a row without children as plain text", () => {
+    renderView();
+
+    expect(screen.queryByRole("link", { name: "3AHIT" })).not.toBeInTheDocument();
+    expect(screen.getByText("3AHIT")).toBeInTheDocument();
   });
 });
 

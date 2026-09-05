@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
-const { RecordHeader, RECORD_TABS_LABEL } = await import("./record-header");
+const { RecordScreen, RECORD_TABS_LABEL } = await import("./record-screen");
 
 const TRAIL = [
   { label: "Eventreihen", href: "/app/event-series" },
@@ -27,15 +27,17 @@ const TABS = [
   { key: "events", label: "Events", href: "/app/event-series/s1/events", addLabel: "Neues Event" },
 ];
 
-const setup = (overrides: Partial<Parameters<typeof RecordHeader>[0]> = {}) =>
+const setup = (overrides: Partial<Parameters<typeof RecordScreen>[0]> = {}) =>
   render(
-    <RecordHeader trail={TRAIL} tabs={TABS} marked="classes" onAdd={vi.fn()} {...overrides} />,
+    <RecordScreen trail={TRAIL} tabs={TABS} marked="classes" onAdd={vi.fn()} {...overrides}>
+      <p>Liste</p>
+    </RecordScreen>,
   );
 
 /** The marked tag is the control, so it says both what it is and what pressing it does. */
 const markedTag = () => screen.getByRole("button", { name: "Klassen: Neue Klasse" });
 
-describe("RecordHeader", () => {
+describe("RecordScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -108,7 +110,7 @@ describe("RecordHeader", () => {
 
   it("leaves Enter alone while a write of the screen's is out", async () => {
     const onAdd = vi.fn();
-    setup({ onAdd, disabled: true });
+    setup({ onAdd, busy: true });
 
     document.body.focus();
     await userEvent.keyboard("{Enter}");
@@ -158,7 +160,7 @@ describe("RecordHeader", () => {
   });
 
   it("holds every tag while a write of the screen's is out", () => {
-    setup({ disabled: true });
+    setup({ busy: true });
 
     expect(screen.getByRole("button", { name: "Events" })).toBeDisabled();
     expect(markedTag()).toBeDisabled();
