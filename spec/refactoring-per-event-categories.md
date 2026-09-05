@@ -126,6 +126,31 @@ Two consequences worth stating, because they are the ones that surprise:
   at its own level. Uniqueness, length and count are checked within one list, so the same
   constraints apply per event as per series, independently.
 
+### What bounds the document
+
+Everything above lives in one Firestore document, and Firestore caps a document at 1 MiB. The
+caps declared today multiply badly: 100 events, each with five lists of up to 100 entries of up
+to 120 characters, programs carrying 10 equipment items apiece, is several megabytes — a
+document a teacher could make unwritable through the UI alone.
+
+So the caps come down to **10 events** and **10 entries per list**, equipment staying at 10:
+
+|                                                                         | Worst case at the new caps             |
+| ----------------------------------------------------------------------- | -------------------------------------- |
+| One event's programs — 10 × (name + 10 equipment), 120 chars at 2 bytes | ≈ 26 KB                                |
+| Its other four lists — 4 × 10 × 120 chars                               | ≈ 10 KB                                |
+| **One event**                                                           | **≈ 36 KB**                            |
+| Ten events                                                              | ≈ 360 KB                               |
+| The series' own six lists                                               | ≈ 38 KB                                |
+| **The whole document**                                                  | **≈ 400 KB — under 40% of the budget** |
+
+A realistic series — five events, five programs of three items each, names of about thirty
+characters — is well under 30 KB. The caps are what keeps the worst case bounded; they are not
+what anyone is expected to reach.
+
+One cap serves both levels, so a per-event list can never be bounded differently from the
+per-series list it overrides.
+
 ## The master data editor: drill-down record pages (Concept A)
 
 The most common editor for a master-detail relationship, and the one this adopts: a master list
@@ -320,17 +345,21 @@ data rows.
 | **c** | Starting an override copies the series' entries in as real, editable rows.                                                                                                     | Familiar, but it severs inheritance at the first press: a later change to the series list never reaches the event, and "not overridden" becomes indistinguishable from "overridden identically". |
 | **d** | An explicit switch per category — "own entries for this event" — off by default, with option a's greyed list beneath it while off.                                             | Makes the state a control rather than an inference. One more control per page.                                                                                                                   |
 
-### Q3 — What bounds the document?
+### Q3 — Is ten entries enough for every list, or only for the ones that multiply?
 
-All of this lives in one event series document, and Firestore caps a document at 1 MiB. At the
-caps the schema allows today — 100 events, each with five lists of up to 100 entries of up to 120
-characters, programs carrying up to 10 equipment items — the worst case is several megabytes, so
-the document can be made unwritable through the UI alone. A realistic series is a few tens of
-kilobytes.
+The caps are settled at ten events and ten entries per list, and the arithmetic is in "What
+bounds the document" above. What is left is which lists the ten applies to.
 
-Candidates: cap the number of events far lower than the number of list entries; cap a per-event
-list lower than a per-series one; or validate the encoded size of the whole document on write and
-refuse with a message that says what to remove. This must be settled before slice 3.
+The number only multiplies where a list hangs off an event. A series-level list appears once, so
+it could stay at a hundred and the document would still fit — the worst case rises to about
+740 KB, roughly 70% of the budget, rather than 400 KB.
+
+The one that matters is **Klassen**: it exists only at series level and it is the list most
+likely to want more than ten entries, since it names every class taking part. Ten programs, ten
+skill levels, ten access cards, ten pickup points and ten catering options are all generous.
+
+So: does ten bound every list, or does it bound only the five that hang off an event, leaving
+Klassen — and perhaps the other series-level lists — at a hundred?
 
 ### Q4 — Does the answer order follow the menu?
 
