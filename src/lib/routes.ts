@@ -27,7 +27,6 @@ export function eventSeriesRoutes(eventSeriesId: string) {
     report: `${scope}/report`,
     assignment: `${scope}/assignment`,
     registrations: `${scope}/registrations`,
-    masterData: `${scope}/master-data`,
   };
 }
 

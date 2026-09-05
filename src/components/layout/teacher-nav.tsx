@@ -8,12 +8,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Database, FileText, Shuffle } from "lucide-react";
+import { ClipboardList, Database, FileText, Shuffle, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Brand } from "@/components/layout/brand";
 import { BuildInfo } from "@/components/layout/build-info";
 import { SignOutButton } from "@/components/auth/sign-out-button";
-import { masterDataSections } from "@/lib/master-data/categories";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import {
   liveSelection,
@@ -23,18 +22,39 @@ import { reachablePages, type PageKey } from "@/lib/auth/reachable-pages";
 import type { Permission } from "@/lib/auth/permissions";
 import { eventSeriesRoutes, ROUTES } from "@/lib/routes";
 
-function topLevel(eventSeriesId: string, reachable: readonly PageKey[]) {
-  const routes = eventSeriesRoutes(eventSeriesId);
-  return [
-    {
-      key: "registrations",
-      href: routes.registrations,
-      label: "Registrierungen",
-      Icon: ClipboardList,
-    },
-    { key: "assignment", href: routes.assignment, label: "Zuteilungen", Icon: Shuffle },
-    { key: "report", href: routes.report, label: "Berichte", Icon: FileText },
-  ].filter((item) => reachable.includes(item.key as PageKey));
+type NavItem = { key: PageKey; href: string; label: string; Icon: LucideIcon };
+
+/**
+ * The five entries, in one flat list. The first three are about one event series and are only
+ * there while one is selected; the last two are about the school and are always reachable — the
+ * master data hierarchy carries its own scope in the URL, and the rights page has none (US-33).
+ */
+function navItems(eventSeriesId: string | null, reachable: readonly PageKey[]): NavItem[] {
+  const scoped = eventSeriesId === null ? null : eventSeriesRoutes(eventSeriesId);
+
+  const all: NavItem[] = [
+    ...(scoped === null
+      ? []
+      : [
+          {
+            key: "registrations" as const,
+            href: scoped.registrations,
+            label: "Registrierungen",
+            Icon: ClipboardList,
+          },
+          {
+            key: "assignment" as const,
+            href: scoped.assignment,
+            label: "Zuteilungen",
+            Icon: Shuffle,
+          },
+          { key: "report" as const, href: scoped.report, label: "Berichte", Icon: FileText },
+        ]),
+    { key: "masterData", href: ROUTES.eventSeries, label: "Stammdaten", Icon: Database },
+    { key: "users", href: `${ROUTES.appRoot}/users`, label: "Benutzerrechte", Icon: Users },
+  ];
+
+  return all.filter((item) => reachable.includes(item.key));
 }
 
 function itemClasses(active: boolean) {
@@ -47,9 +67,9 @@ function itemClasses(active: boolean) {
 }
 
 /**
- * Every page but the event series list is about one series (US-20), so the links are built from
- * the selection. On that one page the URL names none, and the layout above resolves one to fall
- * back to — without it the whole bar would have nowhere to point (Q8).
+ * The three scoped pages are built from the selection (US-20), which the URL names. On a page
+ * that names none the layout above resolves one to fall back to — without it those three would
+ * have nowhere to point (Q8).
  */
 export function TeacherNav({
   fallbackEventSeriesId = null,
@@ -67,32 +87,9 @@ export function TeacherNav({
   const [lastSeen, setLastSeen] = useState(fallbackEventSeriesId);
   if (inUrl !== null && inUrl !== lastSeen) setLastSeen(inUrl);
 
-  const eventSeriesId = inUrl ?? lastSeen;
-  const masterData = eventSeriesId === null ? null : eventSeriesRoutes(eventSeriesId).masterData;
-  const inMasterData =
-    pathname === ROUTES.eventSeries ||
-    pathname.startsWith(`${ROUTES.eventSeries}/`) ||
-    (masterData !== null && pathname.startsWith(masterData));
-
   const { eventSeries } = useEventSeries();
-  const selectedId = liveSelection(eventSeries, eventSeriesId);
+  const selectedId = liveSelection(eventSeries, inUrl ?? lastSeen);
   const reachable = reachablePages(permissions);
-
-  /**
-   * What sits under Stammdaten. The lists are one teacher's to maintain and the rights page is
-   * the school's, so either permission can put something here and neither implies the other —
-   * the heading is shown when something is beneath it.
-   */
-  const subItems = [
-    ...(reachable.includes("masterData") ? masterDataSections(selectedId) : []),
-    ...(reachable.includes("users")
-      ? [{ href: `${ROUTES.appRoot}/users`, label: "Benutzerrechte" }]
-      : []),
-  ];
-
-  // The heading has no view of its own, so it opens on the first entry beneath it — the event
-  // series list where the lists are maintained, or the rights page for somebody who maintains none.
-  const sectionHref = subItems[0]?.href;
 
   return (
     <nav aria-label="Hauptnavigation" className="flex h-full flex-col gap-1 p-2 md:w-56">
@@ -100,7 +97,7 @@ export function TeacherNav({
           the column beside it is where a page begins. */}
       <Brand />
 
-      {(selectedId === null ? [] : topLevel(selectedId, reachable)).map(({ href, label, Icon }) => {
+      {navItems(selectedId, reachable).map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
@@ -114,33 +111,6 @@ export function TeacherNav({
           </Link>
         );
       })}
-
-      {/* The section has no view of its own, so it opens on the first thing beneath it. */}
-      {sectionHref === undefined ? null : (
-        <>
-          <Link href={sectionHref} className={itemClasses(inMasterData)}>
-            <Database aria-hidden className="size-6 shrink-0" />
-            <span>Stammdaten</span>
-          </Link>
-
-          <ul className="flex flex-col gap-1">
-            {subItems.map(({ href, label }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  aria-current={pathname === href ? "page" : undefined}
-                  className={itemClasses(pathname === href)}
-                >
-                  {/* Stands in for the icon above it, so the text lines up by being laid out the
-                  same way rather than by a padding that has to add up to the same number. */}
-                  <span aria-hidden className="size-6 shrink-0" />
-                  {label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
 
       {/* The foot of the bar: who is signed in, and which build they are signed in to. The rule
           is what makes the line read as the bar's footer rather than as something left under

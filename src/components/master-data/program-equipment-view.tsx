@@ -5,18 +5,18 @@
  */
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { CrudList, type CrudItem } from "@/components/master-data/crud-list";
 import { apiRequest } from "@/lib/api/client";
 import { EQUIPMENT_LABELS } from "@/lib/master-data/categories";
+import { equipmentTabs, programTrail } from "@/lib/master-data/hierarchy";
 import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
+import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
 import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 /**
- * A program's required equipment on the same CRUD list every category uses (US-5). The entries
- * live in a field on the program, so every change rewrites the whole list — which is what makes
- * adding, renaming and removing one atomic, and uniqueness checkable without a query.
+ * A program's required equipment, the leaf of the master data hierarchy (US-5, US-33). The
+ * entries live in a field on the program, so every change rewrites the whole list — which is what
+ * makes adding, renaming and removing one atomic, and uniqueness checkable without a query.
  */
 export function ProgramEquipmentView({
   program: named,
@@ -27,6 +27,7 @@ export function ProgramEquipmentView({
 }) {
   const { program, loading, error } = useProgram(named, eventSeriesId);
   const report = useUsageReport("programs", eventSeriesId);
+  const { eventSeries } = useSelectedEventSeries(eventSeriesId);
 
   const equipment = program?.requiredEquipment ?? [];
   // An entry has no id of its own, so its name is what identifies it within the program.
@@ -45,8 +46,11 @@ export function ProgramEquipmentView({
 
   return (
     <CrudList
+      trail={programTrail(eventSeriesId, eventSeries?.name ?? "", named)}
+      title={named}
+      tabs={equipmentTabs(eventSeriesId, named)}
+      marked="required-equipment"
       labels={EQUIPMENT_LABELS}
-      title={`${EQUIPMENT_LABELS.title} – ${program?.name ?? "Programm"}`}
       items={items}
       loading={loading}
       error={error}
@@ -70,14 +74,6 @@ export function ProgramEquipmentView({
           <strong>{item.name}</strong> wird umbenannt.
         </>
       )}
-    >
-      <Link
-        href={`/app/${encodeURIComponent(eventSeriesId)}/master-data/programs`}
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
-      >
-        <ArrowLeft aria-hidden className="size-4" />
-        Alle Programme
-      </Link>
-    </CrudList>
+    />
   );
 }

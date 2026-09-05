@@ -372,8 +372,8 @@ describe("filterGroups", () => {
   it("offers every category once the report asks for them all", () => {
     expect(filterGroups(lists, everything).map((group) => group.category)).toEqual([
       "attendance",
-      "event",
       "class",
+      "event",
       "gender",
       "program",
       "equipmentRental",

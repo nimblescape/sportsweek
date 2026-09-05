@@ -12,11 +12,23 @@ import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 const useMasterData = vi.fn();
 const useProgram = vi.fn();
 const useUsageReport = vi.fn();
+const push = vi.fn();
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (...args: unknown[]) => useMasterData(...args),
   useProgram: (...args: unknown[]) => useProgram(...args),
   useUsageReport: (...args: unknown[]) => useUsageReport(...args),
+}));
+
+// The screen names the record it is about, which reaches Firebase no test here has cause to start.
+vi.mock("@/lib/event-series/use-selected-event-series", () => ({
+  useSelectedEventSeries: () => ({
+    eventSeries: { id: "s1", name: "Wintersportwoche" },
+    loading: false,
+    error: null,
+  }),
 }));
 
 const { ProgramsView: ScopedProgramsView } = await import("./programs-view");
@@ -75,7 +87,10 @@ describe("ProgramsView", () => {
   it("lists the programs", () => {
     render(<ProgramsView />);
 
-    expect(screen.getByRole("heading", { name: "Programme" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Programme" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByText("Ski")).toBeInTheDocument();
   });
 
@@ -85,7 +100,7 @@ describe("ProgramsView", () => {
 
     expect(screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski" })).toHaveAttribute(
       "href",
-      "/app/s1/master-data/programs?equipment=Ski",
+      "/app/event-series/s1/programs?equipment=Ski",
     );
   });
 
@@ -96,7 +111,7 @@ describe("ProgramsView", () => {
 
     expect(
       screen.getByRole("link", { name: "Benötigte Ausrüstung für Ski & Board" }),
-    ).toHaveAttribute("href", "/app/s1/master-data/programs?equipment=Ski%20%26%20Board");
+    ).toHaveAttribute("href", "/app/event-series/s1/programs?equipment=Ski%20%26%20Board");
   });
 
   it("keeps the equipment list reachable for a program the in-use guard blocks", () => {
@@ -145,7 +160,7 @@ describe("ProgramEquipmentView", () => {
   it("lists the entries the program carries, and names the program", () => {
     render(<ProgramEquipmentView program="Ski" />);
 
-    expect(screen.getByRole("heading", { name: /Ski/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ski" })).toBeInTheDocument();
     expect(screen.getByText("Helm")).toBeInTheDocument();
     expect(screen.getByText("Stöcke")).toBeInTheDocument();
   });
@@ -153,10 +168,27 @@ describe("ProgramEquipmentView", () => {
   it("offers a way back to the programs list of the same series", () => {
     render(<ProgramEquipmentView program="Ski" />);
 
-    expect(screen.getByRole("link", { name: /alle programme/i })).toHaveAttribute(
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+
+    expect(within(trail).getByRole("link", { name: "Programme" })).toHaveAttribute(
       "href",
-      "/app/s1/master-data/programs",
+      "/app/event-series/s1/programs",
     );
+  });
+
+  /** The path is the record's whole address, so it names the series and the root above it too. */
+  it("names every step down to the program", () => {
+    render(<ProgramEquipmentView program="Ski" />);
+
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+
+    expect(within(trail).getByRole("link", { name: "Stammdaten" })).toBeInTheDocument();
+    expect(within(trail).getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
+    expect(within(trail).getByRole("link", { name: "Wintersportwoche" })).toHaveAttribute(
+      "href",
+      "/app/event-series/s1/classes",
+    );
+    expect(within(trail).getByText("Ski")).toHaveAttribute("aria-current", "page");
   });
 
   /**
@@ -173,7 +205,8 @@ describe("ProgramEquipmentView", () => {
 
     render(<ProgramEquipmentView program="Ski" />);
 
-    expect(screen.getByRole("link", { name: /alle programme/i })).toHaveAttribute(
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+    expect(within(trail).getByRole("link", { name: "Programme" })).toHaveAttribute(
       "href",
       wayIn?.split("?")[0],
     );
@@ -182,9 +215,10 @@ describe("ProgramEquipmentView", () => {
   it("percent-encodes a series id a URL would otherwise read as structure", () => {
     render(<ProgramEquipmentView program="Ski" eventSeriesId="winter 2026/27" />);
 
-    expect(screen.getByRole("link", { name: /alle programme/i })).toHaveAttribute(
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+    expect(within(trail).getByRole("link", { name: "Programme" })).toHaveAttribute(
       "href",
-      "/app/winter%202026%2F27/master-data/programs",
+      "/app/event-series/winter%202026%2F27/programs",
     );
   });
 

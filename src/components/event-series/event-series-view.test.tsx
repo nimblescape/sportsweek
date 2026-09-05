@@ -8,6 +8,9 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const useEventSeries = vi.fn();
+const push = vi.fn();
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 vi.mock("@/lib/event-series/use-event-series", () => ({
   useEventSeries: () => useEventSeries(),

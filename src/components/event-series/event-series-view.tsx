@@ -6,12 +6,11 @@
 "use client";
 
 import * as React from "react";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { DeleteEventSeriesDialog } from "@/components/event-series/delete-event-series-dialog";
 import { EventSeriesFormDialog } from "@/components/event-series/event-series-form-dialog";
 import { EventSeriesList } from "@/components/event-series/event-series-list";
+import { RecordHeader } from "@/components/master-data/record-header";
 import { apiRequest, ApiRequestError, type RequestOptions } from "@/lib/api/client";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { applyVisibleOrder } from "@/lib/schemas/position";
@@ -19,8 +18,8 @@ import type { EventSeries } from "@/lib/schemas/event-series";
 import { visibleEventSeries } from "@/lib/event-series/event-series-state";
 import { useEventSeries } from "@/lib/event-series/use-event-series";
 import { useShowArchived } from "@/lib/event-series/show-archived";
+import { MASTER_DATA_TITLE, ROOT_TABS, rootTrail } from "@/lib/master-data/hierarchy";
 import { Tag, TagName } from "@/components/ui/tag";
-import { PageHeading } from "@/components/layout/page-heading";
 
 type OpenDialog =
   | { kind: "none" }
@@ -62,16 +61,14 @@ export function EventSeriesView() {
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <BusyRegion busy={pending}>
         <div className="flex flex-col gap-4">
-          <PageHeading
-            actions={
-              <Button onClick={() => setDialog({ kind: "form", eventSeries: null })}>
-                <Plus aria-hidden data-icon="inline-start" />
-                Neue Eventreihe
-              </Button>
-            }
-          >
-            Eventreihen
-          </PageHeading>
+          <RecordHeader
+            trail={rootTrail()}
+            title={MASTER_DATA_TITLE}
+            tabs={ROOT_TABS}
+            marked={ROOT_TABS[0].key}
+            disabled={pending}
+            onAdd={() => setDialog({ kind: "form", eventSeries: null })}
+          />
 
           <div>
             <Tag pressed={showArchived}>

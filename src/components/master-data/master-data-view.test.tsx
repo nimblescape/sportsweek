@@ -8,14 +8,27 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { stubRowLayout } from "@/test/stub-row-layout";
 import { CHILD_IN_USE_HINT, IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
+import { FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 const useMasterData = vi.fn();
 const useUsageReport = vi.fn();
+const push = vi.fn();
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (...args: unknown[]) => useMasterData(...args),
   useUsageReport: (...args: unknown[]) => useUsageReport(...args),
+}));
+
+// The screen names the record it is about, which reaches Firebase no test here has cause to start.
+vi.mock("@/lib/event-series/use-selected-event-series", () => ({
+  useSelectedEventSeries: () => ({
+    eventSeries: { id: "s1", name: "Wintersportwoche" },
+    loading: false,
+    error: null,
+  }),
 }));
 
 const { MasterDataView } = await import("./master-data-view");
@@ -66,10 +79,39 @@ function renderView(props: Record<string, unknown> = {}) {
 }
 
 describe("MasterDataView — reading the list", () => {
-  it("titles the view from the category", () => {
+  /** The title is the record the screen is about; the category is the tag that is marked. */
+  it("names the event series, and marks the category being maintained", () => {
     renderView();
 
-    expect(screen.getByRole("heading", { name: "Klassen" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Wintersportwoche" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Klassen" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  /** Every category of the series is one press away, in the menu's order. */
+  it("offers a tag for every category of the series", () => {
+    renderView();
+
+    for (const label of [
+      "Klassen",
+      "Events",
+      "Programme",
+      "Leistungsstufen",
+      "Zugangskarten",
+      "Zustiegsstellen",
+      "Verpflegung",
+    ]) {
+      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it("names the whole path down to the record", () => {
+    renderView();
+
+    const trail = screen.getByRole("navigation", { name: "Pfad" });
+
+    expect(within(trail).getByRole("link", { name: "Stammdaten" })).toBeInTheDocument();
+    expect(within(trail).getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
+    expect(within(trail).getByText("Wintersportwoche")).toHaveAttribute("aria-current", "page");
   });
 
   it("lists every item", () => {
@@ -107,7 +149,10 @@ describe("MasterDataView — reading the list", () => {
     render(<MasterDataView category="skill-levels" eventSeriesId="s1" />);
 
     expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1");
-    expect(screen.getByRole("heading", { name: "Leistungsstufen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Leistungsstufen" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });
 
@@ -116,7 +161,7 @@ describe("MasterDataView — adding", () => {
     const fetchMock = stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: /neue klasse/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Neue Klasse" }));
     await userEvent.type(screen.getByLabelText("Name"), "5CHIT");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
@@ -127,11 +172,19 @@ describe("MasterDataView — adding", () => {
     expect(JSON.parse(String(init.body))).toEqual({ name: "5CHIT" });
   });
 
+  /** Only the marked tag offers to add, so a press cannot land on a list that is not shown. */
+  it("offers to add under the marked category alone", () => {
+    renderView();
+
+    expect(screen.getByRole("button", { name: "Neue Klasse" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Neues Event" })).not.toBeInTheDocument();
+  });
+
   it("refuses a blank name without calling the server", async () => {
     const fetchMock = stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: /neue klasse/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Neue Klasse" }));
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
     expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
@@ -142,7 +195,7 @@ describe("MasterDataView — adding", () => {
     stubFetch(() => conflict("Den Namen „3AHIT\u201c gibt es bereits."));
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: /neue klasse/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Neue Klasse" }));
     await userEvent.type(screen.getByLabelText("Name"), "3AHIT");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
@@ -412,16 +465,27 @@ describe("MasterDataView — while the in-use check is still running", () => {
 
 describe("MasterDataView — fixed options", () => {
   it("lists an option that is always available alongside the maintained ones", () => {
-    renderView({ fixedItems: ["Sonstiges"] });
+    renderView({ category: "food-options" });
 
-    expect(screen.getByText("Sonstiges")).toBeInTheDocument();
+    expect(screen.getByText(FOOD_OPTION_OTHER_LABEL)).toBeInTheDocument();
   });
 
   it("gives a fixed option no edit or delete control", () => {
-    renderView({ fixedItems: ["Sonstiges"] });
+    renderView({ category: "food-options" });
 
-    expect(screen.queryByRole("button", { name: /Sonstiges bearbeiten/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Sonstiges löschen/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: new RegExp(`${FOOD_OPTION_OTHER_LABEL} bearbeiten`) }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: new RegExp(`${FOOD_OPTION_OTHER_LABEL} löschen`) }),
+    ).not.toBeInTheDocument();
+  });
+
+  /** Only the one list offers it; the others are the teacher's alone (US-9). */
+  it("adds nothing to a category that has no fixed option", () => {
+    renderView();
+
+    expect(screen.queryByText(FOOD_OPTION_OTHER_LABEL)).not.toBeInTheDocument();
   });
 });
 

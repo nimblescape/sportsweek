@@ -25,8 +25,8 @@ describe("REPORT_FIELD_TAGS", () => {
   it("offers every field US-13 lists, in the order it lists them", () => {
     expect(keys).toEqual([
       "attendance",
-      "event",
       "class",
+      "event",
       "gender",
       "dateOfBirth",
       "contact",
@@ -49,8 +49,8 @@ describe("REPORT_FIELD_TAGS", () => {
    */
   it("lists the answers a teacher's own lists supply in the menu's order (US-5 to US-10)", () => {
     const categoryOfField: Record<string, string> = {
-      event: "events",
       class: "classes",
+      event: "events",
       program: "programs",
       skillLevel: "skill-levels",
       busPickupPoint: "bus-pickup-points",

@@ -32,14 +32,12 @@ export function selectedEventSeriesIdFrom(pathname: string): string | null {
 }
 
 /**
- * Whether the page is about what a series is made of rather than what its students answered.
- * The navigation marks its own section by it.
+ * Whether the page belongs to the master data hierarchy, which the header does not scope (US-33).
+ * What is being edited is named by the URL, the title and the breadcrumb — and may be an archived
+ * series, which the header offers none of.
  */
 export function isMasterDataPath(pathname: string): boolean {
-  if (pathname === ROUTES.eventSeries || pathname.startsWith(`${ROUTES.eventSeries}/`)) return true;
-
-  const selected = selectedEventSeriesIdFrom(pathname);
-  return selected !== null && pathname.startsWith(`${eventSeriesRoutes(selected).masterData}`);
+  return pathname === ROUTES.eventSeries || pathname.startsWith(`${ROUTES.eventSeries}/`);
 }
 
 /** What choosing a series needs to know about one, and no more. */

@@ -44,18 +44,18 @@ no correct answer at the time it is put.
 
 ## What changes, in one page
 
-| Today                                                                | After                                                                            |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| An event is a name in a list of strings                              | An event is a record: a name plus five lists of its own                          |
-| Master data belongs to the series only                               | Five categories belong to a series **and** to each of its events                 |
-| A student is offered the series' lists                               | A student is offered their event's lists, falling back to the series'            |
-| `/app/{seriesId}/master-data/{category}`                             | `/app/event-series/{seriesId}/{category}` — no `master-data` segment left        |
-| The header selection scopes Stammdaten too                           | The header rows are hidden in Stammdaten; the record being edited is the URL     |
-| Seven sibling category pages                                         | A master list, a record page per series, a record page per event                 |
-| Nav: Eventreihen · Events · Klassen · …                              | Nav: five fixed entries; the categories move onto the record page as a tag row   |
-| Gender is male or female                                             | Gender is male, female or diverse                                                |
-| Form: Registrierung · Persönliches · Notfallkontakt · … · Gesundheit | Form: Registrierung · Persönliches · Notfallkontakt · Gesundheit · Veranstaltung |
-| One registration step, complete only when everything is answered     | Two steps where any event carries lists of its own                               |
+| Today                                                            | After                                                                          |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| An event is a name in a list of strings                          | An event is a record: a name plus five lists of its own                        |
+| Master data belongs to the series only                           | Five categories belong to a series **and** to each of its events               |
+| A student is offered the series' lists                           | A student is offered their event's lists, falling back to the series'          |
+| `/app/{seriesId}/master-data/{category}`                         | `/app/event-series/{seriesId}/{category}` — no `master-data` segment left      |
+| The header selection scopes Stammdaten too                       | The header rows are hidden in Stammdaten; the record being edited is the URL   |
+| Seven sibling category pages                                     | A master list, a record page per series, a record page per event               |
+| Nav: Eventreihen · Events · Klassen · …                          | Nav: five fixed entries; the categories move onto the record page as a tag row |
+| Gender is male or female                                         | Gender is male, female or diverse                                              |
+| The form always asks Veranstaltung                               | Veranstaltung is left out of step one and appears once the event is known      |
+| One registration step, complete only when everything is answered | Two steps where any event carries lists of its own                             |
 
 ## The shape it moves to
 
@@ -230,26 +230,26 @@ the root, and at the equipment leaf — is the same screen as one with seven, wi
 
 ```
 L1  /app/event-series
-    ┈ breadcrumb row, empty ┈
+    Stammdaten
     Stammdaten
     [Eventreihen ＋]
     ⠿ Wintersportwoche 2026/27     Öffnen ›        ✎  Ὕ1
 
 L2  /app/event-series/{series}/{category}
-    Stammdaten › Eventreihen
+    Stammdaten › Eventreihen › Wintersportwoche 2026/27
     Wintersportwoche 2026/27
     Klassen  [Events ＋]  Programme  Leistungsstufen  Zugangskarten
     Zustiegsstellen  Verpflegung
     ⠿ Woche 1                      Öffnen ›        ✎  Ὕ1
 
 L3  /app/event-series/{series}/events/{category}?event={event}
-    Stammdaten › Eventreihen › Wintersportwoche 2026/27 › Events
+    Stammdaten › Eventreihen › Wintersportwoche 2026/27 › Events › Woche 2
     Woche 2
     [Programme ＋]  Leistungsstufen  Zugangskarten  Zustiegsstellen  Verpflegung
     ⠿ Ski                          Ausrüstung ›    ✎  Ὕ1
 
 L4  /app/event-series/{series}/events/programs?event={event}&equipment={program}
-    Stammdaten › … › Woche 2 › Programme
+    Stammdaten › … › Woche 2 › Programme › Ski
     Ski
     [Benötigte Ausrüstung ＋]
     ⠿ Helm                                         ✎  Ὕ1
@@ -327,23 +327,20 @@ rename — at which point it is an id that merely looks readable.
   accessible name is that category's own wording, so it reads "Neues Event" on one tag and "Neue
   Klasse" on the next; pressing it opens a name form below the row. This is the tag row that
   already carries per-tag controls on the marked tag, applied to a second row.
-- **The breadcrumb names the ancestors only**, stopping at the collection the record was reached
-  through — never at the record itself, which the title beneath already names.
+- **The breadcrumb names the whole path**, ending at the record the page is about — so its last
+  step and the title beneath it say the same word, at every level including the root.
 - **The title is the record.**
 
-### The breadcrumb's row is reserved even when it is empty
+### The breadcrumb ends where the page does
 
-The root has no ancestors and so draws no breadcrumb. Left at that, its title would sit a row
-higher than every other title and jump as a teacher moved down the hierarchy. So the breadcrumb
-occupies a row with a floor under its height, and at the root that row is simply empty — the same
-trick that already keeps a page with buttons and a page without them at one height.
+A trail that stopped one step short would be a different trail on every screen: at the root it
+would be empty, and a teacher reading down the hierarchy would watch the title jump up a row and
+back down again. Naming the record at the end costs one repeated word and buys a row that is
+always there, always the full address of the page, and never has to explain itself.
 
-It has to be reserved height rather than a hidden element: a screen-reader-only class is
-absolutely positioned and contributes none.
-
-One consequence is worth having deliberately. Whether the trail also names the record it ends at
-becomes a single decision in a single component — so if the empty root row proves worse than
-saying the record's name twice, that is a one-place change.
+The last step is where the teacher already is, so it is the one that is not a link: it is plain
+text, marked `aria-current="page"`, exactly as a breadcrumb is expected to be. Every step before
+it is a link, and the root's trail is the single word the root is called.
 
 **The tag order is the master data menu order, and reordering it is not local.** That order is the
 single source of answer order: the report fields, the filter categories and the registration form's
@@ -537,7 +534,7 @@ the series, exactly as every other program-dependent answer does.
 
 ## Registration
 
-### The form, reordered
+### The form keeps its cards where they are
 
 Cards in this order, which is also the order the schema declares the fields in, so the record
 reads the way the form asks:
@@ -545,14 +542,20 @@ reads the way the form asks:
 1. **Registrierung** — name, class, attendance
 2. **Persönliches** — gender, then date of birth, then phone number
 3. **Notfallkontakt**
-4. **Gesundheit**
-5. **Veranstaltung** — the answers drawn from the five overridable lists
+4. **Veranstaltung** — the answers drawn from the five overridable lists
+5. **Gesundheit**
 
-Gender moves above date of birth, and Gesundheit moves out from behind Veranstaltung. Everything a
-student can answer about themselves is then asked before anything that depends on where they are
-going — which is also the seam the two-step registration cuts along.
+This is the order the form already has, and it stays. A student says who they are, who to call,
+what they are coming for, and what somebody would need to know if it went wrong — which reads in
+the order the questions matter, and puts the one card a school might have to act on last, where
+it is not buried between two others.
 
-Within Veranstaltung the measurements a rental asks for are weight, then height, then shoe size,
+What step one does is leave **Veranstaltung** out. The cards around it close up rather than
+moving, so the form a student meets twice is the same form both times, with one card more the
+second time.
+
+Within the cards, two orders move. Gender is asked before date of birth in **Persönliches**. And
+the measurements a rental asks for in **Veranstaltung** are weight, then height, then shoe size,
 which is the reverse of the order the form uses today.
 
 ### Gender gains a third value
@@ -582,13 +585,13 @@ record, and an event's row is the same list without Klassen and Events.
 
 ### The report's field row
 
-Class moves ahead of event, following the menu, and `health` comes up from the end to sit behind
-`contact`:
+Class moves ahead of event, following the menu. Nothing else moves, because the form's cards do
+not:
 
 ```
-attendance · class · event · gender · dateOfBirth · contact · health · program ·
+attendance · class · event · gender · dateOfBirth · contact · program ·
 ownEquipment · rentedEquipment · measurements · skillLevel · seasonPassOption ·
-busPickupPoint · food · completeness
+busPickupPoint · food · health · completeness
 ```
 
 `ownEquipment` is the new one, labelled "Ausrüstung", and it sits ahead of `rentedEquipment`
@@ -613,8 +616,8 @@ The other two already agree.
 Follows the field row, skipping what nothing filters on:
 
 ```
-attendance · class · event · gender · health · program · equipmentRental · skillLevel ·
-seasonPassOption · busPickupPoint · foodOption · completeness
+attendance · class · event · gender · program · equipmentRental · skillLevel ·
+seasonPassOption · busPickupPoint · foodOption · health · completeness
 ```
 
 ### The registration form and its schema
@@ -624,22 +627,22 @@ student was asked. Cards, and the fields within them, exactly as the form sectio
 
 ### The three rows say the same thing
 
-Put side by side, the form, the field row and the filter row now run in one order, and the tag
-that used to make that impossible no longer does.
+Put side by side, the form, the field row and the filter row run in one order, and the tag that
+used to make that impossible no longer does.
 
 | The form asks  | The report shows                       |
 | -------------- | -------------------------------------- |
 | Registrierung  | `attendance`, and class and event      |
 | Persönliches   | `gender`, `dateOfBirth` ┐              |
 | Notfallkontakt | ┘ `contact`                            |
-| Gesundheit     | `health`                               |
 | Veranstaltung  | the list-backed answers, in menu order |
+| Gesundheit     | `health`                               |
 
 `contact` is what forced the earlier compromise: it bundles the student's own `phoneNumber`,
-asked in Persönliches, with the three emergency contact fields asked in Notfallkontakt. With those
-two cards adjacent the bundle no longer straddles anything, so one tag can span them both and the
-row still reads in the form's order. Nothing has to be split, and neither row has to apologise for
-the other.
+asked in Persönliches, with the three emergency contact fields asked in Notfallkontakt. Those two
+cards are adjacent and always were, so the bundle straddles nothing — one tag spans them both and
+the row still reads in the form's order. Nothing has to be split, and neither row has to apologise
+for the other.
 
 What keeps them tied is the part with one source: the six list-backed fields follow the master data
 menu, and the filter row follows the field row. Those are the invariants tests pin.
@@ -734,8 +737,8 @@ way out, and it says what it is doing.
 - Stammdaten opens on the list of Eventreihen. Opening one shows what that series is made of.
 - The lists of one series are reached from that series' record, never from a header selection;
   the header's series rows are not shown anywhere in Stammdaten.
-- A breadcrumb names the ancestors of what is open and every step of it is a link; the title names
-  the record itself.
+- A breadcrumb names the whole path down to what is open, ending at the record itself; every step
+  but the last is a link, and the title beneath repeats that last step.
 - A record's categories are offered as one row of tags, in the master data menu order — Klassen,
   Events, Programme, Leistungsstufen, Zugangskarten, Zustiegsstellen, Verpflegung. Only the marked
   tag offers to add an entry.
@@ -802,7 +805,7 @@ emulator. Test-driven throughout: the failing test that states the new behaviour
 | **1** | The editor concept: the route tree moves under `/app/event-series/{id}`, the navigation shrinks to its five fixed entries, the category tag row and the breadcrumb arrive, the header rows are hidden in Stammdaten. No stored shape changes. |
 | **2** | An event becomes a record — `events` goes from `string[]` to objects with a name. Registrations still store the event's name.                                                                                                                 |
 | **3** | The five per-event lists, the resolution rule, the per-event editor pages, and the borrowable flag on required equipment.                                                                                                                     |
-| **4** | The registration form order, the schema field order, and `"diverse"`.                                                                                                                                                                         |
+| **4** | The order of the fields within the form's cards, the schema field order, and `"diverse"`.                                                                                                                                                     |
 | **5** | The two-step registration and its steering condition.                                                                                                                                                                                         |
 | **6** | Merge this document and `spec/refactoring-event-series.md` into `spec/requirements.md`, and delete both.                                                                                                                                      |
 

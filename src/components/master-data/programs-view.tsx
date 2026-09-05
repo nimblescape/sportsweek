@@ -10,6 +10,7 @@ import { Package } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { MasterDataView } from "@/components/master-data/master-data-view";
+import { equipmentPath } from "@/lib/master-data/hierarchy";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,7 +26,7 @@ export function ProgramsView({ eventSeriesId }: { eventSeriesId: string }) {
       renderRowAction={(program, { disabled }) => (
         <Tooltip label="Benötigte Ausrüstung">
           <Link
-            href={`/app/${encodeURIComponent(eventSeriesId)}/master-data/programs?equipment=${encodeURIComponent(program.name)}`}
+            href={equipmentPath(eventSeriesId, program.name)}
             aria-label={`Benötigte Ausrüstung für ${program.name}`}
             // A link has no disabled state of its own, so a write running on this program has to
             // be spelled out for the pointer, the keyboard and assistive technology separately.

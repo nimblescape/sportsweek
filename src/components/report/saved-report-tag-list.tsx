@@ -26,7 +26,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Check, GripVertical, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tag, TagAction, TagField, TagName } from "@/components/ui/tag";
+import { NameForm } from "@/components/ui/name-form";
+import { Tag, TagAction, TagName } from "@/components/ui/tag";
 import { Tooltip } from "@/components/ui/tooltip";
 import { DraggingCursor } from "@/components/ui/dragging-cursor";
 import { cn } from "@/lib/utils";
@@ -137,6 +138,8 @@ export function SavedReportTagList({
             editing?.kind === "rename" && editing.report.id === report.id ? (
               <NameForm
                 key={report.id}
+                schema={nameSchema}
+                label={NAME_LABEL}
                 initialName={report.name}
                 submitLabel="Umbenennen"
                 pending={pending}
@@ -198,6 +201,8 @@ export function SavedReportTagList({
 
           {editing?.kind === "save" ? (
             <NameForm
+              schema={nameSchema}
+              label={NAME_LABEL}
               initialName=""
               submitLabel="Speichern"
               pending={pending}
@@ -349,66 +354,5 @@ function SavedReportTag({
         </>
       )}
     </Tag>
-  );
-}
-
-type NameFormProps = {
-  initialName?: string;
-  /** The accessible name of the confirming icon, which is what the form is for. */
-  submitLabel: string;
-  /** Held by the row while its write is out, so a second name cannot be taken for the same one. */
-  pending: boolean;
-  onSubmit: (name: string) => Promise<void>;
-  onCancel: () => void;
-};
-
-/**
- * The one place a report's name is typed — saving a new one and renaming an old one (US-13).
- * It stands in the row where the control that opened it stood, so naming a report neither moves
- * the tags nor adds a line under them.
- */
-function NameForm({ initialName = "", submitLabel, pending, onSubmit, onCancel }: NameFormProps) {
-  const [name, setName] = React.useState(initialName);
-  const [error, setError] = React.useState<string | null>(null);
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-
-    // The schema owns the wording, so the hint beside the field is the one the server would send.
-    const parsed = nameSchema.safeParse(name);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Ungültiger Name.");
-      return;
-    }
-
-    setError(null);
-    try {
-      await onSubmit(parsed.data);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Das hat leider nicht geklappt.");
-    }
-  }
-
-  return (
-    <form onSubmit={submit} className="flex flex-wrap items-center gap-1.5" noValidate>
-      {/* Shaped as a tag, with its controls inside it, exactly as a tag being deleted is. */}
-      <Tag disabled={pending}>
-        <TagField
-          autoFocus
-          aria-label={NAME_LABEL}
-          aria-invalid={error !== null}
-          placeholder={NAME_LABEL}
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-        <TagAction type="submit" label={submitLabel}>
-          <Check aria-hidden />
-        </TagAction>
-        <TagAction label="Abbrechen" onClick={onCancel}>
-          <X aria-hidden />
-        </TagAction>
-      </Tag>
-      {error ? <p className="text-destructive text-sm">{error}</p> : null}
-    </form>
   );
 }

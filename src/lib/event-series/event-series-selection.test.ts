@@ -12,16 +12,16 @@ import {
 } from "@/lib/event-series/event-series-selection";
 
 /**
- * Where a teacher is maintaining what a series is made of, as against looking at what its
- * students answered. The navigation marks its own section by it.
- * registrations, so it has nothing to show an overview, an assignment or a report (US-22).
+ * The master data hierarchy is the whole of what lives under `/app/event-series`, and it is what
+ * the header does not scope: those pages name in the URL, the title and the breadcrumb which
+ * series they are editing, and it may be an archived one the header offers none of (US-33).
  */
 describe("isMasterDataPath", () => {
   it.each([
     "/app/event-series",
     "/app/event-series/s1",
-    "/app/s1/master-data/classes",
-    "/app/s1/master-data/programs",
+    "/app/event-series/s1/classes",
+    "/app/event-series/s1/programs",
   ])("counts %s as maintaining master data", (pathname) => {
     expect(isMasterDataPath(pathname)).toBe(true);
   });
@@ -41,7 +41,6 @@ describe("selectedEventSeriesIdFrom", () => {
     ["/app/s1/report", "s1"],
     ["/app/s1/assignment", "s1"],
     ["/app/s1/registrations", "s1"],
-    ["/app/s1/master-data/classes", "s1"],
     ["/app/s1", "s1"],
   ])("reads the id out of %s", (pathname, expected) => {
     expect(selectedEventSeriesIdFrom(pathname)).toBe(expected);
@@ -51,12 +50,14 @@ describe("selectedEventSeriesIdFrom", () => {
    * These are pages beside a series rather than inside one, and Next.js prefers a static segment
    * over a dynamic one — so reading them as an id would name a series that does not exist.
    */
-  it.each(["/app/event-series", "/app/event-series/s1", "/app/my-registration"])(
-    "reads no selection out of %s",
-    (pathname) => {
-      expect(selectedEventSeriesIdFrom(pathname)).toBeNull();
-    },
-  );
+  it.each([
+    "/app/event-series",
+    "/app/event-series/s1",
+    "/app/event-series/s1/classes",
+    "/app/my-registration",
+  ])("reads no selection out of %s", (pathname) => {
+    expect(selectedEventSeriesIdFrom(pathname)).toBeNull();
+  });
 
   it.each(["/app", "/app/", "/sign-in", "/"])("reads no selection out of %s", (pathname) => {
     expect(selectedEventSeriesIdFrom(pathname)).toBeNull();
@@ -74,13 +75,12 @@ describe("rescopedPath", () => {
     ["/app/s1/report", "/app/s2/report"],
     ["/app/s1/assignment", "/app/s2/assignment"],
     ["/app/s1/registrations", "/app/s2/registrations"],
-    ["/app/s1/master-data/classes", "/app/s2/master-data/classes"],
   ])("keeps the page open when re-scoping %s", (pathname, expected) => {
     expect(rescopedPath(pathname, "s2")).toBe(expected);
   });
 
   /** From a page about no series there is no view worth keeping, so the overview opens. */
-  it.each(["/app/event-series", "/app/event-series/s1", "/app"])(
+  it.each(["/app/event-series", "/app/event-series/s1", "/app/event-series/s1/classes", "/app"])(
     "opens the overview when leaving %s",
     (pathname) => {
       expect(rescopedPath(pathname, "s2")).toBe("/app/s2/registrations");

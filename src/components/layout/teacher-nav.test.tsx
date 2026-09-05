@@ -22,9 +22,12 @@ import { PERMISSIONS } from "@/lib/auth/permissions";
 
 const { TeacherNav } = await import("@/components/layout/teacher-nav");
 
-const SUB_ITEMS = [
-  "Eventreihen",
+const NAV_ITEMS = ["Registrierungen", "Zuteilungen", "Berichte", "Stammdaten", "Benutzerrechte"];
+
+/** The categories left the bar for the tag row on the record they belong to (US-33). */
+const CATEGORY_LABELS = [
   "Klassen",
+  "Events",
   "Programme",
   "Leistungsstufen",
   "Zugangskarten",
@@ -64,39 +67,33 @@ describe("TeacherNav", () => {
     expect(signOut.compareDocumentPosition(stamp) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("lists the top-level items in order", () => {
+  it("lists the five entries in order", () => {
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    const labels = screen
-      .getAllByRole("link")
-      .concat(screen.getAllByRole("button"))
-      .map((element) => element.textContent);
-
-    expect(labels).toEqual(
-      expect.arrayContaining(["Registrierungen", "Zuteilungen", "Berichte", "Stammdaten"]),
-    );
-    expect(labels.indexOf("Registrierungen")).toBeLessThan(labels.indexOf("Zuteilungen"));
-    expect(labels.indexOf("Zuteilungen")).toBeLessThan(labels.indexOf("Berichte"));
-    expect(labels.indexOf("Berichte")).toBeLessThan(labels.indexOf("Stammdaten"));
+    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual(NAV_ITEMS);
   });
 
-  it("gives every top-level item an icon to be recognised by once the labels are gone", () => {
+  /** Every category is reached from the record it belongs to, so none of them is in the bar. */
+  it("names no category, so the bar can never claim a scope the page is not in", () => {
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    for (const label of ["Berichte", "Zuteilungen", "Registrierungen"]) {
-      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+    for (const label of CATEGORY_LABELS) {
+      expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
+    }
+  });
+
+  it("gives every entry an icon to be recognised by once the labels are gone", () => {
+    render(<TeacherNav permissions={[...PERMISSIONS]} />);
+
+    for (const label of NAV_ITEMS) {
       expect(screen.getByRole("link", { name: label }).querySelector("svg")).toBeInTheDocument();
     }
-    expect(
-      screen.getByRole("link", { name: /stammdaten/i }).querySelector("svg"),
-    ).toBeInTheDocument();
   });
 
-  /** The heading has no view of its own, so it opens on the first entry beneath it. */
-  it("opens Stammdaten on the event series list, which heads its sub-items", () => {
+  it("opens Stammdaten on the event series list, the root of the hierarchy", () => {
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Stammdaten" })).toHaveAttribute(
       "href",
       "/app/event-series",
     );
@@ -108,14 +105,14 @@ describe("TeacherNav", () => {
 
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: /stammdaten/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Stammdaten" })).toHaveAttribute(
       "href",
       "/app/event-series",
     );
   });
 
-  it("points every section at the series the master data is about", () => {
-    pathname.mockReturnValue("/app/s2/master-data/classes");
+  it("points every scoped entry at the series the URL names", () => {
+    pathname.mockReturnValue("/app/s2/registrations");
     showing(series("s1"), series("s2"));
 
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
@@ -127,19 +124,19 @@ describe("TeacherNav", () => {
   });
 
   /**
-   * Every page but the event series list is about one series, so with none at all there is
-   * nowhere for the other entries to point (US-20).
+   * Three of the five are about one series (US-20), so with none at all they have nowhere to
+   * point. The other two are about the school and stay.
    */
-  it("offers only the event series list while there is no series to be about", () => {
+  it("keeps the unscoped entries while there is no series to be about", () => {
     pathname.mockReturnValue("/app/event-series");
     showing();
 
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
-    for (const label of ["Berichte", "Zuteilungen", "Registrierungen", "Klassen"]) {
-      expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
-    }
+    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Stammdaten",
+      "Benutzerrechte",
+    ]);
   });
 
   /** The list page has no selection of its own, so the layout resolves one for it (Q8). */
@@ -171,33 +168,6 @@ describe("TeacherNav", () => {
     );
   });
 
-  it("shows the master data sub-items whatever the route is, since they never fold away", () => {
-    render(<TeacherNav permissions={[...PERMISSIONS]} />);
-
-    for (const label of SUB_ITEMS) {
-      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
-    }
-  });
-
-  it("leaves them there when Stammdaten is clicked, which folds nothing", async () => {
-    render(<TeacherNav permissions={[...PERMISSIONS]} />);
-
-    await userEvent.click(screen.getByRole("link", { name: /stammdaten/i }));
-
-    for (const label of SUB_ITEMS) {
-      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
-    }
-  });
-
-  it("has one sub-item per teacher-maintained category", () => {
-    render(<TeacherNav permissions={[...PERMISSIONS]} />);
-
-    expect(SUB_ITEMS).toHaveLength(7);
-    for (const label of SUB_ITEMS) {
-      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
-    }
-  });
-
   it("marks the active item for assistive technology", () => {
     pathname.mockReturnValue("/app/s1/assignment");
 
@@ -210,12 +180,20 @@ describe("TeacherNav", () => {
     expect(screen.getByRole("link", { name: "Berichte" })).not.toHaveAttribute("aria-current");
   });
 
-  it("marks the active sub-item", () => {
-    pathname.mockReturnValue("/app/s1/master-data/classes");
+  it.each([
+    "/app/event-series",
+    "/app/event-series/s1",
+    "/app/event-series/s1/classes",
+    "/app/event-series/s1/programs",
+  ])("marks Stammdaten at every depth beneath it, such as %s", (path) => {
+    pathname.mockReturnValue(path);
 
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
 
-    expect(screen.getByRole("link", { name: "Klassen" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Stammdaten" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 });
 
@@ -230,7 +208,7 @@ describe("TeacherNav — always open", () => {
     showing(series("s1"), series("s2"), series("s7"));
   });
 
-  const openSubItems = () => screen.queryByRole("link", { name: "Klassen" });
+  const stammdaten = () => screen.queryByRole("link", { name: "Stammdaten" });
 
   it("offers nothing that folds it", () => {
     render(<TeacherNav permissions={[...PERMISSIONS]} />);
@@ -245,7 +223,7 @@ describe("TeacherNav — always open", () => {
 
       await userEvent.click(screen.getByRole("link", { name: label }));
 
-      expect(openSubItems()).toBeInTheDocument();
+      expect(stammdaten()).toBeInTheDocument();
     },
   );
 });
@@ -294,49 +272,33 @@ describe("TeacherNav — what the permissions reach", () => {
     expect(linkNames()).toEqual(["Registrierungen"]);
   });
 
-  it("hides the master data section and its sub-items without the permission", () => {
+  it("hides Stammdaten without the permission that maintains it", () => {
     render(<TeacherNav permissions={["viewReports"]} />);
 
     expect(screen.queryByRole("link", { name: "Stammdaten" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Klassen" })).not.toBeInTheDocument();
   });
 
-  /**
-   * Stammdaten heads whatever sits beneath it, and two permissions can each put something
-   * there. It is shown when either does, and opens on the first of them.
-   */
-  it("keeps Stammdaten for somebody who may only edit users, holding just the rights page", () => {
+  /** The two unscoped entries stand on their own permission; neither implies the other. */
+  it("shows only the rights page to somebody who may only edit users", () => {
     render(<TeacherNav permissions={["editUsers"]} />);
 
-    expect(screen.getByRole("link", { name: "Stammdaten" })).toBeInTheDocument();
+    expect(linkNames()).toEqual(["Benutzerrechte"]);
     expect(screen.getByRole("link", { name: "Benutzerrechte" })).toHaveAttribute(
       "href",
       "/app/users",
     );
-    expect(screen.queryByRole("link", { name: "Klassen" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Eventreihen" })).not.toBeInTheDocument();
   });
 
-  it("keeps the lists for somebody who may only edit master data, without the rights page", () => {
+  it("shows only Stammdaten to somebody who may only edit master data", () => {
     render(<TeacherNav permissions={["editMasterData"]} />);
 
-    expect(screen.getByRole("link", { name: "Stammdaten" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Eventreihen" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Klassen" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Benutzerrechte" })).not.toBeInTheDocument();
+    expect(linkNames()).toEqual(["Stammdaten"]);
   });
 
-  it("puts the rights page last, after the lists", () => {
+  it("puts the rights page last, after Stammdaten", () => {
     render(<TeacherNav permissions={["editMasterData", "editUsers"]} />);
 
-    const names = linkNames();
-    expect(names[names.length - 1]).toBe("Benutzerrechte");
-  });
-
-  it("opens Stammdaten on the rights page when that is all there is beneath it", () => {
-    render(<TeacherNav permissions={["editUsers"]} />);
-
-    expect(screen.getByRole("link", { name: "Stammdaten" })).toHaveAttribute("href", "/app/users");
+    expect(linkNames()).toEqual(["Stammdaten", "Benutzerrechte"]);
   });
 
   it("shows nothing at all to a teacher holding no permission", () => {

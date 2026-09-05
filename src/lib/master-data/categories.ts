@@ -5,7 +5,6 @@
  */
 import { z } from "zod";
 import type { EventSeries } from "@/lib/schemas/event-series";
-import { eventSeriesRoutes } from "@/lib/routes";
 
 /**
  * How an item is recognised as still in use (US-5 to US-10). A registration stores the name it
@@ -53,10 +52,22 @@ export type MasterDataCategory = {
  * the order the menu shows them. The event series itself is not here: it carries archive state of
  * its own and is maintained on the one page that is not scoped to a selection.
  *
- * The events lead because they are the series divided into weeks, and everything else describes
- * the students within it — the order the report fields and the filter categories already follow.
+ * The classes lead because they describe the school itself, which is true of a series whatever it
+ * divides into; the events follow as the series divided into weeks, and the rest describe what a
+ * week offers — the order the report fields and the filter categories already follow.
  */
 export const MASTER_DATA_CATEGORIES = {
+  classes: {
+    field: "classOptions",
+    usage: { kind: "masterData", field: "class" },
+    labels: {
+      title: "Klassen",
+      singular: "Klasse",
+      add: "Neue Klasse",
+      empty: "Es gibt noch keine Klasse.",
+      answer: "Klasse",
+    },
+  },
   events: {
     field: "events",
     // The one list nobody is asked for: a teacher assigns the event (US-12), so this field is
@@ -68,17 +79,6 @@ export const MASTER_DATA_CATEGORIES = {
       add: "Neues Event",
       empty: "Es gibt noch kein Event.",
       answer: "Event",
-    },
-  },
-  classes: {
-    field: "classOptions",
-    usage: { kind: "masterData", field: "class" },
-    labels: {
-      title: "Klassen",
-      singular: "Klasse",
-      add: "Neue Klasse",
-      empty: "Es gibt noch keine Klasse.",
-      answer: "Klasse",
     },
   },
   programs: {
@@ -183,34 +183,6 @@ export const ANSWER_LABELS = Object.fromEntries(
     category.labels.answer,
   ]),
 ) as Record<AnswerField, string>;
-
-/**
- * The master data menu, in the order it is shown (US-4 to US-10). Every list belongs to one event
- * series, so the entries are built from the selected one's id (Q8). The event series list leads and
- * is the exception twice over: it is not a category, and it is the one page not scoped to the
- * selection — it is where the things the header offers are maintained (US-19).
- *
- * With nothing selected it is also the only entry left, since the other six would have no series
- * to be about.
- */
-export function masterDataSections(eventSeriesId: string | null) {
-  const eventSeriesList = { href: "/app/event-series", label: "Eventreihen" };
-  if (eventSeriesId === null) return [eventSeriesList];
-
-  return [
-    eventSeriesList,
-    ...Object.entries(MASTER_DATA_CATEGORIES).map(([key, category]) => ({
-      href: `/app/${encodeURIComponent(eventSeriesId)}/master-data/${key}`,
-      label: category.labels.title,
-    })),
-  ];
-}
-
-/** Where the section opens: its first category, the section itself having no view of its own. */
-export function firstMasterDataPath(eventSeriesId: string): string {
-  const [first] = Object.keys(MASTER_DATA_CATEGORIES);
-  return `${eventSeriesRoutes(eventSeriesId).masterData}/${first}`;
-}
 
 /**
  * Lives here rather than next to the server-side guard because the list view shows the same

@@ -5,13 +5,15 @@
  */
 "use client";
 
-import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Archive, ArchiveRestore, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { eventSeriesRecordPath } from "@/lib/master-data/hierarchy";
 import {
   ARCHIVE_NO_DATA_HINT,
   ARCHIVE_OPEN_HINT,
@@ -119,6 +121,25 @@ export function EventSeriesList({
               </span>
 
               <div className="flex shrink-0 items-center gap-1">
+                {/* What the series is made of hangs beneath it, archived or not: the record page
+                    is where its lists are maintained and where the breadcrumb starts (US-33). */}
+                <Link
+                  href={eventSeriesRecordPath(eventSeries.id)}
+                  aria-label={`Eventreihe ${eventSeries.name} öffnen`}
+                  // A link has no disabled state of its own, so a write running on this row has
+                  // to be spelled out for the pointer, the keyboard and assistive technology.
+                  aria-disabled={busy || undefined}
+                  tabIndex={busy ? -1 : undefined}
+                  onClick={busy ? (clicked) => clicked.preventDefault() : undefined}
+                  className={cn(
+                    buttonVariants({ variant: "ghost" }),
+                    busy && "pointer-events-none opacity-50",
+                  )}
+                >
+                  Öffnen
+                  <ChevronRight aria-hidden data-icon="inline-end" />
+                </Link>
+
                 {/* An archived eventSeries is finished with: it can be unarchived or removed, but
                     not rewritten, and neither its name nor its place is up for change (US-19). */}
                 {eventSeries.isArchived ? null : (

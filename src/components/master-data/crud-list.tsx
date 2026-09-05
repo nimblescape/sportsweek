@@ -9,23 +9,28 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Lock, Pencil, Plus, Trash2 } from "lucide-react";
+import { Lock, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NameForm } from "@/components/ui/name-form";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Tooltip } from "@/components/ui/tooltip";
-import { PageHeading } from "@/components/layout/page-heading";
+import { RecordHeader } from "@/components/master-data/record-header";
 import { ApiRequestError } from "@/lib/api/client";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { listItemNameSchema } from "@/lib/schemas/master-data";
+import type { Crumb, RecordTab } from "@/lib/master-data/hierarchy";
 import { IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
 
 const formSchema = z.object({ name: listItemNameSchema });
 type FormValues = z.infer<typeof formSchema>;
+
+const NAME_LABEL = "Name";
+const ADD_LABEL = "Anlegen";
 
 /** An item has no id of its own: its name is what identifies it within its list (US-21). */
 export type CrudItem = { id: string; name: string };
@@ -38,14 +43,17 @@ export type CrudLabels = {
 };
 
 type OpenDialog =
-  { kind: "none" } | { kind: "form"; item: CrudItem | null } | { kind: "delete"; item: CrudItem };
+  { kind: "none" } | { kind: "edit"; item: CrudItem } | { kind: "delete"; item: CrudItem };
 
 type CrudListProps = {
+  /** The path down to the record on screen, ending at it (US-33). */
+  trail: readonly Crumb[];
+  /** The record the screen is about — a series, or the program whose equipment this is. */
+  title: string;
+  /** The record's child collections; the marked one's entries are the list beneath. */
+  tabs: readonly RecordTab[];
+  marked: string;
   labels: CrudLabels;
-  /** Overrides the heading, so a program's equipment list can name the program. */
-  title?: string;
-  /** Rendered above the heading, e.g. the way back out of a nested list. */
-  children?: React.ReactNode;
   items: CrudItem[];
   loading: boolean;
   error: string | null;
@@ -75,15 +83,16 @@ type CrudListProps = {
 };
 
 /**
- * The one CRUD list every teacher-maintained category uses (US-5 to US-10), and the one a
- * program's required equipment uses too. It takes items and callbacks rather than reading
- * anything itself, which is what lets a Firestore collection and a field on a single document
- * present the identical pattern the requirements ask for.
+ * One master data screen (US-33): the record's path and name, a tag per child collection it has,
+ * and the marked collection's entries beneath. It takes items and callbacks rather than reading
+ * anything itself, which is what lets every level of the hierarchy present the identical shape.
  */
 export function CrudList({
-  labels,
+  trail,
   title,
-  children,
+  tabs,
+  marked,
+  labels,
   items,
   loading,
   error,
@@ -101,6 +110,8 @@ export function CrudList({
   editNote,
 }: CrudListProps) {
   const [dialog, setDialog] = React.useState<OpenDialog>({ kind: "none" });
+  // Held against the tab it was opened on, so walking to another collection closes it by itself.
+  const [addingUnder, setAddingUnder] = React.useState<string | null>(null);
   const { busyId, pending, run } = useRowAction();
 
   const closeDialog = () => setDialog({ kind: "none" });
@@ -113,20 +124,33 @@ export function CrudList({
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      {children}
-
       <BusyRegion busy={pending}>
         <div className="flex flex-col gap-4">
-          <PageHeading
-            actions={
-              <Button onClick={() => setDialog({ kind: "form", item: null })}>
-                <Plus aria-hidden data-icon="inline-start" />
-                {labels.add}
-              </Button>
-            }
-          >
-            {title ?? labels.title}
-          </PageHeading>
+          <RecordHeader
+            trail={trail}
+            title={title}
+            tabs={tabs}
+            marked={marked}
+            disabled={pending}
+            onAdd={() => {
+              closeDialog();
+              setAddingUnder(marked);
+            }}
+          />
+
+          {addingUnder === marked ? (
+            <NameForm
+              schema={listItemNameSchema}
+              label={NAME_LABEL}
+              submitLabel={ADD_LABEL}
+              pending={pending}
+              onSubmit={async (name) => {
+                await submit(name, null);
+                setAddingUnder(null);
+              }}
+              onCancel={() => setAddingUnder(null)}
+            />
+          ) : null}
 
           <ItemList
             labels={labels}
@@ -141,19 +165,25 @@ export function CrudList({
             fixedItemsHint={fixedItemsHint}
             renderRowAction={renderRowAction}
             busyId={busyId}
-            onEdit={(item) => setDialog({ kind: "form", item })}
-            onDelete={(item) => setDialog({ kind: "delete", item })}
+            onEdit={(item) => {
+              setAddingUnder(null);
+              setDialog({ kind: "edit", item });
+            }}
+            onDelete={(item) => {
+              setAddingUnder(null);
+              setDialog({ kind: "delete", item });
+            }}
             onReorder={(orderedIds) => run(null, async () => onReorder(orderedIds))}
           />
         </div>
       </BusyRegion>
 
-      {dialog.kind === "form" ? (
-        <ItemFormDialog
-          key={dialog.item?.id ?? "new"}
+      {dialog.kind === "edit" ? (
+        <EditItemDialog
+          key={dialog.item.id}
           labels={labels}
           item={dialog.item}
-          note={dialog.item === null ? null : editNote(dialog.item)}
+          note={editNote(dialog.item)}
           onSubmit={submit}
           onClose={closeDialog}
         />
@@ -321,7 +351,7 @@ function ItemList({
   );
 }
 
-function ItemFormDialog({
+function EditItemDialog({
   labels,
   item,
   note,
@@ -329,12 +359,11 @@ function ItemFormDialog({
   onClose,
 }: {
   labels: CrudLabels;
-  item: CrudItem | null;
+  item: CrudItem;
   note: React.ReactNode;
   onSubmit: (name: string, item: CrudItem | null) => Promise<void>;
   onClose: () => void;
 }) {
-  const isEdit = item !== null;
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const nameId = React.useId();
   const errorId = React.useId();
@@ -346,7 +375,7 @@ function ItemFormDialog({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: item?.name ?? "" },
+    defaultValues: { name: item.name },
   });
 
   const submit = handleSubmit(async (values) => {
@@ -368,13 +397,13 @@ function ItemFormDialog({
   });
 
   return (
-    <Dialog open title={isEdit ? `${labels.singular} bearbeiten` : labels.add} onClose={onClose}>
+    <Dialog open title={`${labels.singular} bearbeiten`} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         {/* Renaming leaves what was already stored alone, which is worth saying before it is. */}
         {note === null ? null : <p className="text-muted-foreground text-sm">{note}</p>}
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={nameId}>Name</Label>
+          <Label htmlFor={nameId}>{NAME_LABEL}</Label>
           <Input
             id={nameId}
             autoFocus
@@ -400,7 +429,7 @@ function ItemFormDialog({
             Abbrechen
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isEdit ? "Speichern" : "Anlegen"}
+            Speichern
           </Button>
         </div>
       </form>

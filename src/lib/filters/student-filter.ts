@@ -33,8 +33,8 @@ import {
  */
 export const FILTER_CATEGORIES = [
   "attendance",
-  "event",
   "class",
+  "event",
   "gender",
   "program",
   "equipmentRental",
@@ -55,8 +55,8 @@ export type FilterCategory = (typeof FILTER_CATEGORIES)[number];
  */
 export const FIELD_TAG_KEY_BY_CATEGORY: Record<FilterCategory, string> = {
   attendance: "attendance",
-  event: "event",
   class: "class",
+  event: "event",
   gender: "gender",
   program: "program",
   equipmentRental: "rentedEquipment",
@@ -126,8 +126,8 @@ export const EMPTY_FILTER: StudentFilter = {
   name: "",
   tags: {
     attendance: [],
-    event: [],
     class: [],
+    event: [],
     gender: [],
     program: [],
     equipmentRental: [],
@@ -352,11 +352,13 @@ export function filterGroups(
   if (attendance) {
     groups.push({ category: "attendance", label: "Teilnahme", options: ATTENDANCE_OPTIONS });
   }
+
+  pushList("class", ANSWER_LABELS.class, asOptions(lists.classes));
+
   if (events) {
     pushList("event", ANSWER_LABELS.event, asOptions(events));
   }
 
-  pushList("class", ANSWER_LABELS.class, asOptions(lists.classes));
   groups.push({ category: "gender", label: "Geschlecht", options: GENDER_OPTIONS });
   pushList(
     "program",

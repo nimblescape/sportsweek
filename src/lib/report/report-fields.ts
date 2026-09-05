@@ -114,8 +114,8 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
   answer("attendance", "Teilnahme", (record) =>
     record.isAttendingSportsWeek === null ? null : yesNo(record.isAttendingSportsWeek),
   ),
-  answer("event", ANSWER_LABELS.event, (record) => record.event, asksFor("event")),
   answer("class", ANSWER_LABELS.class, (record) => record.class, asksFor("class")),
+  answer("event", ANSWER_LABELS.event, (record) => record.event, asksFor("event")),
   answer("gender", "Geschlecht", (record) =>
     record.gender === null ? null : GENDER_LABELS[record.gender],
   ),
