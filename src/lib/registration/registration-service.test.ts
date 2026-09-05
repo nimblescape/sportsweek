@@ -305,17 +305,17 @@ describe("saveRegistration", () => {
     expect(record.foodOption).toBe(FOOD_OPTION_OTHER);
   });
 
-  it("refuses the free-text food choice where the food question is not asked at all", async () => {
+  /** A question nobody is asked cannot be answered wrongly either (US-21). */
+  it("saves past a free-text food choice where the food question is not asked at all", async () => {
     seedEventSeries("s1", { foodOptions: [] });
 
-    await expect(
-      saveRegistration(target(), {
-        ...attending,
-        foodOption: FOOD_OPTION_OTHER,
-        foodOtherText: "Laktosefrei",
-      }),
-    ).rejects.toMatchObject({ code: "CONFLICT", message: ANSWER_NO_LONGER_OFFERED_HINT });
-    expect(unanswered()).toBe(true);
+    const record = await saveRegistration(target(), {
+      ...attending,
+      foodOption: FOOD_OPTION_OTHER,
+      foodOtherText: "Laktosefrei",
+    });
+
+    expect(record.gender).toBe("female");
   });
 
   it("stores nothing when an answer is malformed", async () => {
@@ -325,6 +325,20 @@ describe("saveRegistration", () => {
       saveRegistration(target(), { ...attending, phoneNumber: "06601234567" }),
     ).rejects.toBeInstanceOf(ServiceError);
     expect(unanswered()).toBe(true);
+  });
+
+  /**
+   * Step one of a two-step series asks nothing an event could answer differently (US-36), so an
+   * event-owned answer arriving with the rest of the form — carried over from a form that still
+   * has it, whichever event it once belonged to — is not something this save has to agree with a
+   * list about; only what step one actually asks may refuse it.
+   */
+  it("saves step one of a two-step series without checking its event-owned answers", async () => {
+    seedEventSeries("s1", { events: [{ name: "Woche A", programs: [{ name: "Snowboard" }] }] });
+
+    const record = await saveRegistration(target(), attending);
+
+    expect(record.gender).toBe("female");
   });
 
   /** A registration is filled in over time, so an unanswered question is not a failed save. */

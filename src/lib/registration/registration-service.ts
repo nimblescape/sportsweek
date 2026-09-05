@@ -100,11 +100,9 @@ function assertAnswersAreOffered(
     const answer = answers[category.usage.field as keyof typeof answers];
     if (typeof answer !== "string" || answer === "") continue;
 
-    // A question that is not put has no answer that could be right — which is what keeps step one
-    // of a two-step series from storing anything about Veranstaltung (US-36).
-    if (!asked.has(category.usage.field)) {
-      throw new ServiceError(ErrorCode.Conflict, ANSWER_NO_LONGER_OFFERED_HINT);
-    }
+    // A question step one does not put has nothing to check the answer against yet — carried
+    // over from before the student was unassigned, not one this save is making (US-36).
+    if (!asked.has(category.usage.field)) continue;
 
     const list = lists[category.field];
     const offered = list.map((entry) => (typeof entry === "string" ? entry : entry.name));
