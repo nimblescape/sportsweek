@@ -55,7 +55,7 @@ no correct answer at the time it is put.
 | Nav: Eventreihen · Events · Klassen · …                              | Nav: five fixed entries; the categories move onto the record page as a tag row   |
 | Gender is male or female                                             | Gender is male, female or diverse                                                |
 | Form: Registrierung · Persönliches · Notfallkontakt · … · Gesundheit | Form: Registrierung · Persönliches · Gesundheit · Notfallkontakt · Veranstaltung |
-| One registration step, complete only when everything is answered     | Two steps where any event carries its own programs                               |
+| One registration step, complete only when everything is answered     | Two steps where any event carries lists of its own                               |
 
 ## The shape it moves to
 
@@ -414,8 +414,15 @@ figures table counts it in a column of its own beside `"Männlich"` and `"Weibli
 
 The steering condition is per series and derived, never stored:
 
-> If **any** event of the series names programs of its own, this series registers in two steps.
-> Otherwise it registers in one, exactly as today.
+> If **any** event of the series names **any** list of its own, this series registers in two
+> steps. Otherwise it registers in one, exactly as today.
+
+It is deliberately not "names programs of its own", though programs are what the case that
+prompted this looks like. Any of the five carries the same problem: an event with its own access
+cards, under a series that registers in one step, would ask a student for an access card before
+anybody knows which event they are in — and then, on assignment, their answer turns out not to be
+one their event offers. That is precisely what two steps exist to prevent, so the trigger is the
+condition itself rather than one instance of it.
 
 |                                | One step (today)   | Two steps                                                                  |
 | ------------------------------ | ------------------ | -------------------------------------------------------------------------- |
@@ -462,6 +469,23 @@ The last rule is narrow on purpose. It does not apply in a one-step series, wher
 from the series and survives any move; and it does not fire before a program is chosen, when there
 is nothing yet to invalidate.
 
+### An event that students have answered against cannot be removed
+
+The refusals compose into a dead end, and it is the intended one. Removing an event is already
+refused while a registration names it, and un-assigning is now refused once the student has
+answered against it — so in a two-step series an event with answered students cannot be taken
+away at all.
+
+That is the right answer rather than a gap to be patched. Removing an event mid-series is not a
+correction, it is a change of plan: the students assigned to it answered questions that only that
+event asked, and there is no state to put them back into that is not simply a different plan. The
+means for a change of that size is to archive the series and create the next one from a copy of
+it — which keeps what the students already said where it belongs, in a series that still describes
+what happened.
+
+Deleting the whole series remains possible, and takes its registrations with it. That is the only
+way out, and it says what it is doing.
+
 ## User stories
 
 ### US-33: Teacher maintains master data as a hierarchy
@@ -503,7 +527,7 @@ is nothing yet to invalidate.
 
 ### US-36: Registering in two steps
 
-- A series in which any event names its own programs registers in two steps.
+- A series in which any event names any list of its own registers in two steps.
 - Step one is everything but Veranstaltung, and a registration that has it all reads complete.
 - Assignment to an event begins step two: Veranstaltung appears and the registration reads
   incomplete until it is answered.
@@ -530,3 +554,20 @@ emulator. Test-driven throughout: the failing test that states the new behaviour
 | **6** | Merge this document and `spec/refactoring-event-series.md` into `spec/requirements.md`, and delete both.                                                                                                                                      |
 
 Environments are purged and reseeded after slices 2, 3 and 4.
+
+## Open questions
+
+### Q7 — Does the reassignment refusal follow the steering condition?
+
+The trigger for two steps is now any per-event list, not programs alone. The refusal that protects
+an answer did not move with it: it still names the program.
+
+The reason given for it generalises word for word. A student's access card, drawn from their
+event's own list, is invalidated by a move exactly as their program is — so on the same argument
+the rule reads "a student who has answered anything drawn from their event's own list cannot be
+reassigned", and the program is one case of it.
+
+Against that: the narrower rule is easier to explain to a teacher, and the program is the answer
+most likely to exist. It would leave a student whose only per-event answer was a pickup point
+movable, and their pickup point silently unoffered afterwards — which the completeness check would
+report, though only after the fact.
