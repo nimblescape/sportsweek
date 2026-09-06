@@ -21,6 +21,12 @@ vi.mock("@/lib/api/client", async () => {
 const { RegistrationForm } = await import("./registration-form");
 const { ApiRequestError } = await import("@/lib/api/client");
 const { REGISTRATION_CLOSED_HINT } = await import("@/lib/registration/registration");
+const { HeaderStatusProvider, useHeaderStatus } = await import("@/components/layout/header-status");
+
+/** Stands in for `AppShell`, which is what actually renders a status the form hands up to it. */
+function HeaderStatusSlot() {
+  return <>{useHeaderStatus()}</>;
+}
 
 const LISTS = {
   programs: [
@@ -90,16 +96,19 @@ function renderForm(
   readOnly = false,
 ) {
   render(
-    <RegistrationForm
-      eventSeriesId="s1"
-      eventSeriesName="Winter 2026"
-      studentName="Jane Doe"
-      studentClass="3AHME"
-      asked={asked}
-      record={record}
-      lists={LISTS}
-      readOnly={readOnly}
-    />,
+    <HeaderStatusProvider>
+      <HeaderStatusSlot />
+      <RegistrationForm
+        eventSeriesId="s1"
+        eventSeriesName="Winter 2026"
+        studentName="Jane Doe"
+        studentClass="3AHME"
+        asked={asked}
+        record={record}
+        lists={LISTS}
+        readOnly={readOnly}
+      />
+    </HeaderStatusProvider>,
   );
 }
 
@@ -108,7 +117,9 @@ const save = () => screen.getByRole("button", { name: "Speichern" });
 /** Three questions offer "Ja"/"Nein", so an answer is only unambiguous within its own group. */
 const answer = (question: string, option: string) =>
   userEvent.click(
-    within(screen.getByRole("group", { name: question })).getByRole("radio", { name: option }),
+    within(screen.getByRole("radiogroup", { name: question })).getByRole("radio", {
+      name: option,
+    }),
   );
 
 const ATTENDING = "Nimmst du an der Veranstaltung teil?";
@@ -240,7 +251,7 @@ describe("RegistrationForm", () => {
   it("starts a student who has not registered yet on an unanswered form", () => {
     renderForm(null);
 
-    const asked = within(screen.getByRole("group", { name: ATTENDING }));
+    const asked = within(screen.getByRole("radiogroup", { name: ATTENDING }));
     expect(asked.getByRole("radio", { name: "Nein" })).not.toBeChecked();
     expect(asked.getByRole("radio", { name: "Ja" })).not.toBeChecked();
     expect(screen.queryByLabelText(ANSWER_LABELS.skillLevel)).not.toBeInTheDocument();
@@ -382,6 +393,22 @@ describe("RegistrationForm", () => {
       expect(screen.getByLabelText("Vorname")).toHaveAttribute("aria-invalid", "true");
     });
 
+    it("frames a radio group in red once its answer is missing", async () => {
+      renderForm({
+        ...storedRecord,
+        emergencyContact: { ...storedRecord.emergencyContact, relationship: null },
+      });
+
+      await changeSomething();
+      await userEvent.click(save());
+
+      await waitFor(() => expect(apiRequest).toHaveBeenCalled());
+      expect(await screen.findByRole("radiogroup", { name: "Beziehung" })).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      );
+    });
+
     it("says nothing about missing answers before the first save", () => {
       renderForm({
         ...storedRecord,
@@ -457,7 +484,7 @@ describe("RegistrationForm", () => {
       expect(screen.getByText("Benötigte Ausrüstung")).toBeInTheDocument();
       expect(screen.getByRole("checkbox", { name: "Ski" })).toBeInTheDocument();
       expect(screen.getByRole("checkbox", { name: "Helm" })).toBeInTheDocument();
-      expect(screen.getByRole("group", { name: RENTING })).toBeInTheDocument();
+      expect(screen.getByRole("radiogroup", { name: RENTING })).toBeInTheDocument();
     });
 
     it("has nothing to tick until the student says they need to borrow something", () => {
@@ -539,7 +566,9 @@ describe("RegistrationForm", () => {
       renderForm(storedRecord, ALL_ASKED, true);
 
       expect(
-        within(screen.getByRole("group", { name: ATTENDING })).getByRole("radio", { name: "Ja" }),
+        within(screen.getByRole("radiogroup", { name: ATTENDING })).getByRole("radio", {
+          name: "Ja",
+        }),
       ).toBeDisabled();
       expect(screen.getByLabelText("Geburtsdatum")).toBeDisabled();
       expect(screen.getByLabelText(ANSWER_LABELS.skillLevel)).toBeDisabled();

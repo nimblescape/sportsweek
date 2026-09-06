@@ -40,6 +40,7 @@ import {
 import { missingAnswers } from "@/lib/registration/completeness";
 import { ANSWER_LABELS, type AnswerField } from "@/lib/master-data/categories";
 import { EVENT_OWNED_ANSWERS } from "@/lib/master-data/resolution";
+import { useSetHeaderStatus } from "@/components/layout/header-status";
 import { EquipmentChecklist } from "./equipment-checklist";
 import { Field, RadioField, ReadOnlyField, SelectField, YES_NO } from "./fields";
 
@@ -213,6 +214,27 @@ export function RegistrationForm({
   // Shown once, right after a save that has not since been edited over: the header line is
   // what tells a student the save went through, so it says so only while that is still true.
   const showStatus = saved && !isDirty;
+  const isComplete = missing.length === 0;
+
+  // Memoised so the header is only told again when what it should show actually changes — handed
+  // a new element every render, the effect that reports it would set state on every render too.
+  const headerStatus = React.useMemo(
+    () =>
+      showStatus ? (
+        <p
+          role="status"
+          className={
+            isComplete
+              ? "text-muted-foreground text-center text-sm"
+              : "text-destructive text-center text-sm"
+          }
+        >
+          {isComplete ? COMPLETE_REGISTRATION_HINT : INCOMPLETE_REGISTRATION_HINT}
+        </p>
+      ) : null,
+    [showStatus, isComplete],
+  );
+  useSetHeaderStatus(headerStatus);
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
@@ -224,21 +246,6 @@ export function RegistrationForm({
         {/* The whole form is about this one event series, so it heads the form rather than a card
             inside it — where it read as the title of the answers underneath it. */}
         <PageHeading>{eventSeriesName}</PageHeading>
-
-        {/* Whether it can be handed in as it stands, restated each time it changes: a field turning
-            red already says which answer is missing, so this says only whether any still are. */}
-        {showStatus ? (
-          <p
-            role="status"
-            className={
-              missing.length === 0
-                ? "text-muted-foreground text-center text-sm"
-                : "text-destructive text-center text-sm"
-            }
-          >
-            {missing.length === 0 ? COMPLETE_REGISTRATION_HINT : INCOMPLETE_REGISTRATION_HINT}
-          </p>
-        ) : null}
 
         <Section title="Registrierung">
           <ReadOnlyField label="Name" value={studentName} />
