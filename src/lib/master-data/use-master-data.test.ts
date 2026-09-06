@@ -61,7 +61,15 @@ describe("useMasterData", () => {
 
   it("keeps the order the teacher dropped the items into, not an alphabetical one", () => {
     useEventSeries.mockReturnValue(
-      delivered(eventSeriesOf("s1", { classOptions: ["Zoe", "Anton", "Mia"] })),
+      delivered(
+        eventSeriesOf("s1", {
+          classOptions: [
+            { name: "Zoe", teacherUids: [], isOpenToStudents: false },
+            { name: "Anton", teacherUids: [], isOpenToStudents: false },
+            { name: "Mia", teacherUids: [], isOpenToStudents: false },
+          ],
+        }),
+      ),
     );
 
     const { result } = renderHook(() => useMasterData("classes", "s1"));
@@ -88,7 +96,13 @@ describe("useMasterData", () => {
   });
 
   it("holds an empty list while the id names no event series, since none supplies one", () => {
-    useEventSeries.mockReturnValue(delivered(eventSeriesOf("s1", { classOptions: ["3AHIT"] })));
+    useEventSeries.mockReturnValue(
+      delivered(
+        eventSeriesOf("s1", {
+          classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+        }),
+      ),
+    );
 
     const { result } = renderHook(() => useMasterData("classes", "gone"));
 

@@ -220,6 +220,41 @@ describe("RecordScreen", () => {
     expect(markedTag()).toBeDisabled();
   });
 
+  describe("a collection with nothing to add", () => {
+    const TEACHER_TABS = [
+      {
+        key: "teachers",
+        label: "Lehrpersonen",
+        href: "/app/event-series/s1/classes?teachers=3AHIT",
+        opensRecords: false,
+      },
+    ];
+
+    it("marks the collection without offering a control on it", () => {
+      render(
+        <RecordScreen trail={TRAIL} tabs={TEACHER_TABS} marked="teachers">
+          <p>Liste</p>
+        </RecordScreen>,
+      );
+
+      expect(screen.getByText("Lehrpersonen")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Lehrpersonen/ })).not.toBeInTheDocument();
+    });
+
+    it("does nothing on Enter, there being nothing to add", async () => {
+      render(
+        <RecordScreen trail={TRAIL} tabs={TEACHER_TABS} marked="teachers">
+          <p>Liste</p>
+        </RecordScreen>,
+      );
+
+      document.body.focus();
+      await userEvent.keyboard("{Enter}");
+
+      expect(push).not.toHaveBeenCalled();
+    });
+  });
+
   describe("the report", () => {
     const REPORT = [{ title: "Wintersportwoche", entries: ["3AHIT"], sections: [] }];
     const reportButton = () => screen.getByRole("button", { name: MASTER_DATA_REPORT_LABEL });

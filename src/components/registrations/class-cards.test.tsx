@@ -13,7 +13,7 @@ import { INVITATION_LINK_LABEL, INVITATION_QR_LABEL } from "@/lib/invitations/in
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
 import { ATTENDANCE_LABELS, INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
-import { ClassCards, NO_ANSWER_LABEL } from "./class-cards";
+import { ClassCards, NO_ANSWER_LABEL, REGENERATE_LABEL } from "./class-cards";
 
 const PROGRAMS = ["Ski", "Snowboard"];
 const SKILL_LEVELS = ["Anfänger", "Profi"];
@@ -41,7 +41,7 @@ function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): Roster
   });
 }
 
-const nameOf = (person: RosterStudent) => `${person.lastName} ${person.firstName}`;
+const nameOf = (person: RosterStudent) => `${person.firstName} ${person.lastName}`;
 
 function setup(students: RosterStudent[] = [], removableEventSeriesId: string | null = null) {
   render(
@@ -278,7 +278,7 @@ describe("ClassCards — folding", () => {
 
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Details zu 5AHIF" }));
 
-    expect(card("5AHIF").getByText("5AHIF: 0")).toBeInTheDocument();
+    expect(card("5AHIF").getByText("5AHIF")).toBeInTheDocument();
     expect(card("5AHIF").queryByRole("table")).not.toBeInTheDocument();
     expect(card("5BHIF").getAllByRole("table").length).toBeGreaterThan(0);
   });
@@ -360,6 +360,8 @@ describe("ClassCards — the invitation controls", () => {
     tokenFor: vi.fn(() => "tok" as string | null),
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
   };
 
   beforeEach(() => {
@@ -367,6 +369,7 @@ describe("ClassCards — the invitation controls", () => {
     invitations.tokenFor.mockReturnValue("tok");
     invitations.linkFor.mockResolvedValue("tok");
     invitations.regenerate.mockResolvedValue("fresh");
+    invitations.isOpenFor.mockReturnValue(false);
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
       configurable: true,
@@ -399,6 +402,28 @@ describe("ClassCards — the invitation controls", () => {
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/join/tok`);
   });
 
+  /** Copying is a teacher about to hand the link out, so a closed class opens to receive it. */
+  it("opens a closed class when its link is copied", async () => {
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren` }),
+    );
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", true);
+  });
+
+  it("leaves an already open class alone when its link is copied", async () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren` }),
+    );
+
+    expect(invitations.setOpen).not.toHaveBeenCalled();
+  });
+
   /** Generating the first link opens the series, so the control is offered before one exists. */
   it("offers the copy control to a class that has no link yet", () => {
     invitations.tokenFor.mockReturnValue(null);
@@ -414,7 +439,7 @@ describe("ClassCards — the invitation controls", () => {
 
     await userEvent.click(
       card("5AHIF").getByRole("button", {
-        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+        name: `${REGENERATE_LABEL} für 5AHIF`,
       }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
@@ -430,7 +455,7 @@ describe("ClassCards — the invitation controls", () => {
 
     expect(
       card("5AHIF").queryByRole("button", {
-        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+        name: `${REGENERATE_LABEL} für 5AHIF`,
       }),
     ).not.toBeInTheDocument();
   });
@@ -456,18 +481,183 @@ describe("ClassCards — the invitation controls", () => {
   });
 });
 
+/**
+ * A class's own toggle is the only thing that closes its window (US-43): copying and showing
+ * above may open a closed class, but neither ever closes one.
+ */
+describe("ClassCards — the open/close toggle", () => {
+  const invitations = {
+    tokenFor: vi.fn(() => "tok" as string | null),
+    linkFor: vi.fn(async () => "tok"),
+    regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    invitations.tokenFor.mockReturnValue("tok");
+    invitations.isOpenFor.mockReturnValue(false);
+    invitations.setOpen.mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn() },
+      configurable: true,
+    });
+  });
+
+  function setupWith(controls: unknown = invitations) {
+    render(
+      <ClassCards
+        rows={classOverview([], CLASSES, COLUMNS)}
+        programs={PROGRAMS}
+        skillLevels={SKILL_LEVELS}
+        columns={COLUMNS}
+        filterGroups={FILTERS}
+        invitations={controls as never}
+        removableEventSeriesId={null}
+        eventSeriesName="Wintersportwoche 2026"
+      />,
+    );
+  }
+
+  it("offers 'Registrierung öffnen' on a closed class", () => {
+    setupWith();
+
+    expect(
+      card("5AHIF").getByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers 'Registrierung schließen' on an open class, and not the opening control", () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    expect(
+      card("5AHIF").getByRole("button", { name: "Registrierung schließen für 5AHIF" }),
+    ).toBeInTheDocument();
+    expect(
+      card("5AHIF").queryByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens only the class it was pressed on", async () => {
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    );
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", true);
+    expect(invitations.setOpen).not.toHaveBeenCalledWith("5BHIF", expect.anything());
+  });
+
+  it("closes an open class", async () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: "Registrierung schließen für 5AHIF" }),
+    );
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", false);
+  });
+
+  it("says what the server said when the toggle is refused", async () => {
+    invitations.setOpen.mockRejectedValue(new Error("nope"));
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    );
+
+    expect(await card("5AHIF").findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("offers no toggle where the series cannot be opened", () => {
+    setupWith(null);
+
+    expect(card("5AHIF").queryByRole("button", { name: /Registrierung/ })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The door in front of the class name says the same thing the header's own door says for a
+ * series (US-44), but for this one class only — it is not moved by any other class in the row.
+ */
+describe("ClassCards — the door in front of the class name", () => {
+  const invitations = {
+    tokenFor: vi.fn(() => "tok" as string | null),
+    linkFor: vi.fn(async () => "tok"),
+    regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn((_className: string) => false),
+    setOpen: vi.fn(async () => {}),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    invitations.tokenFor.mockReturnValue("tok");
+    invitations.isOpenFor.mockReturnValue(false);
+  });
+
+  function setupWith(controls: unknown = invitations) {
+    render(
+      <ClassCards
+        rows={classOverview([], CLASSES, COLUMNS)}
+        programs={PROGRAMS}
+        skillLevels={SKILL_LEVELS}
+        columns={COLUMNS}
+        filterGroups={FILTERS}
+        invitations={controls as never}
+        removableEventSeriesId={null}
+        eventSeriesName="Wintersportwoche 2026"
+      />,
+    );
+  }
+
+  it("reads closed for a class whose window is shut", () => {
+    setupWith();
+
+    expect(
+      card("5AHIF").getByLabelText("Registrierung für Schüler:innen geschlossen"),
+    ).toBeInTheDocument();
+  });
+
+  it("reads open for a class whose window is open, and not another class's", () => {
+    invitations.isOpenFor.mockImplementation((className: string) => className === "5AHIF");
+    setupWith();
+
+    expect(
+      card("5AHIF").getByLabelText("Registrierung für Schüler:innen offen"),
+    ).toBeInTheDocument();
+    expect(
+      card("5BHIF").getByLabelText("Registrierung für Schüler:innen geschlossen"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no door where the series cannot be opened", () => {
+    setupWith(null);
+
+    expect(
+      card("5AHIF").queryByLabelText(/Registrierung für Schüler:innen/),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("ClassCards — showing a link as a QR code", () => {
   const writeText = vi.fn();
   const invitations = {
     tokenFor: vi.fn(() => "tok" as string | null),
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     invitations.tokenFor.mockReturnValue("tok");
     invitations.linkFor.mockResolvedValue("tok");
+    invitations.isOpenFor.mockReturnValue(false);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
   });
 
@@ -517,6 +707,24 @@ describe("ClassCards — showing a link as a QR code", () => {
     expect(writeText).not.toHaveBeenCalled();
   });
 
+  /** Showing the code puts the link in front of a room right away, so a closed class opens. */
+  it("opens a closed class when its code is shown", async () => {
+    setupWith();
+
+    await userEvent.click(showCode());
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", true);
+  });
+
+  it("leaves an already open class alone when its code is shown", async () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    await userEvent.click(showCode());
+
+    expect(invitations.setOpen).not.toHaveBeenCalled();
+  });
+
   it("takes the surface away again", async () => {
     setupWith();
     await userEvent.click(showCode());
@@ -545,6 +753,8 @@ describe("ClassCards — regenerating asks first", () => {
     tokenFor: vi.fn(() => "tok" as string | null),
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
   };
 
   beforeEach(() => {
@@ -575,7 +785,7 @@ describe("ClassCards — regenerating asks first", () => {
   const press = () =>
     userEvent.click(
       card("5AHIF").getByRole("button", {
-        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+        name: `${REGENERATE_LABEL} für 5AHIF`,
       }),
     );
 
@@ -604,6 +814,16 @@ describe("ClassCards — regenerating asks first", () => {
     await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
 
     expect(invitations.regenerate).toHaveBeenCalledWith("5AHIF");
+  });
+
+  /** Regenerating replaces the address only; it leaves the window as it found it (US-43, Q11). */
+  it("leaves the class's open state alone when regenerating", async () => {
+    setupWith();
+    await press();
+
+    await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
+
+    expect(invitations.setOpen).not.toHaveBeenCalled();
   });
 
   it("leaves the link alone when the teacher backs out", async () => {
@@ -698,6 +918,6 @@ describe("ClassCards — a student who has not answered", () => {
 
     const group = screen.getByRole("group", { name: "5AHIF" });
     expect(within(group).getByText(NO_ANSWER_LABEL)).toBeInTheDocument();
-    expect(within(group).getByRole("button", { name: "Muster Anna" })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Anna Muster" })).toBeInTheDocument();
   });
 });

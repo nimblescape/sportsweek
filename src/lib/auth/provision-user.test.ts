@@ -32,6 +32,7 @@ const collection = vi.fn((name: string) =>
 );
 const fetchEntraName = vi.fn();
 const fetchEntraPhoto = vi.fn();
+const applyClassAssignments = vi.fn();
 
 // Nobody is expected, unless a test says otherwise.
 invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
@@ -56,6 +57,7 @@ vi.mock("@/lib/firebase/admin", () => ({
 }));
 
 vi.mock("@/lib/auth/graph", () => ({ fetchEntraName, fetchEntraPhoto }));
+vi.mock("@/lib/auth/class-assignments", () => ({ applyClassAssignments }));
 
 // Whatever else a deployment refuses. Production refuses nothing, so the tests below say so
 // explicitly rather than leaning on which module the build happens to resolve.
@@ -262,6 +264,40 @@ describe("provisionUser", () => {
 
     expect(result).toMatchObject({ ok: true, user: { permissions: [] } });
     expect(invitationDelete).not.toHaveBeenCalled();
+    expect(applyClassAssignments).not.toHaveBeenCalled();
+  });
+
+  /** The other half of what an invitation may leave waiting, beside the permissions (US-40). */
+  it("claims the class assignments an invitation was left holding", async () => {
+    invitationGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        permissions: [],
+        classAssignments: [{ eventSeriesId: "s1", class: "2aWI" }],
+      }),
+    });
+
+    await provisionUser(teacherClaims);
+
+    expect(applyClassAssignments).toHaveBeenCalledWith("firebase-uid-1", [
+      { eventSeriesId: "s1", class: "2aWI" },
+    ]);
+  });
+
+  it("claims nothing when the invitation carries no class assignment", async () => {
+    invitationGet.mockResolvedValue({ exists: true, data: () => ({ permissions: [] }) });
+
+    await provisionUser(teacherClaims);
+
+    expect(applyClassAssignments).not.toHaveBeenCalled();
+  });
+
+  it("claims nothing for somebody signing in again", async () => {
+    existingRecord({ accountType: "teacher", permissions: [] });
+
+    await provisionUser(teacherClaims);
+
+    expect(applyClassAssignments).not.toHaveBeenCalled();
   });
 
   /** An invitation is for a first sign-in; somebody who already has a record is past that. */

@@ -25,6 +25,7 @@ import {
 import { userSchema } from "@/lib/schemas/user";
 import {
   ARCHIVED_IS_READ_ONLY_HINT,
+  classIsOpen,
   NO_SUCH_EVENT_SERIES,
 } from "@/lib/event-series/event-series-state";
 import {
@@ -45,14 +46,11 @@ export type RegistrationTarget = {
 };
 
 /**
- * The series as it has to stand for a student to write into it (US-19).
- *
- * One flag rather than two: archiving closes, and the server refuses to open an archived series,
- * so `isOpenToStudents` already excludes it. A series that has since been
- * closed, archived or deleted, and one that was never named by a link the student holds, are all
- * answered with the same sentence — from where the student stands they are the same thing.
+ * The series a link or a record names, read inside the caller's own transaction. A series that
+ * has since been deleted, and one that was never named at all, are answered with the same
+ * sentence a closed class is (US-43) — from where the student stands they are the same thing.
  */
-async function requireOpenSeries(
+async function requireEventSeries(
   transaction: Transaction,
   eventSeriesId: string,
 ): Promise<EventSeries> {
@@ -64,7 +62,7 @@ async function requireOpenSeries(
     ? eventSeriesSchema.safeParse({ id: stored.id, ...stored.data() })
     : null;
 
-  if (!series?.success || !series.data.isOpenToStudents) {
+  if (!series?.success) {
     throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
   }
   return series.data;
@@ -150,7 +148,7 @@ export async function saveRegistration(
   const identity = await identityOf(target.studentUid);
 
   return adminDb.runTransaction(async (transaction) => {
-    const eventSeries = await requireOpenSeries(transaction, target.eventSeriesId);
+    const eventSeries = await requireEventSeries(transaction, target.eventSeriesId);
 
     // The series is the path and the student's uid is the id, so one registration per student
     // per series holds by construction rather than by a check (US-26).
@@ -159,8 +157,10 @@ export async function saveRegistration(
 
     // Nothing already enrolling them: following the link is what joins a student and writes the
     // registration (US-23), so without one this is somebody who has arrived at the wrong series.
+    // Amending asks only whether their own class is open, never for the link that got them in
+    // (US-43, US-45) — closing evicts nobody, it only stops what they say from changing.
     const studentClass = (stored.data()?.class as string) ?? null;
-    if (studentClass === null) {
+    if (studentClass === null || !classIsOpen(eventSeries.classOptions, studentClass)) {
       throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
     }
 
@@ -206,8 +206,10 @@ export const NO_SUCH_REGISTRATION = "Diese Registrierung gibt es nicht.";
  * a fact in the data rather than a token they are carrying — and signing in again finds it by
  * looking, whichever way they arrived.
  *
- * Following the same link twice is one joining: an existing registration keeps every answer.
- * What a newer link does change is the class, which is the one way it moves (Q20).
+ * Following a link never moves an existing registration to another class (Q13): it navigates,
+ * and nothing more. A record is only ever created here, and only for a class that is currently
+ * open — amending one that already exists needs no link at all, and asks only whether its own
+ * class is still open (US-45).
  */
 export async function joinEventSeries(
   eventSeriesId: string,
@@ -217,21 +219,25 @@ export async function joinEventSeries(
   const identity = await identityOf(studentUid);
 
   await adminDb.runTransaction(async (transaction) => {
-    const eventSeries = await requireOpenSeries(transaction, eventSeriesId);
-
+    const eventSeries = await requireEventSeries(transaction, eventSeriesId);
     const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUid);
     const stored = await transaction.get(reference);
 
-    if (stored.exists) {
-      transaction.update(reference, { class: className });
-    } else {
-      transaction.set(reference, {
-        ...identity,
-        class: className,
-        event: null,
-        ...EMPTY_REGISTRATION,
-      });
+    // A link only ever leads somewhere; there is nothing left for it to do (Q13).
+    if (stored.exists) return;
+
+    // A token names a class as well as a series (US-43), and joining is the one act that still
+    // demands it be open — amending an existing record no longer needs the link at all (US-45).
+    if (!classIsOpen(eventSeries.classOptions, className)) {
+      throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
     }
+
+    transaction.set(reference, {
+      ...identity,
+      class: className,
+      event: null,
+      ...EMPTY_REGISTRATION,
+    });
 
     if (!eventSeries.hasRegistrations) {
       transaction.update(adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeries.id), {
@@ -239,6 +245,15 @@ export async function joinEventSeries(
       });
     }
   });
+}
+
+/**
+ * Whether a student already holds a registration for a series (US-45), checked before a link
+ * decides anything further for them — holding one already answers where they land (Q13).
+ */
+export async function hasRegistration(eventSeriesId: string, studentUid: string): Promise<boolean> {
+  const stored = await adminDb.collection(registrationPath(eventSeriesId)).doc(studentUid).get();
+  return stored.exists;
 }
 
 /**

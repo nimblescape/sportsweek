@@ -16,6 +16,7 @@ import {
   ARCHIVE_NO_DATA_HINT,
   ARCHIVE_OPEN_HINT,
   EVENT_SERIES_STATE_LABELS,
+  anyClassOpen,
   eventSeriesState,
   LAST_EVENT_SERIES_HINT,
 } from "@/lib/event-series/event-series-state";
@@ -103,7 +104,7 @@ export function EventSeriesList({
  */
 function archiveHintFor(eventSeries: EventSeries): string | null {
   if (eventSeries.isArchived) return null;
-  if (eventSeries.isOpenToStudents) return ARCHIVE_OPEN_HINT;
+  if (anyClassOpen(eventSeries.classOptions)) return ARCHIVE_OPEN_HINT;
   return eventSeries.hasRegistrations ? null : ARCHIVE_NO_DATA_HINT;
 }
 

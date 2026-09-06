@@ -16,9 +16,10 @@ import {
   type MasterDataCategoryKey,
 } from "@/lib/master-data/categories";
 import { categoryTabs, eventSeriesTrail, eventTabs, eventTrail } from "@/lib/master-data/hierarchy";
-import { eventReport, eventSeriesReport } from "@/lib/master-data/report-tree";
+import { eventSeriesReport, teacherNamesFrom } from "@/lib/master-data/report-tree";
 import { useMasterData, useUsageReport } from "@/lib/master-data/use-master-data";
 import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
+import { useTeacherCandidates } from "@/lib/users/use-teacher-candidates";
 import { FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
@@ -54,6 +55,7 @@ export function MasterDataView({
   const report = useUsageReport(key, eventSeriesId, eventName);
   // The screen is about the series, so its name is the title and the last step of the path.
   const { eventSeries } = useSelectedEventSeries(eventSeriesId);
+  const { candidates } = useTeacherCandidates();
   const name = eventSeries?.name ?? "";
   const fixed = FIXED_ITEMS[key];
   // Every list belongs to one event series (US-21), so the write names the one it edits; an
@@ -84,18 +86,12 @@ export function MasterDataView({
       ? twoStepBlockedHint(category)
       : undefined;
 
-  // The record on screen, expanded downwards: the whole series, or the one event these lists
-  // belong to (US-33).
-  const openEvent =
-    eventName === undefined
-      ? undefined
-      : eventSeries?.events.find((candidate) => candidate.name === eventName);
+  // The record on screen, expanded downwards — always the whole series, whichever of its own
+  // pages is open, so a class's teachers show wherever the report is read (US-46).
   const wholeRecord =
     eventSeries === null
       ? undefined
-      : eventName === undefined
-        ? [eventSeriesReport(eventSeries)]
-        : openEvent && [eventReport(openEvent)];
+      : [eventSeriesReport(eventSeries, teacherNamesFrom(candidates))];
 
   return (
     <CrudList

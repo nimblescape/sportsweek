@@ -5,7 +5,9 @@
  */
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { eventSeriesLabel } from "@/lib/event-series/event-series-state";
-import type { EquipmentItem, Program } from "@/lib/schemas/master-data";
+import type { Uid } from "@/lib/schemas/common";
+import type { ClassOption, EquipmentItem, Program } from "@/lib/schemas/master-data";
+import type { TeacherCandidate } from "@/lib/schemas/user";
 import {
   EQUIPMENT_LABELS,
   MASTER_DATA_CATEGORIES,
@@ -19,9 +21,23 @@ import {
 } from "@/lib/registration/answer-labels";
 
 type EventRecord = EventSeries["events"][number];
-type ListEntries = readonly (string | Program | EventRecord)[];
+type ListEntries = readonly (string | ClassOption | Program | EventRecord)[];
 /** Everything the report reads of a series: what to call it and its lists, never its stored identity. */
 type ReportableSeries = Pick<EventSeries, "name" | "isArchived" | EventSeriesListField>;
+
+/**
+ * A uid resolved to the name the report shows (US-46). The tree stays a pure function by being
+ * handed this rather than reading `users` itself — the wall a holder of `editMasterData` cannot
+ * read through declaratively (see "Where the names come from", spec/class-teachers.md).
+ */
+export type TeacherNames = ReadonlyMap<Uid, string>;
+
+/** The one place the report's teacher names are built, from what the candidates route answers. */
+export function teacherNamesFrom(candidates: readonly TeacherCandidate[]): TeacherNames {
+  return new Map(
+    candidates.map((candidate) => [candidate.uid, `${candidate.firstName} ${candidate.lastName}`]),
+  );
+}
 
 /**
  * The master data of one record, written out as headings and entries (US-33). A section holds
@@ -79,26 +95,53 @@ export function eventReport(event: EventRecord): ReportSection {
     : section(event.name, [], own);
 }
 
-function categorySection(key: MasterDataCategoryKey, list: ListEntries): ReportSection {
+/** A class, expanded onto who looks after it — its own bullets, empty rather than "Keine Einträge." */
+function classReport(option: ClassOption, teacherNames: TeacherNames): ReportSection {
+  const teachers = option.teacherUids
+    .map((uid) => teacherNames.get(uid))
+    .filter((name): name is string => name !== undefined);
+
+  return section(option.name, teachers);
+}
+
+function categorySection(
+  key: MasterDataCategoryKey,
+  list: ListEntries,
+  teacherNames: TeacherNames = new Map(),
+): ReportSection {
   const { title } = MASTER_DATA_CATEGORIES[key].labels;
 
   if (list.length === 0) return section(title, [NOTHING_MAINTAINED]);
   if (key === "programs") return section(title, [], (list as Program[]).map(programReport));
   if (key === "events") return section(title, [], (list as EventRecord[]).map(eventReport));
+  if (key === "classes")
+    return section(
+      title,
+      [],
+      (list as ClassOption[]).map((option) => classReport(option, teacherNames)),
+    );
   return section(title, list as string[]);
 }
 
-export function eventSeriesReport(eventSeries: ReportableSeries): ReportSection {
+export function eventSeriesReport(
+  eventSeries: ReportableSeries,
+  teacherNames: TeacherNames = new Map(),
+): ReportSection {
   const keys = Object.keys(MASTER_DATA_CATEGORIES) as MasterDataCategoryKey[];
 
   return section(
     eventSeriesLabel(eventSeries),
     [],
-    keys.map((key) => categorySection(key, eventSeries[MASTER_DATA_CATEGORIES[key].field])),
+    keys.map((key) =>
+      categorySection(key, eventSeries[MASTER_DATA_CATEGORIES[key].field], teacherNames),
+    ),
   );
 }
 
 /** Every series the school keeps, which is what the root of the hierarchy is about. */
-export function allEventSeriesReport(allEventSeries: readonly ReportableSeries[]): ReportSection[] {
-  return allEventSeries.map(eventSeriesReport);
+export function allEventSeriesReport(
+  allEventSeries: readonly ReportableSeries[],
+  teacherNames: TeacherNames = new Map(),
+): ReportSection[] {
+  return allEventSeries.map((eventSeries) => eventSeriesReport(eventSeries, teacherNames));
 }

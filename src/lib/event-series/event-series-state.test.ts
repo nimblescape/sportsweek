@@ -6,15 +6,19 @@
 import { describe, expect, it } from "vitest";
 import {
   EVENT_SERIES_STATE_LABELS,
+  anyClassOpen,
+  classIsOpen,
   eventSeriesState,
   visibleEventSeries,
 } from "@/lib/event-series/event-series-state";
 
 const flags = (overrides: Partial<Parameters<typeof eventSeriesState>[0]> = {}) => ({
   isArchived: false,
-  isOpenToStudents: false,
+  classOptions: [],
   ...overrides,
 });
+
+const openClass = { name: "3aWI", teacherUids: [], isOpenToStudents: true };
 
 describe("eventSeriesState", () => {
   it("reports an archived event series", () => {
@@ -22,7 +26,7 @@ describe("eventSeriesState", () => {
   });
 
   it("reports a series taking registrations as open", () => {
-    expect(eventSeriesState(flags({ isOpenToStudents: true }))).toBe("open");
+    expect(eventSeriesState(flags({ classOptions: [openClass] }))).toBe("open");
   });
 
   it("reports a series nobody can register in as closed", () => {
@@ -31,7 +35,9 @@ describe("eventSeriesState", () => {
 
   /** Archiving closes a series and takes away every screen the other state describes (US-19). */
   it("lets archived win, so a contradictory record resolves to one state", () => {
-    expect(eventSeriesState(flags({ isArchived: true, isOpenToStudents: true }))).toBe("archived");
+    expect(eventSeriesState(flags({ isArchived: true, classOptions: [openClass] }))).toBe(
+      "archived",
+    );
   });
 });
 
@@ -49,6 +55,47 @@ const eventSeries = (id: string, isArchived = false) => ({
   id,
   name: `Eventreihe ${id}`,
   isArchived,
+});
+
+describe("anyClassOpen", () => {
+  it("is false where the series has no classes", () => {
+    expect(anyClassOpen([])).toBe(false);
+  });
+
+  it("is false where every class is closed", () => {
+    expect(anyClassOpen([{ isOpenToStudents: false }, { isOpenToStudents: false }])).toBe(false);
+  });
+
+  it("is true where one class among several is open", () => {
+    expect(anyClassOpen([{ isOpenToStudents: false }, { isOpenToStudents: true }])).toBe(true);
+  });
+});
+
+describe("classIsOpen", () => {
+  const classOptions = [
+    { name: "3aWI", isOpenToStudents: true },
+    { name: "3bWI", isOpenToStudents: false },
+  ];
+
+  it("is true for a class whose own entry is open", () => {
+    expect(classIsOpen(classOptions, "3aWI")).toBe(true);
+  });
+
+  it("is false for a class whose own entry is closed", () => {
+    expect(classIsOpen(classOptions, "3bWI")).toBe(false);
+  });
+
+  it("matches ignoring case and surrounding whitespace", () => {
+    expect(classIsOpen(classOptions, " 3awi ")).toBe(true);
+  });
+
+  it("is false for null, since there is no class to ask about", () => {
+    expect(classIsOpen(classOptions, null)).toBe(false);
+  });
+
+  it("is false for a name the series carries no such class under", () => {
+    expect(classIsOpen(classOptions, "9zZZ")).toBe(false);
+  });
 });
 
 describe("visibleEventSeries", () => {

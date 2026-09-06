@@ -11,6 +11,7 @@ import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { PageHeading } from "@/components/layout/page-heading";
 import { MASTER_DATA_CATEGORIES, noneMaintainedHint } from "@/lib/master-data/categories";
 import { useInvitations } from "@/lib/invitations/use-invitations";
+import type { Uid } from "@/lib/schemas/common";
 import { ClassCards } from "./class-cards";
 
 /**
@@ -24,9 +25,15 @@ export const NO_CLASSES_HINT = noneMaintainedHint(MASTER_DATA_CATEGORIES.classes
  * students in it attending and not, and that class's figures. Opening it to students is done on
  * its tag in the header, which names the series it concerns and is on screen from every page.
  */
-export function RegistrationsView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, missing, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
-  const invitations = useInvitations(eventSeriesId, eventSeries?.isOpenToStudents);
+export function RegistrationsView({
+  eventSeriesId,
+  teacherUid = null,
+}: {
+  eventSeriesId: string;
+  teacherUid?: Uid | null;
+}) {
+  const { eventSeries, missing, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId, { teacherUid }); // prettier-ignore
+  const invitations = useInvitations(eventSeriesId, eventSeries?.classOptions);
 
   // An archived series is read-only, so it has nobody left to invite (US-19).
   const openable = eventSeries !== null && !eventSeries.isArchived;

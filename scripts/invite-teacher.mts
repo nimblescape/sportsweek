@@ -26,10 +26,20 @@ import {
 } from "@/lib/auth/permissions";
 import { accountTypeFromEmail, invitationKey, TEACHER_DOMAIN } from "@/lib/auth/school-email";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { eventSeriesSchema } from "@/lib/schemas/event-series";
+import { classAssignmentsSchema, type ClassAssignment } from "@/lib/schemas/invited-teacher";
 import { userSchema } from "@/lib/schemas/user";
 import { apphostingValue, ENVIRONMENTS, fail, type Environment } from "./environment.mjs";
 
-type Invitation = { firstName: string; lastName: string; permissions: Permission[] };
+type Invitation = {
+  firstName: string;
+  lastName: string;
+  permissions: Permission[];
+  classAssignments: ClassAssignment[];
+};
+
+/** The one event series a class assignment can name, and the classes it offers (US-40). */
+type AssignableSeries = { id: string; name: string; classNames: readonly string[] };
 
 /** A name the record will accept, so the invitation cannot store one the application refuses. */
 function askName(label: string, shape: typeof userSchema.shape.firstName): Promise<string> {
@@ -74,10 +84,12 @@ async function existingInvitation(db: Firestore, email: string): Promise<Invitat
   if (!stored.exists) return null;
 
   const permissions = permissionsInputSchema.safeParse(stored.data()?.permissions);
+  const classAssignments = classAssignmentsSchema.safeParse(stored.data()?.classAssignments);
   return {
     firstName: String(stored.data()?.firstName ?? ""),
     lastName: String(stored.data()?.lastName ?? ""),
     permissions: permissions.success ? [...permissions.data] : [],
+    classAssignments: classAssignments.success ? [...classAssignments.data] : [],
   };
 }
 
@@ -85,6 +97,54 @@ function describe(permissions: readonly Permission[]): string {
   return permissions.length === 0
     ? "keine"
     : permissions.map((permission) => PERMISSION_LABELS[permission]).join(", ");
+}
+
+/** Every event series with a class to assign into, in the order the header offers them. */
+async function assignableSeries(db: Firestore): Promise<AssignableSeries[]> {
+  const snapshot = await db.collection(COLLECTIONS.eventSeries).orderBy("position").get();
+  return snapshot.docs
+    .map((doc) => eventSeriesSchema.parse({ id: doc.id, ...doc.data() }))
+    .filter((series) => series.classOptions.length > 0)
+    .map((series) => ({
+      id: series.id,
+      name: series.name,
+      classNames: series.classOptions.map((option) => option.name),
+    }));
+}
+
+/**
+ * One checkbox per event series that has classes, each pre-checked with what is already waiting
+ * (US-40) — a colleague can look after any number of classes, in any number of series.
+ */
+async function askClassAssignments(
+  series: readonly AssignableSeries[],
+  held: readonly ClassAssignment[],
+): Promise<ClassAssignment[]> {
+  const assignments: ClassAssignment[] = [];
+  for (const one of series) {
+    const already = new Set(
+      held.filter((assignment) => assignment.eventSeriesId === one.id).map((a) => a.class),
+    );
+    const chosen = await checkbox({
+      message: `Klassen in "${one.name}" (Leertaste wählt, Enter bestätigt):`,
+      choices: one.classNames.map((className) => ({
+        name: className,
+        value: className,
+        checked: already.has(className),
+      })),
+    });
+    for (const className of chosen) assignments.push({ eventSeriesId: one.id, class: className });
+  }
+  return assignments;
+}
+
+function describeClassAssignments(
+  assignments: readonly ClassAssignment[],
+  series: readonly AssignableSeries[],
+): string {
+  if (assignments.length === 0) return "keine";
+  const nameOf = (id: string) => series.find((one) => one.id === id)?.name ?? id;
+  return assignments.map((a) => `${a.class} (${nameOf(a.eventSeriesId)})`).join(", ");
 }
 
 async function main(): Promise<void> {
@@ -132,11 +192,14 @@ async function main(): Promise<void> {
   const firstName = await askName("Vorname", userSchema.shape.firstName);
   const lastName = await askName("Nachname", userSchema.shape.lastName);
   const permissions = await askPermissions(waiting?.permissions ?? []);
+  const series = await assignableSeries(db);
+  const classAssignments = await askClassAssignments(series, waiting?.classAssignments ?? []);
 
   console.log(
     `\n${firstName} ${lastName} <${email}>\n` +
       `  Projekt:       ${projectId}\n` +
-      `  Berechtigungen: ${describe(permissions)}\n`,
+      `  Berechtigungen: ${describe(permissions)}\n` +
+      `  Klassen:       ${describeClassAssignments(classAssignments, series)}\n`,
   );
 
   if (!(await confirm({ message: "Einladung so speichern?", default: false }))) {
@@ -146,7 +209,7 @@ async function main(): Promise<void> {
   await db
     .collection(COLLECTIONS.invitedTeachers)
     .doc(email)
-    .set({ firstName, lastName, permissions });
+    .set({ firstName, lastName, permissions, classAssignments });
 
   console.log(`Invitation written. ${email} claims it at their first sign-in.`);
 }

@@ -27,3 +27,9 @@ if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.sho
     this.dispatchEvent(new Event("close"));
   };
 }
+
+// jsdom does not implement scrollIntoView at all, and the saved-registration card (US-11)
+// scrolls itself into view once it appears — a no-op stand-in, since layout is not simulated.
+if (typeof HTMLElement !== "undefined" && !HTMLElement.prototype.scrollIntoView) {
+  HTMLElement.prototype.scrollIntoView = function scrollIntoView() {};
+}

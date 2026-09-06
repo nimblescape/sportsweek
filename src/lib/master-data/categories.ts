@@ -42,6 +42,12 @@ export type MasterDataCategory = {
    */
   entriesAreRecords?: boolean;
   /**
+   * Set only for classes, whose entries carry the teachers who look after them (class-teachers
+   * spec, US-38). Present so a rename, reorder or delete read back through this list carries the
+   * assignment forward, rather than the plain-name shape every other list uses collapsing it away.
+   */
+  hasTeacherAssignments?: boolean;
+  /**
    * Whether one of this series' events may name entries of its own for this list, in place of
    * the series' (US-33) — true for the five lists a place decides, false for classes, which
    * describes the school rather than the trip, and for events themselves. What lets one
@@ -79,7 +85,9 @@ export const MASTER_DATA_CATEGORIES = {
   classes: {
     field: "classOptions",
     usage: { kind: "masterData", field: "class" },
-    opensRecords: false,
+    // An entry now opens its own record, the teachers who look after it (class-teachers spec).
+    opensRecords: true,
+    hasTeacherAssignments: true,
     perEvent: false,
     labels: {
       title: "Klassen",
@@ -176,6 +184,12 @@ export const MASTER_DATA_CATEGORIES = {
 export type MasterDataCategoryKey = keyof typeof MASTER_DATA_CATEGORIES;
 
 /**
+ * What a class's one child collection is called, on its own tab and in the report (US-38, US-46)
+ * — one constant rather than two literals drifting apart at the next rename.
+ */
+export const CLASS_TEACHERS_LABEL = "Lehrpersonen";
+
+/**
  * The five categories an event may name entries of its own for (US-33), derived from the map
  * above rather than named a second time — so a category that becomes overridable, or stops being
  * one, changes here and nowhere else.
@@ -257,6 +271,15 @@ export const IN_USE_HINT =
 export const CHILD_IN_USE_HINT =
   "Ausrüstung dieses Programms wurde in einer Registrierung dieser Eventreihe ausgeliehen. " +
   "Das Programm kann deshalb nicht gelöscht werden.";
+
+/**
+ * A class's link names it by the class's stored spelling (US-23); renaming or deleting the class
+ * while the link is live would leave it pointing at a name nothing answers to any more. Closing
+ * the class first, or regenerating the link, is what frees the name again.
+ */
+export const INVITATION_ACTIVE_HINT =
+  "Für diese Klasse gibt es einen aktiven Link zur Anmeldung. Sie kann deshalb nicht " +
+  "umbenannt oder gelöscht werden, solange der Link besteht.";
 
 /**
  * Shown while the answer is still on its way. The controls stay disabled until it arrives, so

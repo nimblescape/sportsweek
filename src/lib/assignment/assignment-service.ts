@@ -20,7 +20,7 @@ import {
 } from "@/lib/master-data/resolution";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import { IMMOVABLE_HINTS } from "@/lib/assignment/movability";
-import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
+import { NO_EVENT_SERIES_HINT, classIsOpen } from "@/lib/event-series/event-series-state";
 
 /**
  * Every answer the assignment turns on: whether the student may be assigned at all, and what a
@@ -78,9 +78,6 @@ export async function assignStudents(
   event: string | null,
 ): Promise<void> {
   const eventSeries = await requireEventSeries(eventSeriesId);
-  if (eventSeries.isOpenToStudents) {
-    throw new ServiceError(ErrorCode.Conflict, IMMOVABLE_HINTS.seriesOpen);
-  }
 
   const assigned = event === null ? null : eventOfEventSeries(eventSeries, event);
 
@@ -100,6 +97,10 @@ export async function assignStudents(
     }
 
     const record = assignableSchema.parse(snapshot.data());
+    if (classIsOpen(eventSeries.classOptions, record.class)) {
+      throw new ServiceError(ErrorCode.Conflict, IMMOVABLE_HINTS.classOpen);
+    }
+
     if (assigned !== null && !record.isAttendingSportsWeek) {
       throw new ServiceError(
         ErrorCode.Conflict,

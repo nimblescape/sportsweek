@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
 import { event, storedEventSeries } from "@/test/event-series";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { asUid } from "@/lib/schemas/common";
 import { registrationPath } from "@/lib/registration/registration";
 
 const firestore = new FakeFirestore();
@@ -29,6 +30,7 @@ const deleteMasterDataItem = service.deleteMasterDataItem.bind(null, SERIES);
 const readMasterDataItems = service.readMasterDataItems.bind(null, SERIES);
 const reorderMasterDataItems = service.reorderMasterDataItems.bind(null, SERIES);
 const updateMasterDataItem = service.updateMasterDataItem.bind(null, SERIES);
+const setClassTeachers = service.setClassTeachers.bind(null, SERIES);
 
 beforeEach(() => firestore.reset());
 afterEach(() => vi.restoreAllMocks());
@@ -48,12 +50,17 @@ function seedRegistration(id: string, answers: Record<string, unknown>) {
 
 describe("createMasterDataItem", () => {
   it("appends the item to the list its category names on the event series", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
 
     const item = await createMasterDataItem("classes", { name: "4BHIT" });
 
-    expect(item).toEqual({ name: "4BHIT" });
-    expect(storedList("classOptions")).toEqual(["3AHIT", "4BHIT"]);
+    expect(item).toEqual({ name: "4BHIT", teacherUids: [], isOpenToStudents: false });
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+      { name: "4BHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("trims the name", async () => {
@@ -76,16 +83,22 @@ describe("createMasterDataItem", () => {
 
   /** The whole list is in the write, so a duplicate is decided without a reservation (US-21). */
   it("rejects a name already on the list, ignoring case and surrounding space", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
 
     await expect(createMasterDataItem("classes", { name: " 3ahit " })).rejects.toMatchObject({
       code: "CONFLICT",
     });
-    expect(storedList("classOptions")).toEqual(["3AHIT"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("allows the same name on a different list", async () => {
-    seedActiveEventSeries({ classOptions: ["Alternativ"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "Alternativ", teacherUids: [], isOpenToStudents: false }],
+    });
 
     await createMasterDataItem("programs", { name: "Alternativ" });
 
@@ -143,7 +156,11 @@ describe("createMasterDataItem", () => {
   });
 
   it("refuses to grow a list past what one document should carry", async () => {
-    const full = Array.from({ length: MAX_LIST_ITEMS }, (_, at) => `Klasse ${at}`);
+    const full = Array.from({ length: MAX_LIST_ITEMS }, (_, at) => ({
+      name: `Klasse ${at}`,
+      teacherUids: [],
+      isOpenToStudents: false,
+    }));
     seedActiveEventSeries({ classOptions: full });
 
     await expect(createMasterDataItem("classes", { name: "Eine zu viel" })).rejects.toMatchObject({
@@ -157,24 +174,46 @@ describe("createMasterDataItem", () => {
    * as the transaction finds it — never to the one that was read before it opened.
    */
   it("appends to the list as it stands, not to the one that was read", async () => {
-    seedActiveEventSeries({ classOptions: ["A"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "A", teacherUids: [], isOpenToStudents: false }],
+    });
     firestore.onTransactionAttempt = (attempt) => {
-      if (attempt === 1) seedActiveEventSeries({ classOptions: ["A", "B"] });
+      if (attempt === 1)
+        seedActiveEventSeries({
+          classOptions: [
+            { name: "A", teacherUids: [], isOpenToStudents: false },
+            { name: "B", teacherUids: [], isOpenToStudents: false },
+          ],
+        });
     };
 
     await createMasterDataItem("classes", { name: "C" });
 
-    expect(storedList("classOptions")).toEqual(["A", "B", "C"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+      { name: "C", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 });
 
 describe("reorderMasterDataItems", () => {
   it("stores the order the teacher dropped the items into", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B", "C"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+        { name: "C", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await reorderMasterDataItems("classes", ["C", "A", "B"]);
 
-    expect(storedList("classOptions")).toEqual(["C", "A", "B"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "C", teacherUids: [], isOpenToStudents: false },
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("carries a program's equipment with it", async () => {
@@ -194,11 +233,19 @@ describe("reorderMasterDataItems", () => {
   });
 
   it("names the items the way the rest of the app does, ignoring case and surrounding space", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await reorderMasterDataItems("classes", [" b ", "a"]);
 
-    expect(storedList("classOptions")).toEqual(["B", "A"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   /**
@@ -206,95 +253,169 @@ describe("reorderMasterDataItems", () => {
    * refused and the list is left exactly as it stands.
    */
   it("refuses an order that leaves an item out", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await expect(reorderMasterDataItems("classes", ["A"])).rejects.toMatchObject({
       code: "CONFLICT",
     });
-    expect(storedList("classOptions")).toEqual(["A", "B"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("refuses an order carrying an item the list does not hold", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await expect(reorderMasterDataItems("classes", ["A", "B", "C"])).rejects.toMatchObject({
       code: "CONFLICT",
     });
-    expect(storedList("classOptions")).toEqual(["A", "B"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("refuses an order naming one item twice instead of storing it twice", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await expect(reorderMasterDataItems("classes", ["A", "A"])).rejects.toMatchObject({
       code: "CONFLICT",
     });
-    expect(storedList("classOptions")).toEqual(["A", "B"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("reports a name that is no longer on the list rather than moving another item", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await expect(reorderMasterDataItems("classes", ["A", "Weg"])).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    expect(storedList("classOptions")).toEqual(["A", "B"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   /** Moving an item changes no stored name, so no registration can be affected by it. */
   it("moves an item a registration still selects", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
     seedRegistration("r1", { class: "A" });
 
     await reorderMasterDataItems("classes", ["B", "A"]);
 
-    expect(storedList("classOptions")).toEqual(["B", "A"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 });
 
 describe("updateMasterDataItem", () => {
   it("renames the item where it stands", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B", "C"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+        { name: "C", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     const item = await updateMasterDataItem("classes", "B", { name: "Beta" });
 
-    expect(item).toEqual({ name: "Beta" });
-    expect(storedList("classOptions")).toEqual(["A", "Beta", "C"]);
+    expect(item).toEqual({ name: "Beta", teacherUids: [], isOpenToStudents: false });
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "Beta", teacherUids: [], isOpenToStudents: false },
+      { name: "C", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("finds the item by name, ignoring case and surrounding space", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
 
     await updateMasterDataItem("classes", "  3ahit ", { name: "3BHIT" });
 
-    expect(storedList("classOptions")).toEqual(["3BHIT"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "3BHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   /** A stale name is the honest failure a name-as-identity buys: it hits nothing at all. */
   it("reports a name that is no longer on the list rather than editing another item", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await expect(updateMasterDataItem("classes", "Weg", { name: "Neu" })).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    expect(storedList("classOptions")).toEqual(["A", "B"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("refuses a rename onto a name the list already carries", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await expect(updateMasterDataItem("classes", "A", { name: " b " })).rejects.toMatchObject({
       code: "CONFLICT",
     });
-    expect(storedList("classOptions")).toEqual(["A", "B"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("allows an item to be respelled, since the clash is with itself", async () => {
-    seedActiveEventSeries({ classOptions: ["3ahit"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "3ahit", teacherUids: [], isOpenToStudents: false }],
+    });
 
     await updateMasterDataItem("classes", "3ahit", { name: "3AHIT" });
 
-    expect(storedList("classOptions")).toEqual(["3AHIT"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("keeps a program's equipment when only its name changes", async () => {
@@ -333,22 +454,30 @@ describe("updateMasterDataItem", () => {
   });
 
   it("refuses to rename an item a registration of this event series still selects", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
     seedRegistration("r1", { class: "3AHIT" });
 
     await expect(updateMasterDataItem("classes", "3AHIT", { name: "3BHIT" })).rejects.toMatchObject(
       { code: "CONFLICT", message: IN_USE_HINT },
     );
-    expect(storedList("classOptions")).toEqual(["3AHIT"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("leaves an item alone that only another event series' registrations select", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
     firestore.seed(registrationPath("s2"), "other", { studentUid: "other", class: "3AHIT" });
 
     await updateMasterDataItem("classes", "3AHIT", { name: "3BHIT" });
 
-    expect(storedList("classOptions")).toEqual(["3BHIT"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "3BHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   /** Adding to the list takes nothing away, so the rental selections cannot be orphaned by it. */
@@ -451,51 +580,153 @@ describe("updateMasterDataItem", () => {
     ]);
   });
 
+  /**
+   * A live link names the class by its stored spelling (US-23); renaming it away would leave the
+   * link pointing at a name nothing answers to any more (Q12). Archiving the series is what
+   * frees it.
+   */
+  it("refuses to rename a class that has an active invitation link", async () => {
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
+    firestore.seed("invitations", "tok1", { eventSeriesId: SERIES, class: "3AHIT" });
+
+    await expect(updateMasterDataItem("classes", "3AHIT", { name: "3BHIT" })).rejects.toMatchObject(
+      { code: "CONFLICT" },
+    );
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
+  });
+
+  /** Only the class's own link matters; another series' and another class's are none of its business. */
+  it("allows a rename once it is only some other class's link in the way", async () => {
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+        { name: "4BHIT", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
+    firestore.seed("invitations", "sibling", { eventSeriesId: SERIES, class: "4BHIT" });
+    firestore.seed("invitations", "other-series", { eventSeriesId: "s2", class: "3AHIT" });
+
+    await updateMasterDataItem("classes", "3AHIT", { name: "3BHIT" });
+
+    expect(storedList("classOptions")).toEqual([
+      { name: "3BHIT", teacherUids: [], isOpenToStudents: false },
+      { name: "4BHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
+  });
+
   it("rejects a blank new name", async () => {
-    seedActiveEventSeries({ classOptions: ["A"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "A", teacherUids: [], isOpenToStudents: false }],
+    });
 
     await expect(updateMasterDataItem("classes", "A", { name: "  " })).rejects.toMatchObject({
       code: "VALIDATION_ERROR",
     });
-    expect(storedList("classOptions")).toEqual(["A"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 });
 
 describe("deleteMasterDataItem", () => {
   it("takes the item off the list", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B", "C"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+        { name: "C", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await deleteMasterDataItem("classes", "B");
 
-    expect(storedList("classOptions")).toEqual(["A", "C"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "C", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("finds the item by name, ignoring case and surrounding space", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT", "4BHIT"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+        { name: "4BHIT", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await deleteMasterDataItem("classes", " 3ahit ");
 
-    expect(storedList("classOptions")).toEqual(["4BHIT"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "4BHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
+  });
+
+  /** A live link names the class (US-23); archiving the series is the only way it goes away (Q12). */
+  it("refuses to delete a class that has an active invitation link", async () => {
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
+    firestore.seed("invitations", "tok1", { eventSeriesId: SERIES, class: "3AHIT" });
+
+    await expect(deleteMasterDataItem("classes", "3AHIT")).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
+  });
+
+  it("allows a delete once it is only some other class's link in the way", async () => {
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+        { name: "4BHIT", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
+    firestore.seed("invitations", "sibling", { eventSeriesId: SERIES, class: "4BHIT" });
+    firestore.seed("invitations", "other-series", { eventSeriesId: "s2", class: "3AHIT" });
+
+    await deleteMasterDataItem("classes", "3AHIT");
+
+    expect(storedList("classOptions")).toEqual([
+      { name: "4BHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("reports a name that is no longer on the list rather than deleting another item", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await expect(deleteMasterDataItem("classes", "Weg")).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    expect(storedList("classOptions")).toEqual(["A", "B"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "A", teacherUids: [], isOpenToStudents: false },
+      { name: "B", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("refuses to delete an item a registration still selects", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
     seedRegistration("r1", { class: "3AHIT" });
 
     await expect(deleteMasterDataItem("classes", "3AHIT")).rejects.toMatchObject({
       code: "CONFLICT",
       message: IN_USE_HINT,
     });
-    expect(storedList("classOptions")).toEqual(["3AHIT"]);
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   /**
@@ -578,7 +809,12 @@ describe("the transaction a list edit runs in", () => {
   }
 
   it("asks whether the item is in use before it writes the list", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT", "4BHIT"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+        { name: "4BHIT", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
     seedRegistration("r1", { class: "4BHIT" });
     const order = recordOrder();
 
@@ -587,12 +823,18 @@ describe("the transaction a list edit runs in", () => {
     expect(order).toEqual([
       "read eventSeries",
       `read ${registrationPath(SERIES)}`,
+      "read invitations",
       "write eventSeries",
     ]);
   });
 
   it("asks again before deleting, so a hold taken since the list was read still counts", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT", "4BHIT"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+        { name: "4BHIT", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
     seedRegistration("r1", { class: "4BHIT" });
     const order = recordOrder();
 
@@ -601,13 +843,16 @@ describe("the transaction a list edit runs in", () => {
     expect(order).toEqual([
       "read eventSeries",
       `read ${registrationPath(SERIES)}`,
+      "read invitations",
       "write eventSeries",
     ]);
   });
 
   /** One transaction, so the list the guard was asked about is the list that gets written. */
   it("reads the event series, guards and writes in a single transaction", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
 
     await updateMasterDataItem("classes", "3AHIT", { name: "3BHIT" });
 
@@ -616,7 +861,9 @@ describe("the transaction a list edit runs in", () => {
 
   /** Adding takes nothing away, so it asks nobody and never waits on a registration. */
   it("asks nothing of the registrations when the edit strands nothing", async () => {
-    seedActiveEventSeries({ classOptions: ["3AHIT"] });
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
     seedRegistration("r1", { class: "3AHIT" });
     const order = recordOrder();
 
@@ -634,11 +881,19 @@ describe("the transaction a list edit runs in", () => {
 
 describe("readMasterDataItems", () => {
   it("answers with the active event series and the list its category names", async () => {
-    seedActiveEventSeries({ classOptions: ["A", "B"] });
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
+    });
 
     await expect(readMasterDataItems("classes")).resolves.toEqual({
       eventSeriesId: SERIES,
-      items: [{ name: "A" }, { name: "B" }],
+      items: [
+        { name: "A", teacherUids: [], isOpenToStudents: false },
+        { name: "B", teacherUids: [], isOpenToStudents: false },
+      ],
     });
   });
 
@@ -755,5 +1010,96 @@ describe("event scope", () => {
     await expect(
       createMasterDataItem("skill-levels", { name: "Profi" }, { kind: "event", name: "Ghost" }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+/**
+ * US-38: the class-teachers editor's one write. Distinct from `updateMasterDataItem`, which
+ * knows only a name and a program's equipment — a client naming `teacherUids` there would be
+ * changing a field the generic handler never learned to guard (class-teachers spec).
+ */
+describe("setClassTeachers", () => {
+  it("replaces the teachers a class carries, leaving its name and its siblings untouched", async () => {
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+        { name: "4BHIT", teacherUids: [asUid("uid-of-ada")], isOpenToStudents: false },
+      ],
+    });
+
+    const item = await setClassTeachers("3AHIT", ["uid-of-ada", "uid-of-bob"]);
+
+    expect(item).toEqual({
+      name: "3AHIT",
+      teacherUids: ["uid-of-ada", "uid-of-bob"],
+      isOpenToStudents: false,
+    });
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: ["uid-of-ada", "uid-of-bob"], isOpenToStudents: false },
+      { name: "4BHIT", teacherUids: ["uid-of-ada"], isOpenToStudents: false },
+    ]);
+  });
+
+  it("withdraws every teacher when the list sent is empty", async () => {
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "3AHIT", teacherUids: [asUid("uid-of-ada")], isOpenToStudents: false },
+      ],
+    });
+
+    await setClassTeachers("3AHIT", []);
+
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
+  });
+
+  it("finds the class by name, ignoring case and surrounding space", async () => {
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
+
+    await setClassTeachers(" 3ahit ", ["uid-of-ada"]);
+
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: ["uid-of-ada"], isOpenToStudents: false },
+    ]);
+  });
+
+  it("reports a class that is no longer on the list", async () => {
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
+
+    await expect(setClassTeachers("Weg", ["uid-of-ada"])).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("refuses anything that is not a uid", async () => {
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
+
+    await expect(setClassTeachers("3AHIT", [""])).rejects.toBeInstanceOf(ServiceError);
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: [], isOpenToStudents: false },
+    ]);
+  });
+
+  /**
+   * Assigning a teacher touches no name a registration stores (US-11), so it strands nothing
+   * and needs no in-use guard — unlike a rename, which the same list is refused for.
+   */
+  it("asks the in-use guard nothing, since no registration names a teacher", async () => {
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+    });
+    seedRegistration("r1", { class: "3AHIT" });
+
+    await expect(setClassTeachers("3AHIT", ["uid-of-ada"])).resolves.toMatchObject({
+      teacherUids: ["uid-of-ada"],
+      isOpenToStudents: false,
+    });
   });
 });

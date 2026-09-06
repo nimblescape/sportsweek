@@ -242,7 +242,7 @@ describe("assignStudents — while the event series is open to students", () => 
       "s1",
       storedEventSeries({
         name: "2026",
-        isOpenToStudents: true,
+        classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: true }],
         hasRegistrations: true,
         events: [event("Woche 1"), event("Woche 2")],
       }),

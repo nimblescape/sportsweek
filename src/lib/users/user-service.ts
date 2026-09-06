@@ -8,7 +8,12 @@ import { adminDb } from "@/lib/firebase/admin";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { accountTypeSchema } from "@/lib/schemas/user";
+import {
+  accountTypeSchema,
+  teacherCandidateSchema,
+  type TeacherCandidate,
+} from "@/lib/schemas/user";
+import { asUid } from "@/lib/schemas/common";
 import { permissionsSchema, type Permission } from "@/lib/auth/permissions";
 
 export const SELF_DEMOTION_HINT =
@@ -67,4 +72,32 @@ export async function grantPermissions(
     transaction.update(reference, { permissions: permissions.data });
     return permissions.data;
   });
+}
+
+/**
+ * Every teacher a class assignment may name (US-38). `users` stays closed to `editMasterData` at
+ * the rules layer — it only ever opens to `editUsers` or to a caller reading their own record
+ * — so the assignment editor has no declarative way to read it, and asks this route for exactly
+ * the fields it needs instead (see architecture: guarded server code where rules cannot express
+ * the check).
+ *
+ * A record that fails to parse is skipped rather than failing the whole list: one broken record
+ * must not keep a class from naming everybody else who can teach it.
+ */
+export async function listTeacherCandidates(): Promise<TeacherCandidate[]> {
+  const snapshot = await adminDb
+    .collection(COLLECTIONS.users)
+    .where("accountType", "==", "teacher")
+    .get();
+
+  const candidates: TeacherCandidate[] = [];
+  snapshot.forEach((doc) => {
+    const parsed = teacherCandidateSchema.safeParse(doc.data());
+    if (!parsed.success) {
+      console.error(`Skipping ${COLLECTIONS.users}/${doc.id}: ${parsed.error.message}`);
+      return;
+    }
+    candidates.push({ uid: asUid(doc.id), ...parsed.data });
+  });
+  return candidates;
 }

@@ -5,7 +5,7 @@
  */
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { asUid } from "@/lib/schemas/common";
+import { asUid, type Uid } from "@/lib/schemas/common";
 import { INVITATION_LINK_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -20,8 +20,7 @@ const useInvitations = vi.fn();
 
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
 vi.mock("@/lib/invitations/use-invitations", () => ({
-  useInvitations: (id: string, isOpenToStudents: boolean | undefined) =>
-    useInvitations(id, isOpenToStudents),
+  useInvitations: (id: string, classOptions: unknown) => useInvitations(id, classOptions),
 }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
@@ -43,8 +42,8 @@ const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-s
 
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
 // only has to be present.
-function RegistrationsView() {
-  return <ScopedRegistrationsView eventSeriesId="s1" />;
+function RegistrationsView({ teacherUid }: { teacherUid?: Uid } = {}) {
+  return <ScopedRegistrationsView eventSeriesId="s1" teacherUid={teacherUid} />;
 }
 
 function student(
@@ -62,7 +61,7 @@ function student(
 
 const eventSeries = {
   id: "s1",
-  ...storedEventSeries({ name: "2026", isOpenToStudents: true, hasRegistrations: true }),
+  ...storedEventSeries({ name: "2026", hasRegistrations: true }),
 };
 
 const listOf = (...names: string[]) => ({ items: names, loading: false, error: null });
@@ -74,6 +73,8 @@ beforeEach(() => {
     tokenFor: () => "tok",
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: () => false,
+    setOpen: vi.fn(async () => {}),
     loading: false,
     error: null,
   });
@@ -106,7 +107,7 @@ describe("RegistrationsView", () => {
     render(<RegistrationsView />);
 
     expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
-    expect(within(screen.getByRole("group", { name: "5AHIF" })).getByText("5AHIF: 2")).toBeInTheDocument(); // prettier-ignore
+    expect(within(screen.getByRole("group", { name: "5AHIF" })).getByText("5AHIF")).toBeInTheDocument(); // prettier-ignore
     expect(screen.getByRole("group", { name: "5BHIF" })).toBeInTheDocument();
   });
 
@@ -145,34 +146,13 @@ describe("RegistrationsView", () => {
   });
 });
 
-/**
- * Opening and closing registration is done on the series' own tag in the header (US-19, US-29).
- * This page offers no control for it: two controls for one decision would be two answers to it.
- */
-describe("RegistrationsView — no second registration control", () => {
-  it.each([{}, { isOpenToStudents: false }, { isArchived: true }])(
-    "offers nothing that opens or closes the series, whatever state %o it is in",
-    (state) => {
-      useEventSeries.mockReturnValue({
-        eventSeries: [{ ...eventSeries, ...state }],
-        loading: false,
-        error: null,
-      });
-
-      render(<RegistrationsView />);
-
-      expect(screen.queryByRole("button", { name: /Registrierung/ })).not.toBeInTheDocument();
-    },
-  );
-});
-
 describe("RegistrationsView — handing out links", () => {
-  // With the open state, because closing withdraws the links and a page holding the old ones
-  // would go on offering a token the server has forgotten (US-23).
+  // Each class card mints/copies its own link and reads its own window (US-43); the page hands
+  // the series' classOptions to the hook rather than a single series-wide flag.
   it("gives each class card the series' own links", async () => {
     render(<RegistrationsView />);
 
-    expect(useInvitations).toHaveBeenCalledWith("s1", true);
+    expect(useInvitations).toHaveBeenCalledWith("s1", eventSeries.classOptions);
     expect(
       within(screen.getByRole("group", { name: "5AHIF" })).getByRole("button", {
         name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren`,
@@ -183,21 +163,7 @@ describe("RegistrationsView — handing out links", () => {
   /** A series that can never be opened has no link to hand out either (US-19). */
   it("offers no links for an archived series", () => {
     useEventSeries.mockReturnValue({
-      eventSeries: [{ ...eventSeries, isArchived: true, isOpenToStudents: false }],
-      loading: false,
-      error: null,
-    });
-
-    render(<RegistrationsView />);
-
-    expect(
-      screen.queryByRole("button", { name: new RegExp(INVITATION_LINK_LABEL) }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("offers no links for an archived series", () => {
-    useEventSeries.mockReturnValue({
-      eventSeries: [{ ...eventSeries, isArchived: true, isOpenToStudents: false }],
+      eventSeries: [{ ...eventSeries, isArchived: true }],
       loading: false,
       error: null,
     });
@@ -214,6 +180,8 @@ describe("RegistrationsView — handing out links", () => {
       tokenFor: () => null,
       linkFor: vi.fn(),
       regenerate: vi.fn(),
+      isOpenFor: () => false,
+      setOpen: vi.fn(),
       loading: false,
       error: "Nicht erlaubt.",
     });
@@ -244,5 +212,58 @@ describe("RegistrationsView — before any class is maintained", () => {
     render(<RegistrationsView />);
 
     expect(screen.queryByText(NO_CLASSES_HINT)).not.toBeInTheDocument();
+  });
+});
+
+/** US-39: a teacher's own pages open on the classes they look after, and no others. */
+describe("RegistrationsView — narrowed to a teacher's own classes (US-39)", () => {
+  const TEACHER = asUid("uidTeacher");
+
+  beforeEach(() => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [
+        {
+          ...eventSeries,
+          classOptions: [
+            { name: "5AHIF", teacherUids: [TEACHER] },
+            { name: "5BHIF", teacherUids: [] },
+          ],
+        },
+      ],
+      loading: false,
+      error: null,
+    });
+    useRoster.mockReturnValue({
+      students: [student("Muster", { class: "5AHIF" }), student("Cerny", { class: "5BHIF" })],
+      loading: false,
+      error: null,
+    });
+  });
+
+  it("offers only the classes this teacher looks after", () => {
+    render(<RegistrationsView teacherUid={TEACHER} />);
+
+    expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "5BHIF" })).not.toBeInTheDocument();
+  });
+
+  it("counts only the students of the classes this teacher looks after", () => {
+    render(<RegistrationsView teacherUid={TEACHER} />);
+
+    expect(within(screen.getByRole("group", { name: "5AHIF" })).getByText("5AHIF")).toBeInTheDocument(); // prettier-ignore
+  });
+
+  it("offers every class where the reader looks after none of this series'", () => {
+    render(<RegistrationsView teacherUid={asUid("uidColleague")} />);
+
+    expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "5BHIF" })).toBeInTheDocument();
+  });
+
+  it("offers every class where nobody in particular is asking", () => {
+    render(<RegistrationsView />);
+
+    expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "5BHIF" })).toBeInTheDocument();
   });
 });

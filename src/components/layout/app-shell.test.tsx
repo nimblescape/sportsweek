@@ -7,6 +7,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "@/lib/api/client";
+import { useSetHeaderStatus } from "@/components/layout/header-status";
 
 /** A request that never answers, so the indicator is still there to be found. */
 function stubFetch() {
@@ -169,7 +170,7 @@ describe("AppShell — where the busy indicator sits", () => {
     );
   }
 
-  it("shows it in the header while a request is out, at the end of the row", async () => {
+  it("shows it once a request is out, straddling the header rather than sitting inside it", async () => {
     stubFetch();
     render(
       <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>}>
@@ -180,19 +181,15 @@ describe("AppShell — where the busy indicator sits", () => {
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
     const indicator = await screen.findByRole("status", { name: "Wird gespeichert" });
-    expect(screen.getByRole("banner")).toContainElement(indicator);
-    expect(screen.getByRole("banner").lastElementChild).toContainElement(indicator);
+    expect(screen.getByRole("banner")).not.toContainElement(indicator);
+    expect(screen.getByRole("main")).not.toContainElement(indicator);
   });
 
-  /**
-   * A school with no event series yet leaves the rest of the header empty, and space-between
-   * puts a lone child at the near end — which is how the indicator came to report from the left.
-   * The row holds its far end open whether or not there is anything to its left.
-   */
-  it("keeps it at the far end when there is no event series to fill the row", async () => {
+  /** Spanning the nav column too is what centres it on the screen rather than only the content. */
+  it("spans the nav column as well, so its centre is the screen's rather than the content's", async () => {
     stubFetch();
     render(
-      <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>} scope={null}>
+      <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>}>
         <Writer />
       </AppShell>,
     );
@@ -200,8 +197,72 @@ describe("AppShell — where the busy indicator sits", () => {
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
     const indicator = await screen.findByRole("status", { name: "Wird gespeichert" });
-    const region = screen.getByRole("banner").lastElementChild!;
-    expect(region).toContainElement(indicator);
-    expect(region.previousElementSibling?.className).toContain("flex-1");
+    expect(indicator.closest(".col-span-2")).not.toBeNull();
+  });
+});
+
+/** A page with nothing of its own to lead the header with may put its status there instead. */
+describe("AppShell — a page's own header status", () => {
+  // Hoisted rather than written inline: a fresh element every render would set state on every
+  // render too, the same trap the hook's own caller comment warns about.
+  const STATUS = <p role="status">Registrierung unvollständig</p>;
+
+  function StatusSetter() {
+    useSetHeaderStatus(STATUS);
+    return null;
+  }
+
+  it("shows what a page reports, in the header rather than its own content", () => {
+    render(
+      <AppShell>
+        <StatusSetter />
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    const status = screen.getByText("Registrierung unvollständig");
+    expect(screen.getByRole("banner")).toContainElement(status);
+  });
+
+  it("centres it in the slot a tag row would otherwise lead with", () => {
+    render(
+      <AppShell>
+        <StatusSetter />
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    const status = screen.getByText("Registrierung unvollständig");
+    expect(status.parentElement?.className).toContain("justify-center");
+  });
+
+  it("clears it once the page reporting it is gone", () => {
+    const { rerender } = render(
+      <AppShell>
+        <StatusSetter />
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    rerender(
+      <AppShell>
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    expect(screen.queryByText("Registrierung unvollständig")).not.toBeInTheDocument();
+  });
+
+  // A teacher always has a scope of their own, so nothing on their side is meant to set this —
+  // and with no provider mounted there, an attempt has nowhere to go rather than leaking through.
+  it("stays out of the header entirely on the teacher's side", () => {
+    render(
+      <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>}>
+        <StatusSetter />
+        <p>Inhalt</p>
+      </AppShell>,
+    );
+
+    expect(screen.queryByText("Registrierung unvollständig")).not.toBeInTheDocument();
   });
 });

@@ -11,6 +11,7 @@ import { requireUser, fetchUserPhoto } from "@/lib/auth/guards";
 import { may } from "@/lib/auth/permissions";
 import { resolveSelectedEventSeriesId } from "@/lib/event-series/event-series-service";
 import { EVENT_SERIES_COOKIE_NAME } from "@/lib/event-series/event-series-selection";
+import { asUid } from "@/lib/schemas/common";
 
 // Both roles share this frame; only a teacher is given a navigation bar (US-14, US-15).
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
@@ -24,7 +25,9 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
   const remembered = isTeacher
     ? ((await cookies()).get(EVENT_SERIES_COOKIE_NAME)?.value ?? undefined)
     : undefined;
-  const fallbackEventSeriesId = isTeacher ? await resolveSelectedEventSeriesId(remembered) : null;
+  const fallbackEventSeriesId = isTeacher
+    ? await resolveSelectedEventSeriesId(remembered, asUid(user.uid))
+    : null;
   const photo = await fetchUserPhoto(user.uid);
 
   // Students manage no event series and reach their registration through a link (US-20, US-23).
@@ -39,7 +42,14 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           />
         ) : null
       }
-      scope={isTeacher ? <EventSeriesTagRows mayOpen={may(user, "editRegistrations")} /> : null}
+      scope={
+        isTeacher ? (
+          <EventSeriesTagRows
+            mayOpen={may(user, "editRegistrations")}
+            teacherUid={asUid(user.uid)}
+          />
+        ) : null
+      }
       photo={photo}
     >
       {children}

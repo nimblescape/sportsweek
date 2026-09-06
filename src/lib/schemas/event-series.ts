@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { documentIdSchema, requiredText } from "./common";
-import { eventListSchema, namedListSchema, overridableListsSchema } from "./master-data";
+import { classOptionListSchema, eventListSchema, overridableListsSchema } from "./master-data";
 import { positionSchema } from "./position";
 
 // What the list shows about a series is derived from these flags, never stored.
@@ -20,13 +20,6 @@ export const eventSeriesSchema = z
      */
     nameKey: z.string().min(1),
     isArchived: z.boolean(),
-    /**
-     * Whether students may write to this series — join it, and go on amending what they said
-     * (US-19). Not the old active flag: any number of series may be open at once, and this governs
-     * students only, since a teacher works in a series whether it is open or not. An invitation link
-     * sets it, archiving clears it, and unarchiving deliberately does not restore it.
-     */
-    isOpenToStudents: z.boolean().default(false),
     // Denormalized from registration so clients — who cannot read that collection directly
     // (see firestore.rules) — can tell whether archiving/deleting is allowed without a round trip.
     hasRegistrations: z.boolean(),
@@ -46,7 +39,7 @@ export const eventSeriesSchema = z
      * — and an empty list is a question the student is never asked (US-21).
      */
     events: eventListSchema.default([]),
-    classOptions: namedListSchema.default([]),
+    classOptions: classOptionListSchema.default([]),
   })
   .merge(overridableListsSchema);
 export type EventSeries = z.infer<typeof eventSeriesSchema>;

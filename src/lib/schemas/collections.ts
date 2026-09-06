@@ -35,8 +35,8 @@ export const COLLECTIONS = {
   /**
    * One document per sign-in, beneath the person who made it. Beneath rather than a field on
    * their record, which is read by whoever hands out the permissions: a rule grants a whole
-   * document, and a history of every sign-in is not what that reader came for. Nobody reads
-   * this one at all -- it is written by the Admin SDK and closed to every client.
+   * document, and a history of every sign-in is not what that reader came for on a read of the
+   * record itself. It is written by the Admin SDK and read by nobody but `editUsers` (US-47).
    */
   logins: "logins",
   /**

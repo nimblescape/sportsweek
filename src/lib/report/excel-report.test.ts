@@ -39,21 +39,21 @@ const workbook = (students = [ANNA], fields = reportFieldsOf([]), provenance = P
   reportWorkbook(students, fields, { provenance, logo: null });
 
 describe("reportTable", () => {
-  it("names the three the master line always shows as the leftmost columns", () => {
-    expect(table().header).toEqual(["Vorname", "Nachname", "E-Mail"]);
+  it("numbers each student and names the two the master line always shows, as the leftmost columns", () => {
+    expect(table().header).toEqual(["Nr.", "Vorname", "Nachname"]);
   });
 
-  it("is one row per student, in the order it was handed them", () => {
+  it("is one row per student, numbered in the order it was handed them", () => {
     expect(table().rows).toEqual([
-      ["Anna", "Muster", "anna@student.htldornbirn.at"],
-      ["Bene", "Berger", "bene@student.htldornbirn.at"],
+      ["1", "Anna", "Muster"],
+      ["2", "Bene", "Berger"],
     ]);
   });
 
-  it("adds one column per activated field, after the three that are always there", () => {
+  it("adds one column per activated field, after the identity columns", () => {
     const { header, rows } = table([BENE], reportFieldsOf(["class", "gender"]));
 
-    expect(header).toEqual(["Vorname", "Nachname", "E-Mail", "Klasse", "Geschlecht"]);
+    expect(header).toEqual(["Nr.", "Vorname", "Nachname", "Klasse", "Geschlecht"]);
     expect(rows[0].slice(3)).toEqual(["5BHIF", "Weiblich"]);
   });
 
@@ -140,13 +140,8 @@ describe("reportWorkbook", () => {
   it("starts the report sheet with the header row, with nothing above it", () => {
     const report = workbook([ANNA, BENE], reportFieldsOf(["class"])).getWorksheet(REPORT_SHEET);
 
-    expect(report?.getRow(1).values).toEqual([
-      undefined,
-      "Vorname",
-      "Nachname",
-      "E-Mail",
-      "Klasse",
-    ]);
-    expect(report?.getRow(2).getCell(1).value).toBe("Anna");
+    expect(report?.getRow(1).values).toEqual([undefined, "Nr.", "Vorname", "Nachname", "Klasse"]);
+    expect(report?.getRow(2).getCell(1).value).toBe("1");
+    expect(report?.getRow(2).getCell(2).value).toBe("Anna");
   });
 });

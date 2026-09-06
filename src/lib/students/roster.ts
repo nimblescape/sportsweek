@@ -15,7 +15,7 @@ export type RosterStudent = FilterableStudent & {
   /** The registration, which is what an assignment is written to (US-12). */
   id: Uid;
   studentUid: Uid;
-  /** On the report's master line, where it is the one contact detail always shown (US-13). */
+  /** A copy of the registration's own e-mail, for a filter or a view that has no use for the rest. */
   email: string;
   /**
    * The registration whole, because the report's detail lines may ask for any answer in it

@@ -37,7 +37,6 @@ export function storedEventSeries(
   const eventSeries = {
     name: "Wintersportwoche 2026",
     isArchived: false,
-    isOpenToStudents: false,
     hasRegistrations: false,
     position: 0,
     events: [],

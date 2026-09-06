@@ -83,11 +83,15 @@ function footer({ exportedAt, build }: ReportProvenance): DynamicContent {
   });
 }
 
-function studentBlock(student: RosterStudent, fields: readonly ReportField[]): Content {
+function studentBlock(
+  student: RosterStudent,
+  position: number,
+  fields: readonly ReportField[],
+): Content {
   const master: Content = {
     text: [
+      { text: `${position}. `, color: MUTED },
       { text: `${student.firstName} ${student.lastName}`, bold: true },
-      { text: ` (${student.email})`, color: MUTED },
       ...(student.isIncomplete
         ? [{ text: `  ${INCOMPLETE_REGISTRATION_HINT}`, italics: true }]
         : []),
@@ -112,7 +116,7 @@ export function reportDocument(
   fields: readonly ReportField[],
   { provenance, logo }: ReportDocumentOptions,
 ): TDocumentDefinitions {
-  const blocks = students.map((student) => studentBlock(student, fields));
+  const blocks = students.map((student, index) => studentBlock(student, index + 1, fields));
 
   return {
     info: { title: REPORT_TITLE },

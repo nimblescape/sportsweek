@@ -36,7 +36,8 @@ type RecordScreenProps = {
   busy?: boolean;
   /** What this record looks like as a whole; absent where there is nothing to report on. */
   report?: readonly ReportSection[];
-  onAdd: () => void;
+  /** Absent for a collection nothing can be added to — its marked tag then carries no control. */
+  onAdd?: () => void;
   /** What the marked collection holds — a list, and whatever the screen puts above it. */
   children: ReactNode;
 };
@@ -78,7 +79,8 @@ export function RecordScreen({
   // Adding to the marked collection is what the screen is for, so Enter does it wherever the
   // teacher happens to be — short of a control or a dialog that already answers Enter itself.
   useEffect(() => {
-    if (busy || showingReport) return;
+    if (busy || showingReport || onAdd === undefined) return;
+    const addRecord = onAdd;
 
     function addOnEnter(event: KeyboardEvent) {
       if (event.key !== "Enter" || event.defaultPrevented) return;
@@ -87,7 +89,7 @@ export function RecordScreen({
       if ((event.target as HTMLElement | null)?.closest(OWNS_ENTER)) return;
 
       event.preventDefault();
-      onAdd();
+      addRecord();
     }
 
     window.addEventListener("keydown", addOnEnter);
@@ -126,20 +128,28 @@ export function RecordScreen({
               >
                 {tabs.map((tab) =>
                   tab.key === marked ? (
-                    <Tooltip key={tab.key} label={tab.addLabel}>
-                      {/* The tag is the control, so the tooltip hangs on a wrapper it fills. */}
-                      <span className="inline-flex">
-                        <Tag
-                          pressed
-                          disabled={busy}
-                          label={`${tab.label}: ${tab.addLabel}`}
-                          onClick={onAdd}
-                        >
-                          <span className="max-w-60 truncate px-0.5">{tab.label}</span>
-                          <Plus aria-hidden />
-                        </Tag>
-                      </span>
-                    </Tooltip>
+                    onAdd === undefined ? (
+                      // Nothing can be added to this collection, so the marked tag only says
+                      // which one is open — a plain pressed tag, with no control on it.
+                      <Tag key={tab.key} pressed disabled={busy}>
+                        <span className="max-w-60 truncate px-0.5">{tab.label}</span>
+                      </Tag>
+                    ) : (
+                      <Tooltip key={tab.key} label={tab.addLabel ?? tab.label}>
+                        {/* The tag is the control, so the tooltip hangs on a wrapper it fills. */}
+                        <span className="inline-flex">
+                          <Tag
+                            pressed
+                            disabled={busy}
+                            label={`${tab.label}: ${tab.addLabel ?? tab.label}`}
+                            onClick={onAdd}
+                          >
+                            <span className="max-w-60 truncate px-0.5">{tab.label}</span>
+                            <Plus aria-hidden />
+                          </Tag>
+                        </span>
+                      </Tooltip>
+                    )
                   ) : (
                     <Tag key={tab.key} disabled={busy}>
                       <TagName label={tab.label} onPress={() => router.push(tab.href)} />

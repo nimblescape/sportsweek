@@ -9,6 +9,8 @@ import { Brand } from "@/components/layout/brand";
 import { BuildInfo } from "@/components/layout/build-info";
 import { BusyProvider } from "@/lib/api/busy";
 import { BusyBar } from "@/components/layout/busy-bar";
+import { HeaderStatusProvider, HeaderStatusSlot } from "@/components/layout/header-status";
+import { cn } from "@/lib/utils";
 
 /**
  * The frame both roles share (US-14, US-15). One grid rather than a header above a row of
@@ -34,48 +36,90 @@ export function AppShell({
   scope?: ReactNode;
   photo?: string | null;
 }) {
+  const frame = (
+    <AppShellFrame nav={nav} scope={scope} photo={photo}>
+      {children}
+    </AppShellFrame>
+  );
+
   return (
     <BusyProvider>
-      <div className="grid h-dvh grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]">
-        {nav ? (
-          <div className="border-border bg-sidebar col-start-1 row-span-3 row-start-1 hidden shrink-0 border-r md:block">
-            {nav}
-          </div>
-        ) : null}
-
-        {/* Tighter on a phone, where this one row carries the brand, the scope and signing out:
-            at 375px the gaps alone were the difference between fitting and scrolling sideways. */}
-        <header className="border-border bg-background col-start-2 row-start-1 flex items-center gap-2 border-b px-4 py-2 sm:gap-4 md:px-6">
-          {nav ? null : <Brand />}
-          {/* The scope leads the header, because it says what every page below it is about. Its
-              slot grows whether or not it has anything in it, and is floored at the height of one
-              tag: a page that shows no scope at all would otherwise shorten the whole row, and
-              the header would jump as the teacher walked into the master data and back out. */}
-          <div className="flex min-h-(--control-height) min-w-0 flex-1 items-center">{scope}</div>
-          {/* Where there is a bar, signing out sits at the foot of it, under the person's own
-              mark. A student has no bar, so it stays here. */}
-          {nav ? null : <SignOutButton photo={photo} />}
-          {/* The indicator's own place at the far end, kept whether or not it is reporting, so
-              the one thing that speaks for the whole app is always found where it was last. */}
-          <div className="flex shrink-0 items-center">
-            <BusyBar />
-          </div>
-        </header>
-
-        <main className="bg-background col-start-2 row-start-2 flex min-h-0 flex-col overflow-y-auto">
-          {/* Narrow screens have no column for the bar, so it goes above what it points at. */}
-          {nav ? <div className="border-border bg-sidebar border-b md:hidden">{nav}</div> : null}
-          {children}
-        </main>
-
-        {/* Only for the person whose bar is not carrying it. A strip of its own rather than a
-            place in the header: the header is one row, and on a phone the build line was what
-            pushed signing out off the right of the screen. It is a grid track, so it stays put
-            while the form above it scrolls — which is what the header was chosen for. */}
-        {nav ? null : (
-          <BuildInfo className="border-border bg-background col-start-2 row-start-3 border-t px-4 py-2 text-center" />
-        )}
-      </div>
+      {/* Scoped to the student view only (US-11): a teacher always has a scope of their own to
+          lead the header with, so nothing there is meant to reach for this, and mounting the
+          provider only where it applies keeps that a fact rather than a convention to remember. */}
+      {nav ? frame : <HeaderStatusProvider>{frame}</HeaderStatusProvider>}
     </BusyProvider>
+  );
+}
+
+function AppShellFrame({
+  children,
+  nav,
+  scope,
+  photo,
+}: {
+  children: ReactNode;
+  nav?: ReactNode;
+  scope?: ReactNode;
+  photo: string | null;
+}) {
+  return (
+    <div className="grid h-dvh grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]">
+      {nav ? (
+        <div className="border-border bg-sidebar col-start-1 row-span-3 row-start-1 hidden shrink-0 border-r md:block">
+          {nav}
+        </div>
+      ) : null}
+
+      {/* Tighter on a phone, where this one row carries the brand, the scope and signing out:
+          at 375px the gaps alone were the difference between fitting and scrolling sideways. */}
+      <header className="border-border bg-background col-start-2 row-start-1 flex items-center gap-2 border-b px-4 py-2 sm:gap-4 md:px-6">
+        {nav ? null : <Brand />}
+        {/* The scope leads the header, because it says what every page below it is about. Its
+            slot grows whether or not it has anything in it, and is floored at the height of one
+            tag: a page that shows no scope at all would otherwise shorten the whole row, and
+            the header would jump as the teacher walked into the master data and back out.
+            A page with no scope of its own may put its status here instead, centred rather than
+            leading, since nothing to its left needs the room a tag row does. */}
+        <div
+          className={cn(
+            "flex min-h-(--control-height) min-w-0 flex-1 items-center",
+            scope ? undefined : "justify-center",
+          )}
+        >
+          {scope ?? <HeaderStatusSlot />}
+        </div>
+        {/* Where there is a bar, signing out sits at the foot of it, under the person's own
+            mark. A student has no bar, so it stays here. */}
+        {nav ? null : <SignOutButton photo={photo} />}
+      </header>
+
+      {/* Straddles the header's own border rather than sitting in either row: spanning both grid
+          columns centres it on the screen regardless of whether a nav column is there to widen
+          it, and shifting it up by half its own (small) height puts its middle exactly on the
+          line, never deep enough into the header row to sit under the tags or the sign-out
+          button above it. */}
+      <div className="pointer-events-none z-10 col-span-2 col-start-1 row-start-2 flex justify-center self-start">
+        <div className="-translate-y-1/2">
+          <BusyBar />
+        </div>
+      </div>
+
+      <main className="bg-background col-start-2 row-start-2 mt-2 flex min-h-0 flex-col overflow-y-auto">
+        {/* The margin above is outside the scrollport itself, so no amount of scrolling ever
+            carries content up into where the bars dip below the line. */}
+        {/* Narrow screens have no column for the bar, so it goes above what it points at. */}
+        {nav ? <div className="border-border bg-sidebar border-b md:hidden">{nav}</div> : null}
+        {children}
+      </main>
+
+      {/* Only for the person whose bar is not carrying it. A strip of its own rather than a
+          place in the header: the header is one row, and on a phone the build line was what
+          pushed signing out off the right of the screen. It is a grid track, so it stays put
+          while the form above it scrolls — which is what the header was chosen for. */}
+      {nav ? null : (
+        <BuildInfo className="border-border bg-background col-start-2 row-start-3 border-t px-4 py-2 text-center" />
+      )}
+    </div>
   );
 }

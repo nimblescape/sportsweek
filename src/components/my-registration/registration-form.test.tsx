@@ -20,6 +20,13 @@ vi.mock("@/lib/api/client", async () => {
 
 const { RegistrationForm } = await import("./registration-form");
 const { ApiRequestError } = await import("@/lib/api/client");
+const { REGISTRATION_CLOSED_HINT } = await import("@/lib/registration/registration");
+const { HeaderStatusProvider, useHeaderStatus } = await import("@/components/layout/header-status");
+
+/** Stands in for `AppShell`, which is what actually renders a status the form hands up to it. */
+function HeaderStatusSlot() {
+  return <>{useHeaderStatus()}</>;
+}
 
 const LISTS = {
   programs: [
@@ -74,7 +81,7 @@ const storedRecord: Registration = {
 
 const ALL_ASKED = questionsAsked(
   storedEventSeries({
-    classOptions: ["3AHME"],
+    classOptions: [{ name: "3AHME", teacherUids: [], isOpenToStudents: false }],
     programs: LISTS.programs,
     skillLevels: LISTS.skillLevels,
     busPickupPoints: LISTS.busPickupPoints,
@@ -83,17 +90,25 @@ const ALL_ASKED = questionsAsked(
   }),
 );
 
-function renderForm(record: Registration | null = storedRecord, asked = ALL_ASKED) {
+function renderForm(
+  record: Registration | null = storedRecord,
+  asked = ALL_ASKED,
+  readOnly = false,
+) {
   render(
-    <RegistrationForm
-      eventSeriesId="s1"
-      eventSeriesName="Winter 2026"
-      studentName="Jane Doe"
-      studentClass="3AHME"
-      asked={asked}
-      record={record}
-      lists={LISTS}
-    />,
+    <HeaderStatusProvider>
+      <HeaderStatusSlot />
+      <RegistrationForm
+        eventSeriesId="s1"
+        eventSeriesName="Winter 2026"
+        studentName="Jane Doe"
+        studentClass="3AHME"
+        asked={asked}
+        record={record}
+        lists={LISTS}
+        readOnly={readOnly}
+      />
+    </HeaderStatusProvider>,
   );
 }
 
@@ -102,7 +117,9 @@ const save = () => screen.getByRole("button", { name: "Speichern" });
 /** Three questions offer "Ja"/"Nein", so an answer is only unambiguous within its own group. */
 const answer = (question: string, option: string) =>
   userEvent.click(
-    within(screen.getByRole("group", { name: question })).getByRole("radio", { name: option }),
+    within(screen.getByRole("radiogroup", { name: question })).getByRole("radio", {
+      name: option,
+    }),
   );
 
 const ATTENDING = "Nimmst du an der Veranstaltung teil?";
@@ -196,7 +213,7 @@ describe("RegistrationForm", () => {
     const askedWithout = (...empty: string[]) =>
       questionsAsked(
         storedEventSeries({
-          classOptions: ["3AHME"],
+          classOptions: [{ name: "3AHME", teacherUids: [], isOpenToStudents: false }],
           programs: empty.includes("programs") ? [] : LISTS.programs,
           skillLevels: empty.includes("skillLevels") ? [] : LISTS.skillLevels,
           busPickupPoints: empty.includes("busPickupPoints") ? [] : LISTS.busPickupPoints,
@@ -234,7 +251,7 @@ describe("RegistrationForm", () => {
   it("starts a student who has not registered yet on an unanswered form", () => {
     renderForm(null);
 
-    const asked = within(screen.getByRole("group", { name: ATTENDING }));
+    const asked = within(screen.getByRole("radiogroup", { name: ATTENDING }));
     expect(asked.getByRole("radio", { name: "Nein" })).not.toBeChecked();
     expect(asked.getByRole("radio", { name: "Ja" })).not.toBeChecked();
     expect(screen.queryByLabelText(ANSWER_LABELS.skillLevel)).not.toBeInTheDocument();
@@ -263,18 +280,18 @@ describe("RegistrationForm", () => {
     expect(sentBody()).not.toHaveProperty("class");
   });
 
-  it("confirms a save, and says the registration is complete when it is", async () => {
+  it("confirms a save by saying the registration is complete, centered under the heading", async () => {
     renderForm();
 
     await changeSomething();
     await userEvent.click(save());
 
     const status = await screen.findByRole("status");
-    expect(status).toHaveTextContent("gespeichert");
     expect(status).toHaveTextContent("Registrierung vollständig");
+    expect(status).toHaveClass("text-center");
   });
 
-  it("names what is still missing in the same breath as the confirmation", async () => {
+  it("says the registration is incomplete instead, with no list of which fields", async () => {
     renderForm({
       ...storedRecord,
       emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
@@ -284,9 +301,22 @@ describe("RegistrationForm", () => {
     await userEvent.click(save());
 
     const status = await screen.findByRole("status");
-    expect(status).toHaveTextContent("gespeichert");
     expect(status).toHaveTextContent("Registrierung unvollständig");
-    expect(status).toHaveTextContent("Vorname des Notfallkontakts");
+    expect(status).not.toHaveTextContent("Vorname des Notfallkontakts");
+  });
+
+  /** Easy to miss in the muted grey a completed registration's hint reads fine in (#138). */
+  it("writes the incomplete hint in red, so it is not read past", async () => {
+    renderForm({
+      ...storedRecord,
+      emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
+    });
+
+    await changeSomething();
+    await userEvent.click(save());
+
+    const status = await screen.findByRole("status");
+    expect(status).toHaveClass("text-destructive");
   });
 
   /** By then it is no longer true: what is on screen is not what was saved. */
@@ -360,6 +390,23 @@ describe("RegistrationForm", () => {
 
       await waitFor(() => expect(apiRequest).toHaveBeenCalled());
       expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
+      expect(screen.getByLabelText("Vorname")).toHaveAttribute("aria-invalid", "true");
+    });
+
+    it("frames a radio group in red once its answer is missing", async () => {
+      renderForm({
+        ...storedRecord,
+        emergencyContact: { ...storedRecord.emergencyContact, relationship: null },
+      });
+
+      await changeSomething();
+      await userEvent.click(save());
+
+      await waitFor(() => expect(apiRequest).toHaveBeenCalled());
+      expect(await screen.findByRole("radiogroup", { name: "Beziehung" })).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      );
     });
 
     it("says nothing about missing answers before the first save", () => {
@@ -437,7 +484,7 @@ describe("RegistrationForm", () => {
       expect(screen.getByText("Benötigte Ausrüstung")).toBeInTheDocument();
       expect(screen.getByRole("checkbox", { name: "Ski" })).toBeInTheDocument();
       expect(screen.getByRole("checkbox", { name: "Helm" })).toBeInTheDocument();
-      expect(screen.getByRole("group", { name: RENTING })).toBeInTheDocument();
+      expect(screen.getByRole("radiogroup", { name: RENTING })).toBeInTheDocument();
     });
 
     it("has nothing to tick until the student says they need to borrow something", () => {
@@ -505,6 +552,32 @@ describe("RegistrationForm", () => {
       await answer("Beziehung", "Sonstiges");
 
       expect(screen.getByLabelText("Welche Beziehung?")).toBeInTheDocument();
+    });
+  });
+
+  describe("read-only, once the class it names has closed (US-45)", () => {
+    it("says so in one line", () => {
+      renderForm(storedRecord, ALL_ASKED, true);
+
+      expect(screen.getByText(REGISTRATION_CLOSED_HINT)).toBeInTheDocument();
+    });
+
+    it("shows every saved answer, inactive rather than withheld", () => {
+      renderForm(storedRecord, ALL_ASKED, true);
+
+      expect(
+        within(screen.getByRole("radiogroup", { name: ATTENDING })).getByRole("radio", {
+          name: "Ja",
+        }),
+      ).toBeDisabled();
+      expect(screen.getByLabelText("Geburtsdatum")).toBeDisabled();
+      expect(screen.getByLabelText(ANSWER_LABELS.skillLevel)).toBeDisabled();
+    });
+
+    it("offers nothing to save", () => {
+      renderForm(storedRecord, ALL_ASKED, true);
+
+      expect(screen.queryByRole("button", { name: "Speichern" })).not.toBeInTheDocument();
     });
   });
 });

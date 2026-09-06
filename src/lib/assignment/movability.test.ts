@@ -18,10 +18,13 @@ describe("immovableReason", () => {
     expect(immovableReason(series, studentRecord())).toBeNull();
   });
 
-  it("refuses everybody while the series is open to students", () => {
-    const open = storedEventSeries({ ...series, isOpenToStudents: true });
+  it("refuses everybody while their own class is open to students", () => {
+    const open = storedEventSeries({
+      ...series,
+      classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: true }],
+    });
 
-    expect(immovableReason(open, studentRecord())).toBe("seriesOpen");
+    expect(immovableReason(open, studentRecord())).toBe("classOpen");
   });
 
   it("refuses somebody who has not finished answering", () => {
@@ -29,8 +32,11 @@ describe("immovableReason", () => {
   });
 
   /** Incomplete is what a teacher can still do something about; a lock that lifts on its own is not. */
-  it("says a registration is incomplete even while the series is open to students", () => {
-    const open = storedEventSeries({ ...series, isOpenToStudents: true });
+  it("says a registration is incomplete even while their own class is open to students", () => {
+    const open = storedEventSeries({
+      ...series,
+      classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: true }],
+    });
 
     expect(immovableReason(open, studentRecord({ phoneNumber: null }))).toBe("incomplete");
   });

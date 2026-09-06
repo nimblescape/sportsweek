@@ -4,17 +4,19 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { stubRowLayout } from "@/test/stub-row-layout";
 import { CHILD_IN_USE_HINT, IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
 import { FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
+import { MASTER_DATA_REPORT_LABEL } from "@/components/master-data/master-data-report";
 
 const useMasterData = vi.fn();
 const useUsageReport = vi.fn();
 const useSelectedEventSeries = vi.fn();
+const useTeacherCandidates = vi.fn();
 const push = vi.fn();
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -22,6 +24,11 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (...args: unknown[]) => useMasterData(...args),
   useUsageReport: (...args: unknown[]) => useUsageReport(...args),
+}));
+
+// Only the report needs a name for a class's teachers; nothing here asserts on the candidates list.
+vi.mock("@/lib/users/use-teacher-candidates", () => ({
+  useTeacherCandidates: () => useTeacherCandidates(),
 }));
 
 // The screen names the record it is about, which reaches Firebase no test here has cause to start.
@@ -69,6 +76,7 @@ beforeEach(() => {
     blockedEquipment: {},
     loading: false,
   });
+  useTeacherCandidates.mockReturnValue({ candidates: [], loading: false, error: null });
 });
 
 afterEach(() => {
@@ -78,30 +86,31 @@ afterEach(() => {
 });
 
 function renderView(props: Record<string, unknown> = {}) {
-  render(<MasterDataView category="classes" eventSeriesId="s1" {...props} />);
+  render(<MasterDataView category="skill-levels" eventSeriesId="s1" {...props} />);
 }
 
 describe("MasterDataView — reading the list", () => {
-  /** Classes are bare names, so the path stops at the record and the heading is its name. */
+  /** Skill levels are bare names, so the path stops at the record and the heading is its name. */
   it("names the event series, and marks the category on show", () => {
     renderView();
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Wintersportwoche");
-    expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   /** Every category of the series is one press away, in the menu's order. */
   it("offers a tag for every category of the series", () => {
     renderView();
 
-    expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    ).toBeInTheDocument();
     for (const label of [
+      "Klassen",
       "Events",
       "Programme",
-      "Leistungsstufen",
       "Zugangskarten",
       "Zustiegsstellen",
       "Verpflegung",
@@ -142,7 +151,7 @@ describe("MasterDataView — reading the list", () => {
     renderView();
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    expect(screen.queryByText(/noch keine Klasse/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/noch keine Leistungsstufe/i)).not.toBeInTheDocument();
   });
 
   it("reports a failed subscription instead of pretending the list is empty", () => {
@@ -150,22 +159,22 @@ describe("MasterDataView — reading the list", () => {
     renderView();
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.queryByText(/noch keine Klasse/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/noch keine Leistungsstufe/i)).not.toBeInTheDocument();
   });
 
   it("names the category in its empty state", () => {
     useMasterData.mockReturnValue({ items: [], loading: false, error: null });
     renderView();
 
-    expect(screen.getByText("Es gibt noch keine Klasse.")).toBeInTheDocument();
+    expect(screen.getByText("Es gibt noch keine Leistungsstufe.")).toBeInTheDocument();
   });
 
   it("subscribes to the category it was configured with, for the series the page names", () => {
-    render(<MasterDataView category="skill-levels" eventSeriesId="s1" />);
+    render(<MasterDataView category="bus-pickup-points" eventSeriesId="s1" />);
 
-    expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1", undefined);
+    expect(useMasterData).toHaveBeenCalledWith("bus-pickup-points", "s1", undefined);
     expect(
-      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+      screen.getByRole("button", { name: "Zustiegsstellen: Neue Zustiegsstelle" }),
     ).toHaveAttribute("aria-pressed", "true");
   });
 });
@@ -175,13 +184,15 @@ describe("MasterDataView — adding", () => {
     const fetchMock = stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Klassen: Neue Klasse" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    );
     await userEvent.type(screen.getByLabelText("Name"), "5CHIT");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/event-series/s1/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/skill-levels");
     expect(init.method).toBe("POST");
     expect(JSON.parse(String(init.body))).toEqual({ name: "5CHIT" });
   });
@@ -190,7 +201,9 @@ describe("MasterDataView — adding", () => {
   it("offers to add under the marked category alone", () => {
     renderView();
 
-    expect(screen.getByRole("button", { name: "Klassen: Neue Klasse" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Neues Event/ })).not.toBeInTheDocument();
   });
 
@@ -198,7 +211,9 @@ describe("MasterDataView — adding", () => {
     const fetchMock = stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Klassen: Neue Klasse" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
     expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
@@ -209,7 +224,9 @@ describe("MasterDataView — adding", () => {
     stubFetch(() => conflict("Den Namen „3AHIT\u201c gibt es bereits."));
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Klassen: Neue Klasse" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Leistungsstufen: Neue Leistungsstufe" }),
+    );
     await userEvent.type(screen.getByLabelText("Name"), "3AHIT");
     await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
@@ -225,7 +242,7 @@ describe("MasterDataView — editing", () => {
     const fetchMock = stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leistungsstufe 3AHIT bearbeiten" }));
     const field = screen.getByLabelText("Name");
     await userEvent.clear(field);
     await userEvent.type(field, "3BHIT");
@@ -233,7 +250,7 @@ describe("MasterDataView — editing", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/event-series/s1/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/skill-levels");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(String(init.body))).toEqual({ item: "3AHIT", name: "3BHIT" });
   });
@@ -242,7 +259,7 @@ describe("MasterDataView — editing", () => {
     stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leistungsstufe 3AHIT bearbeiten" }));
 
     expect(screen.getByLabelText("Name")).toHaveValue("3AHIT");
   });
@@ -255,7 +272,7 @@ describe("MasterDataView — editing", () => {
     stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leistungsstufe 3AHIT bearbeiten" }));
 
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("wird umbenannt.");
@@ -268,7 +285,7 @@ describe("MasterDataView — deleting", () => {
     stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT löschen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leistungsstufe 3AHIT löschen" }));
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("3AHIT")).toBeInTheDocument();
@@ -278,7 +295,7 @@ describe("MasterDataView — deleting", () => {
     stubFetch(created);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT löschen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leistungsstufe 3AHIT löschen" }));
 
     expect(screen.getByRole("dialog")).toHaveTextContent(IRREVERSIBLE_HINT);
   });
@@ -287,7 +304,7 @@ describe("MasterDataView — deleting", () => {
     const fetchMock = stubFetch(() => Promise.resolve(new Response(null, { status: 204 })));
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT löschen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leistungsstufe 3AHIT löschen" }));
     expect(fetchMock).not.toHaveBeenCalled();
 
     const dialog = screen.getByRole("dialog");
@@ -295,7 +312,7 @@ describe("MasterDataView — deleting", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/event-series/s1/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/skill-levels");
     expect(init.method).toBe("DELETE");
     expect(JSON.parse(String(init.body))).toEqual({ item: "3AHIT" });
   });
@@ -304,7 +321,7 @@ describe("MasterDataView — deleting", () => {
     const fetchMock = stubFetch(() => Promise.resolve(new Response(null, { status: 204 })));
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT löschen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leistungsstufe 3AHIT löschen" }));
     const dialog = screen.getByRole("dialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Abbrechen" }));
 
@@ -316,7 +333,7 @@ describe("MasterDataView — deleting", () => {
 // still offers actions against an item the write it is waiting on may already have removed.
 describe("MasterDataView — while a write is in flight", () => {
   async function confirmDelete() {
-    await userEvent.click(screen.getByRole("button", { name: "Klasse 3AHIT löschen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leistungsstufe 3AHIT löschen" }));
     await userEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", { name: "Löschen" }),
     );
@@ -329,7 +346,9 @@ describe("MasterDataView — while a write is in flight", () => {
     await confirmDelete();
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled(),
+      expect(
+        screen.getByRole("button", { name: "Leistungsstufe 3AHIT bearbeiten" }),
+      ).toBeDisabled(),
     );
     expect(screen.getByRole("button", { name: "3AHIT verschieben" })).toBeDisabled();
   });
@@ -341,9 +360,11 @@ describe("MasterDataView — while a write is in flight", () => {
     await confirmDelete();
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled(),
+      expect(
+        screen.getByRole("button", { name: "Leistungsstufe 3AHIT bearbeiten" }),
+      ).toBeDisabled(),
     );
-    expect(screen.getByRole("button", { name: "Klasse 4BHIT bearbeiten" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 4BHIT bearbeiten" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "4BHIT verschieben" })).toBeEnabled();
   });
 
@@ -354,7 +375,7 @@ describe("MasterDataView — while a write is in flight", () => {
     await confirmDelete();
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 3AHIT bearbeiten" })).toBeEnabled();
   });
 
   it("locks the way into the row's own record, which the same write is changing", async () => {
@@ -382,8 +403,8 @@ describe("MasterDataView — the in-use restriction", () => {
   it("disables editing and deleting for an item still in use", () => {
     renderView();
 
-    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Klasse 3AHIT löschen" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 3AHIT bearbeiten" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 3AHIT löschen" })).toBeDisabled();
   });
 
   it("explains that the event series has to be archived first", () => {
@@ -395,14 +416,14 @@ describe("MasterDataView — the in-use restriction", () => {
   it("leaves the other items alone", () => {
     renderView();
 
-    expect(screen.getByRole("button", { name: "Klasse 4BHIT bearbeiten" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Klasse 4BHIT löschen" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 4BHIT bearbeiten" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 4BHIT löschen" })).toBeEnabled();
   });
 
   it("asks the guard about the category it is showing, for the series the page names", () => {
     renderView();
 
-    expect(useUsageReport).toHaveBeenCalledWith("classes", "s1", undefined);
+    expect(useUsageReport).toHaveBeenCalledWith("skill-levels", "s1", undefined);
   });
 });
 
@@ -418,13 +439,13 @@ describe("MasterDataView — an item whose own list is in use", () => {
   it("blocks deleting it, since deleting would take that entry along", () => {
     renderView();
 
-    expect(screen.getByRole("button", { name: "Klasse 3AHIT löschen" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 3AHIT löschen" })).toBeDisabled();
   });
 
   it("still allows renaming it, which touches no entry", () => {
     renderView();
 
-    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 3AHIT bearbeiten" })).toBeEnabled();
   });
 
   it("says why deleting is blocked", () => {
@@ -446,8 +467,8 @@ describe("MasterDataView — while the in-use check is still running", () => {
   it("starts out disabled, rather than offering the controls and taking them back", () => {
     renderView();
 
-    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Klasse 3AHIT löschen" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 3AHIT bearbeiten" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 3AHIT löschen" })).toBeDisabled();
   });
 
   it("says what is being checked", () => {
@@ -510,7 +531,7 @@ describe("MasterDataView — a row that opens a record of its own", () => {
     renderView(opening);
 
     expect(screen.getByRole("link", { name: "3AHIT" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Klasse 3AHIT bearbeiten" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Leistungsstufe 3AHIT bearbeiten" })).toBeDisabled();
   });
 
   it("leaves a row without children as plain text", () => {
@@ -533,6 +554,27 @@ describe("MasterDataView — an event's own page (US-33)", () => {
 
     expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1", "Woche 1");
     expect(useUsageReport).toHaveBeenCalledWith("skill-levels", "s1", "Woche 1");
+  });
+
+  /** The report never scopes narrower than the series, even from one of the series' own events. */
+  it("reports the whole series, not only the event it is on", async () => {
+    useSelectedEventSeries.mockReturnValue({
+      eventSeries: {
+        id: "s1",
+        ...storedEventSeries({
+          name: "Wintersportwoche",
+          events: [event("Woche 1")],
+          classOptions: [{ name: "2aWI", teacherUids: [], isOpenToStudents: false }],
+        }),
+      },
+      loading: false,
+      error: null,
+    });
+    renderEventView();
+
+    await userEvent.click(screen.getByRole("button", { name: MASTER_DATA_REPORT_LABEL }));
+
+    expect(screen.getByRole("heading", { name: "Klassen" })).toBeInTheDocument();
   });
 
   it("writes to the event-scoped handler, the event named in the query", async () => {
@@ -667,7 +709,7 @@ describe("MasterDataView — ordering", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/event-series/s1/master-data/classes");
+    expect(url).toBe("/api/event-series/s1/master-data/skill-levels");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(String(init.body))).toEqual({ order: ["4BHIT", "3AHIT"] });
   });

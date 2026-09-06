@@ -5,7 +5,8 @@
 users:
   - firstName: Alex
     lastName: Example
-    classTeacherOf: 2aWI
+    classTeacherOf:
+      - 2aWI
     email: alex.example@example.edu
     permissions:
       - editRegistrations
@@ -23,7 +24,8 @@ users:
       - editMasterData
   - firstName: Casey
     lastName: Example
-    classTeacherOf: 2aCI
+    classTeacherOf:
+      - 2aCI
     email: casey.example@example.edu
     permissions:
       - editRegistrations
@@ -31,9 +33,9 @@ users:
 eventSeries:
   - name: Winter sports weeks 2026/2027
     classOptions:
-      - 2aCI
-      - 2aWI
-      - 2bWI
+      - name: 2aCI
+      - name: 2aWI
+      - name: 2bWI
     events:
       - name: Week 1
       - name: Week 2
@@ -81,5 +83,5 @@ eventSeries:
       - No pork
   - name: Summer sports weeks 2026/2027
     classOptions:
-      - 3aCI
-      - 3aWI
+      - name: 3aCI
+      - name: 3aWI

@@ -18,16 +18,43 @@ export function registrationPath(eventSeriesId: string): string {
 }
 
 /**
- * The one sentence for every way a student can arrive at nothing to fill in (US-19, US-23): a
- * link that is mistyped, superseded or names a series since closed, archived or deleted, and a
- * student signing in with no open series they have joined. Telling those apart would say which
- * of them applies — to a caller who should not be able to tell, and to a student who could do
- * nothing about it either way.
+ * The one sentence for a student signed in holding no registration at all — never having
+ * followed a link, or every one they held since archived or deleted. Told apart from a dead
+ * link's own message (`INVALID_LINK_HINT`): arriving with nothing is not the same as arriving
+ * with something that did not work.
+ *
+ * What it no longer covers is a class that is merely closed (US-45): that link still works, and
+ * a student who holds no registration for it yet is told to keep it instead, by
+ * `CLASS_CLOSED_KEEP_LINK_HINT`.
  *
  * "Veranstaltung", not "Sportveranstaltung": a series may be a Kulturwoche. "Derzeit", not
- * "noch", because a series can be closed after having been open.
+ * "noch", because a series can be archived after having been open.
  */
 export const REGISTRATION_NOT_OPEN_HINT = "Derzeit ist keine Veranstaltung freigeschaltet.";
+
+/**
+ * Told to a student whose link did not lead anywhere — mistyped, superseded by a regenerated
+ * one, or naming a class or series since removed. The reasons stay untold apart from each other,
+ * since none of them is anything a student could act on differently; only that the link itself,
+ * rather than their standing, is what did not work.
+ */
+export const INVALID_LINK_HINT = "Dieser Link ist ungültig.";
+
+/**
+ * Told to a student who followed a live link to a class that is currently closed and holds no
+ * registration for it yet (US-45): the address is still good, so they are asked to keep it
+ * rather than sent looking for a new one.
+ */
+export const CLASS_CLOSED_KEEP_LINK_HINT =
+  "Die Anmeldung für deine Klasse ist derzeit geschlossen. Bewahre den Link auf, über den du " +
+  "hierhergekommen bist — du kannst ihn wieder verwenden, sobald deine Klasse erneut öffnet.";
+
+/**
+ * Shown in place of an editable field once the class a registration names has closed (US-45):
+ * the record is frozen, not withheld, and this is the one line saying why nothing on it can be
+ * changed.
+ */
+export const REGISTRATION_CLOSED_HINT = "Die Registrierung für deine Klasse ist geschlossen.";
 
 /**
  * Shown when an answer names something the event series stopped offering while the form was

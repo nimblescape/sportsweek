@@ -6,7 +6,11 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { storedEventSeries } from "@/test/event-series";
+
+const TEACHER = asUid("uidTeacher");
+const COLLEAGUE = asUid("uidColleague");
 
 const push = vi.fn();
 const pathname = vi.fn(() => "/app/s1/report");
@@ -142,7 +146,9 @@ describe("EventSeriesTagRows", () => {
   /** Several may be open at once, which is precisely the state that is easy to lose track of. */
   it("names the open state on the tag rather than leaving it to sight", () => {
     showing(
-      seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }),
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
       seriesNamed("s2", "Kulturwoche"),
     );
 
@@ -155,7 +161,9 @@ describe("EventSeriesTagRows", () => {
   /** A closed series says so too: silence would read as an icon that failed to load. */
   it("names the closed state as well, so no tag is left saying nothing", () => {
     showing(
-      seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }),
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
       seriesNamed("s2", "Kulturwoche"),
     );
 
@@ -194,6 +202,124 @@ describe("EventSeriesTagRows", () => {
 });
 
 /**
+ * The row offers only what the teacher is scoped to (US-42): the series they look after a class
+ * in, or, looking after none anywhere, every unarchived series exactly as before this feature.
+ */
+describe("EventSeriesTagRows — scoped to a teacher's classes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiRequest.mockResolvedValue(undefined);
+    pathname.mockReturnValue("/app/s1/report");
+    document.cookie = "sportsweek_event_series=; max-age=0; path=/";
+  });
+
+  it("offers only the series the teacher looks after a class in", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "2aWI", teacherUids: [TEACHER] }],
+      }),
+      seriesNamed("s2", "Kulturwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE] }],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    const row = screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL });
+    expect(within(row).getByRole("button", { name: "Wintersportwoche" })).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Kulturwoche" })).not.toBeInTheDocument();
+  });
+
+  it("offers every unarchived series when the teacher looks after no class anywhere", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche"),
+      seriesNamed("s2", "Kulturwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE] }],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    const row = screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL });
+    expect(within(row).getByRole("button", { name: "Wintersportwoche" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Kulturwoche" })).toBeInTheDocument();
+  });
+});
+
+/**
+ * The door reads and acts on the classes in scope (US-44), not on the series as a whole — a
+ * teacher whose own class is closed must see a shut door even while a colleague's class is open.
+ */
+describe("EventSeriesTagRows — door reflects only the classes in scope", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiRequest.mockResolvedValue(undefined);
+    pathname.mockReturnValue("/app/s1/report");
+    document.cookie = "sportsweek_event_series=; max-age=0; path=/";
+  });
+
+  it("reads closed while the teacher's own class is closed, even though a colleague's is open", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [
+          { name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: false },
+          { name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: true },
+        ],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    expect(screen.getByLabelText(CLOSED_TO_STUDENTS_LABEL)).toBeInTheDocument();
+  });
+
+  it("reads open while the teacher's own class is open, even though a colleague's is closed", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [
+          { name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: true },
+          { name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: false },
+        ],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    expect(screen.getByLabelText(OPEN_TO_STUDENTS_LABEL)).toBeInTheDocument();
+  });
+
+  /** Looking after none of the series' classes widens the door to every one, as everywhere else. */
+  it("falls back to any class of the series once the teacher looks after none of them", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: true }],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    expect(screen.getByLabelText(OPEN_TO_STUDENTS_LABEL)).toBeInTheDocument();
+  });
+
+  it("offers closing rather than opening once the teacher's own class is the one that is open", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [
+          { name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: true },
+          { name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: false },
+        ],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    expect(
+      screen.getByRole("button", { name: closeActionLabel("Wintersportwoche") }),
+    ).toBeInTheDocument();
+  });
+});
+
+/**
  * Two colours and no more: the accent for the series being worked in, and the plain outline for
  * every other. Whether a series is open is said by its icon, not by its fill, so the row carries
  * one question at a time.
@@ -228,7 +354,9 @@ describe("EventSeriesTagRows — colour", () => {
   it("gives an open series no colour of its own once it is not the selected one", () => {
     showing(
       seriesNamed("s1", "Wintersportwoche"),
-      seriesNamed("s2", "Kulturwoche", { isOpenToStudents: true }),
+      seriesNamed("s2", "Kulturwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
       seriesNamed("s3", "Projektwoche"),
     );
 
@@ -266,7 +394,11 @@ describe("EventSeriesTagRows — opening and closing", () => {
   });
 
   it("offers closing instead while the series is open", () => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
 
     render(<EventSeriesTagRows mayOpen />);
 
@@ -286,21 +418,25 @@ describe("EventSeriesTagRows — opening and closing", () => {
       screen.getByRole("button", { name: openActionLabel("Wintersportwoche") }),
     );
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1", {
+    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/open", {
       method: "PATCH",
       body: { isOpenToStudents: true },
     });
   });
 
   it("closes it again when pressed while open", async () => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
 
     render(<EventSeriesTagRows mayOpen />);
     await userEvent.click(
       screen.getByRole("button", { name: closeActionLabel("Wintersportwoche") }),
     );
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1", {
+    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/open", {
       method: "PATCH",
       body: { isOpenToStudents: false },
     });
@@ -321,7 +457,11 @@ describe("EventSeriesTagRows — opening and closing", () => {
   });
 
   it("still names which series is selected, and whether it is open", () => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
 
     render(<EventSeriesTagRows />);
 
@@ -370,7 +510,11 @@ describe("EventSeriesTagRows — opening and closing", () => {
   });
 
   it("says closing instead once the series is open", async () => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
 
     render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(
@@ -393,7 +537,11 @@ describe("EventSeriesTagRows — what a tag says on hover", () => {
   });
 
   it("says a series is open", async () => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
 
     render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(screen.getByLabelText(OPEN_TO_STUDENTS_LABEL));
@@ -416,7 +564,11 @@ describe("EventSeriesTagRows — what a tag says on hover", () => {
     [true, OPEN_TO_STUDENTS_LABEL],
     [false, CLOSED_TO_STUDENTS_LABEL],
   ])("says the state on the name too when open is %s", async (isOpenToStudents, label) => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents }],
+      }),
+    );
 
     render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(screen.getByRole("button", { name: "Wintersportwoche" }));

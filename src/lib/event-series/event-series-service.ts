@@ -14,6 +14,7 @@ import {
   ARCHIVED_IS_READ_ONLY_HINT,
   LAST_EVENT_SERIES_HINT,
   NO_SUCH_EVENT_SERIES,
+  anyClassOpen,
 } from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { prunedToLists } from "@/lib/filters/student-filter";
@@ -26,6 +27,9 @@ import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { registrationPath } from "@/lib/registration/registration";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
+import { scopedEventSeries, type ScopableEventSeries } from "@/lib/event-series/teacher-scope";
+import type { Uid } from "@/lib/schemas/common";
+import type { ClassOption } from "@/lib/schemas/master-data";
 
 const nameSchema = eventSeriesSchema.shape.name;
 
@@ -126,15 +130,21 @@ export async function createEventSeries(input: CreateEventSeries): Promise<Event
             EventSeriesListField
           >);
 
+    // A copy takes no invitation (US-22, Q12), so none of its classes can already be open —
+    // whatever the source said, this one starts with every window shut.
+    const classOptions = lists.classOptions.map((option) => ({
+      ...option,
+      isOpenToStudents: false,
+    }));
+
     const data = {
       name,
       nameKey,
       isArchived: false,
-      isOpenToStudents: false,
       hasRegistrations: false,
       position,
       events: lists.events,
-      classOptions: lists.classOptions,
+      classOptions,
       programs: lists.programs,
       skillLevels: lists.skillLevels,
       seasonPassOptions: lists.seasonPassOptions,
@@ -167,7 +177,6 @@ export async function reorderEventSeries(orderedIds: readonly string[]): Promise
 export type EventSeriesUpdate = {
   name?: string;
   isArchived?: boolean;
-  isOpenToStudents?: boolean;
 };
 
 /**
@@ -198,30 +207,13 @@ export async function updateEventSeries(
       throw new ServiceError(ErrorCode.Conflict, ARCHIVED_IS_READ_ONLY_HINT);
     }
 
-    // One rule shape, two reasons (US-19, US-23): an archived series is read-only and cannot even
-    // be selected, and a series with no classes has nothing to invite anybody into. Asked against
-    // the archive state this call is leaving behind, so opening and archiving at once is refused
-    // rather than silently resolved in archiving's favour.
-    if (update.isOpenToStudents === true) {
-      if (isArchived) {
-        throw new ServiceError(
-          ErrorCode.Conflict,
-          "Eine archivierte Eventreihe kann nicht freigeschaltet werden.",
-        );
-      }
-      if (current.classOptions.length === 0) {
-        throw new ServiceError(
-          ErrorCode.Conflict,
-          "Eine Eventreihe ohne Klassen kann nicht freigeschaltet werden.",
-        );
-      }
-    }
-
     let hasRegistrations = current.hasRegistrations;
+    let handedOut: FirebaseFirestore.QuerySnapshot | null = null;
     if (wantsArchival) {
-      // Closing is the teacher's own decision, made on the tag of the series it concerns (US-19).
-      // Archiving used to make it for them as a side effect; a series is closed first, then filed.
-      if (update.isOpenToStudents !== false && current.isOpenToStudents) {
+      // Closing every class is the teacher's own decision, made on that class' own card (US-43).
+      // Archiving used to make it for them as a side effect; every class is closed first, then
+      // the series is filed.
+      if (anyClassOpen(current.classOptions)) {
         throw new ServiceError(ErrorCode.Conflict, ARCHIVE_OPEN_HINT);
       }
 
@@ -232,26 +224,20 @@ export async function updateEventSeries(
         throw new ServiceError(ErrorCode.Conflict, ARCHIVE_NO_DATA_HINT);
       }
       hasRegistrations = true;
+
+      // Archiving is terminal, and the one act left that still invalidates every link of the
+      // series at once (Q12) — safe here because a series must already be closed in every class
+      // before it can be archived at all, so nobody is admitted through one of these afterwards.
+      handedOut = await transaction.get(
+        adminDb.collection(COLLECTIONS.invitations).where("eventSeriesId", "==", id),
+      );
     }
 
     if (renaming) {
       await assertNameIsFree(transaction, { name, ownerId: id });
     }
 
-    // Archiving closes a series to students, and unarchiving deliberately does not reopen it:
-    // looking at last year is not letting last year's students back in (US-19).
-    const isOpenToStudents = isArchived
-      ? false
-      : (update.isOpenToStudents ?? current.isOpenToStudents);
-
-    // Closing withdraws the links, so reopening hands out none (US-23). Leaving them dormant
-    // made closing look like a remedy for a link that got out, when it only suspended one.
-    if (current.isOpenToStudents && !isOpenToStudents) {
-      const handedOut = await transaction.get(
-        adminDb.collection(COLLECTIONS.invitations).where("eventSeriesId", "==", id),
-      );
-      for (const invitation of handedOut.docs) transaction.delete(invitation.ref);
-    }
+    for (const invitation of handedOut?.docs ?? []) transaction.delete(invitation.ref);
 
     // `update` rather than `set`: the document also carries the seven maintained lists (US-21),
     // and naming them here only to preserve them would drop the next one somebody adds.
@@ -259,7 +245,6 @@ export async function updateEventSeries(
       name: name ?? current.name,
       nameKey: normalizeName(name ?? current.name),
       isArchived,
-      isOpenToStudents,
       hasRegistrations,
     };
     transaction.update(reference, changed);
@@ -268,29 +253,58 @@ export async function updateEventSeries(
   });
 }
 
-/**
- * Which event series `/app` sends a teacher into (Q8). Both that page and the navigation built
- * from this answer are about registrations, so an archived series is not selectable — a
- * remembered id that has become one falls back to the first that is.
- *
- * Null means there is nothing to select, which the caller answers with the event series list.
- */
-export async function resolveSelectedEventSeriesId(preferredId?: string): Promise<string | null> {
-  if (preferredId) {
-    const preferred = await eventSeriesDoc(preferredId).get();
-    if (preferred.exists && preferred.data()?.isArchived !== true) return preferred.id;
-  }
+/** What scoping a series to a teacher needs, in the teacher's own order (US-42). */
+type OrderedScopableEventSeries = ScopableEventSeries & { position: number };
 
+/** Every unarchived series, in position order — an archived one is not selectable (Q8, US-42). */
+async function liveEventSeries(): Promise<OrderedScopableEventSeries[]> {
   const unarchived = await adminDb
     .collection(COLLECTIONS.eventSeries)
     .where("isArchived", "==", false)
     .get();
 
-  const first = unarchived.docs
-    .map((doc) => ({ id: doc.id, position: Number(doc.data().position ?? 0) }))
-    .sort((a, b) => a.position - b.position)[0];
+  return unarchived.docs
+    .map((doc) => ({
+      id: doc.id,
+      isArchived: false as const,
+      classOptions: (doc.data().classOptions ?? []) as ClassOption[],
+      position: Number(doc.data().position ?? 0),
+    }))
+    .sort((a, b) => a.position - b.position);
+}
 
-  return first?.id ?? null;
+/**
+ * Which event series `/app` sends a teacher into (Q8), narrowed to the ones they are scoped to
+ * (US-42): the remembered one if it is among them, and otherwise the first in the teacher's own
+ * order. A remembered id that has become archived, or is somebody else's job, is passed over the
+ * same way.
+ *
+ * Null means there is nothing to select, which the caller answers with the event series list.
+ */
+export async function resolveSelectedEventSeriesId(
+  preferredId: string | undefined,
+  teacherUid: Uid,
+): Promise<string | null> {
+  const scoped = scopedEventSeries(await liveEventSeries(), teacherUid);
+  const preferred = scoped.find((one) => one.id === preferredId);
+
+  return (preferred ?? scoped[0])?.id ?? null;
+}
+
+/**
+ * Whether a series a teacher's page names is one their scope offers (US-42) — the same question
+ * the header's tag row already answers, asked again so a URL it never offered is refused rather
+ * than opened. A series that is archived, or does not exist at all, is left to the hint the
+ * caller already gives for that: this is only the scoping feature's own question to answer.
+ */
+export async function isEventSeriesReachable(
+  eventSeriesId: string,
+  teacherUid: Uid,
+): Promise<boolean> {
+  const live = await liveEventSeries();
+  if (!live.some((one) => one.id === eventSeriesId)) return true;
+
+  return scopedEventSeries(live, teacherUid).some((one) => one.id === eventSeriesId);
 }
 
 /**

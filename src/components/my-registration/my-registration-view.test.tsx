@@ -22,14 +22,17 @@ vi.mock("./registration-form", () => ({
 }));
 
 const { MyRegistrationView } = await import("./my-registration-view");
-const { REGISTRATION_NOT_OPEN_HINT } = await import("@/lib/registration/registration");
+const { REGISTRATION_NOT_OPEN_HINT, CLASS_CLOSED_KEEP_LINK_HINT } =
+  await import("@/lib/registration/registration");
 
 const eventSeries = {
   id: "s1",
   ...storedEventSeries({
     name: "Winter 2026",
-    isOpenToStudents: true,
-    classOptions: ["3AHME"],
+    classOptions: [
+      { name: "3AHME", teacherUids: [], isOpenToStudents: true },
+      { name: "4AHME", teacherUids: [], isOpenToStudents: true },
+    ],
     skillLevels: ["Anfänger:in", "Profi"],
   }),
 };
@@ -46,8 +49,15 @@ beforeEach(() => {
   });
 });
 
-function renderView() {
-  render(<MyRegistrationView eventSeriesId="s1" studentUid="uidJane" studentName="Jane Doe" />);
+function renderView(linkClosed = false) {
+  render(
+    <MyRegistrationView
+      eventSeriesId="s1"
+      studentUid="uidJane"
+      studentName="Jane Doe"
+      linkClosed={linkClosed}
+    />,
+  );
 }
 
 describe("MyRegistrationView", () => {
@@ -55,20 +65,24 @@ describe("MyRegistrationView", () => {
     renderView();
 
     expect(screen.getByTestId("form")).toBeInTheDocument();
+    expect(form).toHaveBeenCalledWith(expect.objectContaining({ readOnly: false }));
   });
 
-  it("says nothing is released while the series is not open to students (US-19)", () => {
+  it("shows the registration read-only, saved answers and all, once its class has closed (US-45)", () => {
     useRegistration.mockReturnValue({
-      eventSeries: { ...eventSeries, isOpenToStudents: false },
-      record: null,
+      eventSeries: {
+        ...eventSeries,
+        classOptions: [{ name: "3AHME", teacherUids: [], isOpenToStudents: false }],
+      },
+      record: { class: "3AHME", event: null },
       loading: false,
       error: null,
     });
 
     renderView();
 
-    expect(screen.getByText(REGISTRATION_NOT_OPEN_HINT)).toBeInTheDocument();
-    expect(screen.queryByTestId("form")).not.toBeInTheDocument();
+    expect(screen.getByTestId("form")).toBeInTheDocument();
+    expect(form).toHaveBeenCalledWith(expect.objectContaining({ readOnly: true }));
   });
 
   /** Deleted, or never existing: to a student both are the same situation (US-23). */
@@ -93,6 +107,19 @@ describe("MyRegistrationView", () => {
     renderView();
 
     expect(screen.getByText(REGISTRATION_NOT_OPEN_HINT)).toBeInTheDocument();
+    expect(screen.queryByTestId("form")).not.toBeInTheDocument();
+  });
+
+  /**
+   * The address is still good, only the window is shut (US-45): told apart from a dead or
+   * unjoined link so a student is not sent looking for a new one they do not need.
+   */
+  it("tells a student with no registration yet to keep a link whose class is merely closed", () => {
+    useRegistration.mockReturnValue({ eventSeries, record: null, loading: false, error: null });
+
+    renderView(true);
+
+    expect(screen.getByText(CLASS_CLOSED_KEEP_LINK_HINT)).toBeInTheDocument();
     expect(screen.queryByTestId("form")).not.toBeInTheDocument();
   });
 

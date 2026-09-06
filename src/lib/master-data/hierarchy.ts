@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import {
+  CLASS_TEACHERS_LABEL,
   EQUIPMENT_LABELS,
   MASTER_DATA_CATEGORIES,
   PER_EVENT_CATEGORY_KEYS,
@@ -27,8 +28,8 @@ export type RecordTab = {
   key: string;
   label: string;
   href: string;
-  /** The wording of the add control the marked tag carries, which is the collection's own. */
-  addLabel: string;
+  /** The wording of the add control the marked tag carries. Absent where nothing can be added. */
+  addLabel?: string;
   /** Whether its entries have record pages of their own, which is what makes it a step down. */
   opensRecords: boolean;
 };
@@ -54,6 +55,14 @@ export function masterDataPath(eventSeriesId: string, category: MasterDataCatego
  */
 export function equipmentPath(eventSeriesId: string, program: string): string {
   return `${masterDataPath(eventSeriesId, "programs")}?equipment=${encodeURIComponent(program)}`;
+}
+
+/**
+ * A class is named the same way a program is (US-38): a teacher typed it, it may hold a `/`, so
+ * it goes in a search parameter rather than a path segment.
+ */
+export function classTeachersPath(eventSeriesId: string, className: string): string {
+  return `${masterDataPath(eventSeriesId, "classes")}?teachers=${encodeURIComponent(className)}`;
 }
 
 /**
@@ -113,6 +122,22 @@ export function equipmentTabs(eventSeriesId: string, program: string): RecordTab
       label: EQUIPMENT_LABELS.title,
       href: equipmentPath(eventSeriesId, program),
       addLabel: EQUIPMENT_LABELS.add,
+      opensRecords: false,
+    },
+  ];
+}
+
+/**
+ * The teachers who look after a class are its one child collection (US-38). There is nothing to
+ * add here — every candidate already has a record of their own in `users` — so the tab carries
+ * no `addLabel`.
+ */
+export function classTeachersTabs(eventSeriesId: string, className: string): RecordTab[] {
+  return [
+    {
+      key: "teachers",
+      label: CLASS_TEACHERS_LABEL,
+      href: classTeachersPath(eventSeriesId, className),
       opensRecords: false,
     },
   ];
@@ -181,6 +206,22 @@ export function programTrail(
       href: masterDataPath(eventSeriesId, "programs"),
     },
     { label: program, href: equipmentPath(eventSeriesId, program) },
+  ];
+}
+
+/** The path down to one class, whose teachers the leaf lists (US-38). */
+export function classTrail(
+  eventSeriesId: string,
+  eventSeriesName: string,
+  className: string,
+): Crumb[] {
+  return [
+    ...eventSeriesTrail(eventSeriesId, eventSeriesName),
+    {
+      label: MASTER_DATA_CATEGORIES.classes.labels.title,
+      href: masterDataPath(eventSeriesId, "classes"),
+    },
+    { label: className, href: classTeachersPath(eventSeriesId, className) },
   ];
 }
 
