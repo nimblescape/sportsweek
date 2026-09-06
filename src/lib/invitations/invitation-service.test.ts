@@ -346,8 +346,9 @@ describe("createInvitation — scoped to the caller's own classes", () => {
 });
 
 /**
- * The header door's stand-in for US-44 (Slice 8): every class of the series, at once. The next
- * slice narrows this to the teacher's own classes; this call takes none, and offers none.
+ * The header door's one action (US-44): every class **in scope**, at once — the classes the
+ * caller looks after, or every class where they look after none, exactly as `narrowedClasses`
+ * means it everywhere else.
  */
 describe("setEveryClassOpen", () => {
   it("opens every class, minting a link for each that has none", async () => {
@@ -397,5 +398,60 @@ describe("setEveryClassOpen", () => {
 
   it("refuses an event series that is not there", async () => {
     await expect(setEveryClassOpen("gone", true)).rejects.toBeInstanceOf(ServiceError);
+  });
+});
+
+describe("setEveryClassOpen — scoped to the caller's own classes", () => {
+  it("opens only the classes the teacher looks after, minting a link for each", async () => {
+    seedSeries({
+      classOptions: [
+        { name: "3aWI", teacherUids: [TEACHER], isOpenToStudents: false },
+        { name: "3bWI", teacherUids: [COLLEAGUE], isOpenToStudents: false },
+      ],
+    });
+
+    await setEveryClassOpen(SERIES, true, TEACHER);
+
+    const stored = firestore.get("eventSeries", SERIES);
+    expect(stored?.classOptions).toEqual([
+      { name: "3aWI", teacherUids: [TEACHER], isOpenToStudents: true },
+      { name: "3bWI", teacherUids: [COLLEAGUE], isOpenToStudents: false },
+    ]);
+    expect(invitationCount()).toBe(1);
+  });
+
+  it("closes only the classes the teacher looks after, destroying no link", async () => {
+    seedSeries({
+      classOptions: [
+        { name: "3aWI", teacherUids: [TEACHER], isOpenToStudents: true },
+        { name: "3bWI", teacherUids: [COLLEAGUE], isOpenToStudents: true },
+      ],
+    });
+    const own = await createInvitation(SERIES, "3aWI");
+    const colleagues = await createInvitation(SERIES, "3bWI");
+
+    await setEveryClassOpen(SERIES, false, TEACHER);
+
+    const stored = firestore.get("eventSeries", SERIES) as EventSeries | undefined;
+    expect(stored?.classOptions).toEqual([
+      { name: "3aWI", teacherUids: [TEACHER], isOpenToStudents: false },
+      { name: "3bWI", teacherUids: [COLLEAGUE], isOpenToStudents: true },
+    ]);
+    expect(firestore.get("invitations", own.token)).toBeDefined();
+    expect(firestore.get("invitations", colleagues.token)).toBeDefined();
+  });
+
+  /** A teacher assigned to none of the series' classes is unscoped, exactly as everywhere else. */
+  it("acts on every class once the teacher looks after none of them", async () => {
+    seedSeries({
+      classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: false }],
+    });
+
+    await setEveryClassOpen(SERIES, true, TEACHER);
+
+    const stored = firestore.get("eventSeries", SERIES);
+    expect(stored?.classOptions).toEqual([
+      { name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: true },
+    ]);
   });
 });

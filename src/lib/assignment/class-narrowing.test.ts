@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { asUid } from "@/lib/schemas/common";
 import type { ClassOption } from "@/lib/schemas/master-data";
-import { narrowedClasses } from "./class-narrowing";
+import { classOptionsInScope, narrowedClasses } from "./class-narrowing";
 
 const TEACHER = asUid("uidTeacher");
 const COLLEAGUE = asUid("uidColleague");
@@ -40,5 +40,26 @@ describe("narrowedClasses", () => {
 
   it("returns null for an empty class list", () => {
     expect(narrowedClasses([], TEACHER)).toBeNull();
+  });
+});
+
+describe("classOptionsInScope", () => {
+  it("returns only the options the teacher looks after", () => {
+    const own = classOption("2aWI", [TEACHER]);
+    const classes = [own, classOption("2bWI", [COLLEAGUE])];
+
+    expect(classOptionsInScope(classes, TEACHER)).toEqual([own]);
+  });
+
+  it("returns every option once the teacher looks after none of them", () => {
+    const classes = [classOption("2aWI", [COLLEAGUE]), classOption("2bWI", [])];
+
+    expect(classOptionsInScope(classes, TEACHER)).toEqual(classes);
+  });
+
+  it("returns every option when no teacher uid is asked for", () => {
+    const classes = [classOption("2aWI", [TEACHER])];
+
+    expect(classOptionsInScope(classes, null)).toEqual(classes);
   });
 });

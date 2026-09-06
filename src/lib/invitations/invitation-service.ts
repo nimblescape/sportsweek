@@ -19,7 +19,7 @@ import { eventSeriesSchema } from "@/lib/schemas/event-series";
 import type { ClassOption } from "@/lib/schemas/master-data";
 import { invitationSchema, type Invitation } from "@/lib/schemas/invitation";
 import { normalizeName } from "@/lib/firebase/name-key";
-import { narrowedClasses } from "@/lib/assignment/class-narrowing";
+import { classOptionsInScope, narrowedClasses } from "@/lib/assignment/class-narrowing";
 import type { Uid } from "@/lib/schemas/common";
 
 /**
@@ -222,13 +222,16 @@ export async function setClassOpen(
 }
 
 /**
- * Opens or closes every class of a series at once — the header door's one action (US-44). Not
- * yet narrowed to the classes a teacher looks after (US-39): that scoping is the next slice's own
- * job, built on this one act.
+ * Opens or closes every class **in scope** at once — the header door's one action (US-44). In
+ * scope is exactly what `narrowedClasses` already means everywhere else: the classes this teacher
+ * looks after in this series, or every one of them where they look after none. A class outside
+ * that set is left exactly as it was — this is a bulk act over the reader's own classes, not over
+ * the series.
  */
 export async function setEveryClassOpen(
   eventSeriesId: string,
   isOpenToStudents: boolean,
+  teacherUid: Uid | null = null,
 ): Promise<void> {
   await adminDb.runTransaction(async (transaction) => {
     const reference = adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeriesId);
@@ -240,12 +243,19 @@ export async function setEveryClassOpen(
       throw new ServiceError(ErrorCode.Conflict, ARCHIVED_IS_READ_ONLY_HINT);
     }
 
+    const inScope = new Set(
+      classOptionsInScope(series.classOptions, teacherUid).map((o) => o.name),
+    );
+
     // Reads finish before any write is issued (see `invitationExists`), so which classes need a
     // fresh link is decided for all of them before the first one is minted.
     const needsLink: string[] = [];
     if (isOpenToStudents) {
       for (const option of series.classOptions) {
-        if (!(await invitationExists(transaction, eventSeriesId, option.name))) {
+        if (
+          inScope.has(option.name) &&
+          !(await invitationExists(transaction, eventSeriesId, option.name))
+        ) {
           needsLink.push(option.name);
         }
       }
@@ -256,7 +266,9 @@ export async function setEveryClassOpen(
     }
 
     transaction.update(reference, {
-      classOptions: series.classOptions.map((option) => ({ ...option, isOpenToStudents })),
+      classOptions: series.classOptions.map((option) =>
+        inScope.has(option.name) ? { ...option, isOpenToStudents } : option,
+      ),
     });
   });
 }

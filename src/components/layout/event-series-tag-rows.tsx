@@ -20,6 +20,7 @@ import {
 } from "@/lib/event-series/event-series-selection";
 import { EVENT_SERIES_STATE_LABELS, anyClassOpen } from "@/lib/event-series/event-series-state";
 import { scopedEventSeries } from "@/lib/event-series/teacher-scope";
+import { classOptionsInScope } from "@/lib/assignment/class-narrowing";
 import type { Uid } from "@/lib/schemas/common";
 import type { EventSeries } from "@/lib/schemas/event-series";
 
@@ -29,21 +30,36 @@ export const EVENT_SERIES_ROW_LABEL = "Eventreihen";
 export const OPEN_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.open;
 export const CLOSED_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.closed;
 
+/**
+ * Whether the door reads open for this reader (US-44): one or more of THEIR classes open, not any
+ * class of the series — a teacher whose own class is shut sees a shut door even while a
+ * colleague's is open.
+ */
+const openInScope = (one: EventSeries, teacherUid: Uid | null) =>
+  anyClassOpen(classOptionsInScope(one.classOptions, teacherUid));
+
 /** What the tag reports about its series, said by the door and repeated wherever the tag is hovered. */
-const stateLabel = (one: EventSeries) =>
-  anyClassOpen(one.classOptions) ? OPEN_TO_STUDENTS_LABEL : CLOSED_TO_STUDENTS_LABEL;
+const stateLabel = (one: EventSeries, teacherUid: Uid | null) =>
+  openInScope(one, teacherUid) ? OPEN_TO_STUDENTS_LABEL : CLOSED_TO_STUDENTS_LABEL;
 
 /** What a tag is, in one icon: a series with its door open or shut. */
-function StateIcon({ eventSeries }: { eventSeries: EventSeries }) {
-  const Door = anyClassOpen(eventSeries.classOptions) ? DoorOpen : DoorClosed;
+function StateIcon({
+  eventSeries,
+  teacherUid,
+}: {
+  eventSeries: EventSeries;
+  teacherUid: Uid | null;
+}) {
+  const Door = openInScope(eventSeries, teacherUid) ? DoorOpen : DoorClosed;
 
-  return <Door aria-label={stateLabel(eventSeries)} className="size-4 shrink-0" />;
+  return <Door aria-label={stateLabel(eventSeries, teacherUid)} className="size-4 shrink-0" />;
 }
 
 type RowProps = {
   label: string;
   eventSeries: EventSeries[];
   selectedId: string | null;
+  teacherUid: Uid | null;
   onSelect: (eventSeries: EventSeries) => void;
   onSetOpen: (eventSeries: EventSeries, isOpenToStudents: boolean) => void;
   mayOpen: boolean;
@@ -57,6 +73,7 @@ function TagRow({
   label,
   eventSeries,
   selectedId,
+  teacherUid,
   onSelect,
   onSetOpen,
   mayOpen,
@@ -66,14 +83,14 @@ function TagRow({
     <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
       {eventSeries.map((one) => {
         const pressed = one.id === selectedId;
-        const open = anyClassOpen(one.classOptions);
+        const open = openInScope(one, teacherUid);
         return (
           <Tag key={one.id} pressed={pressed} disabled={pending}>
             {/* One tooltip over the door and the name together: whichever of them the pointer
                 finds, the question it answers is the same one. */}
-            <Tooltip label={stateLabel(one)}>
+            <Tooltip label={stateLabel(one, teacherUid)}>
               <span className="flex min-w-0 items-center gap-1">
-                <StateIcon eventSeries={one} />
+                <StateIcon eventSeries={one} teacherUid={teacherUid} />
                 <TagName label={one.name} onPress={() => onSelect(one)} />
               </span>
             </Tooltip>
@@ -158,6 +175,7 @@ export function EventSeriesTagRows({
         label={EVENT_SERIES_ROW_LABEL}
         eventSeries={live}
         selectedId={selectedId}
+        teacherUid={teacherUid}
         onSelect={select}
         onSetOpen={setOpenToStudents}
         mayOpen={mayOpen}

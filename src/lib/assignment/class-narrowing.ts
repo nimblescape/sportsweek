@@ -25,3 +25,18 @@ export function narrowedClasses(
   const own = classOptions.filter((option) => option.teacherUids.includes(teacherUid));
   return own.length > 0 ? own.map((option) => option.name) : null;
 }
+
+/**
+ * The class options `narrowedClasses` names, resolved back to the options themselves — for a
+ * caller that needs the classes in scope, not merely their names (US-44's header door reads and
+ * acts on this set, not the series' full list).
+ */
+export function classOptionsInScope(
+  classOptions: readonly ClassOption[],
+  teacherUid: Uid | null,
+): readonly ClassOption[] {
+  const own = narrowedClasses(classOptions, teacherUid);
+  if (own === null) return classOptions;
+
+  return classOptions.filter((option) => own.includes(option.name));
+}

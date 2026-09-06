@@ -8,7 +8,7 @@ import { z } from "zod";
 import {
   handleServiceFailure,
   parseJsonBody,
-  requirePermissionOrResponse,
+  requirePermissionIdentityOrResponse,
 } from "@/lib/api/handler";
 import { setEveryClassOpen } from "@/lib/invitations/invitation-service";
 
@@ -17,13 +17,13 @@ const setOpenSchema = z.strictObject({ isOpenToStudents: z.boolean() });
 type Context = { params: Promise<{ eventSeriesId: string }> };
 
 /**
- * The header door's one action (US-44): every class of the series, at once. Distinct from the
- * per-class toggle under `master-data/classes/open`, which the next slice narrows this one down
- * to (US-39).
+ * The header door's one action (US-44): every class **in scope** of the series, at once —
+ * the classes the caller looks after, or all of them where they look after none. Distinct from
+ * the per-class toggle under `master-data/classes/open`, which names one class rather than a set.
  */
 export async function PATCH(request: Request, { params }: Context) {
-  const denied = await requirePermissionOrResponse("editRegistrations");
-  if (denied) return denied;
+  const identified = await requirePermissionIdentityOrResponse("editRegistrations");
+  if (!identified.ok) return identified.response;
 
   const { eventSeriesId } = await params;
 
@@ -31,7 +31,7 @@ export async function PATCH(request: Request, { params }: Context) {
   if (!body.ok) return body.response;
 
   try {
-    await setEveryClassOpen(eventSeriesId, body.data.isOpenToStudents);
+    await setEveryClassOpen(eventSeriesId, body.data.isOpenToStudents, identified.userId);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return handleServiceFailure(error, `Opening or closing eventSeries ${eventSeriesId}`);

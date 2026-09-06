@@ -247,6 +247,79 @@ describe("EventSeriesTagRows — scoped to a teacher's classes", () => {
 });
 
 /**
+ * The door reads and acts on the classes in scope (US-44), not on the series as a whole — a
+ * teacher whose own class is closed must see a shut door even while a colleague's class is open.
+ */
+describe("EventSeriesTagRows — door reflects only the classes in scope", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiRequest.mockResolvedValue(undefined);
+    pathname.mockReturnValue("/app/s1/report");
+    document.cookie = "sportsweek_event_series=; max-age=0; path=/";
+  });
+
+  it("reads closed while the teacher's own class is closed, even though a colleague's is open", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [
+          { name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: false },
+          { name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: true },
+        ],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    expect(screen.getByLabelText(CLOSED_TO_STUDENTS_LABEL)).toBeInTheDocument();
+  });
+
+  it("reads open while the teacher's own class is open, even though a colleague's is closed", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [
+          { name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: true },
+          { name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: false },
+        ],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    expect(screen.getByLabelText(OPEN_TO_STUDENTS_LABEL)).toBeInTheDocument();
+  });
+
+  /** Looking after none of the series' classes widens the door to every one, as everywhere else. */
+  it("falls back to any class of the series once the teacher looks after none of them", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: true }],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    expect(screen.getByLabelText(OPEN_TO_STUDENTS_LABEL)).toBeInTheDocument();
+  });
+
+  it("offers closing rather than opening once the teacher's own class is the one that is open", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [
+          { name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: true },
+          { name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: false },
+        ],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    expect(
+      screen.getByRole("button", { name: closeActionLabel("Wintersportwoche") }),
+    ).toBeInTheDocument();
+  });
+});
+
+/**
  * Two colours and no more: the accent for the series being worked in, and the plain outline for
  * every other. Whether a series is open is said by its icon, not by its fill, so the row carries
  * one question at a time.
