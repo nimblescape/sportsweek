@@ -11,6 +11,9 @@ import { PERMISSIONS, PERMISSION_LABELS } from "@/lib/auth/permissions";
 const useTeachers = vi.fn();
 vi.mock("@/lib/users/use-teachers", () => ({ useTeachers: () => useTeachers() }));
 
+const useEventSeries = vi.fn();
+vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
+
 const apiRequest = vi.fn();
 vi.mock("@/lib/api/client", () => ({ apiRequest: (...args: unknown[]) => apiRequest(...args) }));
 
@@ -49,6 +52,12 @@ function teachers(
   });
 }
 
+function eventSeries(
+  ...rows: { name: string; classOptions: { name: string; teacherUids: string[] }[] }[]
+) {
+  useEventSeries.mockReturnValue({ eventSeries: rows, loading: false, error: null });
+}
+
 const tagIn = (name: string, label: string) =>
   screen.getByRole("button", { name: `${name}: ${label}` });
 
@@ -56,6 +65,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   apiRequest.mockResolvedValue({ permissions: [] });
   teachers({ ...ADA, permissions: ["editUsers"] }, BOB);
+  eventSeries();
 });
 
 function show(signedInUid = ADA.uid) {
@@ -108,6 +118,63 @@ describe("UserPermissionsView", () => {
     expect(
       within(screen.getByRole("listitem")).getByText(NO_PERMISSIONS_LABEL),
     ).toBeInTheDocument();
+  });
+
+  /** US-41: which classes somebody looks after, read-only, beneath their permission tags. */
+  it("names the event series and class pairs a teacher looks after", () => {
+    teachers(BOB);
+    eventSeries({
+      name: "Wintersportwoche 2026/2027",
+      classOptions: [
+        { name: "2aWI", teacherUids: [BOB.uid] },
+        { name: "2bWI", teacherUids: [] },
+      ],
+    });
+    show();
+
+    expect(screen.getByText("Wintersportwoche 2026/2027: 2aWI")).toBeInTheDocument();
+    expect(screen.queryByText(/2bWI/)).not.toBeInTheDocument();
+  });
+
+  it("names every class the same teacher looks after, comma-separated", () => {
+    teachers(BOB);
+    eventSeries(
+      {
+        name: "Wintersportwoche 2026/2027",
+        classOptions: [{ name: "2aWI", teacherUids: [BOB.uid] }],
+      },
+      {
+        name: "Sommersportwoche 2026/2027",
+        classOptions: [{ name: "2aWI", teacherUids: [BOB.uid] }],
+      },
+    );
+    show();
+
+    expect(
+      screen.getByText("Wintersportwoche 2026/2027: 2aWI, Sommersportwoche 2026/2027: 2aWI"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows nothing at all for a teacher who looks after no class", () => {
+    teachers(BOB);
+    eventSeries({
+      name: "Wintersportwoche 2026/2027",
+      classOptions: [{ name: "2aWI", teacherUids: [] }],
+    });
+    show();
+
+    expect(screen.queryByText(/2aWI/)).not.toBeInTheDocument();
+  });
+
+  it("offers no control on the assignment line — it is edited on the class", () => {
+    teachers(BOB);
+    eventSeries({
+      name: "Wintersportwoche 2026/2027",
+      classOptions: [{ name: "2aWI", teacherUids: [BOB.uid] }],
+    });
+    show();
+
+    expect(screen.queryByRole("button", { name: /2aWI/ })).not.toBeInTheDocument();
   });
 
   it("grants the permission that was pressed", async () => {

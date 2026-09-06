@@ -19,6 +19,9 @@ import {
   toggledPermissions,
   type Permission,
 } from "@/lib/auth/permissions";
+import { useEventSeries } from "@/lib/event-series/use-event-series";
+import { asUid } from "@/lib/schemas/common";
+import type { EventSeries } from "@/lib/schemas/event-series";
 import {
   EMPTY_TEACHER_FILTER,
   clearPermissionTags,
@@ -27,6 +30,7 @@ import {
   togglePermissionTag,
   toggleWithoutPermissions,
 } from "@/lib/users/teacher-filter";
+import { classAssignmentsOf } from "@/lib/users/teacher-class-assignments";
 import { useTeachers, type Teacher } from "@/lib/users/use-teachers";
 
 export const NO_PERMISSIONS_LABEL = "Keine Rechte";
@@ -55,6 +59,7 @@ const nameOf = (teacher: Teacher) => `${teacher.lastName} ${teacher.firstName}`;
  */
 export function UserPermissionsView({ signedInUid }: { signedInUid: string }) {
   const { teachers, loading, error } = useTeachers();
+  const { eventSeries } = useEventSeries();
   const [failure, setFailure] = useState<string | null>(null);
   const { busyId, run } = useRowAction();
   const router = useRouter();
@@ -181,6 +186,8 @@ export function UserPermissionsView({ signedInUid }: { signedInUid: string }) {
                     />
                   ))}
                 </div>
+
+                <ClassAssignments teacher={teacher} eventSeries={eventSeries} />
               </CardContent>
             </Card>
           </li>
@@ -221,5 +228,28 @@ function PermissionTag({
     <Tag pressed={held} disabled={disabled}>
       <TagName label={`${nameOf(teacher)}: ${label}`} text={label} onPress={onPress} />
     </Tag>
+  );
+}
+
+/**
+ * Which classes this teacher looks after, read-only (US-41): assignments are edited on the class
+ * itself, so this line offers nothing to press, only names what is already true.
+ */
+function ClassAssignments({
+  teacher,
+  eventSeries,
+}: {
+  teacher: Teacher;
+  eventSeries: readonly EventSeries[];
+}) {
+  const assignments = classAssignmentsOf(eventSeries, asUid(teacher.uid));
+  if (assignments.length === 0) return null;
+
+  return (
+    <p className="text-muted-foreground text-sm">
+      {assignments
+        .map((assignment) => `${assignment.eventSeriesName}: ${assignment.className}`)
+        .join(", ")}
+    </p>
   );
 }
