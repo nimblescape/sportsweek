@@ -60,6 +60,7 @@ describe("the app frame", () => {
   // A teacher reads it at the foot of their bar, which does not scroll either.
   it("leaves it to a teacher's bar, keeping the header for what the page is about", async () => {
     requireUser.mockResolvedValue({
+      uid: "t1",
       email: "t@htldornbirn.at",
       accountType: "teacher",
       permissions: [],

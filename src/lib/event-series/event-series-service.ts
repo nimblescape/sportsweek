@@ -26,6 +26,9 @@ import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { registrationPath } from "@/lib/registration/registration";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
+import { scopedEventSeries, type ScopableEventSeries } from "@/lib/event-series/teacher-scope";
+import type { Uid } from "@/lib/schemas/common";
+import type { ClassOption } from "@/lib/schemas/master-data";
 
 const nameSchema = eventSeriesSchema.shape.name;
 
@@ -268,29 +271,58 @@ export async function updateEventSeries(
   });
 }
 
-/**
- * Which event series `/app` sends a teacher into (Q8). Both that page and the navigation built
- * from this answer are about registrations, so an archived series is not selectable — a
- * remembered id that has become one falls back to the first that is.
- *
- * Null means there is nothing to select, which the caller answers with the event series list.
- */
-export async function resolveSelectedEventSeriesId(preferredId?: string): Promise<string | null> {
-  if (preferredId) {
-    const preferred = await eventSeriesDoc(preferredId).get();
-    if (preferred.exists && preferred.data()?.isArchived !== true) return preferred.id;
-  }
+/** What scoping a series to a teacher needs, in the teacher's own order (US-42). */
+type OrderedScopableEventSeries = ScopableEventSeries & { position: number };
 
+/** Every unarchived series, in position order — an archived one is not selectable (Q8, US-42). */
+async function liveEventSeries(): Promise<OrderedScopableEventSeries[]> {
   const unarchived = await adminDb
     .collection(COLLECTIONS.eventSeries)
     .where("isArchived", "==", false)
     .get();
 
-  const first = unarchived.docs
-    .map((doc) => ({ id: doc.id, position: Number(doc.data().position ?? 0) }))
-    .sort((a, b) => a.position - b.position)[0];
+  return unarchived.docs
+    .map((doc) => ({
+      id: doc.id,
+      isArchived: false as const,
+      classOptions: (doc.data().classOptions ?? []) as ClassOption[],
+      position: Number(doc.data().position ?? 0),
+    }))
+    .sort((a, b) => a.position - b.position);
+}
 
-  return first?.id ?? null;
+/**
+ * Which event series `/app` sends a teacher into (Q8), narrowed to the ones they are scoped to
+ * (US-42): the remembered one if it is among them, and otherwise the first in the teacher's own
+ * order. A remembered id that has become archived, or is somebody else's job, is passed over the
+ * same way.
+ *
+ * Null means there is nothing to select, which the caller answers with the event series list.
+ */
+export async function resolveSelectedEventSeriesId(
+  preferredId: string | undefined,
+  teacherUid: Uid,
+): Promise<string | null> {
+  const scoped = scopedEventSeries(await liveEventSeries(), teacherUid);
+  const preferred = scoped.find((one) => one.id === preferredId);
+
+  return (preferred ?? scoped[0])?.id ?? null;
+}
+
+/**
+ * Whether a series a teacher's page names is one their scope offers (US-42) — the same question
+ * the header's tag row already answers, asked again so a URL it never offered is refused rather
+ * than opened. A series that is archived, or does not exist at all, is left to the hint the
+ * caller already gives for that: this is only the scoping feature's own question to answer.
+ */
+export async function isEventSeriesReachable(
+  eventSeriesId: string,
+  teacherUid: Uid,
+): Promise<boolean> {
+  const live = await liveEventSeries();
+  if (!live.some((one) => one.id === eventSeriesId)) return true;
+
+  return scopedEventSeries(live, teacherUid).some((one) => one.id === eventSeriesId);
 }
 
 /**

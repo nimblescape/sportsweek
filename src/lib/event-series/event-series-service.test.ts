@@ -10,6 +10,7 @@ import { event, storedEventSeries } from "@/test/event-series";
 import { registrationPath } from "@/lib/registration/registration";
 import { savedReportPath } from "@/lib/report/saved-reports";
 import { ARCHIVE_OPEN_HINT } from "@/lib/event-series/event-series-state";
+import { asUid } from "@/lib/schemas/common";
 
 const firestore = new FakeFirestore();
 
@@ -17,9 +18,17 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const { createEventSeries, updateEventSeries, deleteEventSeries, resolveSelectedEventSeriesId } =
-  await import("./event-series-service");
+const {
+  createEventSeries,
+  updateEventSeries,
+  deleteEventSeries,
+  resolveSelectedEventSeriesId,
+  isEventSeriesReachable,
+} = await import("./event-series-service");
 const { ServiceError } = await import("@/lib/service-error");
+
+const TEACHER = asUid("uidTeacher");
+const COLLEAGUE = asUid("uidColleague");
 
 beforeEach(() => firestore.reset());
 
@@ -765,26 +774,98 @@ describe("resolveSelectedEventSeriesId", () => {
     seedEventSeries("s1", { position: 0 });
     seedEventSeries("s2", { position: 1 });
 
-    expect(await resolveSelectedEventSeriesId("s2")).toBe("s2");
+    expect(await resolveSelectedEventSeriesId("s2", TEACHER)).toBe("s2");
   });
 
   it("falls back to the first in the teacher's order", async () => {
     seedEventSeries("s2", { position: 1 });
     seedEventSeries("s1", { position: 0 });
 
-    expect(await resolveSelectedEventSeriesId()).toBe("s1");
+    expect(await resolveSelectedEventSeriesId(undefined, TEACHER)).toBe("s1");
   });
 
   it("passes over a remembered archived series, which has no pages left to open", async () => {
     seedEventSeries("remembered", { position: 0, isArchived: true });
     seedEventSeries("s1", { position: 1 });
 
-    expect(await resolveSelectedEventSeriesId("remembered")).toBe("s1");
+    expect(await resolveSelectedEventSeriesId("remembered", TEACHER)).toBe("s1");
   });
 
   it("selects nothing when every series is archived", async () => {
     seedEventSeries("old", { position: 0, isArchived: true });
 
-    expect(await resolveSelectedEventSeriesId()).toBeNull();
+    expect(await resolveSelectedEventSeriesId(undefined, TEACHER)).toBeNull();
+  });
+
+  /** US-42: the same widening a page's guard and the header's tag row rely on (Q8). */
+  it("lands in the series the teacher looks after a class in, ahead of the remembered one", async () => {
+    seedEventSeries("other", { position: 0 });
+    seedEventSeries("own", {
+      position: 1,
+      classOptions: [{ name: "2aWI", teacherUids: [TEACHER] }],
+    });
+
+    expect(await resolveSelectedEventSeriesId("other", TEACHER)).toBe("own");
+  });
+
+  it("falls back to the first scoped series when the remembered one is somebody else's", async () => {
+    seedEventSeries("other", {
+      position: 0,
+      classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE] }],
+    });
+    seedEventSeries("own", {
+      position: 1,
+      classOptions: [{ name: "2aWI", teacherUids: [TEACHER] }],
+    });
+
+    expect(await resolveSelectedEventSeriesId("other", TEACHER)).toBe("own");
+  });
+
+  it("offers every series to a teacher who looks after no class anywhere", async () => {
+    seedEventSeries("s1", {
+      position: 0,
+      classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE] }],
+    });
+
+    expect(await resolveSelectedEventSeriesId("s1", TEACHER)).toBe("s1");
+  });
+});
+
+/**
+ * Whether a URL naming a series still opens it (US-42): the same question the header's tag row
+ * asks, asked again where the teacher may have typed a series it never offered.
+ */
+describe("isEventSeriesReachable", () => {
+  it("is reachable when the teacher looks after a class in it", async () => {
+    seedEventSeries("own", { classOptions: [{ name: "2aWI", teacherUids: [TEACHER] }] });
+
+    expect(await isEventSeriesReachable("own", TEACHER)).toBe(true);
+  });
+
+  it("is not reachable when the teacher looks after a class elsewhere but not in it", async () => {
+    seedEventSeries("own", { classOptions: [{ name: "2aWI", teacherUids: [TEACHER] }] });
+    seedEventSeries("other", { classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE] }] });
+
+    expect(await isEventSeriesReachable("other", TEACHER)).toBe(false);
+  });
+
+  it("is reachable when the teacher looks after no class anywhere", async () => {
+    seedEventSeries("s1", { classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE] }] });
+
+    expect(await isEventSeriesReachable("s1", TEACHER)).toBe(true);
+  });
+
+  /** Archiving already takes a series off every screen; this is not this feature's concern. */
+  it("is reachable for an archived series, unaffected by scope", async () => {
+    seedEventSeries("own", { classOptions: [{ name: "2aWI", teacherUids: [TEACHER] }] });
+    seedEventSeries("old", { isArchived: true });
+
+    expect(await isEventSeriesReachable("old", TEACHER)).toBe(true);
+  });
+
+  it("is reachable for a series that does not exist, which is the client's own hint to give", async () => {
+    seedEventSeries("own", { classOptions: [{ name: "2aWI", teacherUids: [TEACHER] }] });
+
+    expect(await isEventSeriesReachable("ghost", TEACHER)).toBe(true);
   });
 });

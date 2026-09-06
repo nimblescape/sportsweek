@@ -19,6 +19,8 @@ import {
   selectedEventSeriesIdFrom,
 } from "@/lib/event-series/event-series-selection";
 import { EVENT_SERIES_STATE_LABELS } from "@/lib/event-series/event-series-state";
+import { scopedEventSeries } from "@/lib/event-series/teacher-scope";
+import type { Uid } from "@/lib/schemas/common";
 import type { EventSeries } from "@/lib/schemas/event-series";
 
 export const EVENT_SERIES_ROW_LABEL = "Eventreihen";
@@ -103,7 +105,13 @@ function TagRow({
  *
  * It wraps rather than scrolling sideways, so a school with many can still see them all.
  */
-export function EventSeriesTagRows({ mayOpen = false }: { mayOpen?: boolean }) {
+export function EventSeriesTagRows({
+  mayOpen = false,
+  teacherUid = null,
+}: {
+  mayOpen?: boolean;
+  teacherUid?: Uid | null;
+}) {
   const { eventSeries } = useEventSeries();
   const pathname = usePathname();
   const router = useRouter();
@@ -113,7 +121,7 @@ export function EventSeriesTagRows({ mayOpen = false }: { mayOpen?: boolean }) {
 
   useBusyWhile(saving);
 
-  const live = eventSeries.filter((one) => !one.isArchived);
+  const live = scopedEventSeries(eventSeries, teacherUid);
 
   function select(one: EventSeries) {
     rememberEventSeries(one.id);

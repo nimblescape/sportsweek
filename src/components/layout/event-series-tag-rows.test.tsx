@@ -6,7 +6,11 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { storedEventSeries } from "@/test/event-series";
+
+const TEACHER = asUid("uidTeacher");
+const COLLEAGUE = asUid("uidColleague");
 
 const push = vi.fn();
 const pathname = vi.fn(() => "/app/s1/report");
@@ -190,6 +194,51 @@ describe("EventSeriesTagRows", () => {
     const { container } = render(<EventSeriesTagRows mayOpen />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+/**
+ * The row offers only what the teacher is scoped to (US-42): the series they look after a class
+ * in, or, looking after none anywhere, every unarchived series exactly as before this feature.
+ */
+describe("EventSeriesTagRows — scoped to a teacher's classes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiRequest.mockResolvedValue(undefined);
+    pathname.mockReturnValue("/app/s1/report");
+    document.cookie = "sportsweek_event_series=; max-age=0; path=/";
+  });
+
+  it("offers only the series the teacher looks after a class in", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "2aWI", teacherUids: [TEACHER] }],
+      }),
+      seriesNamed("s2", "Kulturwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE] }],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    const row = screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL });
+    expect(within(row).getByRole("button", { name: "Wintersportwoche" })).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Kulturwoche" })).not.toBeInTheDocument();
+  });
+
+  it("offers every unarchived series when the teacher looks after no class anywhere", () => {
+    showing(
+      seriesNamed("s1", "Wintersportwoche"),
+      seriesNamed("s2", "Kulturwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE] }],
+      }),
+    );
+
+    render(<EventSeriesTagRows mayOpen teacherUid={TEACHER} />);
+
+    const row = screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL });
+    expect(within(row).getByRole("button", { name: "Wintersportwoche" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Kulturwoche" })).toBeInTheDocument();
   });
 });
 
