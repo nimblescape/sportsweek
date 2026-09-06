@@ -142,8 +142,9 @@ const answer = (
 
 /**
  * The data fields a teacher can activate, in the order US-13 lists them. Every one of them is a
- * detail line under the master line of the student it belongs to; the first name, the last name
- * and the e-mail address are not here, because the master line always carries them.
+ * detail line under the master line of the student it belongs to; the first name and the last
+ * name are not here, because the master line always carries them. The e-mail address is here,
+ * under contact data, so a report for the ski-lift company can leave it out (US-13).
  */
 export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
   answer("attendance", "Teilnahme", (record) =>
@@ -161,6 +162,7 @@ export const REPORT_FIELD_TAGS: readonly ReportFieldTag[] = [
     key: "contact",
     label: "Kontaktdaten",
     fields: [
+      field("email", "E-Mail", (record) => record.email),
       field("phoneNumber", "Telefonnummer", (record) => record.phoneNumber),
       field("emergencyContact", "Notfallkontakt", contactName),
       field("emergencyRelationship", "Beziehung", relationshipOf),

@@ -162,12 +162,19 @@ describe("ReportView", () => {
     expect(rowOf("Berger")).toBeInTheDocument();
   });
 
-  it("names each student on one master line, with the e-mail address in parentheses", () => {
+  it("names each student on one master line, without the e-mail address next to it", () => {
     render(<ReportView />);
 
     const row = within(rowOf("Muster"));
     expect(row.getByText("Anna Muster")).toBeInTheDocument();
-    expect(row.getByText("(muster@student.htldornbirn.at)")).toBeInTheDocument();
+    expect(row.queryByText("(muster@student.htldornbirn.at)")).not.toBeInTheDocument();
+  });
+
+  it("numbers each student's master line in the order the list gives them", () => {
+    render(<ReportView />);
+
+    expect(within(rowOf("Berger")).getByText("1.")).toBeInTheDocument();
+    expect(within(rowOf("Muster")).getByText("2.")).toBeInTheDocument();
   });
 
   it("reduces a student to their master line while no field is activated", () => {
@@ -328,6 +335,7 @@ describe("the fields tag list", () => {
     await activate("Kontaktdaten");
 
     expect(detailsOf("Muster")).toEqual([
+      "E-Mail:",
       "Telefonnummer:",
       "Notfallkontakt:",
       "Beziehung:",
@@ -335,12 +343,12 @@ describe("the fields tag list", () => {
     ]);
   });
 
-  it("adds no e-mail line, since the master line already carries the address", async () => {
+  it("adds the e-mail address as a detail line once contact data is activated", async () => {
     render(<ReportView />);
 
     await activate("Kontaktdaten");
 
-    expect(detailsOf("Muster")).not.toContain("E-Mail");
+    expect(screen.getByText("muster@student.htldornbirn.at")).toBeInTheDocument();
   });
 
   it("says a field is unanswered rather than leaving the line blank", async () => {

@@ -56,8 +56,18 @@ describe("reportDocument", () => {
     expect(only).not.toContain("Bene Berger");
   });
 
-  it("keeps the e-mail address on the master line, as the screen does", () => {
-    expect(textOf(document([BENE]).content)).toContain("(bene@student.htldornbirn.at)");
+  it("numbers each student in the order it was handed them", () => {
+    const content = textOf(document([ANNA, BENE]).content);
+
+    expect(content.indexOf("1.")).toBeGreaterThanOrEqual(0);
+    expect(content.indexOf("2.")).toBeGreaterThan(content.indexOf("1."));
+  });
+
+  it("keeps the e-mail address off the master line, offering it as a contact field instead", () => {
+    expect(textOf(document([BENE]).content)).not.toContain("bene@student.htldornbirn.at");
+    expect(textOf(document([BENE], reportFieldsOf(["contact"])).content)).toContain(
+      "bene@student.htldornbirn.at",
+    );
   });
 
   it("gives each activated field one detail line under its student", () => {

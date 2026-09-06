@@ -89,10 +89,10 @@ describe("REPORT_FIELD_TAGS", () => {
     expect(labelOf("seasonPassOption")).toBe(ANSWER_LABELS.seasonPassOption);
   });
 
-  it("does not offer the e-mail address, which the master line already carries", () => {
+  it("offers the e-mail address under contact data, since the master line no longer carries it (US-13)", () => {
     const labels = REPORT_FIELD_TAGS.flatMap((tag) => tag.fields).map((field) => field.label);
 
-    expect(labels).not.toContain("E-Mail");
+    expect(labels).toContain("E-Mail");
   });
 
   it("keys every field uniquely, since each one renders a detail line of its own", () => {
@@ -109,6 +109,7 @@ describe("reportFieldsOf", () => {
 
   it("gives a grouped tag one detail line per field in the group (US-13)", () => {
     expect(reportFieldsOf(["contact"]).map((field) => field.label)).toEqual([
+      "E-Mail",
       "Telefonnummer",
       "Notfallkontakt",
       "Beziehung",

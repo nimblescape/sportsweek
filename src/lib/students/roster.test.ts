@@ -75,7 +75,7 @@ describe("toRoster", () => {
     expect(toRoster([record("Anna", "Muster", stored)], SERIES)[0]).toMatchObject(stored);
   });
 
-  it("carries the e-mail address, which the report's master line shows (US-13)", () => {
+  it("carries the e-mail address, for a filter or a view that has no use for the whole record", () => {
     expect(toRoster([ANNA], SERIES)[0].email).toBe(ANNA.email);
   });
 

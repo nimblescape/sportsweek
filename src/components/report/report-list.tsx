@@ -16,8 +16,8 @@ type ReportListProps = {
 
 /**
  * The report of US-13, as a master-detail list rather than a table: one master line per student,
- * carrying the name and the e-mail address that are always shown, with the activated fields
- * hanging off it as indented detail lines.
+ * numbered and carrying the name, with the activated fields hanging off it as indented detail
+ * lines. The e-mail address is one of them, under contact data, rather than always shown.
  */
 export function ReportList({ students, fields }: ReportListProps) {
   if (students.length === 0) {
@@ -30,13 +30,13 @@ export function ReportList({ students, fields }: ReportListProps) {
 
   return (
     <ul aria-label="Schüler:innen" className="divide-border divide-y">
-      {students.map((student) => (
+      {students.map((student, index) => (
         <li key={student.id} className="py-2 first:pt-0 last:pb-0">
           <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+            <span className="text-muted-foreground">{index + 1}.</span>
             <span className="font-medium">
               {student.firstName} {student.lastName}
             </span>
-            <span className="text-muted-foreground break-all">({student.email})</span>
             {student.isIncomplete ? (
               <span className="text-destructive text-xs">{INCOMPLETE_REGISTRATION_HINT}</span>
             ) : null}
