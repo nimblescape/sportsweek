@@ -159,8 +159,9 @@ function ClassCard({
   const shown = filterStudents(row.students, filter);
   const figures = countFiltered ? classFigures(shown, columns) : row;
 
-  /** Both controls mint where the class has no link yet: an address with the window shut admits
-   * nobody, so minting one is not the same as opening it (US-43). */
+  /** Minting on its own does not open a class — an address with the window shut admits nobody —
+   * but handing the link out or showing it does, since that is a teacher about to use it now.
+   * Regenerating goes through here without opening: it only replaces the address (US-43). */
   async function withLink(mint: () => Promise<string>, deliver: (link: string) => void) {
     setActionError(null);
     try {
@@ -174,6 +175,13 @@ function ClassCard({
 
   const handOut = (mint: () => Promise<string>) =>
     withLink(mint, (link) => void navigator.clipboard.writeText(link));
+
+  /** Opens the class first if it is closed, then mints — for copying and showing, which put the
+   * link in front of students right away (US-23). */
+  async function mintAndOpen(invitations: InvitationControls) {
+    if (!invitations.isOpenFor(row.class)) await invitations.setOpen(row.class, true);
+    return invitations.linkFor(row.class);
+  }
 
   /** The card's one toggle, and the only thing that moves the window (US-43). */
   async function toggleOpen() {
@@ -201,7 +209,7 @@ function ClassCard({
                     variant="ghost"
                     size="icon"
                     aria-label={`${INVITATION_LINK_LABEL} für ${row.class} kopieren`}
-                    onClick={() => handOut(() => invitations.linkFor(row.class))}
+                    onClick={() => handOut(() => mintAndOpen(invitations))}
                   >
                     <Link aria-hidden />
                   </Button>
@@ -212,7 +220,7 @@ function ClassCard({
                     variant="ghost"
                     size="icon"
                     aria-label={`${INVITATION_QR_LABEL} für ${row.class} anzeigen`}
-                    onClick={() => withLink(() => invitations.linkFor(row.class), setShownCode)}
+                    onClick={() => withLink(() => mintAndOpen(invitations), setShownCode)}
                   >
                     <QrCode aria-hidden />
                   </Button>
@@ -237,7 +245,7 @@ function ClassCard({
           }
         >
           {invitations === null ? (
-            <CardTitle className="truncate">{`${row.class}: ${row.total}`}</CardTitle>
+            <CardTitle className="truncate">{row.class}</CardTitle>
           ) : (
             (() => {
               const open = invitations.isOpenFor(row.class);
@@ -251,7 +259,7 @@ function ClassCard({
                   <Tooltip label={stateLabel}>
                     <span className="flex min-w-0 items-center gap-1.5">
                       <Door aria-label={stateLabel} className="size-4 shrink-0" />
-                      <CardTitle className="truncate">{`${row.class}: ${row.total}`}</CardTitle>
+                      <CardTitle className="truncate">{row.class}</CardTitle>
                     </span>
                   </Tooltip>
                   <Tooltip label={actionLabel}>

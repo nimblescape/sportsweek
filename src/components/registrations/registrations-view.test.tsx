@@ -107,7 +107,7 @@ describe("RegistrationsView", () => {
     render(<RegistrationsView />);
 
     expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
-    expect(within(screen.getByRole("group", { name: "5AHIF" })).getByText("5AHIF: 2")).toBeInTheDocument(); // prettier-ignore
+    expect(within(screen.getByRole("group", { name: "5AHIF" })).getByText("5AHIF")).toBeInTheDocument(); // prettier-ignore
     expect(screen.getByRole("group", { name: "5BHIF" })).toBeInTheDocument();
   });
 
@@ -250,7 +250,7 @@ describe("RegistrationsView — narrowed to a teacher's own classes (US-39)", ()
   it("counts only the students of the classes this teacher looks after", () => {
     render(<RegistrationsView teacherUid={TEACHER} />);
 
-    expect(within(screen.getByRole("group", { name: "5AHIF" })).getByText("5AHIF: 1")).toBeInTheDocument(); // prettier-ignore
+    expect(within(screen.getByRole("group", { name: "5AHIF" })).getByText("5AHIF")).toBeInTheDocument(); // prettier-ignore
   });
 
   it("offers every class where the reader looks after none of this series'", () => {

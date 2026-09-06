@@ -278,7 +278,7 @@ describe("ClassCards — folding", () => {
 
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Details zu 5AHIF" }));
 
-    expect(card("5AHIF").getByText("5AHIF: 0")).toBeInTheDocument();
+    expect(card("5AHIF").getByText("5AHIF")).toBeInTheDocument();
     expect(card("5AHIF").queryByRole("table")).not.toBeInTheDocument();
     expect(card("5BHIF").getAllByRole("table").length).toBeGreaterThan(0);
   });
@@ -402,6 +402,28 @@ describe("ClassCards — the invitation controls", () => {
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/join/tok`);
   });
 
+  /** Copying is a teacher about to hand the link out, so a closed class opens to receive it. */
+  it("opens a closed class when its link is copied", async () => {
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren` }),
+    );
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", true);
+  });
+
+  it("leaves an already open class alone when its link is copied", async () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren` }),
+    );
+
+    expect(invitations.setOpen).not.toHaveBeenCalled();
+  });
+
   /** Generating the first link opens the series, so the control is offered before one exists. */
   it("offers the copy control to a class that has no link yet", () => {
     invitations.tokenFor.mockReturnValue(null);
@@ -460,8 +482,8 @@ describe("ClassCards — the invitation controls", () => {
 });
 
 /**
- * A class's own toggle is the only thing that moves its window (US-43): distinct from the link
- * controls above, which never open or close anything.
+ * A class's own toggle is the only thing that closes its window (US-43): copying and showing
+ * above may open a closed class, but neither ever closes one.
  */
 describe("ClassCards — the open/close toggle", () => {
   const invitations = {
@@ -635,6 +657,7 @@ describe("ClassCards — showing a link as a QR code", () => {
     vi.clearAllMocks();
     invitations.tokenFor.mockReturnValue("tok");
     invitations.linkFor.mockResolvedValue("tok");
+    invitations.isOpenFor.mockReturnValue(false);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
   });
 
@@ -682,6 +705,24 @@ describe("ClassCards — showing a link as a QR code", () => {
     await userEvent.click(showCode());
 
     expect(writeText).not.toHaveBeenCalled();
+  });
+
+  /** Showing the code puts the link in front of a room right away, so a closed class opens. */
+  it("opens a closed class when its code is shown", async () => {
+    setupWith();
+
+    await userEvent.click(showCode());
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", true);
+  });
+
+  it("leaves an already open class alone when its code is shown", async () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    await userEvent.click(showCode());
+
+    expect(invitations.setOpen).not.toHaveBeenCalled();
   });
 
   it("takes the surface away again", async () => {
@@ -773,6 +814,16 @@ describe("ClassCards — regenerating asks first", () => {
     await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
 
     expect(invitations.regenerate).toHaveBeenCalledWith("5AHIF");
+  });
+
+  /** Regenerating replaces the address only; it leaves the window as it found it (US-43, Q11). */
+  it("leaves the class's open state alone when regenerating", async () => {
+    setupWith();
+    await press();
+
+    await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
+
+    expect(invitations.setOpen).not.toHaveBeenCalled();
   });
 
   it("leaves the link alone when the teacher backs out", async () => {
