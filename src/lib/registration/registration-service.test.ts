@@ -69,8 +69,9 @@ function seedStudent(uid: string, name: { firstName: string; lastName: string })
 
 /**
  * Every answer has to be one the series offers (US-27), so the lists a student picks from are
- * part of what makes a series registrable at all. Open unless a test says otherwise: one flag
- * governs the student side, and archiving is excluded by it rather than beside it.
+ * part of what makes a series registrable at all. Both classes open unless a test says
+ * otherwise: whether a student may join or amend is a fact about their own class now, not the
+ * series (US-43).
  */
 function seedEventSeries(id: string, fields: Record<string, unknown> = {}) {
   firestore.seed(
@@ -78,10 +79,9 @@ function seedEventSeries(id: string, fields: Record<string, unknown> = {}) {
     id,
     storedEventSeries({
       name: `Eventreihe ${id}`,
-      isOpenToStudents: true,
       classOptions: [
-        { name: "3AHME", teacherUids: [] },
-        { name: "4AHME", teacherUids: [] },
+        { name: "3AHME", teacherUids: [], isOpenToStudents: true },
+        { name: "4AHME", teacherUids: [], isOpenToStudents: true },
       ],
       programs: [{ name: "Ski", requiredEquipment: [] }],
       skillLevels: ["Anfänger"],
@@ -91,6 +91,15 @@ function seedEventSeries(id: string, fields: Record<string, unknown> = {}) {
       ...fields,
     }),
   );
+}
+
+/** Both fixture classes open unless named here, so a test can close just the one it means (US-43). */
+function classOptions(closed: string[] = []) {
+  return ["3AHME", "4AHME"].map((name) => ({
+    name,
+    teacherUids: [],
+    isOpenToStudents: !closed.includes(name),
+  }));
 }
 
 const attending: RegistrationInput = {
@@ -201,15 +210,24 @@ describe("saveRegistration", () => {
     expect(firestore.count(REGISTRATIONS)).toBe(2);
   });
 
-  /** One flag rather than two: archiving closes, and an archived series cannot be opened (US-19). */
-  it("refuses to save into a series that is not open to students", async () => {
-    seedEventSeries("s1", { isOpenToStudents: false });
+  /** Amending asks only whether the student's own class is open, never the series (US-43). */
+  it("refuses to amend once the student's own class has been closed", async () => {
+    seedEventSeries("s1", { classOptions: classOptions(["3AHME"]) });
 
     await expect(saveRegistration(target(), attending)).rejects.toMatchObject({
       code: "CONFLICT",
       message: REGISTRATION_NOT_OPEN_HINT,
     });
     expect(unanswered()).toBe(true);
+  });
+
+  /** Proof it is the student's own class being asked about, and not the series as a whole. */
+  it("lets a student amend while a different class in the series is closed", async () => {
+    seedEventSeries("s1", { classOptions: classOptions(["4AHME"]) });
+
+    const record = await saveRegistration(target(), attending);
+
+    expect(record.class).toBe("3AHME");
   });
 
   it("refuses to save into a series that does not exist, saying no more than that", async () => {
@@ -277,12 +295,19 @@ describe("saveRegistration", () => {
     });
   });
 
-  /** A class a link still names has to be one the series offers, like every other list value. */
-  it("checks the class the link named, not only the answers", async () => {
-    seedEventSeries("s1", { classOptions: [{ name: "1AHME", teacherUids: [] }] });
+  /**
+   * A class a link named can no longer vanish from under a registration: `master-data-service.ts`
+   * refuses to rename or delete one while any invitation of it is still live (US-43). What is
+   * left reachable is the class closing, which `saveRegistration` catches by itself.
+   */
+  it("refuses to amend once the class the link named is gone from the list", async () => {
+    seedEventSeries("s1", {
+      classOptions: [{ name: "1AHME", teacherUids: [], isOpenToStudents: true }],
+    });
 
     await expect(saveRegistration(target(), attending)).rejects.toMatchObject({
-      message: ANSWER_NO_LONGER_OFFERED_HINT,
+      code: "CONFLICT",
+      message: REGISTRATION_NOT_OPEN_HINT,
     });
   });
 
@@ -543,9 +568,9 @@ describe("deleteRegistration", () => {
     expect(firestore.transactionCount).toBe(1);
   });
 
-  /** Closing governs students only, so a teacher may still remove one from a closed series. */
-  it("removes one from a closed series", async () => {
-    seedEventSeries("s1", { hasRegistrations: true, isOpenToStudents: false });
+  /** Closing governs students only, so a teacher may still remove one from a closed class. */
+  it("removes one from a closed class", async () => {
+    seedEventSeries("s1", { hasRegistrations: true, classOptions: classOptions(["3AHME"]) });
     seedRegistration(STUDENT);
 
     await deleteRegistration("s1", STUDENT);
@@ -554,7 +579,11 @@ describe("deleteRegistration", () => {
   });
 
   it("refuses one in an archived series, which is read-only", async () => {
-    seedEventSeries("s1", { hasRegistrations: true, isArchived: true, isOpenToStudents: false });
+    seedEventSeries("s1", {
+      hasRegistrations: true,
+      isArchived: true,
+      classOptions: classOptions(["3AHME", "4AHME"]),
+    });
     seedRegistration(STUDENT);
 
     await expect(deleteRegistration("s1", STUDENT)).rejects.toBeInstanceOf(ServiceError);
@@ -632,10 +661,19 @@ describe("joinEventSeries", () => {
     expect(firestore.get("eventSeries", "s1")).toMatchObject({ hasRegistrations: true });
   });
 
-  it("refuses a series that is not open to students", async () => {
-    seedEventSeries("s1", { isOpenToStudents: false });
+  it("refuses to join a class that is closed", async () => {
+    seedEventSeries("s1", { classOptions: classOptions(["3AHME"]) });
 
     await expect(joinEventSeries("s1", STUDENT, "3AHME")).rejects.toBeInstanceOf(ServiceError);
     expect(firestore.get(registrationPath("s1"), STUDENT)).toBeUndefined();
+  });
+
+  /** Proof it is the named class being asked about, and not the series as a whole (US-43). */
+  it("lets a student join a class while a different class in the series is closed", async () => {
+    seedEventSeries("s1", { classOptions: classOptions(["4AHME"]) });
+
+    await joinEventSeries("s1", STUDENT, "3AHME");
+
+    expect(firestore.get(registrationPath("s1"), STUDENT)).toMatchObject({ class: "3AHME" });
   });
 });

@@ -14,6 +14,7 @@ import {
   ARCHIVED_IS_READ_ONLY_HINT,
   LAST_EVENT_SERIES_HINT,
   NO_SUCH_EVENT_SERIES,
+  anyClassOpen,
 } from "@/lib/event-series/event-series-state";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { prunedToLists } from "@/lib/filters/student-filter";
@@ -129,15 +130,21 @@ export async function createEventSeries(input: CreateEventSeries): Promise<Event
             EventSeriesListField
           >);
 
+    // A copy takes no invitation (US-22, Q12), so none of its classes can already be open —
+    // whatever the source said, this one starts with every window shut.
+    const classOptions = lists.classOptions.map((option) => ({
+      ...option,
+      isOpenToStudents: false,
+    }));
+
     const data = {
       name,
       nameKey,
       isArchived: false,
-      isOpenToStudents: false,
       hasRegistrations: false,
       position,
       events: lists.events,
-      classOptions: lists.classOptions,
+      classOptions,
       programs: lists.programs,
       skillLevels: lists.skillLevels,
       seasonPassOptions: lists.seasonPassOptions,
@@ -170,7 +177,6 @@ export async function reorderEventSeries(orderedIds: readonly string[]): Promise
 export type EventSeriesUpdate = {
   name?: string;
   isArchived?: boolean;
-  isOpenToStudents?: boolean;
 };
 
 /**
@@ -201,30 +207,13 @@ export async function updateEventSeries(
       throw new ServiceError(ErrorCode.Conflict, ARCHIVED_IS_READ_ONLY_HINT);
     }
 
-    // One rule shape, two reasons (US-19, US-23): an archived series is read-only and cannot even
-    // be selected, and a series with no classes has nothing to invite anybody into. Asked against
-    // the archive state this call is leaving behind, so opening and archiving at once is refused
-    // rather than silently resolved in archiving's favour.
-    if (update.isOpenToStudents === true) {
-      if (isArchived) {
-        throw new ServiceError(
-          ErrorCode.Conflict,
-          "Eine archivierte Eventreihe kann nicht freigeschaltet werden.",
-        );
-      }
-      if (current.classOptions.length === 0) {
-        throw new ServiceError(
-          ErrorCode.Conflict,
-          "Eine Eventreihe ohne Klassen kann nicht freigeschaltet werden.",
-        );
-      }
-    }
-
     let hasRegistrations = current.hasRegistrations;
+    let handedOut: FirebaseFirestore.QuerySnapshot | null = null;
     if (wantsArchival) {
-      // Closing is the teacher's own decision, made on the tag of the series it concerns (US-19).
-      // Archiving used to make it for them as a side effect; a series is closed first, then filed.
-      if (update.isOpenToStudents !== false && current.isOpenToStudents) {
+      // Closing every class is the teacher's own decision, made on that class' own card (US-43).
+      // Archiving used to make it for them as a side effect; every class is closed first, then
+      // the series is filed.
+      if (anyClassOpen(current.classOptions)) {
         throw new ServiceError(ErrorCode.Conflict, ARCHIVE_OPEN_HINT);
       }
 
@@ -235,26 +224,20 @@ export async function updateEventSeries(
         throw new ServiceError(ErrorCode.Conflict, ARCHIVE_NO_DATA_HINT);
       }
       hasRegistrations = true;
+
+      // Archiving is terminal, and the one act left that still invalidates every link of the
+      // series at once (Q12) — safe here because a series must already be closed in every class
+      // before it can be archived at all, so nobody is admitted through one of these afterwards.
+      handedOut = await transaction.get(
+        adminDb.collection(COLLECTIONS.invitations).where("eventSeriesId", "==", id),
+      );
     }
 
     if (renaming) {
       await assertNameIsFree(transaction, { name, ownerId: id });
     }
 
-    // Archiving closes a series to students, and unarchiving deliberately does not reopen it:
-    // looking at last year is not letting last year's students back in (US-19).
-    const isOpenToStudents = isArchived
-      ? false
-      : (update.isOpenToStudents ?? current.isOpenToStudents);
-
-    // Closing withdraws the links, so reopening hands out none (US-23). Leaving them dormant
-    // made closing look like a remedy for a link that got out, when it only suspended one.
-    if (current.isOpenToStudents && !isOpenToStudents) {
-      const handedOut = await transaction.get(
-        adminDb.collection(COLLECTIONS.invitations).where("eventSeriesId", "==", id),
-      );
-      for (const invitation of handedOut.docs) transaction.delete(invitation.ref);
-    }
+    for (const invitation of handedOut?.docs ?? []) transaction.delete(invitation.ref);
 
     // `update` rather than `set`: the document also carries the seven maintained lists (US-21),
     // and naming them here only to preserve them would drop the next one somebody adds.
@@ -262,7 +245,6 @@ export async function updateEventSeries(
       name: name ?? current.name,
       nameKey: normalizeName(name ?? current.name),
       isArchived,
-      isOpenToStudents,
       hasRegistrations,
     };
     transaction.update(reference, changed);

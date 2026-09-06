@@ -33,7 +33,7 @@ export function RegistrationsView({
   teacherUid?: Uid | null;
 }) {
   const { eventSeries, missing, error, students, classes, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId, { teacherUid }); // prettier-ignore
-  const invitations = useInvitations(eventSeriesId, eventSeries?.isOpenToStudents);
+  const invitations = useInvitations(eventSeriesId, eventSeries?.classOptions);
 
   // An archived series is read-only, so it has nobody left to invite (US-19).
   const openable = eventSeries !== null && !eventSeries.isArchived;

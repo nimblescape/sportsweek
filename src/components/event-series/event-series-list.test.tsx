@@ -10,7 +10,7 @@ import { storedEventSeries } from "@/test/event-series";
 import { EventSeriesList } from "@/components/event-series/event-series-list";
 
 const allEventSeries = [
-  { id: "s1", ...storedEventSeries({ name: "Wintersportwoche 2026", isOpenToStudents: true, hasRegistrations: true }) }, // prettier-ignore
+  { id: "s1", ...storedEventSeries({ name: "Wintersportwoche 2026", classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }], hasRegistrations: true }) }, // prettier-ignore
   { id: "s2", ...storedEventSeries({ name: "Wintersportwoche 2025", isArchived: true, hasRegistrations: true }) }, // prettier-ignore
   { id: "s3", ...storedEventSeries({ name: "Wintersportwoche 2027", hasRegistrations: true }) },
   { id: "s4", ...storedEventSeries({ name: "Wintersportwoche 2024" }) },

@@ -17,6 +17,12 @@ const { useInvitations } = await import("./use-invitations");
 
 const SERIES = "s1";
 
+const classOption = (name: string, isOpenToStudents = false) => ({
+  name,
+  teacherUids: [],
+  isOpenToStudents,
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   apiRequest.mockResolvedValue({ invitations: [] });
@@ -24,8 +30,9 @@ beforeEach(() => {
 
 async function loaded(eventSeriesId = SERIES) {
   const rendered = renderHook(
-    ({ open }: { open: boolean | undefined }) => useInvitations(eventSeriesId, open),
-    { initialProps: { open: true as boolean | undefined } },
+    ({ classOptions }: { classOptions: ReturnType<typeof classOption>[] | undefined }) =>
+      useInvitations(eventSeriesId, classOptions),
+    { initialProps: { classOptions: [classOption("3aWI")] as ReturnType<typeof classOption>[] | undefined } }, // prettier-ignore
   );
   await waitFor(() => expect(rendered.result.current.loading).toBe(false));
   return rendered;
@@ -51,27 +58,37 @@ describe("useInvitations", () => {
     expect(result.current.tokenFor("3aWI")).toBeNull();
   });
 
-  /**
-   * Closing the series withdraws its links (US-23), so the copy held here would outlive them —
-   * and go on handing out a token the server has already forgotten.
-   */
-  it("reads the links again when the series is closed", async () => {
-    apiRequest.mockResolvedValue({
-      invitations: [{ token: "tok", eventSeriesId: SERIES, class: "3aWI" }],
-    });
+  /** Whether a class's window is open comes straight off the series' own classOptions (US-43). */
+  it("reports a class as open only where its own classOptions entry says so", async () => {
     const { result, rerender } = await loaded();
-    apiRequest.mockResolvedValue({ invitations: [] });
 
-    rerender({ open: false });
+    expect(result.current.isOpenFor("3aWI")).toBe(false);
 
-    await waitFor(() => expect(result.current.tokenFor("3aWI")).toBeNull());
+    rerender({ classOptions: [classOption("3aWI", true)] });
+
+    expect(result.current.isOpenFor("3aWI")).toBe(true);
   });
 
-  /** Nothing is worth asking for until the series has arrived and said whether it is open. */
+  /** Nothing is worth asking for until the series has arrived and named its classes. */
   it("asks for nothing while the series is still loading", () => {
     renderHook(() => useInvitations(SERIES, undefined));
 
     expect(apiRequest).not.toHaveBeenCalled();
+  });
+
+  /** Closing a class evicts nobody and leaves its link alone (US-43), so opening it again reads
+   * nothing further — the tokens already held stay exactly what they were. */
+  it("mints nothing merely because a class's own open state changes", async () => {
+    apiRequest.mockResolvedValue({
+      invitations: [{ token: "tok", eventSeriesId: SERIES, class: "3aWI" }],
+    });
+    const { result, rerender } = await loaded();
+    apiRequest.mockClear();
+
+    rerender({ classOptions: [classOption("3aWI", true)] });
+
+    expect(apiRequest).not.toHaveBeenCalled();
+    expect(result.current.tokenFor("3aWI")).toBe("tok");
   });
 
   /** Copying a link twice has to copy the same link (US-29), so an existing one is not replaced. */
@@ -89,7 +106,7 @@ describe("useInvitations", () => {
     expect(apiRequest).not.toHaveBeenCalled();
   });
 
-  /** A class with no link yet gets one on the first press, which opens the series (US-19). */
+  /** A class with no link yet gets one on the first press; the window is a separate question. */
   it("mints a link for a class that has none, and remembers it", async () => {
     const { result } = await loaded();
     apiRequest.mockResolvedValue({
@@ -150,5 +167,21 @@ describe("useInvitations", () => {
     const { result } = await loaded();
 
     expect(result.current.error).toBe("Nicht erlaubt.");
+  });
+
+  /** The card's one toggle (US-43), which PATCHes the class's own window and nothing else. */
+  it("opens or closes a class through the dedicated route", async () => {
+    const { result } = await loaded();
+    apiRequest.mockClear();
+    apiRequest.mockResolvedValue({});
+
+    await act(async () => {
+      await result.current.setOpen("3aWI", true);
+    });
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      `/api/event-series/${SERIES}/master-data/classes/open`,
+      { method: "PATCH", body: { class: "3aWI", isOpenToStudents: true } },
+    );
   });
 });

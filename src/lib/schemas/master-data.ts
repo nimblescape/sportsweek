@@ -34,6 +34,14 @@ export const namedListSchema = z
 export const classOptionSchema = z.object({
   name: listItemNameSchema,
   teacherUids: z.array(uidSchema).default([]),
+  /**
+   * Whether this class takes registrations (US-43). A decision the teacher makes about this one
+   * class rather than a mirror of anything: a class may never be open without a link, but a link
+   * may exist while this stays false — closing keeps the address and simply stops admitting
+   * anyone through it. The token itself never lives here (Q9): a rule grants the whole event
+   * series document to every signed-in school member, and a token is the enrolment itself.
+   */
+  isOpenToStudents: z.boolean().default(false),
 });
 export type ClassOption = z.infer<typeof classOptionSchema>;
 

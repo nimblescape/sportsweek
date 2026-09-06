@@ -438,7 +438,7 @@ const byReversedName = (one: ClassOption, other: ClassOption): number =>
  * the last unarchived one is refused, so once this has run that state is out of reach.
  *
  * Open only where the students are invented too: seeding stands in for the invitation link a
- * teacher would hand out (US-23), and production has nobody to let in yet.
+ * teacher would hand out (US-23, US-43), and production has nobody to let in yet.
  */
 async function createEventSeries(
   db: Firestore,
@@ -450,10 +450,11 @@ async function createEventSeries(
   // seeded in reversed-name order (a teacher may still drag them into any order afterwards).
   const data = {
     ...series,
-    classOptions: [...series.classOptions].sort(byReversedName),
+    classOptions: [...series.classOptions]
+      .sort(byReversedName)
+      .map((option) => ({ ...option, isOpenToStudents })),
     nameKey: normalizeName(series.name),
     isArchived: false,
-    isOpenToStudents,
     hasRegistrations: false,
     position,
   };

@@ -12,7 +12,7 @@ const TEACHER = asUid("uidTeacher");
 const COLLEAGUE = asUid("uidColleague");
 
 function classOption(name: string, teacherUids: ClassOption["teacherUids"] = []): ClassOption {
-  return { name, teacherUids };
+  return { name, teacherUids, isOpenToStudents: false };
 }
 
 function series(

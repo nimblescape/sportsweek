@@ -28,8 +28,10 @@ const eventSeries = {
   id: "s1",
   ...storedEventSeries({
     name: "Winter 2026",
-    isOpenToStudents: true,
-    classOptions: [{ name: "3AHME", teacherUids: [] }],
+    classOptions: [
+      { name: "3AHME", teacherUids: [], isOpenToStudents: true },
+      { name: "4AHME", teacherUids: [], isOpenToStudents: true },
+    ],
     skillLevels: ["Anfänger:in", "Profi"],
   }),
 };
@@ -57,10 +59,13 @@ describe("MyRegistrationView", () => {
     expect(screen.getByTestId("form")).toBeInTheDocument();
   });
 
-  it("says nothing is released while the series is not open to students (US-19)", () => {
+  it("says nothing is released while the student's own class is closed (US-43)", () => {
     useRegistration.mockReturnValue({
-      eventSeries: { ...eventSeries, isOpenToStudents: false },
-      record: null,
+      eventSeries: {
+        ...eventSeries,
+        classOptions: [{ name: "3AHME", teacherUids: [], isOpenToStudents: false }],
+      },
+      record: { class: "3AHME", event: null },
       loading: false,
       error: null,
     });

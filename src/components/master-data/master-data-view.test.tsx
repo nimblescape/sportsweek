@@ -564,7 +564,7 @@ describe("MasterDataView — an event's own page (US-33)", () => {
         ...storedEventSeries({
           name: "Wintersportwoche",
           events: [event("Woche 1")],
-          classOptions: [{ name: "2aWI", teacherUids: [] }],
+          classOptions: [{ name: "2aWI", teacherUids: [], isOpenToStudents: false }],
         }),
       },
       loading: false,

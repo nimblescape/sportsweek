@@ -273,6 +273,15 @@ export const CHILD_IN_USE_HINT =
   "Das Programm kann deshalb nicht gelöscht werden.";
 
 /**
+ * A class's link names it by the class's stored spelling (US-23); renaming or deleting the class
+ * while the link is live would leave it pointing at a name nothing answers to any more. Closing
+ * the class first, or regenerating the link, is what frees the name again.
+ */
+export const INVITATION_ACTIVE_HINT =
+  "Für diese Klasse gibt es einen aktiven Link zur Anmeldung. Sie kann deshalb nicht " +
+  "umbenannt oder gelöscht werden, solange der Link besteht.";
+
+/**
  * Shown while the answer is still on its way. The controls stay disabled until it arrives, so
  * this is the only reason a teacher can be given for them — and the alternative, enabling them
  * and withdrawing them a moment later, offers something the list already knows it may refuse.

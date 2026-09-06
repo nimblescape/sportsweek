@@ -76,14 +76,13 @@ const eventSeries = {
   id: "s1",
   ...storedEventSeries({
     name: "2026",
-    isOpenToStudents: true,
     hasRegistrations: true,
     events: [event("Woche 1")],
     // The same lists the hooks below are mocked with: they are fields of this document, and it
     // is the document the fields row asks what the series wants asking about (US-21).
     classOptions: [
-      { name: "5AHIF", teacherUids: [] },
-      { name: "5BHIF", teacherUids: [] },
+      { name: "5AHIF", teacherUids: [], isOpenToStudents: false },
+      { name: "5BHIF", teacherUids: [], isOpenToStudents: false },
     ],
     programs: [
       {
@@ -686,8 +685,8 @@ describe("ReportView — narrowed to a teacher's own classes (US-39)", () => {
         {
           ...eventSeries,
           classOptions: [
-            { name: "5AHIF", teacherUids: [TEACHER] },
-            { name: "5BHIF", teacherUids: [] },
+            { name: "5AHIF", teacherUids: [TEACHER], isOpenToStudents: false },
+            { name: "5BHIF", teacherUids: [], isOpenToStudents: false },
           ],
         },
       ],

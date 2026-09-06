@@ -11,7 +11,6 @@ const validEventSeries = {
   name: "Wintersportwoche 2026",
   nameKey: "wintersportwoche 2026",
   isArchived: false,
-  isOpenToStudents: false,
   hasRegistrations: false,
   position: 0,
   events: [
@@ -24,7 +23,7 @@ const validEventSeries = {
       foodOptions: [],
     },
   ],
-  classOptions: [{ name: "3AHIT", teacherUids: [] }],
+  classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
   programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
   skillLevels: ["Keine Vorkenntnisse"],
   seasonPassOptions: ["Saisonkarte"],
@@ -41,23 +40,10 @@ describe("eventSeriesSchema", () => {
     expect(eventSeriesSchema.safeParse({ ...validEventSeries, name: "" }).success).toBe(false);
   });
 
-  it.each(["isArchived", "isOpenToStudents", "hasRegistrations"])(
-    "requires %s to be a boolean",
-    (field) => {
-      expect(eventSeriesSchema.safeParse({ ...validEventSeries, [field]: "yes" }).success).toBe(
-        false,
-      );
-    },
-  );
-
-  // A series stored before the flag existed is not open, which is what a teacher would expect of
-  // one they have not touched since (US-19).
-  it("defaults isOpenToStudents to false", () => {
-    const without = Object.fromEntries(
-      Object.entries(validEventSeries).filter(([key]) => key !== "isOpenToStudents"),
+  it.each(["isArchived", "hasRegistrations"])("requires %s to be a boolean", (field) => {
+    expect(eventSeriesSchema.safeParse({ ...validEventSeries, [field]: "yes" }).success).toBe(
+      false,
     );
-
-    expect(eventSeriesSchema.parse(without)).toMatchObject({ isOpenToStudents: false });
   });
 
   it("carries no state field of its own, since what the list shows is derived", () => {
@@ -65,7 +51,6 @@ describe("eventSeriesSchema", () => {
       [
         "id",
         "isArchived",
-        "isOpenToStudents",
         "hasRegistrations",
         "name",
         "nameKey",

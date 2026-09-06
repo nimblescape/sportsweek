@@ -30,10 +30,6 @@ entity "EventSeries" as eventSeries {
                     ' sent by a client. Uniqueness is an equality query on this inside the write's
                     ' own transaction — an equality on name would compare exact strings and lose
                     ' the case- and whitespace-insensitivity the rule asks for (US-4, US-21)
-  isOpenToStudents : boolean  ' whether students may join this series and go on amending what
-                              ' they said. Any number may be open at once; an invitation link
-                              ' sets it, archiving clears it, unarchiving does not restore it
-                              ' (US-19, US-23)
   isArchived : boolean  ' archived event series are hidden from the teacher's list (US-19);
                         ' this is the only persisted archive flag — Registration's
                         ' archived state is computed via its eventSeriesId, never stored redundantly
@@ -53,10 +49,13 @@ entity "EventSeries" as eventSeries {
   events : { name }[]  ' the weeks of this event series, assigned to in US-12. A record rather
                        ' than a bare name because an event may come to carry lists of its own
                        ' (US-33); a registration still stores the plain name, not a reference.
-  classOptions : { name, teacherUids: string[] }[]  ' Klasse (US-6); teacherUids names the
-                       ' teachers who look after it (class-teachers spec, US-38), empty until one
-                       ' is assigned — an assignment narrows what a few pages show, it grants
-                       ' nothing by itself.
+  classOptions : { name, teacherUids: string[], isOpenToStudents }[]  ' Klasse (US-6);
+                       ' teacherUids names the teachers who look after it (class-teachers spec,
+                       ' US-38), empty until one is assigned — an assignment narrows what a few
+                       ' pages show, it grants nothing by itself. isOpenToStudents is per class,
+                       ' not per series (US-43): whether its own students may join and go on
+                       ' amending what they said. An invitation link sets it, archiving the series
+                       ' clears every one, unarchiving restores none.
   programs : { name, requiredEquipment: { name, isRentable }[] }[]  ' the one list whose entries
                                               ' are not bare names, because a program carries the
                                               ' equipment it requires (US-5): e.g. ski, ski boots,

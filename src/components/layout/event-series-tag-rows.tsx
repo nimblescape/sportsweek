@@ -18,7 +18,7 @@ import {
   rescopedPath,
   selectedEventSeriesIdFrom,
 } from "@/lib/event-series/event-series-selection";
-import { EVENT_SERIES_STATE_LABELS } from "@/lib/event-series/event-series-state";
+import { EVENT_SERIES_STATE_LABELS, anyClassOpen } from "@/lib/event-series/event-series-state";
 import { scopedEventSeries } from "@/lib/event-series/teacher-scope";
 import type { Uid } from "@/lib/schemas/common";
 import type { EventSeries } from "@/lib/schemas/event-series";
@@ -31,11 +31,11 @@ export const CLOSED_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.closed;
 
 /** What the tag reports about its series, said by the door and repeated wherever the tag is hovered. */
 const stateLabel = (one: EventSeries) =>
-  one.isOpenToStudents ? OPEN_TO_STUDENTS_LABEL : CLOSED_TO_STUDENTS_LABEL;
+  anyClassOpen(one.classOptions) ? OPEN_TO_STUDENTS_LABEL : CLOSED_TO_STUDENTS_LABEL;
 
 /** What a tag is, in one icon: a series with its door open or shut. */
 function StateIcon({ eventSeries }: { eventSeries: EventSeries }) {
-  const Door = eventSeries.isOpenToStudents ? DoorOpen : DoorClosed;
+  const Door = anyClassOpen(eventSeries.classOptions) ? DoorOpen : DoorClosed;
 
   return <Door aria-label={stateLabel(eventSeries)} className="size-4 shrink-0" />;
 }
@@ -66,6 +66,7 @@ function TagRow({
     <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
       {eventSeries.map((one) => {
         const pressed = one.id === selectedId;
+        const open = anyClassOpen(one.classOptions);
         return (
           <Tag key={one.id} pressed={pressed} disabled={pending}>
             {/* One tooltip over the door and the name together: whichever of them the pointer
@@ -81,10 +82,10 @@ function TagRow({
                 arrive, so it goes with the permission that edits them. */}
             {pressed && mayOpen ? (
               <TagAction
-                label={(one.isOpenToStudents ? closeActionLabel : openActionLabel)(one.name)}
-                onClick={() => onSetOpen(one, !one.isOpenToStudents)}
+                label={(open ? closeActionLabel : openActionLabel)(one.name)}
+                onClick={() => onSetOpen(one, !open)}
               >
-                {one.isOpenToStudents ? <LogOut aria-hidden /> : <LogIn aria-hidden />}
+                {open ? <LogOut aria-hidden /> : <LogIn aria-hidden />}
               </TagAction>
             ) : null}
           </Tag>
@@ -132,7 +133,7 @@ export function EventSeriesTagRows({
     setActionError(null);
     setSaving(true);
     try {
-      await apiRequest(`/api/event-series/${one.id}`, {
+      await apiRequest(`/api/event-series/${one.id}/open`, {
         method: "PATCH",
         body: { isOpenToStudents },
       });

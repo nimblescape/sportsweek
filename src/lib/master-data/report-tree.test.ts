@@ -143,7 +143,7 @@ describe("eventSeriesReport", () => {
   it("goes on down through a class into who looks after it", () => {
     const report = eventSeriesReport(
       storedEventSeries({
-        classOptions: [{ name: "2aWI", teacherUids: [BOB, ADA] }],
+        classOptions: [{ name: "2aWI", teacherUids: [BOB, ADA], isOpenToStudents: false }],
       }),
       new Map([
         [ADA, "Ada Auer"],
@@ -157,7 +157,9 @@ describe("eventSeriesReport", () => {
 
   it("leaves the bullet list empty for a class nobody looks after", () => {
     const report = eventSeriesReport(
-      storedEventSeries({ classOptions: [{ name: "2aWI", teacherUids: [] }] }),
+      storedEventSeries({
+        classOptions: [{ name: "2aWI", teacherUids: [], isOpenToStudents: false }],
+      }),
     );
 
     const twoAWI = sectionNamed(sectionNamed(report, "Klassen"), "2aWI");
@@ -167,7 +169,9 @@ describe("eventSeriesReport", () => {
   /** A uid the lookup cannot resolve is left out, as a stale invitation entry already is (Q4). */
   it("leaves out a teacher the lookup cannot resolve", () => {
     const report = eventSeriesReport(
-      storedEventSeries({ classOptions: [{ name: "2aWI", teacherUids: [ADA, BOB] }] }),
+      storedEventSeries({
+        classOptions: [{ name: "2aWI", teacherUids: [ADA, BOB], isOpenToStudents: false }],
+      }),
       new Map([[ADA, "Ada Auer"]]),
     );
 

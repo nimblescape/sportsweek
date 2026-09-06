@@ -6,7 +6,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Link, QrCode, Trash2, TriangleAlert } from "lucide-react";
+import { Copy, Link, LogIn, LogOut, QrCode, Trash2, TriangleAlert } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeading, CardTitle } from "@/components/ui/card";
@@ -43,17 +43,28 @@ import { SkillMatrix } from "@/components/assignment/skill-matrix";
 const ATTENDING_LABEL = ATTENDANCE_LABELS.attending;
 const NOT_ATTENDING_LABEL = ATTENDANCE_LABELS.notAttending;
 
+/** The card's one control that moves a class's window (US-43); said the same everywhere it shows. */
+export const OPEN_CLASS_LABEL = "Registrierung öffnen";
+export const CLOSE_CLASS_LABEL = "Registrierung schließen";
+
+/** A class card's other control on its link, distinct from the toggle: it replaces the address
+ * and leaves the window as it found it (US-43, Q11). */
+export const REGENERATE_LABEL = "Neuen Link erzeugen";
+
 /**
  * The third state of the attendance question, which the two answers cannot cover: a student who
  * followed the link and has said nothing yet (US-23). Exported so a test names it once.
  */
 export const NO_ANSWER_LABEL = "Noch keine Antwort";
 
-/** What a card may do with its class's link; null where the series can never be opened (US-19). */
+/** What a card may do with its class's link and its window; null where the series can never be
+ * touched at all (US-19, US-43). */
 export type InvitationControls = {
   tokenFor: (className: string) => string | null;
   linkFor: (className: string) => Promise<string>;
   regenerate: (className: string) => Promise<string>;
+  isOpenFor: (className: string) => boolean;
+  setOpen: (className: string, isOpenToStudents: boolean) => Promise<void>;
 };
 
 type ClassCardsProps = {
@@ -120,7 +131,7 @@ function ClassCard({
   const [expanded, setExpanded] = useState(true);
   const [filter, setFilter] = useState<StudentFilter>(EMPTY_FILTER);
   const [countFiltered, setCountFiltered] = useState(false);
-  const [linkError, setLinkError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [shownCode, setShownCode] = useState<string | null>(null);
   const [confirmingRegenerate, setConfirmingRegenerate] = useState(false);
   // One across both clouds, because one student is being acted on at a time.
@@ -130,13 +141,14 @@ function ClassCard({
   const shown = filterStudents(row.students, filter);
   const figures = countFiltered ? classFigures(shown, columns) : row;
 
-  /** Both controls mint where the class has no link yet, which is what opens the series (US-19). */
+  /** Both controls mint where the class has no link yet: an address with the window shut admits
+   * nobody, so minting one is not the same as opening it (US-43). */
   async function withLink(mint: () => Promise<string>, deliver: (link: string) => void) {
-    setLinkError(null);
+    setActionError(null);
     try {
       deliver(invitationLink(await mint()));
     } catch (caught) {
-      setLinkError(
+      setActionError(
         caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
       );
     }
@@ -144,6 +156,19 @@ function ClassCard({
 
   const handOut = (mint: () => Promise<string>) =>
     withLink(mint, (link) => void navigator.clipboard.writeText(link));
+
+  /** The card's one toggle, and the only thing that moves the window (US-43). */
+  async function toggleOpen() {
+    if (invitations === null) return;
+    setActionError(null);
+    try {
+      await invitations.setOpen(row.class, !invitations.isOpenFor(row.class));
+    } catch (caught) {
+      setActionError(
+        caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
+      );
+    }
+  }
 
   return (
     <Card size="sm" role="group" aria-label={row.class}>
@@ -153,6 +178,23 @@ function ClassCard({
           control={
             invitations === null ? null : (
               <>
+                {(() => {
+                  const open = invitations.isOpenFor(row.class);
+                  const label = open ? CLOSE_CLASS_LABEL : OPEN_CLASS_LABEL;
+                  return (
+                    <Tooltip label={label}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`${label} für ${row.class}`}
+                        onClick={() => void toggleOpen()}
+                      >
+                        {open ? <LogOut aria-hidden /> : <LogIn aria-hidden />}
+                      </Button>
+                    </Tooltip>
+                  );
+                })()}
+
                 <Tooltip label={`${INVITATION_LINK_LABEL} kopieren`}>
                   <Button
                     variant="ghost"
@@ -178,11 +220,11 @@ function ClassCard({
                 {/* Regenerating a link nobody was given undoes nothing, so it is offered only
                     once there is a link to invalidate (US-23). */}
                 {invitations.tokenFor(row.class) === null ? null : (
-                  <Tooltip label={`${INVITATION_LINK_LABEL} neu erstellen`}>
+                  <Tooltip label={REGENERATE_LABEL}>
                     <Button
                       variant="ghost"
                       size="icon"
-                      aria-label={`${INVITATION_LINK_LABEL} für ${row.class} neu erstellen`}
+                      aria-label={`${REGENERATE_LABEL} für ${row.class}`}
                       onClick={() => setConfirmingRegenerate(true)}
                     >
                       <Link aria-hidden />
@@ -196,9 +238,9 @@ function ClassCard({
           <CardTitle className="truncate">{`${row.class}: ${row.total}`}</CardTitle>
         </CardHeading>
 
-        {linkError !== null && (
+        {actionError !== null && (
           <p role="alert" className="text-destructive text-sm">
-            {linkError}
+            {actionError}
           </p>
         )}
 
@@ -217,7 +259,7 @@ function ClassCard({
           <Dialog
             open
             tone="destructive"
-            title={`${INVITATION_LINK_LABEL} neu erstellen`}
+            title={REGENERATE_LABEL}
             onClose={() => setConfirmingRegenerate(false)}
             footer={
               <>

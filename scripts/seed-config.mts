@@ -38,7 +38,6 @@ const seedEventSeriesSchema = eventSeriesSchema.omit({
   id: true,
   nameKey: true,
   isArchived: true,
-  isOpenToStudents: true,
   hasRegistrations: true,
   position: true,
 });

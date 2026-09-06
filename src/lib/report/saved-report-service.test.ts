@@ -38,14 +38,16 @@ beforeEach(() => {
   firestore.seed(
     "eventSeries",
     SERIES,
-    storedEventSeries({ classOptions: [{ name: "5AHIF", teacherUids: [] }] }),
+    storedEventSeries({
+      classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: false }],
+    }),
   );
   firestore.seed(
     "eventSeries",
     "s2",
     storedEventSeries({
       name: "Wintersportwoche 2027",
-      classOptions: [{ name: "5AHIF", teacherUids: [] }],
+      classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: false }],
     }),
   );
 });

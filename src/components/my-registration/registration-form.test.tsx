@@ -74,7 +74,7 @@ const storedRecord: Registration = {
 
 const ALL_ASKED = questionsAsked(
   storedEventSeries({
-    classOptions: [{ name: "3AHME", teacherUids: [] }],
+    classOptions: [{ name: "3AHME", teacherUids: [], isOpenToStudents: false }],
     programs: LISTS.programs,
     skillLevels: LISTS.skillLevels,
     busPickupPoints: LISTS.busPickupPoints,
@@ -196,7 +196,7 @@ describe("RegistrationForm", () => {
     const askedWithout = (...empty: string[]) =>
       questionsAsked(
         storedEventSeries({
-          classOptions: [{ name: "3AHME", teacherUids: [] }],
+          classOptions: [{ name: "3AHME", teacherUids: [], isOpenToStudents: false }],
           programs: empty.includes("programs") ? [] : LISTS.programs,
           skillLevels: empty.includes("skillLevels") ? [] : LISTS.skillLevels,
           busPickupPoints: empty.includes("busPickupPoints") ? [] : LISTS.busPickupPoints,

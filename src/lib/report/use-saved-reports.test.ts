@@ -31,7 +31,7 @@ const { EMPTY_FILTER } = await import("@/lib/filters/student-filter");
 
 const LISTS = storedEventSeries({
   name: "Wintersportwoche",
-  classOptions: [{ name: "5AHIF", teacherUids: [] }],
+  classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: false }],
 });
 
 /** The hook waits for Firebase Auth, so a test has to announce a signed-in user first. */

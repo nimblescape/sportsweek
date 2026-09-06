@@ -344,7 +344,7 @@ describe("AssignmentBoard — a student who cannot be moved", () => {
   });
 
   /**
-   * The rules can take every move away without a drag ever happening here — the series a teacher
+   * The rules can take every move away without a drag ever happening here — the class a teacher
    * had open in another tab is reopened to students — and a tag left looking picked would promise
    * a move that no drop will now accept.
    */
@@ -357,7 +357,7 @@ describe("AssignmentBoard — a student who cannot be moved", () => {
       "true",
     );
 
-    rerender(board(roster, () => "seriesOpen"));
+    rerender(board(roster, () => "classOpen"));
 
     expect(
       card("Nicht zugeteilt").getByRole("button", { name: "Bene Berger" }),

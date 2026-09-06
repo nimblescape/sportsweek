@@ -146,7 +146,9 @@ describe("EventSeriesTagRows", () => {
   /** Several may be open at once, which is precisely the state that is easy to lose track of. */
   it("names the open state on the tag rather than leaving it to sight", () => {
     showing(
-      seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }),
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
       seriesNamed("s2", "Kulturwoche"),
     );
 
@@ -159,7 +161,9 @@ describe("EventSeriesTagRows", () => {
   /** A closed series says so too: silence would read as an icon that failed to load. */
   it("names the closed state as well, so no tag is left saying nothing", () => {
     showing(
-      seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }),
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
       seriesNamed("s2", "Kulturwoche"),
     );
 
@@ -277,7 +281,9 @@ describe("EventSeriesTagRows — colour", () => {
   it("gives an open series no colour of its own once it is not the selected one", () => {
     showing(
       seriesNamed("s1", "Wintersportwoche"),
-      seriesNamed("s2", "Kulturwoche", { isOpenToStudents: true }),
+      seriesNamed("s2", "Kulturwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
       seriesNamed("s3", "Projektwoche"),
     );
 
@@ -315,7 +321,11 @@ describe("EventSeriesTagRows — opening and closing", () => {
   });
 
   it("offers closing instead while the series is open", () => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
 
     render(<EventSeriesTagRows mayOpen />);
 
@@ -335,21 +345,25 @@ describe("EventSeriesTagRows — opening and closing", () => {
       screen.getByRole("button", { name: openActionLabel("Wintersportwoche") }),
     );
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1", {
+    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/open", {
       method: "PATCH",
       body: { isOpenToStudents: true },
     });
   });
 
   it("closes it again when pressed while open", async () => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
 
     render(<EventSeriesTagRows mayOpen />);
     await userEvent.click(
       screen.getByRole("button", { name: closeActionLabel("Wintersportwoche") }),
     );
 
-    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1", {
+    expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/open", {
       method: "PATCH",
       body: { isOpenToStudents: false },
     });
@@ -370,7 +384,11 @@ describe("EventSeriesTagRows — opening and closing", () => {
   });
 
   it("still names which series is selected, and whether it is open", () => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
 
     render(<EventSeriesTagRows />);
 
@@ -419,7 +437,11 @@ describe("EventSeriesTagRows — opening and closing", () => {
   });
 
   it("says closing instead once the series is open", async () => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
 
     render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(
@@ -442,7 +464,11 @@ describe("EventSeriesTagRows — what a tag says on hover", () => {
   });
 
   it("says a series is open", async () => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents: true }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
 
     render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(screen.getByLabelText(OPEN_TO_STUDENTS_LABEL));
@@ -465,7 +491,11 @@ describe("EventSeriesTagRows — what a tag says on hover", () => {
     [true, OPEN_TO_STUDENTS_LABEL],
     [false, CLOSED_TO_STUDENTS_LABEL],
   ])("says the state on the name too when open is %s", async (isOpenToStudents, label) => {
-    showing(seriesNamed("s1", "Wintersportwoche", { isOpenToStudents }));
+    showing(
+      seriesNamed("s1", "Wintersportwoche", {
+        classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents }],
+      }),
+    );
 
     render(<EventSeriesTagRows mayOpen />);
     await userEvent.hover(screen.getByRole("button", { name: "Wintersportwoche" }));

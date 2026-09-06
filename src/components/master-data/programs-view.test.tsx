@@ -204,7 +204,7 @@ describe("ProgramEquipmentView", () => {
         id: "s1",
         ...storedEventSeries({
           name: "Wintersportwoche",
-          classOptions: [{ name: "2aWI", teacherUids: [] }],
+          classOptions: [{ name: "2aWI", teacherUids: [], isOpenToStudents: false }],
         }),
       },
       loading: false,

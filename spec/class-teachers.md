@@ -725,8 +725,8 @@ that my class can be registering while the rest of the school is not.
   and the handler refuses a class outside them rather than narrowing the request quietly.
 - A class of an archived series cannot be opened, and neither can one of a series that has no
   classes — both refusals already exist and are unchanged in intent.
-- Renaming a class carries its invitation; removing one deletes it; archiving the series deletes
-  every invitation in it (Q12).
+- Renaming or removing a class is refused while its invitation is live; archiving the series
+  deletes every invitation in it (Q12).
 
 ### US-44: I open or close every class I look after at once
 
@@ -970,12 +970,12 @@ the invariant instead: a class may never be open without a link, so opening mint
 unreachable state stays unreachable.
 
 **What B costs, accepted.** Two facts rather than one, an extra control for the rare case, and a
-link that lives long enough to see its class renamed — which is why renaming now carries the
-invitation (Q12). Against that: the codebase's own note that leaving links dormant "made closing
-look like a remedy for a link that got out, when it only suspended one" is answered rather than
-ignored. It was right when closing was the _only_ way to kill a link. Once "Neuen Link erzeugen"
-exists as its own named act, closing no longer has to pretend to be a remedy, and the remedy is
-the button that says so.
+link that lives long enough to see its class renamed — which is why a rename is now refused while
+the link is live (Q12). Against that: the codebase's own note that leaving links dormant "made
+closing look like a remedy for a link that got out, when it only suspended one" is answered rather
+than ignored. It was right when closing was the _only_ way to kill a link. Once "Neuen Link
+erzeugen" exists as its own named act, closing no longer has to pretend to be a remedy, and the
+remedy is the button that says so.
 
 **Two questions come apart under B**, and they have to. Joining demands a token; amending does
 not, because a student returning in October signs in with no link in hand. So joining asks the
@@ -1076,13 +1076,13 @@ different one.
 A link that dies at every close is never around to see its class change. A stable one is, so three
 events that never had to think about invitations now do.
 
-- **Renaming a class carries its invitation.** The token records the class by name, so a rename
-  would otherwise orphan it and a student joining afterwards would be enrolled into a class name
-  matching nothing. The rename already runs as a transaction on the series document; it updates
-  the class's invitation in the same one. This is a latent bug today, not a new one — it is simply
-  unreachable while tokens die every cycle.
-- **Removing a class deletes its invitation**, on the same terms removal already has: refused
-  while a registration still names that class, so nothing is orphaned in either direction.
+- **Renaming a class is refused while its invitation is live.** The token records the class by
+  name, so a rename would otherwise orphan it and a student joining afterwards would be enrolled
+  into a class name matching nothing. Closing the class, or regenerating the link, is what frees
+  the name again — the same terms a rename already refuses under while a registration still names
+  the class.
+- **Removing a class is refused on the same terms**, for the same reason: nothing is orphaned in
+  either direction.
 - **Archiving deletes every invitation of the series.** It is the one bulk invalidation left in the
   design and the only one that can cost nobody a resend, because archiving is terminal: a
   signed-off series is not reopened, so there is nothing to hand out again. A series is closed
@@ -1121,18 +1121,18 @@ emulator. Test-driven throughout: the failing test that states the new behaviour
 slice touches `firestore.rules`** — the debt recorded under "Two layers, two rules" is a separate
 piece of work and is not in this sequence.
 
-| Slice  | What lands                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1**  | A class becomes a record. `classOptions` goes from `string[]` to objects with a name and an empty `teacherUids`. Nothing reads the new field yet. Purge and reseed. ✅ landed                                                                                                                                                                                                                                                |
-| **2**  | The class record page and its editor, and the handler that answers the candidates from `users`. The editor writes `classOptions` and nothing else. ✅ landed                                                                                                                                                                                                                                                                 |
-| **3**  | Provisioning: `classAssignments` on an invitation, written by the scripts, claimed by `provisionUser`, dropping what no longer applies. ✅ landed                                                                                                                                                                                                                                                                            |
-| **4**  | The narrowing: the classes offered by Registrierungen, Zuteilungen and Berichte follow what their reader looks after (US-39). ✅ landed                                                                                                                                                                                                                                                                                      |
-| **5**  | The rights page shows the assignments, read-only (US-41). ✅ landed                                                                                                                                                                                                                                                                                                                                                          |
-| **6**  | The Stammdatenbericht expands a class onto the teachers who look after it, resolving the uids through the candidates handler (US-46). ✅ landed                                                                                                                                                                                                                                                                              |
-| **7**  | The scope itself: one module answering "which series is this teacher scoped to", the header offering only those, and the three pages refusing the rest (US-42). ✅ landed                                                                                                                                                                                                                                                    |
-| **8**  | Open becomes per class and stops meaning "a link exists". `isOpenToStudents` moves onto `classOptions` and leaves the series; the card gains an open/close toggle; copying stops opening; "Regenerieren" becomes "Neuen Link erzeugen"; assigning asks the student's own class; archiving asks the classes and deletes the links; renaming and removing a class carry their invitation (US-43, Q8 to Q12). Purge and reseed. |
-| **9**  | The bulk switch: the header's door reads the classes in scope and opens or closes over that set, destroying no link (US-44).                                                                                                                                                                                                                                                                                                 |
-| **10** | The student's side: a live link to a closed class says so, a dead one lands on their own registration, a closed registration is shown read-only, and the series list stops filtering on open (US-45).                                                                                                                                                                                                                        |
+| Slice  | What lands                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1**  | A class becomes a record. `classOptions` goes from `string[]` to objects with a name and an empty `teacherUids`. Nothing reads the new field yet. Purge and reseed. ✅ landed                                                                                                                                                                                                                                                                              |
+| **2**  | The class record page and its editor, and the handler that answers the candidates from `users`. The editor writes `classOptions` and nothing else. ✅ landed                                                                                                                                                                                                                                                                                               |
+| **3**  | Provisioning: `classAssignments` on an invitation, written by the scripts, claimed by `provisionUser`, dropping what no longer applies. ✅ landed                                                                                                                                                                                                                                                                                                          |
+| **4**  | The narrowing: the classes offered by Registrierungen, Zuteilungen and Berichte follow what their reader looks after (US-39). ✅ landed                                                                                                                                                                                                                                                                                                                    |
+| **5**  | The rights page shows the assignments, read-only (US-41). ✅ landed                                                                                                                                                                                                                                                                                                                                                                                        |
+| **6**  | The Stammdatenbericht expands a class onto the teachers who look after it, resolving the uids through the candidates handler (US-46). ✅ landed                                                                                                                                                                                                                                                                                                            |
+| **7**  | The scope itself: one module answering "which series is this teacher scoped to", the header offering only those, and the three pages refusing the rest (US-42). ✅ landed                                                                                                                                                                                                                                                                                  |
+| **8**  | Open becomes per class and stops meaning "a link exists". `isOpenToStudents` moves onto `classOptions` and leaves the series; the card gains an open/close toggle; copying stops opening; "Regenerieren" becomes "Neuen Link erzeugen"; assigning asks the student's own class; archiving asks the classes and deletes the links; renaming and removing a class are refused while their invitation is live (US-43, Q8 to Q12). Purge and reseed. ✅ landed |
+| **9**  | The bulk switch: the header's door reads the classes in scope and opens or closes over that set, destroying no link (US-44).                                                                                                                                                                                                                                                                                                                               |
+| **10** | The student's side: a live link to a closed class says so, a dead one lands on their own registration, a closed registration is shown read-only, and the series list stops filtering on open (US-45).                                                                                                                                                                                                                                                      |
 
 Slices 5 and 6 are the same piece of work seen from two pages — where an assignment is looked for,
 it is now stated — and neither needs anything from the other, so 6 follows 5 only because they

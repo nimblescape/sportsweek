@@ -56,7 +56,7 @@ describe("registersInTwoSteps", () => {
 
 describe("questionsFor", () => {
   const lists = {
-    classOptions: [{ name: "5AHIF", teacherUids: [] }],
+    classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: false }],
     programs: [{ name: "Ski", requiredEquipment: [] }],
     skillLevels: ["Profi"],
     seasonPassOptions: ["Montafon"],
@@ -175,13 +175,15 @@ describe("resolveEventLists", () => {
 
   it("leaves classes and events themselves alone, since neither is per event", () => {
     const eventSeries = storedEventSeries({
-      classOptions: [{ name: "2aWI", teacherUids: [] }],
+      classOptions: [{ name: "2aWI", teacherUids: [], isOpenToStudents: false }],
       events: [event("Woche 1")],
     });
 
     const resolved = resolveEventLists(eventSeries, "Woche 1");
 
-    expect(resolved.classOptions).toEqual([{ name: "2aWI", teacherUids: [] }]);
+    expect(resolved.classOptions).toEqual([
+      { name: "2aWI", teacherUids: [], isOpenToStudents: false },
+    ]);
     expect(resolved.events).toEqual(eventSeries.events);
   });
 
@@ -258,9 +260,13 @@ describe("seriesWideLists", () => {
   });
 
   it("leaves classes and events themselves alone", () => {
-    const eventSeries = storedEventSeries({ classOptions: [{ name: "2aWI", teacherUids: [] }] });
+    const eventSeries = storedEventSeries({
+      classOptions: [{ name: "2aWI", teacherUids: [], isOpenToStudents: false }],
+    });
 
-    expect(seriesWideLists(eventSeries).classOptions).toEqual([{ name: "2aWI", teacherUids: [] }]);
+    expect(seriesWideLists(eventSeries).classOptions).toEqual([
+      { name: "2aWI", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 });
 

@@ -20,13 +20,6 @@ export const eventSeriesSchema = z
      */
     nameKey: z.string().min(1),
     isArchived: z.boolean(),
-    /**
-     * Whether students may write to this series — join it, and go on amending what they said
-     * (US-19). Not the old active flag: any number of series may be open at once, and this governs
-     * students only, since a teacher works in a series whether it is open or not. An invitation link
-     * sets it, archiving clears it, and unarchiving deliberately does not restore it.
-     */
-    isOpenToStudents: z.boolean().default(false),
     // Denormalized from registration so clients — who cannot read that collection directly
     // (see firestore.rules) — can tell whether archiving/deleting is allowed without a round trip.
     hasRegistrations: z.boolean(),

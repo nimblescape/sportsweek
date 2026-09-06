@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { ASSIGN_OPEN_HINT } from "@/lib/event-series/event-series-state";
+import { ASSIGN_OPEN_HINT, classIsOpen } from "@/lib/event-series/event-series-state";
 import { answersOwnedByEvent, questionsFor } from "@/lib/master-data/resolution";
 import type { EventSeriesListField } from "@/lib/master-data/categories";
 import type { EventSeries } from "@/lib/schemas/event-series";
@@ -15,7 +15,7 @@ import { isRegistrationIncomplete } from "@/lib/registration/completeness";
  * because the board has to say the same thing before the write is attempted (US-12, US-36).
  */
 export const IMMOVABLE_HINTS = {
-  seriesOpen: ASSIGN_OPEN_HINT,
+  classOpen: ASSIGN_OPEN_HINT,
   incomplete:
     "Wer die Registrierung noch nicht abgeschlossen hat, kann keinem Event zugeteilt werden.",
   eventAnswered:
@@ -25,8 +25,8 @@ export const IMMOVABLE_HINTS = {
 
 export type ImmovableReason = keyof typeof IMMOVABLE_HINTS;
 
-type AssignableSeries = Pick<EventSeries, "isOpenToStudents" | EventSeriesListField>;
-type AssignableStudent = RegistrationInput & Pick<Registration, "event">;
+type AssignableSeries = Pick<EventSeries, "classOptions" | EventSeriesListField>;
+type AssignableStudent = RegistrationInput & Pick<Registration, "event" | "class">;
 
 /**
  * Why a teacher may not move this student at all, or `null` where they may (US-12, US-36).
@@ -55,7 +55,7 @@ export function immovableReason(
     return "incomplete";
   }
 
-  if (eventSeries.isOpenToStudents) return "seriesOpen";
+  if (classIsOpen(eventSeries.classOptions, student.class)) return "classOpen";
 
   if (student.event === null) return null;
 

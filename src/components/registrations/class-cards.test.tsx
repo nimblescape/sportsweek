@@ -360,6 +360,8 @@ describe("ClassCards — the invitation controls", () => {
     tokenFor: vi.fn(() => "tok" as string | null),
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
   };
 
   beforeEach(() => {
@@ -367,6 +369,7 @@ describe("ClassCards — the invitation controls", () => {
     invitations.tokenFor.mockReturnValue("tok");
     invitations.linkFor.mockResolvedValue("tok");
     invitations.regenerate.mockResolvedValue("fresh");
+    invitations.isOpenFor.mockReturnValue(false);
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
       configurable: true,
@@ -414,7 +417,7 @@ describe("ClassCards — the invitation controls", () => {
 
     await userEvent.click(
       card("5AHIF").getByRole("button", {
-        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+        name: `Neuen Link erzeugen für 5AHIF`,
       }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
@@ -430,7 +433,7 @@ describe("ClassCards — the invitation controls", () => {
 
     expect(
       card("5AHIF").queryByRole("button", {
-        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+        name: `Neuen Link erzeugen für 5AHIF`,
       }),
     ).not.toBeInTheDocument();
   });
@@ -456,12 +459,113 @@ describe("ClassCards — the invitation controls", () => {
   });
 });
 
+/**
+ * A class's own toggle is the only thing that moves its window (US-43): distinct from the link
+ * controls above, which never open or close anything.
+ */
+describe("ClassCards — the open/close toggle", () => {
+  const invitations = {
+    tokenFor: vi.fn(() => "tok" as string | null),
+    linkFor: vi.fn(async () => "tok"),
+    regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    invitations.tokenFor.mockReturnValue("tok");
+    invitations.isOpenFor.mockReturnValue(false);
+    invitations.setOpen.mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn() },
+      configurable: true,
+    });
+  });
+
+  function setupWith(controls: unknown = invitations) {
+    render(
+      <ClassCards
+        rows={classOverview([], CLASSES, COLUMNS)}
+        programs={PROGRAMS}
+        skillLevels={SKILL_LEVELS}
+        columns={COLUMNS}
+        filterGroups={FILTERS}
+        invitations={controls as never}
+        removableEventSeriesId={null}
+        eventSeriesName="Wintersportwoche 2026"
+      />,
+    );
+  }
+
+  it("offers 'Registrierung öffnen' on a closed class", () => {
+    setupWith();
+
+    expect(
+      card("5AHIF").getByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers 'Registrierung schließen' on an open class, and not the opening control", () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    expect(
+      card("5AHIF").getByRole("button", { name: "Registrierung schließen für 5AHIF" }),
+    ).toBeInTheDocument();
+    expect(
+      card("5AHIF").queryByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens only the class it was pressed on", async () => {
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    );
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", true);
+    expect(invitations.setOpen).not.toHaveBeenCalledWith("5BHIF", expect.anything());
+  });
+
+  it("closes an open class", async () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: "Registrierung schließen für 5AHIF" }),
+    );
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", false);
+  });
+
+  it("says what the server said when the toggle is refused", async () => {
+    invitations.setOpen.mockRejectedValue(new Error("nope"));
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    );
+
+    expect(await card("5AHIF").findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("offers no toggle where the series cannot be opened", () => {
+    setupWith(null);
+
+    expect(card("5AHIF").queryByRole("button", { name: /Registrierung/ })).not.toBeInTheDocument();
+  });
+});
+
 describe("ClassCards — showing a link as a QR code", () => {
   const writeText = vi.fn();
   const invitations = {
     tokenFor: vi.fn(() => "tok" as string | null),
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
   };
 
   beforeEach(() => {
@@ -545,6 +649,8 @@ describe("ClassCards — regenerating asks first", () => {
     tokenFor: vi.fn(() => "tok" as string | null),
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
   };
 
   beforeEach(() => {
@@ -575,7 +681,7 @@ describe("ClassCards — regenerating asks first", () => {
   const press = () =>
     userEvent.click(
       card("5AHIF").getByRole("button", {
-        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+        name: `Neuen Link erzeugen für 5AHIF`,
       }),
     );
 

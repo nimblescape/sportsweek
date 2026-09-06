@@ -7,6 +7,7 @@
 
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { classIsOpen } from "@/lib/event-series/event-series-state";
 import { questionsFor, resolveEventLists } from "@/lib/master-data/resolution";
 import { REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
 import { useRegistration } from "@/lib/registration/use-registration";
@@ -50,11 +51,12 @@ export function MyRegistrationView({
 
   const studentClass = record?.class ?? null;
 
+  // Amending asks only whether the student's own class is open, never the series (US-43).
   if (
     eventSeries === null ||
     lists === null ||
-    !eventSeries.isOpenToStudents ||
-    studentClass === null
+    studentClass === null ||
+    !classIsOpen(eventSeries.classOptions, studentClass)
   ) {
     return (
       <Card>

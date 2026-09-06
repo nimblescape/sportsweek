@@ -570,7 +570,7 @@ describe("scopeFilterToGroups", () => {
 describe("prunedToLists", () => {
   const series = storedEventSeries({
     events: [event("Woche 1")],
-    classOptions: [{ name: "5AHIF", teacherUids: [] }],
+    classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: false }],
     programs: [{ name: "Ski", requiredEquipment: [] }],
     skillLevels: ["Profi"],
     seasonPassOptions: ["Kein Skipass"],

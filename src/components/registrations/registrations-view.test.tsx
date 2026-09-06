@@ -20,8 +20,7 @@ const useInvitations = vi.fn();
 
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
 vi.mock("@/lib/invitations/use-invitations", () => ({
-  useInvitations: (id: string, isOpenToStudents: boolean | undefined) =>
-    useInvitations(id, isOpenToStudents),
+  useInvitations: (id: string, classOptions: unknown) => useInvitations(id, classOptions),
 }));
 vi.mock("@/lib/students/use-roster", () => ({ useRoster: (id: string | null) => useRoster(id) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
@@ -62,7 +61,7 @@ function student(
 
 const eventSeries = {
   id: "s1",
-  ...storedEventSeries({ name: "2026", isOpenToStudents: true, hasRegistrations: true }),
+  ...storedEventSeries({ name: "2026", hasRegistrations: true }),
 };
 
 const listOf = (...names: string[]) => ({ items: names, loading: false, error: null });
@@ -74,6 +73,8 @@ beforeEach(() => {
     tokenFor: () => "tok",
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: () => false,
+    setOpen: vi.fn(async () => {}),
     loading: false,
     error: null,
   });
@@ -145,34 +146,13 @@ describe("RegistrationsView", () => {
   });
 });
 
-/**
- * Opening and closing registration is done on the series' own tag in the header (US-19, US-29).
- * This page offers no control for it: two controls for one decision would be two answers to it.
- */
-describe("RegistrationsView — no second registration control", () => {
-  it.each([{}, { isOpenToStudents: false }, { isArchived: true }])(
-    "offers nothing that opens or closes the series, whatever state %o it is in",
-    (state) => {
-      useEventSeries.mockReturnValue({
-        eventSeries: [{ ...eventSeries, ...state }],
-        loading: false,
-        error: null,
-      });
-
-      render(<RegistrationsView />);
-
-      expect(screen.queryByRole("button", { name: /Registrierung/ })).not.toBeInTheDocument();
-    },
-  );
-});
-
 describe("RegistrationsView — handing out links", () => {
-  // With the open state, because closing withdraws the links and a page holding the old ones
-  // would go on offering a token the server has forgotten (US-23).
+  // Each class card mints/copies its own link and reads its own window (US-43); the page hands
+  // the series' classOptions to the hook rather than a single series-wide flag.
   it("gives each class card the series' own links", async () => {
     render(<RegistrationsView />);
 
-    expect(useInvitations).toHaveBeenCalledWith("s1", true);
+    expect(useInvitations).toHaveBeenCalledWith("s1", eventSeries.classOptions);
     expect(
       within(screen.getByRole("group", { name: "5AHIF" })).getByRole("button", {
         name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren`,
@@ -183,21 +163,7 @@ describe("RegistrationsView — handing out links", () => {
   /** A series that can never be opened has no link to hand out either (US-19). */
   it("offers no links for an archived series", () => {
     useEventSeries.mockReturnValue({
-      eventSeries: [{ ...eventSeries, isArchived: true, isOpenToStudents: false }],
-      loading: false,
-      error: null,
-    });
-
-    render(<RegistrationsView />);
-
-    expect(
-      screen.queryByRole("button", { name: new RegExp(INVITATION_LINK_LABEL) }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("offers no links for an archived series", () => {
-    useEventSeries.mockReturnValue({
-      eventSeries: [{ ...eventSeries, isArchived: true, isOpenToStudents: false }],
+      eventSeries: [{ ...eventSeries, isArchived: true }],
       loading: false,
       error: null,
     });
@@ -214,6 +180,8 @@ describe("RegistrationsView — handing out links", () => {
       tokenFor: () => null,
       linkFor: vi.fn(),
       regenerate: vi.fn(),
+      isOpenFor: () => false,
+      setOpen: vi.fn(),
       loading: false,
       error: "Nicht erlaubt.",
     });

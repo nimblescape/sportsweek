@@ -49,6 +49,7 @@ function eventSeries(classOptions: { name: string; teacherUids: string[] }[]) {
         classOptions: classOptions.map((option) => ({
           ...option,
           teacherUids: option.teacherUids.map(asUid),
+          isOpenToStudents: false,
         })),
       }),
     },
