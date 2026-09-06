@@ -6,7 +6,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { asUid } from "@/lib/schemas/common";
+import { asUid, type Uid } from "@/lib/schemas/common";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -49,8 +49,8 @@ const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-s
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
 // only has to be present. The page also decides whether what is set up here may be kept, which
 // these tests take as granted unless they are about the refusal.
-function ReportView({ mayEdit = true }: { mayEdit?: boolean } = {}) {
-  return <ScopedReportView eventSeriesId="s1" mayEdit={mayEdit} />;
+function ReportView({ mayEdit = true, teacherUid }: { mayEdit?: boolean; teacherUid?: Uid } = {}) {
+  return <ScopedReportView eventSeriesId="s1" mayEdit={mayEdit} teacherUid={teacherUid} />;
 }
 
 function student(
@@ -665,5 +665,47 @@ describe("exporting", () => {
 
     expect(screen.getByRole("button", { name: "PDF" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Excel" })).toBeDisabled();
+  });
+});
+
+/** US-39: a teacher's own pages open on the classes they look after, and no others. */
+describe("ReportView — narrowed to a teacher's own classes (US-39)", () => {
+  const TEACHER = asUid("uidTeacher");
+
+  beforeEach(() => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [
+        {
+          ...eventSeries,
+          classOptions: [
+            { name: "5AHIF", teacherUids: [TEACHER] },
+            { name: "5BHIF", teacherUids: [] },
+          ],
+        },
+      ],
+      loading: false,
+      error: null,
+    });
+  });
+
+  it("lists only the students of the classes this teacher looks after", () => {
+    render(<ReportView teacherUid={TEACHER} />);
+
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Muster")).toBeInTheDocument();
+  });
+
+  it("offers only the classes this teacher looks after as a filter tag", () => {
+    render(<ReportView teacherUid={TEACHER} />);
+
+    expect(screen.getByRole("button", { name: "Klasse: 5AHIF" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Klasse: 5BHIF" })).not.toBeInTheDocument();
+  });
+
+  it("lists every student where the reader looks after none of this series' classes", () => {
+    render(<ReportView teacherUid={asUid("uidColleague")} />);
+
+    expect(rows()).toHaveLength(2);
+    expect(rowOf("Berger")).toBeInTheDocument();
   });
 });

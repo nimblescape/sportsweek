@@ -7,9 +7,10 @@ import { ReportView } from "@/components/report/report-view";
 import { requireAnyPermission } from "@/lib/auth/guards";
 import { may } from "@/lib/auth/permissions";
 import { PAGE_PERMISSIONS } from "@/lib/auth/reachable-pages";
+import { asUid } from "@/lib/schemas/common";
 
 // The layout guards the route; this asks the second question the page needs — whether what is
-// set up here may also be kept (US-13, US-2).
+// set up here may also be kept (US-13, US-2), and whose classes narrow it (US-39).
 export default async function ReportPage({
   params,
 }: {
@@ -18,5 +19,11 @@ export default async function ReportPage({
   const { eventSeriesId } = await params;
   const user = await requireAnyPermission(PAGE_PERMISSIONS.report);
 
-  return <ReportView eventSeriesId={eventSeriesId} mayEdit={may(user, "editReports")} />;
+  return (
+    <ReportView
+      eventSeriesId={eventSeriesId}
+      mayEdit={may(user, "editReports")}
+      teacherUid={asUid(user.uid)}
+    />
+  );
 }

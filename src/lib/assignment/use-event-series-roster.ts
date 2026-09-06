@@ -6,11 +6,13 @@
 "use client";
 
 import { useMemo } from "react";
+import { narrowedClasses } from "@/lib/assignment/class-narrowing";
 import { skillColumns, type SkillColumn } from "@/lib/assignment/statistics";
 import { filterGroups, type FilterGroup } from "@/lib/filters/student-filter";
 import { useMasterData, usePrograms } from "@/lib/master-data/use-master-data";
 import { seriesWideLists } from "@/lib/master-data/resolution";
 import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
+import type { Uid } from "@/lib/schemas/common";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import type { RosterStudent } from "@/lib/students/roster";
 import { useRoster } from "@/lib/students/use-roster";
@@ -26,10 +28,14 @@ export type EventSeriesRoster = {
   missing: boolean;
   loading: boolean;
   error: string | null;
-  /** Everyone registered for the selected event series, taking part or not. */
+  /**
+   * Everyone registered for the selected event series, taking part or not — narrowed to a
+   * `teacherUid`'s own classes exactly as `classes` is (US-39).
+   */
   students: RosterStudent[];
   /** The events of that series, by name, in the teacher's order (US-12, US-21). */
   events: string[];
+  /** Narrowed to the caller's own classes where a `teacherUid` looks after any (US-39). */
   classes: string[];
   columns: SkillColumn[];
   programNames: string[];
@@ -46,6 +52,12 @@ type EventSeriesRosterOptions = {
   /** Bus pickup point, season pass and food together — three categories nothing else offers. */
   answerLists?: boolean;
   events?: boolean;
+  /**
+   * Who is asking (US-39): narrows the classes and the students offered to the ones this uid
+   * looks after in this series, where they look after any. Left out, or looking after none,
+   * offers every class exactly as before.
+   */
+  teacherUid?: Uid | null;
 };
 
 /**
@@ -70,6 +82,7 @@ export function useEventSeriesRoster(
     health = false,
     answerLists = false,
     events: eventTags = false,
+    teacherUid = null,
   } = options;
   const {
     eventSeries: selected,
@@ -78,7 +91,7 @@ export function useEventSeriesRoster(
   } = useSelectedEventSeries(eventSeriesId);
 
   const {
-    students,
+    students: rosterStudents,
     loading: rosterLoading,
     error: rosterError,
   } = useRoster(selected?.id ?? null, selected);
@@ -87,12 +100,30 @@ export function useEventSeriesRoster(
   // the report — only ever matches an event by the name a registration holds (US-11).
   // Memoised because the fallback would otherwise be a new array on every render.
   const events = useMemo(() => selected?.events.map((event) => event.name) ?? [], [selected]);
-  const classes = useMasterData("classes", eventSeriesId);
+  const allClasses = useMasterData("classes", eventSeriesId);
   const skillLevels = useMasterData("skill-levels", eventSeriesId);
   const busPickupPoints = useMasterData("bus-pickup-points", eventSeriesId);
   const seasonPassOptions = useMasterData("season-pass-options", eventSeriesId);
   const foodOptions = useMasterData("food-options", eventSeriesId);
   const { programs } = usePrograms(eventSeriesId);
+
+  // Narrowed to this teacher's own classes where they look after any of this series' (US-39); to
+  // every class otherwise, which is what `null` from `narrowedClasses` asks for.
+  const own = useMemo(
+    () => narrowedClasses(selected?.classOptions ?? [], teacherUid),
+    [selected, teacherUid],
+  );
+  const classes = own ?? allClasses.items;
+  // Narrowing the classes without narrowing who is shown in them would leave the figures and the
+  // student lists still counting everybody (US-39); only applied once narrowing actually happened,
+  // so a registration whose class no longer matches any current one is never silently dropped.
+  const students = useMemo(
+    () =>
+      own === null
+        ? rosterStudents
+        : rosterStudents.filter((student) => student.class !== null && own.includes(student.class)),
+    [rosterStudents, own],
+  );
 
   const columns = useMemo(
     () => skillColumns(programs, skillLevels.items),
@@ -108,7 +139,7 @@ export function useEventSeriesRoster(
     () =>
       filterGroups(
         {
-          classes: classes.items,
+          classes,
           programs: wide?.programs ?? programs,
           skillLevels: wide?.skillLevels ?? skillLevels.items,
           busPickupPoints: wide?.busPickupPoints ?? busPickupPoints.items,
@@ -136,7 +167,7 @@ export function useEventSeriesRoster(
       answerLists,
       eventTags,
       events,
-      classes.items,
+      classes,
       programs,
       skillLevels.items,
       busPickupPoints.items,
@@ -149,11 +180,11 @@ export function useEventSeriesRoster(
   return {
     eventSeries: selected,
     missing: !eventSeriesLoading && selected === null,
-    loading: eventSeriesLoading || rosterLoading || classes.loading,
+    loading: eventSeriesLoading || rosterLoading || allClasses.loading,
     error: eventSeriesError ?? rosterError,
     students,
     events,
-    classes: classes.items,
+    classes,
     columns,
     programNames,
     skillLevelNames,

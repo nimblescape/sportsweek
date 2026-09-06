@@ -5,7 +5,7 @@
  */
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { asUid } from "@/lib/schemas/common";
+import { asUid, type Uid } from "@/lib/schemas/common";
 import { INVITATION_LINK_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -43,8 +43,8 @@ const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-s
 
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
 // only has to be present.
-function RegistrationsView() {
-  return <ScopedRegistrationsView eventSeriesId="s1" />;
+function RegistrationsView({ teacherUid }: { teacherUid?: Uid } = {}) {
+  return <ScopedRegistrationsView eventSeriesId="s1" teacherUid={teacherUid} />;
 }
 
 function student(
@@ -244,5 +244,58 @@ describe("RegistrationsView — before any class is maintained", () => {
     render(<RegistrationsView />);
 
     expect(screen.queryByText(NO_CLASSES_HINT)).not.toBeInTheDocument();
+  });
+});
+
+/** US-39: a teacher's own pages open on the classes they look after, and no others. */
+describe("RegistrationsView — narrowed to a teacher's own classes (US-39)", () => {
+  const TEACHER = asUid("uidTeacher");
+
+  beforeEach(() => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [
+        {
+          ...eventSeries,
+          classOptions: [
+            { name: "5AHIF", teacherUids: [TEACHER] },
+            { name: "5BHIF", teacherUids: [] },
+          ],
+        },
+      ],
+      loading: false,
+      error: null,
+    });
+    useRoster.mockReturnValue({
+      students: [student("Muster", { class: "5AHIF" }), student("Cerny", { class: "5BHIF" })],
+      loading: false,
+      error: null,
+    });
+  });
+
+  it("offers only the classes this teacher looks after", () => {
+    render(<RegistrationsView teacherUid={TEACHER} />);
+
+    expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "5BHIF" })).not.toBeInTheDocument();
+  });
+
+  it("counts only the students of the classes this teacher looks after", () => {
+    render(<RegistrationsView teacherUid={TEACHER} />);
+
+    expect(within(screen.getByRole("group", { name: "5AHIF" })).getByText("5AHIF: 1")).toBeInTheDocument(); // prettier-ignore
+  });
+
+  it("offers every class where the reader looks after none of this series'", () => {
+    render(<RegistrationsView teacherUid={asUid("uidColleague")} />);
+
+    expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "5BHIF" })).toBeInTheDocument();
+  });
+
+  it("offers every class where nobody in particular is asking", () => {
+    render(<RegistrationsView />);
+
+    expect(screen.getByRole("group", { name: "5AHIF" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "5BHIF" })).toBeInTheDocument();
   });
 });
