@@ -31,7 +31,12 @@ import { buildEmail } from "@/lib/auth/fake/email-builder";
 import { invitationKey } from "@/lib/auth/school-email";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { genderSchema, type Gender } from "@/lib/schemas/common";
-import { FOOD_OPTION_OTHER, type OverridableLists, type Program } from "@/lib/schemas/master-data";
+import {
+  FOOD_OPTION_OTHER,
+  type ClassOption,
+  type OverridableLists,
+  type Program,
+} from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { MASTER_DATA_CATEGORIES } from "@/lib/master-data/categories";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
@@ -420,6 +425,13 @@ async function purgeAuth(auth: Auth): Promise<number> {
   }
 }
 
+/** `seed.yml` names classes in whatever order is easiest to read there, not the seeded order. */
+const byReversedName = (one: ClassOption, other: ClassOption): number =>
+  [...one.name]
+    .reverse()
+    .join("")
+    .localeCompare([...other.name].reverse().join(""));
+
 /**
  * The one event series a school cannot be without: every teacher view is scoped to a selection,
  * so with none at all the header offers nothing and the navigation bar points nowhere. Deleting
@@ -434,9 +446,11 @@ async function createEventSeries(
   position: number,
   isOpenToStudents: boolean,
 ): Promise<EventSeries> {
-  // The lists live in this document (US-21), so seeding them is part of creating it.
+  // The lists live in this document (US-21), so seeding them is part of creating it. Classes are
+  // seeded in reversed-name order (a teacher may still drag them into any order afterwards).
   const data = {
     ...series,
+    classOptions: [...series.classOptions].sort(byReversedName),
     nameKey: normalizeName(series.name),
     isArchived: false,
     isOpenToStudents,
