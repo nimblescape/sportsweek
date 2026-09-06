@@ -122,7 +122,7 @@ As a teacher holding `editUsers`, I grant and withdraw what my colleagues may do
 **Acceptance criteria:**
 
 - The page is reached from the last item beneath Stammdaten, labelled "Benutzerrechte", and is offered only to a holder of `editUsers`.
-- It lists every teacher, surname first, with their UPN. Students are not listed: a permission is a teacher's.
+- It lists every teacher, first name first, with their UPN. Students are not listed: a permission is a teacher's.
 - Each teacher's permissions are shown as a row of tags, one per permission, pressed for what they hold. A teacher holding none says so.
 - Pressing a tag grants that permission; pressing a pressed one withdraws it. What travels with it is US-2's exclusivity rule, so pressing "Berichte bearbeiten" clears "Berichte ansehen" and pressing either clears the other.
 - The list updates live, so two admins working at once see each other's changes.

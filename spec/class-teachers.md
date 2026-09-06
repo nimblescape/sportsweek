@@ -349,7 +349,7 @@ bare name — so the report and the page it reports on now disagree about what a
 - A class nobody looks after has an empty bullet list, not a "Keine Einträge." line. The heading
   itself — the class's own name, still under "Klassen" — is what a teacher reads; a line under it
   saying nothing was assigned would repeat what the empty list already shows.
-- A teacher is named surname first, matching the rights page, the class editor and the report's
+- A teacher is named first name first, matching the rights page, the class editor and the report's
   own name field. The order is the stored order of `teacherUids`, which is the order they were
   assigned in — no meaning is claimed for it, and none is imposed either.
 
@@ -798,7 +798,7 @@ it now is rather than as the name it used to be.
   directly, with no "Lehrpersonen" heading of its own between the class and its names.
 - A class nobody looks after has an empty bullet list, not a "Keine Einträge." line — the class's
   own heading, still under "Klassen", is what says which class this is.
-- A teacher is named surname first, in the stored order of the assignment.
+- A teacher is named first name first, in the stored order of the assignment.
 - The report shown anywhere below the root is the open series' report in full, never an event's
   or a programme's own slice of it — so a class's teachers show wherever that series' report is
   read, including from an event's own page, a programme's own page, and a class's own page,

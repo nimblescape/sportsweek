@@ -41,7 +41,7 @@ function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): Roster
   });
 }
 
-const nameOf = (person: RosterStudent) => `${person.lastName} ${person.firstName}`;
+const nameOf = (person: RosterStudent) => `${person.firstName} ${person.lastName}`;
 
 function setup(students: RosterStudent[] = [], removableEventSeriesId: string | null = null) {
   render(
@@ -698,6 +698,6 @@ describe("ClassCards — a student who has not answered", () => {
 
     const group = screen.getByRole("group", { name: "5AHIF" });
     expect(within(group).getByText(NO_ANSWER_LABEL)).toBeInTheDocument();
-    expect(within(group).getByRole("button", { name: "Muster Anna" })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Anna Muster" })).toBeInTheDocument();
   });
 });

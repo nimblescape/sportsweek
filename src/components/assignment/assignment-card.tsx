@@ -39,7 +39,7 @@ export const allDragId = (groupId: string) => `all:${groupId}`;
 
 /** How a student's tag reads, so a copy of it cannot come to read differently. */
 export const studentTagName = (student: Pick<RosterStudent, "firstName" | "lastName">) =>
-  `${student.lastName} ${student.firstName}`;
+  `${student.firstName} ${student.lastName}`;
 
 type AssignmentCardProps = {
   group: AssignmentGroup;

@@ -59,7 +59,7 @@ export function useTeacherCandidates(): TeacherCandidatesState {
   return state;
 }
 
-/** Surname first, matching every other staff list. */
+/** Sorted by surname, then first name — how the list is ordered, not how a name is displayed. */
 function byName(a: TeacherCandidate, b: TeacherCandidate): number {
   return (
     a.lastName.localeCompare(b.lastName, "de-AT") || a.firstName.localeCompare(b.firstName, "de-AT")

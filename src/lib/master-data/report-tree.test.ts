@@ -29,12 +29,12 @@ const sectionNamed = (parent: ReportSection, title: string) => {
 };
 
 describe("teacherNamesFrom", () => {
-  it("builds a lookup keyed by uid, surname first", () => {
+  it("builds a lookup keyed by uid, first name first", () => {
     const names = teacherNamesFrom([
       { uid: ADA, firstName: "Ada", lastName: "Auer", email: "ada@htldornbirn.at" },
     ]);
 
-    expect(names.get(ADA)).toBe("Auer Ada");
+    expect(names.get(ADA)).toBe("Ada Auer");
   });
 });
 
@@ -146,13 +146,13 @@ describe("eventSeriesReport", () => {
         classOptions: [{ name: "2aWI", teacherUids: [BOB, ADA] }],
       }),
       new Map([
-        [ADA, "Auer Ada"],
-        [BOB, "Berger Bob"],
+        [ADA, "Ada Auer"],
+        [BOB, "Bob Berger"],
       ]),
     );
 
     const twoAWI = sectionNamed(sectionNamed(report, "Klassen"), "2aWI");
-    expect(twoAWI.entries).toEqual(["Berger Bob", "Auer Ada"]);
+    expect(twoAWI.entries).toEqual(["Bob Berger", "Ada Auer"]);
   });
 
   it("leaves the bullet list empty for a class nobody looks after", () => {
@@ -168,11 +168,11 @@ describe("eventSeriesReport", () => {
   it("leaves out a teacher the lookup cannot resolve", () => {
     const report = eventSeriesReport(
       storedEventSeries({ classOptions: [{ name: "2aWI", teacherUids: [ADA, BOB] }] }),
-      new Map([[ADA, "Auer Ada"]]),
+      new Map([[ADA, "Ada Auer"]]),
     );
 
     const twoAWI = sectionNamed(sectionNamed(report, "Klassen"), "2aWI");
-    expect(twoAWI.entries).toEqual(["Auer Ada"]);
+    expect(twoAWI.entries).toEqual(["Ada Auer"]);
   });
 
   it("goes on down through the events into their own lists", () => {

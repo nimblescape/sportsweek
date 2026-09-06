@@ -46,8 +46,8 @@ const LOADING_LABEL = "Benutzerrechte werden geladen \u2026";
 
 const NO_TEACHERS_HINT = "Es hat sich noch keine Lehrperson angemeldet.";
 
-/** Surname first, matching the order the list is sorted in. */
-const nameOf = (teacher: Teacher) => `${teacher.lastName} ${teacher.firstName}`;
+/** First name first; the list is still sorted surname-first, independent of the display order. */
+const nameOf = (teacher: Teacher) => `${teacher.firstName} ${teacher.lastName}`;
 
 /**
  * Who may do what (US-2). One row per teacher, and a tag per permission — pressed for what they

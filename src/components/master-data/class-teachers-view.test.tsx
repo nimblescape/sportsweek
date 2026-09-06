@@ -84,29 +84,29 @@ describe("ClassTeachersView", () => {
   it("lists every candidate by name", () => {
     show();
 
-    expect(screen.getByText("Auer Ada")).toBeInTheDocument();
-    expect(screen.getByText("Berger Bob")).toBeInTheDocument();
+    expect(screen.getByText("Ada Auer")).toBeInTheDocument();
+    expect(screen.getByText("Bob Berger")).toBeInTheDocument();
   });
 
   /** Two colleagues can share a surname, and the address is what tells them apart. */
   it("carries the address in the tag's accessible name, not only the visible one", () => {
     show();
 
-    expect(screen.getByRole("button", { name: `Auer Ada (${ADA.email})` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Ada Auer (${ADA.email})` })).toBeInTheDocument();
   });
 
   it("presses the tag of an assigned teacher and leaves the rest unpressed", () => {
     eventSeries([{ name: CLASS, teacherUids: [ADA.uid] }]);
     show();
 
-    expect(tagIn(`Auer Ada (${ADA.email})`)).toHaveAttribute("aria-pressed", "true");
-    expect(tagIn(`Berger Bob (${BOB.email})`)).toHaveAttribute("aria-pressed", "false");
+    expect(tagIn(`Ada Auer (${ADA.email})`)).toHaveAttribute("aria-pressed", "true");
+    expect(tagIn(`Bob Berger (${BOB.email})`)).toHaveAttribute("aria-pressed", "false");
   });
 
   it("assigns a teacher who was not assigned yet", async () => {
     show();
 
-    await userEvent.click(tagIn(`Auer Ada (${ADA.email})`));
+    await userEvent.click(tagIn(`Ada Auer (${ADA.email})`));
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith(
@@ -120,7 +120,7 @@ describe("ClassTeachersView", () => {
     eventSeries([{ name: CLASS, teacherUids: [ADA.uid, BOB.uid] }]);
     show();
 
-    await userEvent.click(tagIn(`Auer Ada (${ADA.email})`));
+    await userEvent.click(tagIn(`Ada Auer (${ADA.email})`));
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith(
@@ -147,7 +147,7 @@ describe("ClassTeachersView", () => {
     apiRequest.mockRejectedValue(new Error("Dafür fehlen dir die Rechte."));
     show();
 
-    await userEvent.click(tagIn(`Auer Ada (${ADA.email})`));
+    await userEvent.click(tagIn(`Ada Auer (${ADA.email})`));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Dafür fehlen dir die Rechte.");
   });
@@ -161,7 +161,7 @@ describe("ClassTeachersView", () => {
 
     expect(screen.getByRole("heading", { name: "Klassen" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: CLASS, level: 4 })).toBeInTheDocument();
-    expect(screen.getByText("Auer Ada")).toBeInTheDocument();
+    expect(screen.getByText("Ada Auer")).toBeInTheDocument();
   });
 });
 
@@ -175,8 +175,8 @@ describe("ClassTeachersView — filtering", () => {
 
     await userEvent.type(nameField(), "berg");
 
-    expect(screen.queryByText("Auer Ada")).not.toBeInTheDocument();
-    expect(screen.getByText("Berger Bob")).toBeInTheDocument();
+    expect(screen.queryByText("Ada Auer")).not.toBeInTheDocument();
+    expect(screen.getByText("Bob Berger")).toBeInTheDocument();
   });
 
   it("narrows to the address when that is what was typed", async () => {
@@ -184,8 +184,8 @@ describe("ClassTeachersView — filtering", () => {
 
     await userEvent.type(nameField(), "bob@");
 
-    expect(screen.getByText("Berger Bob")).toBeInTheDocument();
-    expect(screen.queryByText("Auer Ada")).not.toBeInTheDocument();
+    expect(screen.getByText("Bob Berger")).toBeInTheDocument();
+    expect(screen.queryByText("Ada Auer")).not.toBeInTheDocument();
   });
 
   it("narrows to the teachers already assigned when Zugewiesen is pressed", async () => {
@@ -194,8 +194,8 @@ describe("ClassTeachersView — filtering", () => {
 
     await userEvent.click(filterTag(ASSIGNED_LABEL));
 
-    expect(screen.getByText("Berger Bob")).toBeInTheDocument();
-    expect(screen.queryByText("Auer Ada")).not.toBeInTheDocument();
+    expect(screen.getByText("Bob Berger")).toBeInTheDocument();
+    expect(screen.queryByText("Ada Auer")).not.toBeInTheDocument();
   });
 
   it("says so when the filter matches nobody", async () => {

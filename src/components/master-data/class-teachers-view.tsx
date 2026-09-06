@@ -29,8 +29,8 @@ export const NONE_MATCHING_HINT = "Zu diesem Filter passt keine Lehrperson.";
 
 const LOADING_LABEL = "Lehrpersonen werden geladen …";
 
-/** Surname first, matching the order candidates are sorted in. */
-const nameOf = (candidate: TeacherCandidate) => `${candidate.lastName} ${candidate.firstName}`;
+/** First name first; candidates are still sorted surname-first, independent of the display order. */
+const nameOf = (candidate: TeacherCandidate) => `${candidate.firstName} ${candidate.lastName}`;
 
 /** Matches first name, surname or address, so two colleagues sharing one are told apart either way. */
 function matchesName(candidate: TeacherCandidate, name: string): boolean {

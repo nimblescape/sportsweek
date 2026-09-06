@@ -76,8 +76,8 @@ describe("UserPermissionsView", () => {
   it("lists every teacher by name", () => {
     show();
 
-    expect(screen.getByText("Auer Ada")).toBeInTheDocument();
-    expect(screen.getByText("Berger Bob")).toBeInTheDocument();
+    expect(screen.getByText("Ada Auer")).toBeInTheDocument();
+    expect(screen.getByText("Bob Berger")).toBeInTheDocument();
   });
 
   /** Two teachers can share a name, and the address is what tells a reader which one this is. */
@@ -92,7 +92,7 @@ describe("UserPermissionsView", () => {
     show();
 
     for (const permission of PERMISSIONS) {
-      expect(tagIn("Berger Bob", PERMISSION_LABELS[permission])).toBeInTheDocument();
+      expect(tagIn("Bob Berger", PERMISSION_LABELS[permission])).toBeInTheDocument();
     }
   });
 
@@ -100,11 +100,11 @@ describe("UserPermissionsView", () => {
     teachers({ ...BOB, permissions: ["viewReports"] });
     show();
 
-    expect(tagIn("Berger Bob", PERMISSION_LABELS.viewReports)).toHaveAttribute(
+    expect(tagIn("Bob Berger", PERMISSION_LABELS.viewReports)).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    expect(tagIn("Berger Bob", PERMISSION_LABELS.editMasterData)).toHaveAttribute(
+    expect(tagIn("Bob Berger", PERMISSION_LABELS.editMasterData)).toHaveAttribute(
       "aria-pressed",
       "false",
     );
@@ -180,7 +180,7 @@ describe("UserPermissionsView", () => {
   it("grants the permission that was pressed", async () => {
     show();
 
-    await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
+    await userEvent.click(tagIn("Bob Berger", PERMISSION_LABELS.editAssignments));
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/users", {
@@ -194,7 +194,7 @@ describe("UserPermissionsView", () => {
     teachers({ ...BOB, permissions: ["viewReports", "editAssignments"] });
     show();
 
-    await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
+    await userEvent.click(tagIn("Bob Berger", PERMISSION_LABELS.editAssignments));
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/users", {
@@ -209,7 +209,7 @@ describe("UserPermissionsView", () => {
     teachers({ ...BOB, permissions: ["viewReports"] });
     show();
 
-    await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editReports));
+    await userEvent.click(tagIn("Bob Berger", PERMISSION_LABELS.editReports));
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/users", {
@@ -223,7 +223,7 @@ describe("UserPermissionsView", () => {
     teachers({ ...BOB, permissions: ["editReports"] });
     show();
 
-    await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.viewReports));
+    await userEvent.click(tagIn("Bob Berger", PERMISSION_LABELS.viewReports));
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/users", {
@@ -241,7 +241,7 @@ describe("UserPermissionsView", () => {
     show();
 
     expect(
-      screen.queryByRole("button", { name: `Auer Ada: ${PERMISSION_LABELS.editUsers}` }),
+      screen.queryByRole("button", { name: `Ada Auer: ${PERMISSION_LABELS.editUsers}` }),
     ).not.toBeInTheDocument();
     expect(screen.getByText(OWN_GRANT_HINT)).toBeInTheDocument();
   });
@@ -249,7 +249,7 @@ describe("UserPermissionsView", () => {
   it("still lets the admin change their own other permissions", async () => {
     show();
 
-    await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
+    await userEvent.click(tagIn("Ada Auer", PERMISSION_LABELS.editMasterData));
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/users", {
@@ -263,14 +263,14 @@ describe("UserPermissionsView", () => {
     teachers({ ...BOB, permissions: ["editUsers"] });
     show();
 
-    expect(tagIn("Berger Bob", PERMISSION_LABELS.editUsers)).toBeInTheDocument();
+    expect(tagIn("Bob Berger", PERMISSION_LABELS.editUsers)).toBeInTheDocument();
   });
 
   it("reports a refusal without pretending the press landed", async () => {
     apiRequest.mockRejectedValue(new Error("Dafür fehlen dir die Rechte."));
     show();
 
-    await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editAssignments));
+    await userEvent.click(tagIn("Bob Berger", PERMISSION_LABELS.editAssignments));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Dafür fehlen dir die Rechte.");
   });
@@ -283,7 +283,7 @@ describe("UserPermissionsView", () => {
   it("re-runs the server tree after changing your own permissions", async () => {
     show();
 
-    await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
+    await userEvent.click(tagIn("Ada Auer", PERMISSION_LABELS.editMasterData));
 
     await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
@@ -291,7 +291,7 @@ describe("UserPermissionsView", () => {
   it("leaves it alone when the change was to somebody else", async () => {
     show();
 
-    await userEvent.click(tagIn("Berger Bob", PERMISSION_LABELS.editMasterData));
+    await userEvent.click(tagIn("Bob Berger", PERMISSION_LABELS.editMasterData));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
     expect(refresh).not.toHaveBeenCalled();
@@ -304,12 +304,12 @@ describe("UserPermissionsView", () => {
   it("recognises nobody as itself when given something that is not a uid", async () => {
     show(ADA.email);
 
-    await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
+    await userEvent.click(tagIn("Ada Auer", PERMISSION_LABELS.editMasterData));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
     expect(refresh).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("button", { name: `Auer Ada: ${PERMISSION_LABELS.editUsers}` }),
+      screen.getByRole("button", { name: `Ada Auer: ${PERMISSION_LABELS.editUsers}` }),
     ).toBeInTheDocument();
   });
 
@@ -317,7 +317,7 @@ describe("UserPermissionsView", () => {
     apiRequest.mockRejectedValue(new Error("Nein."));
     show();
 
-    await userEvent.click(tagIn("Auer Ada", PERMISSION_LABELS.editMasterData));
+    await userEvent.click(tagIn("Ada Auer", PERMISSION_LABELS.editMasterData));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(refresh).not.toHaveBeenCalled();
@@ -345,7 +345,7 @@ describe("UserPermissionsView — filtering", () => {
   it("shows everybody before anything is filtered", () => {
     show();
 
-    expect(shown()).toEqual(["Auer Ada", "Berger Bob", "Cerny Clara"]);
+    expect(shown()).toEqual(["Ada Auer", "Bob Berger", "Clara Cerny"]);
   });
 
   it("narrows to the name that was typed", async () => {
@@ -353,7 +353,7 @@ describe("UserPermissionsView — filtering", () => {
 
     await userEvent.type(nameField(), "berg");
 
-    expect(shown()).toEqual(["Berger Bob"]);
+    expect(shown()).toEqual(["Bob Berger"]);
   });
 
   it("narrows to whoever holds a pressed permission", async () => {
@@ -361,7 +361,7 @@ describe("UserPermissionsView — filtering", () => {
 
     await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
 
-    expect(shown()).toEqual(["Auer Ada"]);
+    expect(shown()).toEqual(["Ada Auer"]);
   });
 
   it("shows everybody again when Alle is pressed", async () => {
@@ -396,7 +396,7 @@ describe("UserPermissionsView — filtering", () => {
 
     await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
 
-    expect(shown()).toEqual(["Cerny Clara"]);
+    expect(shown()).toEqual(["Clara Cerny"]);
   });
 
   it("reads that tag as an alternative beside a permission", async () => {
@@ -405,7 +405,7 @@ describe("UserPermissionsView — filtering", () => {
     await userEvent.click(filterTag(NO_PERMISSIONS_LABEL));
     await userEvent.click(filterTag(PERMISSION_LABELS.editUsers));
 
-    expect(shown()).toEqual(["Auer Ada", "Cerny Clara"]);
+    expect(shown()).toEqual(["Ada Auer", "Clara Cerny"]);
   });
 
   it("releases it again when pressed twice", async () => {

@@ -32,10 +32,10 @@ type ReportableSeries = Pick<EventSeries, "name" | "isArchived" | EventSeriesLis
  */
 export type TeacherNames = ReadonlyMap<Uid, string>;
 
-/** The one place surname-first names are built for the report, from what the candidates route answers. */
+/** The one place the report's teacher names are built, from what the candidates route answers. */
 export function teacherNamesFrom(candidates: readonly TeacherCandidate[]): TeacherNames {
   return new Map(
-    candidates.map((candidate) => [candidate.uid, `${candidate.lastName} ${candidate.firstName}`]),
+    candidates.map((candidate) => [candidate.uid, `${candidate.firstName} ${candidate.lastName}`]),
   );
 }
 

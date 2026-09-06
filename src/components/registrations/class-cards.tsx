@@ -371,7 +371,7 @@ function Cloud({
       <p className="text-muted-foreground text-xs font-medium">{label}</p>
       <ul aria-label={`${className}: ${label}`} className="flex flex-wrap gap-1.5">
         {students.map((student) => {
-          const name = `${student.lastName} ${student.firstName}`;
+          const name = `${student.firstName} ${student.lastName}`;
           const marked = student.id === markedId;
           return (
             <li key={student.id}>

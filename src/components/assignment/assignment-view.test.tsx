@@ -135,21 +135,21 @@ describe("AssignmentView", () => {
     render(<AssignmentView />);
 
     expect(
-      card("Nicht zugeteilt").getByRole("button", { name: "Muster Anna" }),
+      card("Nicht zugeteilt").getByRole("button", { name: "Anna Muster" }),
     ).toBeInTheDocument();
-    expect(card("Montafon").getByRole("button", { name: "Berger Bene" })).toBeInTheDocument();
+    expect(card("Montafon").getByRole("button", { name: "Bene Berger" })).toBeInTheDocument();
   });
 
   it("keeps a student who is not attending out of every card", () => {
     render(<AssignmentView />);
 
-    expect(screen.queryByRole("button", { name: "Cerny Clara" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clara Cerny" })).not.toBeInTheDocument();
   });
 
   it("assigns a student dragged onto a week", async () => {
     render(<AssignmentView />);
 
-    await drag("Nicht zugeteilt", "Muster Anna", "{ArrowDown}");
+    await drag("Nicht zugeteilt", "Anna Muster", "{ArrowDown}");
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/assignments", {
@@ -162,7 +162,7 @@ describe("AssignmentView", () => {
   it("takes the week away from a student dragged back onto the unassigned card", async () => {
     render(<AssignmentView />);
 
-    await drag("Montafon", "Berger Bene", "{ArrowUp}");
+    await drag("Montafon", "Bene Berger", "{ArrowUp}");
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/assignments", {
@@ -181,7 +181,7 @@ describe("AssignmentView", () => {
     );
 
     render(<AssignmentView />);
-    await drag("Nicht zugeteilt", "Muster Anna", "{ArrowDown}");
+    await drag("Nicht zugeteilt", "Anna Muster", "{ArrowDown}");
 
     await waitFor(() => expect(useBusyWhile).toHaveBeenCalledWith(true));
     settle();
@@ -256,8 +256,8 @@ describe("AssignmentView — narrowed to a teacher's own classes (US-39)", () =>
   it("lists only the students of the classes this teacher looks after", () => {
     render(<AssignmentView teacherUid={TEACHER} />);
 
-    expect(card("Montafon").getByRole("button", { name: "Muster Anna verschieben" })).toBeInTheDocument(); // prettier-ignore
-    expect(card("Montafon").queryByRole("button", { name: "Cerny Clara verschieben" })).not.toBeInTheDocument(); // prettier-ignore
+    expect(card("Montafon").getByRole("button", { name: "Anna Muster verschieben" })).toBeInTheDocument(); // prettier-ignore
+    expect(card("Montafon").queryByRole("button", { name: "Clara Cerny verschieben" })).not.toBeInTheDocument(); // prettier-ignore
   });
 
   it("offers only the classes this teacher looks after as filter tags", () => {
@@ -270,7 +270,7 @@ describe("AssignmentView — narrowed to a teacher's own classes (US-39)", () =>
   it("lists every student where the reader looks after none of this series' classes", () => {
     render(<AssignmentView teacherUid={asUid("uidColleague")} />);
 
-    expect(card("Montafon").getByRole("button", { name: "Muster Anna verschieben" })).toBeInTheDocument(); // prettier-ignore
-    expect(card("Montafon").getByRole("button", { name: "Cerny Clara verschieben" })).toBeInTheDocument(); // prettier-ignore
+    expect(card("Montafon").getByRole("button", { name: "Anna Muster verschieben" })).toBeInTheDocument(); // prettier-ignore
+    expect(card("Montafon").getByRole("button", { name: "Clara Cerny verschieben" })).toBeInTheDocument(); // prettier-ignore
   });
 });
