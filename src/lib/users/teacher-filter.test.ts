@@ -7,8 +7,12 @@ import { describe, expect, it } from "vitest";
 import type { Teacher } from "./use-teachers";
 import {
   EMPTY_TEACHER_FILTER,
+  LOGIN_FILTER_VALUES,
+  clearPermissionTags,
   filterTeachers,
   hasNoFilter,
+  teacherFilterSummary,
+  toggleLoginFilter,
   togglePermissionTag,
   toggleWithoutPermissions,
 } from "./teacher-filter";
@@ -121,7 +125,12 @@ describe("toggleWithoutPermissions", () => {
   });
 
   it("leaves the permission tags and the name alone", () => {
-    const filter = { name: "auer", permissions: ["editUsers"], withoutPermissions: false } as const;
+    const filter = {
+      name: "auer",
+      permissions: ["editUsers"],
+      withoutPermissions: false,
+      logins: null,
+    } as const;
 
     const pressed = toggleWithoutPermissions(filter);
 
@@ -166,5 +175,135 @@ describe("hasNoFilter", () => {
   /** The "Alle" tag answers for the tags, not for the name field beside it. */
   it("stays true while only a name is typed", () => {
     expect(hasNoFilter({ ...EMPTY_TEACHER_FILTER, name: "auer" })).toBe(true);
+  });
+
+  it("is false once the login tag is pressed", () => {
+    expect(hasNoFilter({ ...EMPTY_TEACHER_FILTER, logins: LOGIN_FILTER_VALUES.some })).toBe(false);
+  });
+});
+
+describe("toggleLoginFilter", () => {
+  it("presses one that was not pressed", () => {
+    const pressed = toggleLoginFilter(EMPTY_TEACHER_FILTER, LOGIN_FILTER_VALUES.some);
+
+    expect(pressed.logins).toBe(LOGIN_FILTER_VALUES.some);
+  });
+
+  it("releases one that was pressed", () => {
+    const filter = { ...EMPTY_TEACHER_FILTER, logins: LOGIN_FILTER_VALUES.some };
+
+    expect(toggleLoginFilter(filter, LOGIN_FILTER_VALUES.some).logins).toBeNull();
+  });
+
+  /** The two sides of the question can never both be held — pressing one releases the other. */
+  it("pressing the other side replaces rather than adds to the first", () => {
+    const filter = { ...EMPTY_TEACHER_FILTER, logins: LOGIN_FILTER_VALUES.some };
+
+    expect(toggleLoginFilter(filter, LOGIN_FILTER_VALUES.none).logins).toBe(
+      LOGIN_FILTER_VALUES.none,
+    );
+  });
+
+  it("leaves the permission tags and the name alone", () => {
+    const filter = { ...EMPTY_TEACHER_FILTER, name: "auer", permissions: ["editUsers"] } as const;
+
+    const pressed = toggleLoginFilter(filter, LOGIN_FILTER_VALUES.none);
+
+    expect(pressed.name).toBe("auer");
+    expect(pressed.permissions).toEqual(["editUsers"]);
+  });
+});
+
+describe("clearPermissionTags", () => {
+  it("also releases the login tag, since 'Alle' clears the whole row", () => {
+    const filter = {
+      ...EMPTY_TEACHER_FILTER,
+      permissions: ["editUsers"],
+      withoutPermissions: true,
+      logins: LOGIN_FILTER_VALUES.none,
+    } as const;
+
+    const cleared = clearPermissionTags(filter);
+
+    expect(cleared.permissions).toEqual([]);
+    expect(cleared.withoutPermissions).toBe(false);
+    expect(cleared.logins).toBeNull();
+  });
+});
+
+describe("filterTeachers — the login tags", () => {
+  const withLogin = (uid: string, history: readonly string[]) => new Map([[uid, history]]);
+
+  it("keeps only those who have signed in", () => {
+    const filter = { ...EMPTY_TEACHER_FILTER, logins: LOGIN_FILTER_VALUES.some };
+    const logins = withLogin(ADA.uid, ["Fr., 06.09.2026, 14:30:45"]);
+
+    expect(namesOf(filterTeachers(ALL, filter, logins))).toEqual(["Auer"]);
+  });
+
+  it("keeps only those who never have", () => {
+    const filter = { ...EMPTY_TEACHER_FILTER, logins: LOGIN_FILTER_VALUES.none };
+    const logins = withLogin(ADA.uid, []);
+
+    expect(namesOf(filterTeachers(ALL, filter, logins))).toEqual(["Auer"]);
+  });
+
+  it("leaves out somebody whose read has not settled or was refused", () => {
+    const filter = { ...EMPTY_TEACHER_FILTER, logins: LOGIN_FILTER_VALUES.none };
+
+    expect(namesOf(filterTeachers(ALL, filter, new Map()))).toEqual([]);
+  });
+
+  it("narrows together with the permission row", () => {
+    const filter = {
+      ...EMPTY_TEACHER_FILTER,
+      permissions: ["editUsers"],
+      logins: LOGIN_FILTER_VALUES.some,
+    } as const;
+    const logins = withLogin(ADA.uid, ["Fr., 06.09.2026, 14:30:45"]);
+
+    expect(namesOf(filterTeachers(ALL, filter, logins))).toEqual(["Auer"]);
+  });
+});
+
+describe("teacherFilterSummary", () => {
+  it("is null where nothing is pressed and nothing is typed", () => {
+    expect(teacherFilterSummary(EMPTY_TEACHER_FILTER)).toBeNull();
+  });
+
+  it("names the typed name", () => {
+    expect(teacherFilterSummary({ ...EMPTY_TEACHER_FILTER, name: "auer" })).toBe("Name: auer");
+  });
+
+  it("names the permissions pressed, in the row's own words", () => {
+    const filter = {
+      ...EMPTY_TEACHER_FILTER,
+      permissions: ["editUsers", "editMasterData"],
+    } as const;
+
+    expect(teacherFilterSummary(filter)).toBe("Benutzerrechte, Stammdaten");
+  });
+
+  it("names the tag for holding nothing", () => {
+    expect(teacherFilterSummary({ ...EMPTY_TEACHER_FILTER, withoutPermissions: true })).toBe(
+      "Keine Rechte",
+    );
+  });
+
+  it("names whichever login tag is pressed", () => {
+    const filter = { ...EMPTY_TEACHER_FILTER, logins: LOGIN_FILTER_VALUES.none };
+
+    expect(teacherFilterSummary(filter)).toBe("Noch nie angemeldet");
+  });
+
+  it("joins several with the same separator the student report uses", () => {
+    const filter = {
+      ...EMPTY_TEACHER_FILTER,
+      name: "auer",
+      permissions: ["editUsers"],
+      logins: LOGIN_FILTER_VALUES.some,
+    } as const;
+
+    expect(teacherFilterSummary(filter)).toBe("Name: auer \u00b7 Benutzerrechte \u00b7 Angemeldet");
   });
 });

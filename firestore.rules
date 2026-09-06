@@ -124,18 +124,18 @@ service cloud.firestore {
 
     /**
      * When somebody signed in, one document per sign-in, written by provisionUser through the
-     * Admin SDK. Closed to everybody in both directions: nothing in the app reads it, so
-     * nothing opens it -- not even the person it is about, and not the rights page, which is
-     * about what somebody may do rather than when they were last here.
+     * Admin SDK. Readable by whoever hands out the permissions (US-47) and nobody else -- not
+     * even the person it is about, and not any other permission: when somebody was last here is
+     * an administrator's question about an account, not personal data a report is about.
      *
      * It is a subcollection rather than a field for that reason. A rule grants a whole
-     * document, and the record above is read by whoever hands out the permissions.
+     * document, and `editUsers` is what already reads the record above.
      *
      * No rule would match this path anyway, since the one below reaches only top-level
      * collections. This says so out loud, so that opening it reads as the decision it would be.
      */
     match /users/{uid}/logins/{loginId} {
-      allow read: if false;
+      allow read: if may('editUsers');
       allow write: if false;
     }
 

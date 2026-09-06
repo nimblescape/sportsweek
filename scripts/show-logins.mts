@@ -12,29 +12,13 @@
  */
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
-import { LOGIN_TIME_FIELD, SCHOOL_TIME_ZONE } from "@/lib/auth/login-time";
+import { formatLoginTime, LOGIN_TIME_FIELD } from "@/lib/auth/login-time";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { accountTypeSchema, userSchema, type User } from "@/lib/schemas/user";
 import { apphostingValue, ENVIRONMENTS, fail } from "./environment.mjs";
 
 /** How far back one look goes. Enough to see a pattern, short enough to read at a glance. */
 const HISTORY_LENGTH = 10;
-
-/**
- * How the school reads a date. Every part is a fixed width, so ten of them line up as a column,
- * and the weekday is there because "was that a school day?" is most of what this is looked at
- * for. Shown in the zone it was recorded in, which is what makes it the same wall clock.
- */
-const WHEN = new Intl.DateTimeFormat("de-AT", {
-  timeZone: SCHOOL_TIME_ZONE,
-  weekday: "short",
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-});
 
 /** Ordered by address, so two runs read the same way. */
 async function teachers(db: Firestore): Promise<User[]> {
@@ -61,7 +45,7 @@ async function lastLogins(db: Firestore, person: User): Promise<string[]> {
     .limit(HISTORY_LENGTH)
     .get();
 
-  return snapshot.docs.map((login) => WHEN.format(new Date(String(login.get(LOGIN_TIME_FIELD)))));
+  return snapshot.docs.map((login) => formatLoginTime(String(login.get(LOGIN_TIME_FIELD))));
 }
 
 async function main(): Promise<void> {

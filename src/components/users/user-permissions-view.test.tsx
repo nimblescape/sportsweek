@@ -7,12 +7,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PERMISSIONS, PERMISSION_LABELS } from "@/lib/auth/permissions";
+import { LOGIN_FILTER_LABELS } from "@/lib/users/teacher-filter";
 
 const useTeachers = vi.fn();
 vi.mock("@/lib/users/use-teachers", () => ({ useTeachers: () => useTeachers() }));
 
 const useEventSeries = vi.fn();
 vi.mock("@/lib/event-series/use-event-series", () => ({ useEventSeries: () => useEventSeries() }));
+
+const useRecentLogins = vi.fn();
+vi.mock("@/lib/users/use-recent-logins", () => ({ useRecentLogins: () => useRecentLogins() }));
 
 const apiRequest = vi.fn();
 vi.mock("@/lib/api/client", () => ({ apiRequest: (...args: unknown[]) => apiRequest(...args) }));
@@ -26,6 +30,9 @@ const {
   NO_PERMISSIONS_LABEL,
   FILTER_LABEL,
   NONE_MATCHING_HINT,
+  LOGIN_HISTORY_LABEL,
+  NO_LOGINS_HINT,
+  RIGHTS_REPORT_LABEL,
 } = await import("@/components/users/user-permissions-view");
 
 const ADA = { uid: "uid-of-ada", email: "ada@htldornbirn.at", firstName: "Ada", lastName: "Auer" };
@@ -66,6 +73,7 @@ beforeEach(() => {
   apiRequest.mockResolvedValue({ permissions: [] });
   teachers({ ...ADA, permissions: ["editUsers"] }, BOB);
   eventSeries();
+  useRecentLogins.mockReturnValue(new Map());
 });
 
 function show(signedInUid = ADA.uid) {
@@ -175,6 +183,33 @@ describe("UserPermissionsView", () => {
     show();
 
     expect(screen.queryByRole("button", { name: /2aWI/ })).not.toBeInTheDocument();
+  });
+
+  /** US-47: the last sign-in shown against a name, once the read has settled. */
+  it("shows the last sign-in against a teacher", () => {
+    teachers(BOB);
+    useRecentLogins.mockReturnValue(new Map([[BOB.uid, ["Fr., 06.09.2026, 14:30:45"]]]));
+    show();
+
+    expect(
+      screen.getByText(`${LOGIN_HISTORY_LABEL}: Fr., 06.09.2026, 14:30:45`),
+    ).toBeInTheDocument();
+  });
+
+  it("says a teacher has never signed in, rather than showing nothing", () => {
+    teachers(BOB);
+    useRecentLogins.mockReturnValue(new Map([[BOB.uid, []]]));
+    show();
+
+    expect(screen.getByText(`${LOGIN_HISTORY_LABEL}: ${NO_LOGINS_HINT}`)).toBeInTheDocument();
+  });
+
+  it("shows no login line at all while the read has not settled or was refused", () => {
+    teachers(BOB);
+    useRecentLogins.mockReturnValue(new Map());
+    show();
+
+    expect(screen.queryByText(new RegExp(LOGIN_HISTORY_LABEL))).not.toBeInTheDocument();
   });
 
   it("grants the permission that was pressed", async () => {
@@ -424,5 +459,103 @@ describe("UserPermissionsView — filtering", () => {
     await userEvent.click(screen.getByRole("button", { name: `${FILTER_LABEL}: Alle` }));
 
     expect(shown()).toHaveLength(3);
+  });
+
+  /** US-48: whether somebody has ever signed in, its own row beside what a teacher may do. */
+  it("narrows to whoever has signed in", async () => {
+    useRecentLogins.mockReturnValue(new Map([[ADA.uid, ["Fr., 06.09.2026, 14:30:45"]]]));
+    show();
+
+    await userEvent.click(filterTag(LOGIN_FILTER_LABELS.some));
+
+    expect(shown()).toEqual(["Ada Auer"]);
+  });
+
+  it("narrows to whoever never has", async () => {
+    useRecentLogins.mockReturnValue(new Map([[ADA.uid, []]]));
+    show();
+
+    await userEvent.click(filterTag(LOGIN_FILTER_LABELS.none));
+
+    expect(shown()).toEqual(["Ada Auer"]);
+  });
+
+  it("releases the other side of the same question when pressed", async () => {
+    useRecentLogins.mockReturnValue(new Map([[ADA.uid, ["Fr., 06.09.2026, 14:30:45"]]]));
+    show();
+
+    await userEvent.click(filterTag(LOGIN_FILTER_LABELS.some));
+    await userEvent.click(filterTag(LOGIN_FILTER_LABELS.none));
+
+    expect(filterTag(LOGIN_FILTER_LABELS.some)).toHaveAttribute("aria-pressed", "false");
+    expect(filterTag(LOGIN_FILTER_LABELS.none)).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("is cleared by Alle as well", async () => {
+    useRecentLogins.mockReturnValue(new Map([[ADA.uid, []]]));
+    show();
+    await userEvent.click(filterTag(LOGIN_FILTER_LABELS.none));
+
+    await userEvent.click(screen.getByRole("button", { name: `${FILTER_LABEL}: Alle` }));
+
+    expect(shown()).toHaveLength(3);
+  });
+});
+
+/** US-49: the same names, expanded into a report, in place of the cards a filter narrows. */
+describe("UserPermissionsView — the report", () => {
+  const reportButton = () => screen.getByRole("button", { name: RIGHTS_REPORT_LABEL });
+
+  it("shows the report in place of the cards, and the filter row either way", async () => {
+    show();
+
+    await userEvent.click(reportButton());
+
+    expect(
+      screen.queryByRole("textbox", { name: `${FILTER_LABEL}: Name` }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(ADA.email)).toBeInTheDocument();
+    expect(reportButton()).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("goes back to the cards when the report is closed again", async () => {
+    show();
+    await userEvent.click(reportButton());
+
+    await userEvent.click(reportButton());
+
+    expect(screen.getByRole("textbox", { name: `${FILTER_LABEL}: Name` })).toBeInTheDocument();
+    expect(reportButton()).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("reports only whoever the filter still shows", async () => {
+    teachers({ ...ADA, permissions: ["editUsers"] }, BOB);
+    show();
+    await userEvent.type(screen.getByRole("textbox", { name: `${FILTER_LABEL}: Name` }), "auer");
+
+    await userEvent.click(reportButton());
+
+    expect(screen.getByText(ADA.email)).toBeInTheDocument();
+    expect(screen.queryByText(BOB.email)).not.toBeInTheDocument();
+  });
+
+  it("names what the filter is narrowing by, above the report", async () => {
+    useRecentLogins.mockReturnValue(new Map([[ADA.uid, ["Fr., 06.09.2026, 14:30:45"]]]));
+    show();
+    await userEvent.click(
+      screen.getByRole("button", { name: `${FILTER_LABEL}: ${LOGIN_FILTER_LABELS.some}` }),
+    );
+
+    await userEvent.click(reportButton());
+
+    expect(screen.getByText(LOGIN_FILTER_LABELS.some)).toBeInTheDocument();
+  });
+
+  it("says nothing above the report when nothing narrows it", async () => {
+    show();
+
+    await userEvent.click(reportButton());
+
+    expect(screen.queryByText(LOGIN_FILTER_LABELS.some)).not.toBeInTheDocument();
   });
 });

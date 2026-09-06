@@ -12,7 +12,7 @@ database, and the page whose whole subject is who these people are and what they
 nothing about whether any of them has ever been here.
 
 This document opens that record to exactly one reader — whoever hands out the permissions — and
-gives the rights page the two things the master data pages already have: **the last few sign-ins
+gives the rights page the two things the master data pages already have: **the last sign-in
 against each name**, and **a report of what is on screen**, built the same way the
 Stammdatenbericht is built.
 
@@ -44,7 +44,7 @@ often has to show somebody else, cannot.
 | Today                                                             | After                                                                                  |
 | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `users/{uid}/logins` is closed to every client, in both direction | `editUsers` reads it; it stays closed to writes and to every other permission          |
-| Nothing in the application reads a login                          | The rights page reads the last three against each name                                 |
+| Nothing in the application reads a login                          | The rights page reads the last sign-in against each name                               |
 | The rights page filters by name and by permission                 | It also filters by whether somebody has ever been here                                 |
 | A filter tag is one alternative among the row's                   | The two login tags are one question with two sides, so pressing one releases the other |
 | The rights page has no report                                     | It has one, built like the Stammdatenbericht and reached the same way                  |
@@ -101,16 +101,16 @@ grant — and is not made. Every read here names one teacher's subcollection.
 
 ## The view gains a line
 
-Under the permission tags and the class assignments, a third line: the last three sign-ins,
-newest first, formatted as the school reads a date.
+Under the permission tags and the class assignments, a third line: the last sign-in, formatted
+as the school reads a date.
 
-- **Three, not ten.** The script's ten is for looking for a pattern; three answers "recently, or
+- **One, not ten.** The script's ten is for looking for a pattern; one answers "recently, or
   never" at a glance and does not push the next teacher off the screen. The two numbers are
   different because the two readers are.
 - **Read once, not live.** The rights page subscribes to `users` because a permission changes
   while somebody is looking at it. A sign-in does not — it happens in another browser, and a
   page that redrew for it would be showing motion nobody asked about. One query per teacher on
-  mount, `limit(3)`.
+  mount, `limit(1)`.
 - **Formatted in one place.** `login-time.ts` already owns the shape a login is written in; it
   gains the function that renders one for a person to read, and `scripts/show-logins.mts` stops
   carrying its own copy of that decision.
@@ -134,15 +134,21 @@ Maria Muster
     Zuteilungen
   Klassen
     Wintersportwoche 2026: 2aWI
-  Letzte Anmeldungen
+  Letzte Anmeldung
     Fr., 06.09.2026, 14:30:45
-    Do., 05.09.2026, 07:52:10
 ```
 
 - A teacher is named first name first, as US-46 names one, and the address is the section's own
   first bullet rather than a heading of its own.
-- An empty child section is its heading with no bullets, exactly as a class nobody looks after is
-  reported under US-46 — not a "Keine Einträge." line. One rule, already established.
+- A child section with nothing to report says so, in the same words the card itself already uses
+  for the fact — "Keine Rechte", "Betreut keine Klasse.", "Noch nie angemeldet." — rather than a
+  bullet-less heading a reader could otherwise mistake for the report having missed something.
+  Unlike the two of those, this is not the rule the Stammdatenbericht follows under US-46, where
+  a class nobody looks after stays a bare heading: that report is read beside the record it is
+  about, and this one is handed to somebody who cannot see the screen it came from.
+- A teacher whose sign-in history has not settled or was refused is the one exception: it stays
+  a bullet-less heading, because an unsettled read has nothing to say and must not be shown as
+  "never" — the same distinction US-47 already draws for the line on the card.
 - The tree is a pure function handed what is on screen. It fetches nothing, so it is testable
   without a database and cannot disagree with the page above it.
 
@@ -179,12 +185,12 @@ says nothing twice is simply not representable. "Alle" clears this row with the 
 
 ### US-47: The rights page says when somebody was last here
 
-As an administrator handing out permissions, I see the last few sign-ins beside each name, so that
+As an administrator handing out permissions, I see the last sign-in beside each name, so that
 I can tell an account somebody uses from one that was set up and never touched.
 
 **Acceptance criteria:**
 
-- The three most recent sign-ins are shown against each teacher, newest first, in the school's own
+- The most recent sign-in is shown against each teacher, in the school's own
   wall clock and in the format the school reads a date in.
 - A teacher with no recorded sign-in is said to have none, in that same place; the line is never
   simply absent.
@@ -215,7 +221,7 @@ who never has, so that finding the accounts nobody ever claimed does not mean re
 ### US-49: The rights page has a report of its own
 
 As an administrator, I can expand the rights page into a report and read the staff, their
-permissions, their classes and their last sign-ins as one document, so that what I have to show
+permissions, their classes and their last sign-in as one document, so that what I have to show
 somebody else is on one screen instead of spread across a list of cards.
 
 **Acceptance criteria:**
@@ -224,8 +230,10 @@ somebody else is on one screen instead of spread across a list of cards.
   exactly as the Stammdatenbericht does.
 - One section per teacher, in the order the list is sorted in, naming them first name first, with
   the address as the section's first bullet.
-- Three child sections: the permissions held, the classes looked after, and the last sign-ins.
-- A child section with nothing in it is its heading and no bullets, never a "Keine Einträge." line.
+- Three child sections: the permissions held, the classes looked after, and the last sign-in.
+- A child section with nothing to report says so — "Keine Rechte", "Betreut keine Klasse.",
+  "Noch nie angemeldet." — except a sign-in history that has not settled or was refused, which
+  stays a bullet-less heading rather than claim a teacher has never signed in.
 - The report covers exactly the teachers the filter is showing, and states what it was narrowed by
   where it was narrowed at all.
 - The report tree is a pure function of what is on screen, and fetches nothing.
@@ -233,16 +241,16 @@ somebody else is on one screen instead of spread across a list of cards.
 
 ## Questions and inconsistencies, all settled
 
-### Q1 — Why not keep the last three on the user record? — ANSWERED
+### Q1 — Why not keep the last one on the user record? — ANSWERED
 
-Because the record is already read live by the rights page, a `lastLogins` array on it would cost
-no query at all. It is refused anyway: the logins are the fact, and an array beside them is a
+Because the record is already read live by the rights page, a `lastLogin` field on it would cost
+no query at all. It is refused anyway: the logins are the fact, and a field beside them is a
 second copy of it that will disagree the first time a write fails halfway. The subcollection is
 also what an operator's script reads, and there would then be two answers to "when was this person
 last here", differing by whichever writes the school did not notice failing.
 
 The cost is one query per teacher shown. Accepted: the page is `editUsers`-only, a staff list is a
-school's rather than a country's, and three documents is the smallest read Firestore does.
+school's rather than a country's, and one document is the smallest read Firestore does.
 
 ### Q2 — Does the report get PDF and Excel exports, as the student report does? — ANSWERED
 
@@ -320,7 +328,7 @@ Test-driven throughout: the failing test that states the new behaviour comes fir
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1** | The rule: `users/{uid}/logins` is readable by `editUsers` and by nobody else, and writable by nobody. Rules tests prove each denial — every other permission, the person it is about, and every write. No UI moves. |
 | **2** | The formatter moves into `login-time.ts` and the script reads it from there. Nothing else changes; the script's ten stays its own.                                                                                  |
-| **3** | The view reads the last three against each name, once per teacher, and says so where there are none. A refusal or a failure leaves the rest of the card intact (US-47).                                             |
+| **3** | The view reads the last sign-in against each name, once per teacher, and says so where there are none. A refusal or a failure leaves the rest of the card intact (US-47).                                           |
 | **4** | The filter gains the row: one field holding one of two values or null, cleared by "Alle", narrowing together with the permission row (US-48).                                                                       |
 | **5** | The report: a pure tree from what the filter is showing, a toggle in the breadcrumb, the provenance line where the filter narrows (US-49).                                                                          |
 
