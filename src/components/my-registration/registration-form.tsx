@@ -24,6 +24,7 @@ import {
   type Registration,
   type RegistrationInput,
 } from "@/lib/schemas/registration";
+import { genderSchema } from "@/lib/schemas/common";
 import {
   EMPTY_REGISTRATION,
   scopeRentalToProgram,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/registration/answer-labels";
 import { missingAnswers } from "@/lib/registration/completeness";
 import { ANSWER_LABELS, type AnswerField } from "@/lib/master-data/categories";
+import { EVENT_OWNED_ANSWERS } from "@/lib/master-data/resolution";
 import { EquipmentChecklist } from "./equipment-checklist";
 import { Field, RadioField, ReadOnlyField, SelectField, YES_NO } from "./fields";
 
@@ -61,10 +63,7 @@ type RegistrationFormProps = {
   lists: MasterDataLists;
 };
 
-const GENDERS = [
-  { value: "male", label: GENDER_LABELS.male },
-  { value: "female", label: GENDER_LABELS.female },
-] as const;
+const GENDERS = genderSchema.options.map((value) => ({ value, label: GENDER_LABELS[value] }));
 
 const RELATIONSHIPS = [
   { value: "mother", label: RELATIONSHIP_LABELS.mother },
@@ -166,6 +165,10 @@ export function RegistrationForm({
   ];
 
   const equipment = equipmentOf(programName);
+  const lendsAnything = equipment.some((item) => item.isRentable);
+  // Nothing to put until the student has an event, in a series where an event could answer these
+  // differently (US-36) — so the card is absent rather than empty.
+  const asksAboutTheEvent = [...EVENT_OWNED_ANSWERS].some((field) => asked.has(field));
   // Told, not enforced: a registration is filled in over time and saved as often as the student
   // likes, so what is left to answer is a note to them rather than a locked button (US-11).
   const missing = missingAnswers(
@@ -219,11 +222,6 @@ export function RegistrationForm({
       {isAttending ? (
         <>
           <Section title="Persönliches">
-            <Field label="Geburtsdatum" error={errors.dateOfBirth?.message ?? hint("dateOfBirth")}>
-              {(id) => (
-                <Input id={id} type="date" {...register("dateOfBirth", { setValueAs: orNull })} />
-              )}
-            </Field>
             <RadioField
               control={control}
               name="gender"
@@ -231,6 +229,11 @@ export function RegistrationForm({
               options={GENDERS}
               error={errors.gender?.message ?? hint("gender")}
             />
+            <Field label="Geburtsdatum" error={errors.dateOfBirth?.message ?? hint("dateOfBirth")}>
+              {(id) => (
+                <Input id={id} type="date" {...register("dateOfBirth", { setValueAs: orNull })} />
+              )}
+            </Field>
             <Field label="Telefonnummer" error={errors.phoneNumber?.message ?? hint("phoneNumber")}>
               {(id) => (
                 <Input
@@ -311,133 +314,140 @@ export function RegistrationForm({
             </Field>
           </Section>
 
-          <Section title="Veranstaltung">
-            {asked.has("program") ? (
-              <SelectField
-                control={control}
-                name="program"
-                label="Für welches Programm meldest du dich an?"
-                options={lists.programs.map((entry) => entry.name)}
-                placeholder={`${ANSWER_LABELS.program} wählen`}
-                error={errors.program?.message ?? hint("program")}
-              />
-            ) : null}
-            {equipment.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-                  <span className="text-sm leading-none font-medium">Benötigte Ausrüstung</span>
-                  <RadioField
+          {asksAboutTheEvent ? (
+            <Section title="Veranstaltung">
+              {asked.has("program") ? (
+                <SelectField
+                  control={control}
+                  name="program"
+                  label="Für welches Programm meldest du dich an?"
+                  options={lists.programs.map((entry) => entry.name)}
+                  placeholder={`${ANSWER_LABELS.program} wählen`}
+                  error={errors.program?.message ?? hint("program")}
+                />
+              ) : null}
+              {equipment.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                    <span className="text-sm leading-none font-medium">Benötigte Ausrüstung</span>
+                    {/* A program that lends nothing shows a packing list and asks nothing (US-36). */}
+                    {lendsAnything ? (
+                      <RadioField
+                        control={control}
+                        name="equipmentRentalNeeded"
+                        label="Musst du etwas ausleihen?"
+                        options={YES_NO}
+                        error={
+                          errors.equipmentRentalNeeded?.message ?? hint("equipmentRentalNeeded")
+                        }
+                        inline
+                      />
+                    ) : null}
+                  </div>
+                  <Controller
                     control={control}
-                    name="equipmentRentalNeeded"
-                    label="Musst du etwas ausleihen?"
-                    options={YES_NO}
-                    error={errors.equipmentRentalNeeded?.message ?? hint("equipmentRentalNeeded")}
-                    inline
+                    name="rentedEquipment"
+                    render={({ field }) => (
+                      <EquipmentChecklist
+                        items={equipment}
+                        selectable={needsRental === true}
+                        value={field.value ?? []}
+                        onChange={field.onChange}
+                        error={errors.rentedEquipment?.message ?? hint("rentedEquipment")}
+                      />
+                    )}
                   />
                 </div>
-                <Controller
+              ) : null}
+              {lendsAnything && needsRental === true ? (
+                <>
+                  <Field label="Gewicht [kg]" error={errors.weightKg?.message ?? hint("weightKg")}>
+                    {(id) => (
+                      <Input
+                        id={id}
+                        type="number"
+                        {...register("weightKg", { setValueAs: asNumber })}
+                      />
+                    )}
+                  </Field>
+                  <Field
+                    label="Körpergröße [cm]"
+                    error={errors.heightCm?.message ?? hint("heightCm")}
+                  >
+                    {(id) => (
+                      <Input
+                        id={id}
+                        type="number"
+                        {...register("heightCm", { setValueAs: asNumber })}
+                      />
+                    )}
+                  </Field>
+                  <Field label="Schuhgröße" error={errors.shoeSize?.message ?? hint("shoeSize")}>
+                    {(id) => (
+                      <Input
+                        id={id}
+                        inputMode="numeric"
+                        {...register("shoeSize", { setValueAs: orNull })}
+                      />
+                    )}
+                  </Field>
+                </>
+              ) : null}
+              {asked.has("skillLevel") ? (
+                <SelectField
                   control={control}
-                  name="rentedEquipment"
-                  render={({ field }) => (
-                    <EquipmentChecklist
-                      items={equipment}
-                      selectable={needsRental === true}
-                      value={field.value ?? []}
-                      onChange={field.onChange}
-                      error={errors.rentedEquipment?.message ?? hint("rentedEquipment")}
-                    />
-                  )}
+                  name="skillLevel"
+                  label={ANSWER_LABELS.skillLevel}
+                  options={lists.skillLevels}
+                  placeholder={`${ANSWER_LABELS.skillLevel} wählen`}
+                  error={errors.skillLevel?.message ?? hint("skillLevel")}
                 />
-              </div>
-            ) : null}
-            {equipment.length > 0 && needsRental === true ? (
-              <>
-                <Field label="Schuhgröße" error={errors.shoeSize?.message ?? hint("shoeSize")}>
-                  {(id) => (
-                    <Input
-                      id={id}
-                      inputMode="numeric"
-                      {...register("shoeSize", { setValueAs: orNull })}
-                    />
-                  )}
-                </Field>
-                <Field
-                  label="Körpergröße [cm]"
-                  error={errors.heightCm?.message ?? hint("heightCm")}
-                >
-                  {(id) => (
-                    <Input
-                      id={id}
-                      type="number"
-                      {...register("heightCm", { setValueAs: asNumber })}
-                    />
-                  )}
-                </Field>
-                <Field label="Gewicht [kg]" error={errors.weightKg?.message ?? hint("weightKg")}>
-                  {(id) => (
-                    <Input
-                      id={id}
-                      type="number"
-                      {...register("weightKg", { setValueAs: asNumber })}
-                    />
-                  )}
-                </Field>
-              </>
-            ) : null}
-            {asked.has("skillLevel") ? (
-              <SelectField
-                control={control}
-                name="skillLevel"
-                label={ANSWER_LABELS.skillLevel}
-                options={lists.skillLevels}
-                placeholder={`${ANSWER_LABELS.skillLevel} wählen`}
-                error={errors.skillLevel?.message ?? hint("skillLevel")}
-              />
-            ) : null}
-            {asked.has("seasonPassOption") ? (
-              <SelectField
-                control={control}
-                name="seasonPassOption"
-                label={ANSWER_LABELS.seasonPassOption}
-                options={lists.seasonPassOptions}
-                placeholder={`${ANSWER_LABELS.seasonPassOption} wählen`}
-                error={errors.seasonPassOption?.message ?? hint("seasonPassOption")}
-              />
-            ) : null}
-            {asked.has("busPickupPoint") ? (
-              <SelectField
-                control={control}
-                name="busPickupPoint"
-                label={ANSWER_LABELS.busPickupPoint}
-                options={lists.busPickupPoints}
-                placeholder={`${ANSWER_LABELS.busPickupPoint} wählen`}
-                error={errors.busPickupPoint?.message ?? hint("busPickupPoint")}
-              />
-            ) : null}
-            {/* "Sonstiges" is an answer rather than a list item, so it cannot keep the question
+              ) : null}
+              {asked.has("seasonPassOption") ? (
+                <SelectField
+                  control={control}
+                  name="seasonPassOption"
+                  label={ANSWER_LABELS.seasonPassOption}
+                  options={lists.seasonPassOptions}
+                  placeholder={`${ANSWER_LABELS.seasonPassOption} wählen`}
+                  error={errors.seasonPassOption?.message ?? hint("seasonPassOption")}
+                />
+              ) : null}
+              {asked.has("busPickupPoint") ? (
+                <SelectField
+                  control={control}
+                  name="busPickupPoint"
+                  label={ANSWER_LABELS.busPickupPoint}
+                  options={lists.busPickupPoints}
+                  placeholder={`${ANSWER_LABELS.busPickupPoint} wählen`}
+                  error={errors.busPickupPoint?.message ?? hint("busPickupPoint")}
+                />
+              ) : null}
+              {/* "Sonstiges" is an answer rather than a list item, so it cannot keep the question
                 alive on its own (Q22). */}
-            {asked.has("foodOption") ? (
-              <SelectField
-                control={control}
-                name="foodOption"
-                label={ANSWER_LABELS.foodOption}
-                options={[...lists.foodOptions, FOOD_OPTION_OTHER]}
-                labelOf={(option) =>
-                  option === FOOD_OPTION_OTHER ? FOOD_OPTION_OTHER_LABEL : option
-                }
-                placeholder={`${ANSWER_LABELS.foodOption} wählen`}
-                error={errors.foodOption?.message ?? hint("foodOption")}
-              />
-            ) : null}
-            {foodOption === FOOD_OPTION_OTHER ? (
-              <Field
-                label="Welche Unverträglichkeit?"
-                error={errors.foodOtherText?.message ?? hint("foodOtherText")}
-              >
-                {(id) => <Input id={id} {...register("foodOtherText", { setValueAs: orNull })} />}
-              </Field>
-            ) : null}
-          </Section>
+              {asked.has("foodOption") ? (
+                <SelectField
+                  control={control}
+                  name="foodOption"
+                  label={ANSWER_LABELS.foodOption}
+                  options={[...lists.foodOptions, FOOD_OPTION_OTHER]}
+                  labelOf={(option) =>
+                    option === FOOD_OPTION_OTHER ? FOOD_OPTION_OTHER_LABEL : option
+                  }
+                  placeholder={`${ANSWER_LABELS.foodOption} wählen`}
+                  error={errors.foodOption?.message ?? hint("foodOption")}
+                />
+              ) : null}
+              {foodOption === FOOD_OPTION_OTHER ? (
+                <Field
+                  label="Welche Unverträglichkeit?"
+                  error={errors.foodOtherText?.message ?? hint("foodOtherText")}
+                >
+                  {(id) => <Input id={id} {...register("foodOtherText", { setValueAs: orNull })} />}
+                </Field>
+              ) : null}
+            </Section>
+          ) : null}
 
           <Section title="Gesundheit">
             <Field label="Krankheiten oder Allergien" error={errors.healthNotes?.message}>

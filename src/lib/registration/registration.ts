@@ -5,6 +5,7 @@
  */
 import type { Registration, RegistrationInput } from "@/lib/schemas/registration";
 import { EMPTY_EMERGENCY_CONTACT } from "@/lib/schemas/registration";
+import type { EquipmentItem } from "@/lib/schemas/master-data";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 
 /**
@@ -42,23 +43,23 @@ export const EMPTY_REGISTRATION: RegistrationInput = {
   // Taking part is the student's to answer, and an unanswered form has not answered it. Borrowing
   // equipment is only asked of somebody taking part, so it starts on "no".
   isAttendingSportsWeek: null,
+  gender: null,
+  dateOfBirth: null,
+  phoneNumber: null,
+  emergencyContact: EMPTY_EMERGENCY_CONTACT,
   program: null,
+  equipmentRentalNeeded: false,
+  rentedEquipment: [],
+  weightKg: null,
+  heightCm: null,
+  shoeSize: null,
   skillLevel: null,
+  seasonPassOption: null,
   busPickupPoint: null,
   foodOption: null,
   foodOtherText: null,
-  seasonPassOption: null,
-  dateOfBirth: null,
-  gender: null,
-  phoneNumber: null,
-  emergencyContact: EMPTY_EMERGENCY_CONTACT,
   healthNotes: null,
   hasMedication: null,
-  equipmentRentalNeeded: false,
-  rentedEquipment: [],
-  shoeSize: null,
-  heightCm: null,
-  weightKg: null,
 };
 
 /**
@@ -73,16 +74,18 @@ export function toRegistrationInput(record: Registration): RegistrationInput {
 }
 
 /**
- * Holds the rental answers to what the selected program actually requires (US-11). The form
+ * Holds the rental answers to what the selected program actually lends (US-11, US-36). The form
  * keeps the boxes a student ticked for a program they have since switched away from, which is
  * the right thing on screen and the wrong thing to store: a rented name is what holds a teacher
  * back from removing that equipment (US-5).
  */
 export function scopeRentalToProgram(
   values: RegistrationInput,
-  programEquipment: readonly string[],
+  programEquipment: readonly EquipmentItem[],
 ): RegistrationInput {
-  if (programEquipment.length === 0) {
+  const borrowable = programEquipment.filter((item) => item.isRentable).map((item) => item.name);
+
+  if (borrowable.length === 0) {
     return { ...values, equipmentRentalNeeded: null, rentedEquipment: [] };
   }
   if (values.equipmentRentalNeeded !== true) {
@@ -90,6 +93,6 @@ export function scopeRentalToProgram(
   }
   return {
     ...values,
-    rentedEquipment: values.rentedEquipment.filter((name) => programEquipment.includes(name)),
+    rentedEquipment: values.rentedEquipment.filter((name) => borrowable.includes(name)),
   };
 }

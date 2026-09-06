@@ -33,15 +33,32 @@ export const namedListSchema = z
 export const MAX_EQUIPMENT_ITEMS = 10;
 
 /**
+ * One thing a program requires (US-5, US-36). The list says what a student needs in order to take
+ * part, which is not the same as what the school lends — so each entry states which it is, and a
+ * teacher can ask for long waterproof trousers without offering to supply them.
+ */
+export const equipmentItemSchema = z.object({
+  name: listItemNameSchema,
+  isRentable: z.boolean(),
+});
+export type EquipmentItem = z.infer<typeof equipmentItemSchema>;
+
+/** Which side a new item starts on, said once so the dialog and the seeded defaults agree. */
+export const DEFAULT_IS_RENTABLE = false;
+
+/**
  * Required equipment lives on the program rather than in records of its own (US-5): an item has
  * no identity outside the program that requires it, and nothing references one. Holding the list
  * in a single field is also what makes uniqueness checkable without a query — the whole list is
  * right there, and rewriting it is one atomic change.
  */
 export const requiredEquipmentSchema = z
-  .array(requiredText(120))
+  .array(equipmentItemSchema)
   .max(MAX_EQUIPMENT_ITEMS, `Höchstens ${MAX_EQUIPMENT_ITEMS} Einträge.`)
-  .refine(hasUniqueNames, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
+  .refine(
+    (items) => hasUniqueNames(items.map((item) => item.name)),
+    "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.",
+  );
 
 /** The one list whose entries are not bare names, because a program carries its equipment (US-5). */
 export const programSchema = z.object({
@@ -55,6 +72,40 @@ export const programListSchema = z
   .max(MAX_LIST_ITEMS, `Höchstens ${MAX_LIST_ITEMS} Einträge.`)
   .refine(
     (programs) => hasUniqueNames(programs.map((program) => program.name)),
+    "Jeder Eintrag darf nur einmal vorkommen.",
+  );
+
+/**
+ * The five lists a place decides (US-33): what an event series offers by default, and what one
+ * of its events may name instead. Shared by `eventSeriesSchema` and `eventSchema` so the two
+ * scopes cannot come to disagree about what either one holds.
+ */
+export const overridableListsSchema = z.object({
+  programs: programListSchema.default([]),
+  skillLevels: namedListSchema.default([]),
+  seasonPassOptions: namedListSchema.default([]),
+  busPickupPoints: namedListSchema.default([]),
+  foodOptions: namedListSchema.default([]),
+});
+export type OverridableLists = z.infer<typeof overridableListsSchema>;
+
+/**
+ * One event of an event series (US-21, US-33). A record because it may carry its own version of
+ * the five lists a place decides (see `overridableListsSchema`); "Klassen" stays series-only,
+ * since it describes the school rather than the trip.
+ *
+ * An empty list here is not "asked of nobody" as it is everywhere else — it is "inherited": this
+ * event offers whatever the series offers for that category. Naming an entry is what makes the
+ * event stop inheriting, and removing the last one is what makes it start again.
+ */
+export const eventSchema = z.object({ name: listItemNameSchema }).merge(overridableListsSchema);
+export type Event = z.infer<typeof eventSchema>;
+
+export const eventListSchema = z
+  .array(eventSchema)
+  .max(MAX_LIST_ITEMS, `Höchstens ${MAX_LIST_ITEMS} Einträge.`)
+  .refine(
+    (events) => hasUniqueNames(events.map((event) => event.name)),
     "Jeder Eintrag darf nur einmal vorkommen.",
   );
 

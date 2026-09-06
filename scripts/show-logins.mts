@@ -4,11 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 /**
- * When the people who may hand out permissions last signed in.
- *
- * Asked of the records rather than of a list kept here, so it answers for whoever holds
- * `editUsers` now: the administrators a school was seeded with, and anybody they have made one
- * since — minus anybody it has been taken back off.
+ * When teachers last signed in.
  *
  * This is the only way to see that history at all: no client may read it, not even the person it
  * belongs to, so it is kept for an operator rather than for the application. Reading changes
@@ -17,16 +13,12 @@
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { LOGIN_TIME_FIELD, SCHOOL_TIME_ZONE } from "@/lib/auth/login-time";
-import { permissionSchema } from "@/lib/auth/permissions";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import { userSchema, type User } from "@/lib/schemas/user";
+import { accountTypeSchema, userSchema, type User } from "@/lib/schemas/user";
 import { apphostingValue, ENVIRONMENTS, fail } from "./environment.mjs";
 
 /** How far back one look goes. Enough to see a pattern, short enough to read at a glance. */
 const HISTORY_LENGTH = 10;
-
-/** The permission that makes somebody an administrator, and so puts them in this list. */
-const ADMINISTERS = permissionSchema.enum.editUsers;
 
 /**
  * How the school reads a date. Every part is a fixed width, so ten of them line up as a column,
@@ -45,10 +37,10 @@ const WHEN = new Intl.DateTimeFormat("de-AT", {
 });
 
 /** Ordered by address, so two runs read the same way. */
-async function administrators(db: Firestore): Promise<User[]> {
+async function teachers(db: Firestore): Promise<User[]> {
   const snapshot = await db
     .collection(COLLECTIONS.users)
-    .where("permissions", "array-contains", ADMINISTERS)
+    .where("accountType", "==", accountTypeSchema.enum.teacher)
     .get();
 
   return snapshot.docs
@@ -88,11 +80,8 @@ async function main(): Promise<void> {
   // ambient environment names, and this must address the one just named and nothing else.
   const db = getFirestore(initializeApp({ projectId }));
 
-  const people = await administrators(db);
-  console.log(
-    `The last ${HISTORY_LENGTH} sign-ins of everyone holding ${ADMINISTERS} in ${projectId}:`,
-  );
-  if (people.length === 0) console.log("\n  nobody holds it");
+  const people = await teachers(db);
+  console.log(`The last ${HISTORY_LENGTH} sign-ins of every teacher in ${projectId}:`);
 
   // Asked for at once rather than one after the other, so the wait is one round trip and not one
   // per person; the array keeps them in the order they were sorted into.
@@ -100,9 +89,11 @@ async function main(): Promise<void> {
     people.map(async (person) => ({ person, logins: await lastLogins(db, person) })),
   );
 
-  for (const { person, logins } of histories) {
+  const signedIn = histories.filter(({ logins }) => logins.length > 0);
+  if (signedIn.length === 0) console.log("\n  nobody has signed in");
+
+  for (const { person, logins } of signedIn) {
     console.log(`\n${person.firstName} ${person.lastName} <${person.email}>`);
-    if (logins.length === 0) console.log("  no sign-in recorded");
     for (const at of logins) console.log(`  ${at}`);
   }
 }

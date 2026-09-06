@@ -5,7 +5,7 @@
  */
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import type { EventSeries } from "@/lib/schemas/event-series";
 
 const useEventSeries = vi.fn();
@@ -49,7 +49,7 @@ describe("useMasterData", () => {
     useEventSeries.mockReturnValue(
       delivered(
         eventSeriesOf("s1", {
-          programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+          programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
         }),
       ),
     );
@@ -94,6 +94,41 @@ describe("useMasterData", () => {
 
     expect(result.current.items).toEqual([]);
   });
+
+  /** An event's own list stands in for the series' entirely, once it names one (US-33). */
+  it("reads an event's own list instead of the series', when named", () => {
+    useEventSeries.mockReturnValue(
+      delivered(
+        eventSeriesOf("s1", {
+          skillLevels: ["Anfänger"],
+          events: [event("Woche 1", { skillLevels: ["Fortgeschritten"] })],
+        }),
+      ),
+    );
+
+    const { result } = renderHook(() => useMasterData("skill-levels", "s1", "Woche 1"));
+
+    expect(result.current.items).toEqual(["Fortgeschritten"]);
+  });
+
+  /** Empty means the event inherits the series' list; this hook reports the raw state as it is. */
+  it("reports an event's own empty list as empty, not resolved to the series'", () => {
+    useEventSeries.mockReturnValue(
+      delivered(eventSeriesOf("s1", { skillLevels: ["Anfänger"], events: [event("Woche 1")] })),
+    );
+
+    const { result } = renderHook(() => useMasterData("skill-levels", "s1", "Woche 1"));
+
+    expect(result.current.items).toEqual([]);
+  });
+
+  it("holds an empty list for an event name the series does not carry", () => {
+    useEventSeries.mockReturnValue(delivered(eventSeriesOf("s1", { events: [event("Woche 1")] })));
+
+    const { result } = renderHook(() => useMasterData("skill-levels", "s1", "Ghost"));
+
+    expect(result.current.items).toEqual([]);
+  });
 });
 
 describe("usePrograms", () => {
@@ -101,7 +136,15 @@ describe("usePrograms", () => {
     useEventSeries.mockReturnValue(
       delivered(
         eventSeriesOf("s1", {
-          programs: [{ name: "Ski", requiredEquipment: ["Helm", "Stöcke"] }],
+          programs: [
+            {
+              name: "Ski",
+              requiredEquipment: [
+                { name: "Helm", isRentable: true },
+                { name: "Stöcke", isRentable: true },
+              ],
+            },
+          ],
         }),
       ),
     );
@@ -109,7 +152,13 @@ describe("usePrograms", () => {
     const { result } = renderHook(() => usePrograms("s1"));
 
     expect(result.current.programs).toEqual([
-      { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] },
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Helm", isRentable: true },
+          { name: "Stöcke", isRentable: true },
+        ],
+      },
     ]);
   });
 
@@ -127,7 +176,7 @@ describe("useProgram", () => {
     delivered(
       eventSeriesOf("s1", {
         programs: [
-          { name: "Ski", requiredEquipment: ["Helm"] },
+          { name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] },
           { name: "Snowboard", requiredEquipment: [] },
         ],
       }),
@@ -138,7 +187,10 @@ describe("useProgram", () => {
 
     const { result } = renderHook(() => useProgram("Ski", "s1"));
 
-    expect(result.current.program).toEqual({ name: "Ski", requiredEquipment: ["Helm"] });
+    expect(result.current.program).toEqual({
+      name: "Ski",
+      requiredEquipment: [{ name: "Helm", isRentable: true }],
+    });
   });
 
   /** A name that names nothing is the honest answer to a program since renamed or removed. */
@@ -179,6 +231,19 @@ describe("useUsageReport", () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/event-series/s1/master-data/food-options"),
+    );
+  });
+
+  /** An event's own page asks its own route, the event named in the query (US-33). */
+  it("asks the event-scoped handler when an event name is given", async () => {
+    const fetchMock = stubFetch(respond({ blockedNames: [], blockedEquipment: {} }));
+
+    renderHook(() => useUsageReport("skill-levels", "s1", "Woche 1"));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/event-series/s1/events/master-data/skill-levels?event=Woche%201",
+      ),
     );
   });
 

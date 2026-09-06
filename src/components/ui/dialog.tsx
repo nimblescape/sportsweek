@@ -55,24 +55,62 @@ export function Dialog({
     if (open && !element.open) {
       element.showModal();
       // `showModal()` focuses whatever it reaches first, which is the close cross in the corner.
-      // A dialog that opens asking for a name should be ready to be typed into.
-      element
-        .querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled])")
-        ?.focus();
+      // A dialog that opens asking for a name should be ready to be typed into; one with nothing
+      // to fill in opens with nothing marked as selected instead, the dialog itself holding focus.
+      const field = element.querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled])"); // prettier-ignore
+      if (field) field.focus();
+      else element.focus();
     }
     if (!open && element.open) element.close();
   }, [open, element]);
 
+  // Nothing is marked as selected, so Enter would otherwise reach nobody; it presses the one
+  // control the dialog names as its default instead, the same way a form presses its submit.
+  React.useEffect(() => {
+    if (!element || !open) return;
+
+    function pressDefaultAction(event: KeyboardEvent) {
+      if (event.key !== "Enter" || event.defaultPrevented) return;
+      if ((event.target as HTMLElement | null)?.closest("input, textarea, select, button, a, [contenteditable='true']")) return; // prettier-ignore
+
+      const control = element?.querySelector<HTMLElement>("[data-default-action]");
+      if (!control) return;
+
+      event.preventDefault();
+      control.click();
+    }
+
+    element.addEventListener("keydown", pressDefaultAction);
+    return () => element.removeEventListener("keydown", pressDefaultAction);
+  }, [element, open]);
+
   if (!open) return null;
+
+  /**
+   * Closing a modal hands focus back to whatever opened it. After Escape the browser counts that
+   * as a keyboard focus, so the control is left ringed with its tooltip showing, while closing by
+   * a button leaves focus nowhere — letting go of it is what makes the two ways out look alike.
+   */
+  function releaseFocus() {
+    requestAnimationFrame(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+  }
+
+  function close() {
+    releaseFocus();
+    onClose();
+  }
 
   return (
     <dialog
       ref={setElement}
+      tabIndex={-1}
       aria-labelledby={titleId}
-      onClose={onClose}
-      onCancel={onClose}
+      onClose={close}
+      onCancel={close}
       className={cn(
-        "bg-card text-card-foreground ring-foreground/10 shadow-card relative m-auto w-[calc(100vw-(--spacing(8)))] max-w-md rounded-xl p-0 ring-1 backdrop:bg-black/40",
+        "bg-card text-card-foreground ring-foreground/10 shadow-card relative m-auto w-[calc(100vw-(--spacing(8)))] max-w-md rounded-xl p-0 ring-1 outline-none backdrop:bg-black/40",
         className,
       )}
     >
@@ -88,7 +126,7 @@ export function Dialog({
         </h2>
         <button
           type="button"
-          onClick={onClose}
+          onClick={close}
           aria-label="Schließen"
           className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -m-1 rounded-lg p-1 transition-colors outline-none focus-visible:ring-3"
         >

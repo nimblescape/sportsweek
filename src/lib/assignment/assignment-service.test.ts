@@ -5,7 +5,10 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeDocumentReference, FakeFirestore } from "@/test/fake-firestore";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
+import { studentRecord } from "@/test/roster-student";
+import { asUid } from "@/lib/schemas/common";
+import type { Registration } from "@/lib/schemas/registration";
 
 const firestore = new FakeFirestore();
 
@@ -23,13 +26,15 @@ const REGISTRATIONS = registrationPath("s1");
 const assign = (studentUids: readonly string[], event: string | null) =>
   assignStudents("s1", studentUids, event);
 
-function seedRecord(studentUid: string, fields: Record<string, unknown> = {}) {
-  firestore.seed(REGISTRATIONS, studentUid, {
-    studentUid,
+function seedRecord(studentUid: string, fields: Partial<Registration> = {}) {
+  // The id is the document's own, so it is not among the fields stored under it.
+  const stored: Partial<Registration> = studentRecord({
+    studentUid: asUid(studentUid),
     event: null,
-    isAttendingSportsWeek: true,
     ...fields,
   });
+  delete stored.id;
+  firestore.seed(REGISTRATIONS, studentUid, stored);
 }
 
 beforeEach(() => {
@@ -39,9 +44,8 @@ beforeEach(() => {
     "s1",
     storedEventSeries({
       name: "2026",
-      isOpenToStudents: true,
       hasRegistrations: true,
-      events: ["Woche 1", "Woche 2"],
+      events: [event("Woche 1"), event("Woche 2")],
     }),
   );
   firestore.seed(
@@ -52,7 +56,7 @@ beforeEach(() => {
       isArchived: true,
       hasRegistrations: true,
       position: 1,
-      events: ["Gardasee"],
+      events: [event("Gardasee")],
     }),
   );
   seedRecord(ANNA);
@@ -60,6 +64,23 @@ beforeEach(() => {
 });
 
 const eventOf = (id: string) => firestore.get(REGISTRATIONS, id)?.event;
+
+/** "Woche 2" names a program list of its own, which is what makes the series register in two steps. */
+function seedTwoStepSeries() {
+  firestore.seed(
+    "eventSeries",
+    "s1",
+    storedEventSeries({
+      name: "2026",
+      hasRegistrations: true,
+      programs: [{ name: "Ski", requiredEquipment: [] }],
+      events: [
+        event("Woche 1"),
+        event("Woche 2", { programs: [{ name: "Langlauf", requiredEquipment: [] }] }),
+      ],
+    }),
+  );
+}
 
 describe("assignStudents", () => {
   it("writes the event onto every record it was given", async () => {
@@ -134,7 +155,7 @@ describe("assignStudents", () => {
         isArchived: true,
         hasRegistrations: true,
         position: 1,
-        events: ["woche 1"],
+        events: [event("woche 1")],
       }),
     );
 
@@ -206,5 +227,148 @@ describe("assignStudents", () => {
 
     expect(startedWhenFirstReturned).toBe(3);
     vi.restoreAllMocks();
+  });
+});
+
+/**
+ * While the series is open a student may be answering Veranstaltung at the moment a teacher
+ * moves them, and neither of them would ever know. Closing is the teacher's own act, so the
+ * write is refused rather than the series closed on their behalf.
+ */
+describe("assignStudents — while the event series is open to students", () => {
+  beforeEach(() => {
+    firestore.seed(
+      "eventSeries",
+      "s1",
+      storedEventSeries({
+        name: "2026",
+        isOpenToStudents: true,
+        hasRegistrations: true,
+        events: [event("Woche 1"), event("Woche 2")],
+      }),
+    );
+  });
+
+  it("refuses to assign", async () => {
+    await expect(assign([ANNA], "Woche 1")).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(eventOf(ANNA)).toBeNull();
+  });
+
+  it("refuses to unassign, so closing cannot be worked around by going backwards", async () => {
+    seedRecord(ANNA, { event: "Woche 1" });
+
+    await expect(assign([ANNA], null)).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(eventOf(ANNA)).toBe("Woche 1");
+  });
+});
+
+describe("assignStudents — completeness", () => {
+  /** Incomplete for two unrelated reasons at once is a state the board cannot tell apart. */
+  it("refuses a student who has not finished answering", async () => {
+    seedRecord(ANNA, { phoneNumber: null });
+
+    await expect(assign([ANNA], "Woche 1")).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(eventOf(ANNA)).toBeNull();
+  });
+
+  it("still unassigns one, so nobody is stuck in an event they cannot complete", async () => {
+    seedRecord(ANNA, { event: "Woche 1", phoneNumber: null });
+
+    await assign([ANNA], null);
+
+    expect(eventOf(ANNA)).toBeNull();
+  });
+
+  /**
+   * Assigning is what begins step two (US-36), so a question only the event asks cannot be
+   * outstanding yet — there was no way to answer it before now. Checked fresh against what the
+   * series asks before any event, rather than trusted from a mark nothing ever writes (US-13).
+   */
+  it("refuses a two-step registration missing a base answer, even into an event", async () => {
+    seedTwoStepSeries();
+    seedRecord(ANNA, { phoneNumber: null });
+
+    await expect(assign([ANNA], "Woche 2")).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(eventOf(ANNA)).toBeNull();
+  });
+
+  it("allows assigning a two-step registration that has not reached its event's own question yet", async () => {
+    seedTwoStepSeries();
+    seedRecord(ANNA, { program: null });
+
+    await assign([ANNA], "Woche 2");
+
+    expect(eventOf(ANNA)).toBe("Woche 2");
+  });
+
+  /**
+   * A one-step answer is chosen against the series' own list (US-33); the event later keeping a
+   * narrower list of its own is what makes the series two-step, and nothing rechecked the answer
+   * against it until this assignment.
+   */
+  it("clears an answer no longer valid for the event a student is assigned into", async () => {
+    seedTwoStepSeries();
+    seedRecord(ANNA, { program: "Ski" });
+
+    await assign([ANNA], "Woche 2");
+
+    expect(firestore.get(REGISTRATIONS, ANNA)).toMatchObject({ event: "Woche 2", program: null });
+  });
+
+  it("keeps an answer that is still one the assigned event offers", async () => {
+    seedTwoStepSeries();
+    seedRecord(ANNA, { program: "Langlauf" });
+
+    await assign([ANNA], "Woche 2");
+
+    expect(firestore.get(REGISTRATIONS, ANNA)).toMatchObject({ program: "Langlauf" });
+  });
+});
+
+/**
+ * An answer drawn from an event's own list is only valid inside it, so a move would leave it
+ * pointing at a list the student is no longer offered. It is refused rather than cleared.
+ */
+describe("assignStudents — an answer the event owns", () => {
+  beforeEach(seedTwoStepSeries);
+
+  it("refuses to move the student elsewhere", async () => {
+    seedRecord(ANNA, { event: "Woche 2", program: "Langlauf" });
+
+    await expect(assign([ANNA], "Woche 1")).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(eventOf(ANNA)).toBe("Woche 2");
+  });
+
+  it("refuses to take the event away", async () => {
+    seedRecord(ANNA, { event: "Woche 2", program: "Langlauf" });
+
+    await expect(assign([ANNA], null)).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(eventOf(ANNA)).toBe("Woche 2");
+  });
+
+  /** A repeated drop onto the same event moves nobody, so there is nothing to invalidate. */
+  it("allows assigning the same event again", async () => {
+    seedRecord(ANNA, { event: "Woche 2", program: "Langlauf" });
+
+    await assign([ANNA], "Woche 2");
+
+    expect(eventOf(ANNA)).toBe("Woche 2");
+  });
+
+  it("moves a student whose event names no list of its own", async () => {
+    seedRecord(ANNA, { event: "Woche 1", program: "Ski" });
+
+    await assign([ANNA], "Woche 2");
+
+    expect(eventOf(ANNA)).toBe("Woche 2");
+  });
+
+  /** Nothing is owed until the question is answered, so a move is still free until then. */
+  it("moves a student who has not answered the event's own question yet", async () => {
+    seedRecord(ANNA, { event: "Woche 2", program: null });
+
+    await assign([ANNA], "Woche 1");
+
+    expect(eventOf(ANNA)).toBe("Woche 1");
   });
 });

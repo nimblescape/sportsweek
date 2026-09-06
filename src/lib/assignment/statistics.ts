@@ -4,13 +4,14 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { RosterStudent } from "@/lib/students/roster";
+import { genderSchema, type Gender } from "@/lib/schemas/common";
 
 /** One skill level of one program (US-5, US-7); either is null where its list is empty (US-21). */
 export type SkillColumn = { key: string; program: string | null; skillLevel: string | null };
 
 export type AttendingCounts = {
-  male: number;
-  female: number;
+  /** One count per gender, in the enum's order, so a value added there needs no change here. */
+  genders: Record<Gender, number>;
   /** Keyed by `SkillColumn.key`, and only where something was counted. */
   skillLevels: Record<string, number>;
 };
@@ -92,10 +93,19 @@ export function attendingCounts(
   }
 
   return {
-    male: attending.filter((student) => student.gender === "male").length,
-    female: attending.filter((student) => student.gender === "female").length,
+    genders: Object.fromEntries(
+      genderSchema.options.map((gender) => [
+        gender,
+        attending.filter((student) => student.gender === gender).length,
+      ]),
+    ) as Record<Gender, number>,
     skillLevels,
   };
+}
+
+/** Everyone counted by gender, which is everyone attending whose gender is known. */
+export function countedTotal(counts: AttendingCounts): number {
+  return genderSchema.options.reduce((sum, gender) => sum + counts.genders[gender], 0);
 }
 
 /**
@@ -136,18 +146,20 @@ export function classOverview(
  * The cards a teacher drags between: the students with no week yet, then one card per week of
  * the event series, in the order the teacher put the weeks in (US-12).
  *
- * A student who answered "no" appears in none of them — only someone who is coming can be
- * assigned — which is why the class cards above are the one place they are counted.
+ * A student who answered "no" appears in none of them — only someone who might still come can be
+ * assigned — but one who has not answered yet is still deciding, and is held here rather than
+ * hidden, so a teacher sees whose registration to chase (US-13). The class cards above are where
+ * a "no" is counted; here it never was.
  */
 export function assignmentGroups(
   students: readonly RosterStudent[],
   events: readonly string[],
   columns: readonly SkillColumn[],
 ): AssignmentGroup[] {
-  const attending = students.filter((student) => student.isAttending);
+  const notDeclined = students.filter((student) => student.isAttending !== false);
 
   const group = (id: string, title: string, event: string | null): AssignmentGroup => {
-    const own = attending.filter((student) => student.event === event);
+    const own = notDeclined.filter((student) => student.event === event);
     return { id, title, event, students: own, ...attendingCounts(own, columns) };
   };
 

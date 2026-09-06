@@ -4,7 +4,11 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import type { FilterableStudent } from "@/lib/filters/student-filter";
+import type { EventSeriesListField } from "@/lib/master-data/categories";
+import { questionsFor } from "@/lib/master-data/resolution";
+import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import type { Uid } from "@/lib/schemas/common";
+import type { EventSeries } from "@/lib/schemas/event-series";
 import type { Registration } from "@/lib/schemas/registration";
 
 export type RosterStudent = FilterableStudent & {
@@ -28,10 +32,17 @@ const byName = new Intl.Collator("de-AT").compare;
  * and e-mail address, written from the session on every save and corrected at every login
  * (US-26), so a roster is a projection of one collection rather than a join to `users`.
  *
+ * `isIncomplete` is derived here rather than read off the record: it depends on what the series
+ * currently asks (US-36), which a master-data edit can change for every registration at once
+ * without writing any of them, so a stored mark could only ever be right by coincidence.
+ *
  * Sorted alphabetically rather than by a stored position: a teacher orders the lists they
  * maintain (see Ordering), but the students in them are looked up by name.
  */
-export function toRoster(records: readonly Registration[]): RosterStudent[] {
+export function toRoster(
+  records: readonly Registration[],
+  eventSeries: Pick<EventSeries, EventSeriesListField>,
+): RosterStudent[] {
   return records
     .map((record) => ({
       id: record.id,
@@ -45,7 +56,7 @@ export function toRoster(records: readonly Registration[]): RosterStudent[] {
       program: record.program,
       skillLevel: record.skillLevel,
       isAttending: record.isAttendingSportsWeek,
-      isIncomplete: record.isIncomplete,
+      isIncomplete: isRegistrationIncomplete(record, questionsFor(eventSeries, record.event)),
       event: record.event,
       equipmentRentalNeeded: record.equipmentRentalNeeded,
       healthNotes: record.healthNotes,

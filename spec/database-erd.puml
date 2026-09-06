@@ -50,12 +50,17 @@ entity "EventSeries" as eventSeries {
   ' identity within its own list, so none carries an id. Uniqueness is decided in the write that
   ' changes the list, because the whole list is present in it — no reservation document is needed,
   ' and two event series may each hold a "Montafon" without either ever looking at the other.
-  events : string[]  ' the weeks of this event series, assigned to in US-12
+  events : { name }[]  ' the weeks of this event series, assigned to in US-12. A record rather
+                       ' than a bare name because an event may come to carry lists of its own
+                       ' (US-33); a registration still stores the plain name, not a reference.
   classOptions : string[]  ' Klasse (US-6)
-  programs : { name, requiredEquipment[] }[]  ' the one list whose entries are not bare names,
-                                              ' because a program carries the equipment it
-                                              ' requires (US-5): e.g. ski, ski boots, poles,
-                                              ' helmet. Unique within their own program, so two
+  programs : { name, requiredEquipment: { name, isRentable }[] }[]  ' the one list whose entries
+                                              ' are not bare names, because a program carries the
+                                              ' equipment it requires (US-5): e.g. ski, ski boots,
+                                              ' poles, helmet. Each entry says whether the school
+                                              ' lends it (US-36), so a program can require
+                                              ' something a student has to bring themselves.
+                                              ' Unique within their own program, so two
                                               ' programs may each require a helmet. The whole
                                               ' list is rewritten in one step, so adding,
                                               ' renaming and removing are atomic.
@@ -82,10 +87,6 @@ entity "Registration" as registration {
   FK userId : string
   FK eventSeriesId : string  ' genuine FK — the only real reference among the "selected value" fields (US-11)
   --
-  isIncomplete : boolean  ' whether answers are still outstanding (US-11); recomputed by the server
-                          ' on every save and never sent by the client. Denormalised so the report
-                          ' can mark those students without re-deriving it per row (US-13); the
-                          ' student's own view never shows it
   isAttendingSportsWeek : boolean  ' "Are you attending the sports week?"; all fields below
                                    ' are shown/required only if this is true (US-11),
                                    ' EXCEPT .class, which is always shown/required regardless
@@ -115,8 +116,9 @@ entity "Registration" as registration {
   healthNotes : text
   hasMedication : boolean
   equipmentRentalNeeded : boolean
-  rentedEquipment : string[]  ' the entries of the selected program's requiredEquipment the student
-                              ' rents (US-11), copied by name at selection time — not foreign keys.
+  rentedEquipment : string[]  ' the borrowable entries of the selected program's requiredEquipment
+                              ' the student rents (US-11, US-36), copied by name at selection time
+                              ' — not foreign keys.
                               ' A field for the same reason as the contact above, and rewritten
                               ' whole with the rest of the record, so a save is one atomic change.
   shoeSize : string <<nullable>>

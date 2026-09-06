@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { registrationPath } from "@/lib/registration/registration";
 
@@ -103,16 +103,24 @@ describe("createMasterDataItem", () => {
   it("stores the equipment a program is created with", async () => {
     seedActiveEventSeries();
 
-    await createMasterDataItem("programs", { name: "Ski", requiredEquipment: ["Helm"] });
+    await createMasterDataItem("programs", {
+      name: "Ski",
+      requiredEquipment: [{ name: "Helm", isRentable: true }],
+    });
 
-    expect(storedList("programs")).toEqual([{ name: "Ski", requiredEquipment: ["Helm"] }]);
+    expect(storedList("programs")).toEqual([
+      { name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] },
+    ]);
   });
 
   it("refuses an equipment list on a category that keeps none", async () => {
     seedActiveEventSeries();
 
     await expect(
-      createMasterDataItem("classes", { name: "3AHIT", requiredEquipment: ["Helm"] }),
+      createMasterDataItem("classes", {
+        name: "3AHIT",
+        requiredEquipment: [{ name: "Helm", isRentable: true }],
+      }),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(storedList("classOptions")).toEqual([]);
   });
@@ -172,7 +180,7 @@ describe("reorderMasterDataItems", () => {
   it("carries a program's equipment with it", async () => {
     seedActiveEventSeries({
       programs: [
-        { name: "Ski", requiredEquipment: ["Helm"] },
+        { name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] },
         { name: "Alternativ", requiredEquipment: [] },
       ],
     });
@@ -181,7 +189,7 @@ describe("reorderMasterDataItems", () => {
 
     expect(storedList("programs")).toEqual([
       { name: "Alternativ", requiredEquipment: [] },
-      { name: "Ski", requiredEquipment: ["Helm"] },
+      { name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] },
     ]);
   });
 
@@ -290,20 +298,37 @@ describe("updateMasterDataItem", () => {
   });
 
   it("keeps a program's equipment when only its name changes", async () => {
-    seedActiveEventSeries({ programs: [{ name: "Ski", requiredEquipment: ["Helm"] }] });
+    seedActiveEventSeries({
+      programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
+    });
 
     await updateMasterDataItem("programs", "Ski", { name: "Skifahren" });
 
-    expect(storedList("programs")).toEqual([{ name: "Skifahren", requiredEquipment: ["Helm"] }]);
+    expect(storedList("programs")).toEqual([
+      { name: "Skifahren", requiredEquipment: [{ name: "Helm", isRentable: true }] },
+    ]);
   });
 
   it("replaces the equipment list with the one it is given", async () => {
-    seedActiveEventSeries({ programs: [{ name: "Ski", requiredEquipment: ["Helm"] }] });
+    seedActiveEventSeries({
+      programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
+    });
 
-    await updateMasterDataItem("programs", "Ski", { requiredEquipment: ["Helm", "Stöcke"] });
+    await updateMasterDataItem("programs", "Ski", {
+      requiredEquipment: [
+        { name: "Helm", isRentable: true },
+        { name: "Stöcke", isRentable: true },
+      ],
+    });
 
     expect(storedList("programs")).toEqual([
-      { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] },
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Helm", isRentable: true },
+          { name: "Stöcke", isRentable: true },
+        ],
+      },
     ]);
   });
 
@@ -328,32 +353,102 @@ describe("updateMasterDataItem", () => {
 
   /** Adding to the list takes nothing away, so the rental selections cannot be orphaned by it. */
   it("adds equipment to a program whose name is in use", async () => {
-    seedActiveEventSeries({ programs: [{ name: "Ski", requiredEquipment: ["Helm"] }] });
+    seedActiveEventSeries({
+      programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
+    });
     seedRegistration("r1", { program: "Ski", rentedEquipment: ["Helm"] });
 
-    await updateMasterDataItem("programs", "Ski", { requiredEquipment: ["Helm", "Stöcke"] });
+    await updateMasterDataItem("programs", "Ski", {
+      requiredEquipment: [
+        { name: "Helm", isRentable: true },
+        { name: "Stöcke", isRentable: true },
+      ],
+    });
 
     expect(storedList("programs")).toEqual([
-      { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] },
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Helm", isRentable: true },
+          { name: "Stöcke", isRentable: true },
+        ],
+      },
     ]);
   });
 
   it("refuses to drop an equipment entry a student still rents", async () => {
-    seedActiveEventSeries({ programs: [{ name: "Ski", requiredEquipment: ["Helm", "Stöcke"] }] });
+    seedActiveEventSeries({
+      programs: [
+        {
+          name: "Ski",
+          requiredEquipment: [
+            { name: "Helm", isRentable: true },
+            { name: "Stöcke", isRentable: true },
+          ],
+        },
+      ],
+    });
     seedRegistration("r1", { program: "Ski", rentedEquipment: ["Helm"] });
 
     await expect(
-      updateMasterDataItem("programs", "Ski", { requiredEquipment: ["Stöcke"] }),
+      updateMasterDataItem("programs", "Ski", {
+        requiredEquipment: [{ name: "Stöcke", isRentable: true }],
+      }),
     ).rejects.toMatchObject({ code: "CONFLICT", message: IN_USE_HINT });
   });
 
   it("drops an equipment entry nobody rents", async () => {
-    seedActiveEventSeries({ programs: [{ name: "Ski", requiredEquipment: ["Helm", "Stöcke"] }] });
+    seedActiveEventSeries({
+      programs: [
+        {
+          name: "Ski",
+          requiredEquipment: [
+            { name: "Helm", isRentable: true },
+            { name: "Stöcke", isRentable: true },
+          ],
+        },
+      ],
+    });
     seedRegistration("r1", { program: "Ski", rentedEquipment: ["Helm"] });
 
-    await updateMasterDataItem("programs", "Ski", { requiredEquipment: ["Helm"] });
+    await updateMasterDataItem("programs", "Ski", {
+      requiredEquipment: [{ name: "Helm", isRentable: true }],
+    });
 
-    expect(storedList("programs")).toEqual([{ name: "Ski", requiredEquipment: ["Helm"] }]);
+    expect(storedList("programs")).toEqual([
+      { name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] },
+    ]);
+  });
+
+  /**
+   * Withdrawing the flag invalidates the same answer as removing the entry would, so it is
+   * refused on the same terms (US-36).
+   */
+  it("refuses to stop lending an entry a student still rents", async () => {
+    seedActiveEventSeries({
+      programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
+    });
+    seedRegistration("r1", { program: "Ski", rentedEquipment: ["Helm"] });
+
+    await expect(
+      updateMasterDataItem("programs", "Ski", {
+        requiredEquipment: [{ name: "Helm", isRentable: false }],
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT", message: IN_USE_HINT });
+  });
+
+  it("starts lending an entry nobody could have rented yet", async () => {
+    seedActiveEventSeries({
+      programs: [{ name: "Ski", requiredEquipment: [{ name: "Hose", isRentable: false }] }],
+    });
+
+    await updateMasterDataItem("programs", "Ski", {
+      requiredEquipment: [{ name: "Hose", isRentable: true }],
+    });
+
+    expect(storedList("programs")).toEqual([
+      { name: "Ski", requiredEquipment: [{ name: "Hose", isRentable: true }] },
+    ]);
   });
 
   it("rejects a blank new name", async () => {
@@ -409,38 +504,44 @@ describe("deleteMasterDataItem", () => {
    * exactly as deleting a class would. It is a list like any other in this respect.
    */
   it("refuses to delete an event a student is assigned to", async () => {
-    seedActiveEventSeries({ events: ["Woche 1", "Woche 2"] });
+    seedActiveEventSeries({ events: [event("Woche 1"), event("Woche 2")] });
     seedRegistration("r1", { event: "Woche 1" });
 
     await expect(deleteMasterDataItem("events", "Woche 1")).rejects.toMatchObject({
       code: "CONFLICT",
       message: IN_USE_HINT,
     });
-    expect(storedList("events")).toEqual(["Woche 1", "Woche 2"]);
+    expect(storedList("events")).toEqual([event("Woche 1"), event("Woche 2")]);
   });
 
   it("deletes an event nobody is assigned to", async () => {
-    seedActiveEventSeries({ events: ["Woche 1", "Woche 2"] });
+    seedActiveEventSeries({ events: [event("Woche 1"), event("Woche 2")] });
     seedRegistration("r1", { event: "Woche 1" });
 
     await deleteMasterDataItem("events", "Woche 2");
 
-    expect(storedList("events")).toEqual(["Woche 1"]);
+    expect(storedList("events")).toEqual([event("Woche 1")]);
   });
 
   /** Deleting a program would take its equipment along, so a rented entry holds it back too. */
   it("refuses to delete a program whose equipment a student still rents", async () => {
-    seedActiveEventSeries({ programs: [{ name: "Ski", requiredEquipment: ["Helm"] }] });
+    seedActiveEventSeries({
+      programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
+    });
     seedRegistration("r1", { rentedEquipment: ["Helm"] });
 
     await expect(deleteMasterDataItem("programs", "Ski")).rejects.toMatchObject({
       code: "CONFLICT",
     });
-    expect(storedList("programs")).toEqual([{ name: "Ski", requiredEquipment: ["Helm"] }]);
+    expect(storedList("programs")).toEqual([
+      { name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] },
+    ]);
   });
 
   it("deletes a program whose equipment nobody rents", async () => {
-    seedActiveEventSeries({ programs: [{ name: "Ski", requiredEquipment: ["Helm"] }] });
+    seedActiveEventSeries({
+      programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
+    });
 
     await deleteMasterDataItem("programs", "Ski");
 
@@ -542,14 +643,117 @@ describe("readMasterDataItems", () => {
   });
 
   it("carries the equipment a program requires, which is what the usage report keys by", async () => {
-    seedActiveEventSeries({ programs: [{ name: "Ski", requiredEquipment: ["Helm"] }] });
+    seedActiveEventSeries({
+      programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
+    });
 
     await expect(readMasterDataItems("programs")).resolves.toMatchObject({
-      items: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+      items: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
     });
   });
 
   it("refuses while no event series is active", async () => {
     await expect(readMasterDataItems("classes")).rejects.toBeInstanceOf(ServiceError);
+  });
+});
+
+/**
+ * The five overridable categories (US-33) work the same at event scope as at series scope — same
+ * service, same guard, same schema — with only where the list lives differing (Q: "unify, don't
+ * reinvent" per the per-event-categories refactor's own instruction).
+ */
+describe("event scope", () => {
+  const WOCHE_1 = { kind: "event", name: "Woche 1" } as const;
+
+  it("reads an event's own list rather than the series'", async () => {
+    seedActiveEventSeries({
+      events: [event("Woche 1", { programs: [{ name: "Ski", requiredEquipment: [] }] })],
+      programs: [{ name: "Snowboard", requiredEquipment: [] }],
+    });
+
+    await expect(readMasterDataItems("programs", WOCHE_1)).resolves.toEqual({
+      eventSeriesId: SERIES,
+      items: [{ name: "Ski", requiredEquipment: [] }],
+    });
+  });
+
+  it("adds to one event's own list, leaving the series' and its other events' untouched", async () => {
+    seedActiveEventSeries({
+      events: [event("Woche 1"), event("Woche 2", { skillLevels: ["Profi"] })],
+      skillLevels: ["Anfänger:in"],
+    });
+
+    await createMasterDataItem("skill-levels", { name: "Profi" }, WOCHE_1);
+
+    expect(storedList("skillLevels")).toEqual(["Anfänger:in"]);
+    expect(storedList("events")).toEqual([
+      event("Woche 1", { skillLevels: ["Profi"] }),
+      event("Woche 2", { skillLevels: ["Profi"] }),
+    ]);
+  });
+
+  it("renames an entry of one event's list, carrying its other four lists forward untouched", async () => {
+    seedActiveEventSeries({
+      events: [
+        event("Woche 1", {
+          skillLevels: ["Anfänger:in"],
+          seasonPassOptions: ["Kein Skipass"],
+        }),
+      ],
+    });
+
+    await updateMasterDataItem("skill-levels", "Anfänger:in", { name: "Profi" }, WOCHE_1);
+
+    expect(storedList("events")).toEqual([
+      event("Woche 1", { skillLevels: ["Profi"], seasonPassOptions: ["Kein Skipass"] }),
+    ]);
+  });
+
+  it("deletes an entry of one event's own list", async () => {
+    seedActiveEventSeries({
+      events: [event("Woche 1", { foodOptions: ["Vegetarisch", "Vegan"] })],
+    });
+
+    await deleteMasterDataItem("food-options", "Vegan", WOCHE_1);
+
+    expect(storedList("events")).toEqual([event("Woche 1", { foodOptions: ["Vegetarisch"] })]);
+  });
+
+  it("reorders one event's own list", async () => {
+    seedActiveEventSeries({
+      events: [event("Woche 1", { busPickupPoints: ["A", "B"] })],
+    });
+
+    await reorderMasterDataItems("bus-pickup-points", ["B", "A"], WOCHE_1);
+
+    expect(storedList("events")).toEqual([event("Woche 1", { busPickupPoints: ["B", "A"] })]);
+  });
+
+  it("still refuses an entry a registration selects, the guard reading the event's own list", async () => {
+    seedActiveEventSeries({ events: [event("Woche 1", { skillLevels: ["Profi"] })] });
+    seedRegistration("r1", { skillLevel: "Profi" });
+
+    await expect(deleteMasterDataItem("skill-levels", "Profi", WOCHE_1)).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
+  it("refuses a category that names no event, such as classes or the events list itself", async () => {
+    seedActiveEventSeries({ events: [event("Woche 1")] });
+
+    await expect(createMasterDataItem("classes", { name: "3AHIT" }, WOCHE_1)).rejects.toMatchObject(
+      { code: "VALIDATION_ERROR" },
+    );
+    await expect(
+      createMasterDataItem("events", { name: "Woche 2" }, WOCHE_1),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("reports an event the scope names as not found", async () => {
+    seedActiveEventSeries({ events: [event("Woche 1")] });
+
+    await expect(
+      createMasterDataItem("skill-levels", { name: "Profi" }, { kind: "event", name: "Ghost" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

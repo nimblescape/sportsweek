@@ -14,7 +14,7 @@ import {
 } from "@/lib/registration/answer-labels";
 import { REPORT_FIELD_TAGS } from "@/lib/report/report-fields";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import {
   ATTENDANCE_VALUES,
   COMPLETENESS_VALUES,
@@ -372,8 +372,8 @@ describe("filterGroups", () => {
   it("offers every category once the report asks for them all", () => {
     expect(filterGroups(lists, everything).map((group) => group.category)).toEqual([
       "attendance",
-      "event",
       "class",
+      "event",
       "gender",
       "program",
       "equipmentRental",
@@ -421,7 +421,7 @@ describe("filterGroups", () => {
     expect(food.options).toEqual([
       { value: "Alles", label: "Alles" },
       { value: "Vegetarisch", label: "Vegetarisch" },
-      { value: FOOD_OPTION_OTHER, label: FOOD_OPTION_OTHER_LABEL },
+      { value: FOOD_OPTION_OTHER, label: `Essen ${FOOD_OPTION_OTHER_LABEL}` },
     ]);
   });
 
@@ -436,7 +436,7 @@ describe("filterGroups", () => {
   });
 
   /** Both tags are worded so they read on their own, in a row that carries no headings. */
-  it("offers renting and not renting as the two equipment tags (US-11, US-13)", () => {
+  it("offers not renting and renting as the two equipment tags (US-11, US-13)", () => {
     const [rental] = filterGroups(lists, { equipmentRental: true }).filter(
       (group) => group.category === "equipmentRental",
     );
@@ -444,14 +444,14 @@ describe("filterGroups", () => {
     expect(rental.label).toBe(EQUIPMENT_RENTAL_LABEL);
     expect(rental.options).toEqual([
       {
-        value: EQUIPMENT_RENTAL_VALUES.needed,
-        label: EQUIPMENT_RENTAL_LABEL,
-        name: EQUIPMENT_RENTAL_LABEL,
-      },
-      {
         value: EQUIPMENT_RENTAL_VALUES.notNeeded,
         label: NO_EQUIPMENT_RENTAL_LABEL,
         name: NO_EQUIPMENT_RENTAL_LABEL,
+      },
+      {
+        value: EQUIPMENT_RENTAL_VALUES.needed,
+        label: EQUIPMENT_RENTAL_LABEL,
+        name: EQUIPMENT_RENTAL_LABEL,
       },
     ]);
   });
@@ -569,7 +569,7 @@ describe("scopeFilterToGroups", () => {
  */
 describe("prunedToLists", () => {
   const series = storedEventSeries({
-    events: ["Woche 1"],
+    events: [event("Woche 1")],
     classOptions: ["5AHIF"],
     programs: [{ name: "Ski", requiredEquipment: [] }],
     skillLevels: ["Profi"],

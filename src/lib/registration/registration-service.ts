@@ -10,8 +10,12 @@ import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
-import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
-import { MASTER_DATA_CATEGORIES, questionsAsked } from "@/lib/master-data/categories";
+import {
+  MASTER_DATA_CATEGORIES,
+  type AnswerField,
+  type EventSeriesListField,
+} from "@/lib/master-data/categories";
+import { isAnswerOffered, questionsFor, resolveEventLists } from "@/lib/master-data/resolution";
 import {
   registrationInputSchema,
   registrationSchema,
@@ -23,7 +27,6 @@ import {
   ARCHIVED_IS_READ_ONLY_HINT,
   NO_SUCH_EVENT_SERIES,
 } from "@/lib/event-series/event-series-state";
-import { isRegistrationIncomplete } from "./completeness";
 import {
   ANSWER_NO_LONGER_OFFERED_HINT,
   EMPTY_REGISTRATION,
@@ -80,7 +83,7 @@ function parseInput(input: RegistrationInput): RegistrationInput {
 }
 
 /**
- * Every list value a registration carries has to be one the event series currently offers.
+ * Every list value a registration carries has to be one the event resolves to (US-33, US-35).
  *
  * Checked against the series read inside the save's own transaction, which is the other half of
  * closing the race the in-use guard opens: a teacher removing an option writes the series
@@ -88,24 +91,19 @@ function parseInput(input: RegistrationInput): RegistrationInput {
  * than storing a value nothing offers. Without a cascade there is nothing to repair it later.
  */
 function assertAnswersAreOffered(
-  eventSeries: EventSeries,
+  lists: Pick<EventSeries, EventSeriesListField>,
+  asked: ReadonlySet<AnswerField>,
   answers: RegistrationInput & Pick<Registration, "class">,
 ): void {
   for (const category of Object.values(MASTER_DATA_CATEGORIES)) {
     const answer = answers[category.usage.field as keyof typeof answers];
     if (typeof answer !== "string" || answer === "") continue;
 
-    const list = eventSeries[category.field];
-    const offered = list.map((entry) => (typeof entry === "string" ? entry : entry.name));
+    // A question step one does not put has nothing to check the answer against yet — carried
+    // over from before the student was unassigned, not one this save is making (US-36).
+    if (!asked.has(category.usage.field)) continue;
 
-    // The free-text choice is never a row a teacher keeps, but it is offered alongside a
-    // non-empty list (US-9, US-21), so it is a legitimate answer wherever the question is asked.
-    const permitted =
-      category.usage.field === "foodOption" && offered.length > 0
-        ? [...offered, FOOD_OPTION_OTHER]
-        : offered;
-
-    if (!permitted.includes(answer)) {
+    if (!isAnswerOffered(lists, category, answer)) {
       throw new ServiceError(ErrorCode.Conflict, ANSWER_NO_LONGER_OFFERED_HINT);
     }
   }
@@ -166,21 +164,25 @@ export async function saveRegistration(
       throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
     }
 
-    assertAnswersAreOffered(eventSeries, { ...fields, class: studentClass });
-
     // The teacher owns the assignment, so a save carries the stored one forward — unless the
     // student has just said they are not coming, which unassigns them (US-11). Saying nothing
     // is not saying no, so an unanswered form leaves the assignment where it is.
     const event =
       fields.isAttendingSportsWeek === false ? null : ((stored.data()?.event as string) ?? null);
 
+    // What the student's own event offers, falling back to the series' (US-33, US-35) — the one
+    // resolution both the check below and the completeness it feeds are asked for.
+    const lists = resolveEventLists(eventSeries, event);
+    // Until a teacher assigns them, a two-step series asks nothing an event could answer
+    // differently — so those answers are neither expected nor stored (US-36).
+    const asked = questionsFor(eventSeries, event);
+
+    assertAnswersAreOffered(lists, asked, { ...fields, class: studentClass });
+
     const data = {
       ...identity,
       class: studentClass,
       event,
-      // Recomputed here rather than trusted from the client: it is what the report marks a
-      // student by (US-13), so it has to follow the answers actually stored.
-      isIncomplete: isRegistrationIncomplete(fields, questionsAsked(eventSeries)),
       ...fields,
     };
     const record = registrationSchema.parse({ id: identity.studentUid, ...data });
@@ -227,7 +229,6 @@ export async function joinEventSeries(
         ...identity,
         class: className,
         event: null,
-        isIncomplete: isRegistrationIncomplete(EMPTY_REGISTRATION, questionsAsked(eventSeries)),
         ...EMPTY_REGISTRATION,
       });
     }

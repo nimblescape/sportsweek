@@ -71,9 +71,9 @@ const READABLE_COLLECTIONS: [string, Record<string, unknown>][] = [
       nameKey: "winter 2026",
       isOpenToStudents: false,
       isArchived: false,
-      events: ["Montafon"],
+      events: [{ name: "Montafon" }],
       classOptions: ["5AHIF"],
-      programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+      programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
     },
   ],
 ];

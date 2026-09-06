@@ -14,14 +14,16 @@ import {
   type PointerEventHandler,
 } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Lock, TriangleAlert } from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Card, CardContent, CardHeading, CardTitle } from "@/components/ui/card";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   attendingCounts,
   type AssignmentGroup,
   type SkillColumn,
 } from "@/lib/assignment/statistics";
+import { IMMOVABLE_HINTS, type ImmovableReason } from "@/lib/assignment/movability";
 import { filterStudents, type FilterGroup, type StudentFilter } from "@/lib/filters/student-filter";
 import type { Uid } from "@/lib/schemas/common";
 import type { RosterStudent } from "@/lib/students/roster";
@@ -53,6 +55,8 @@ type AssignmentCardProps = {
   picked: readonly Uid[];
   /** The ids a drag is currently carrying, all of which are faded where they stand. */
   carried: ReadonlySet<string>;
+  /** Why a student cannot be moved at all, for the ones no drop would accept (US-12, US-36). */
+  immovable: (student: RosterStudent) => ImmovableReason | null;
   onToggle: (recordId: Uid) => void;
   onToggleAll: (students: readonly RosterStudent[], allPicked: boolean) => void;
 };
@@ -76,6 +80,7 @@ export function AssignmentCard({
   onFilterChange,
   picked,
   carried,
+  immovable,
   onToggle,
   onToggleAll,
 }: AssignmentCardProps) {
@@ -84,7 +89,10 @@ export function AssignmentCard({
   const { setNodeRef, isOver } = useDroppable({ id: group.id });
 
   const shown = filterStudents(group.students, filter);
-  const allPicked = shown.every((student) => picked.includes(student.id));
+  // "Alle" stands for what a drag from it would carry, so it is the movable students alone —
+  // and picking is what a drag carries by, so the ones it leaves out cannot be picked either.
+  const movable = shown.filter((student) => immovable(student) === null);
+  const allPicked = movable.every((student) => picked.includes(student.id));
   const pickedShown = shown.filter((student) => picked.includes(student.id)).length;
   const counts = countFiltered ? attendingCounts(shown, columns) : group;
   // Always the event series' whole roster rather than the board, which holds no one who stays at
@@ -138,16 +146,16 @@ export function AssignmentCard({
                   `flex-1` starts it from nothing, so the names never decide how tall the card
                   is — it takes the height the other two areas set, and scrolls inside it. */}
               <ul className="flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-y-auto">
-                {shown.length > 1 && (
+                {movable.length > 1 && (
                   <Row
                     dragId={allDragId(group.id)}
                     data={{ group: group.id, all: true }}
                     name={ALL_LABEL}
                     label={ALL_NAME}
                     picked={allPicked}
-                    // It stands for everyone the filter leaves, so it travels whenever they all do.
-                    carried={shown.every((student) => carried.has(student.id))}
-                    onToggle={() => onToggleAll(shown, allPicked)}
+                    // It stands for everyone the filter leaves who can move, so it travels when they all do.
+                    carried={movable.every((student) => carried.has(student.id))}
+                    onToggle={() => onToggleAll(movable, allPicked)}
                   />
                 )}
                 {shown.map((student) => (
@@ -158,6 +166,7 @@ export function AssignmentCard({
                     name={studentTagName(student)}
                     picked={picked.includes(student.id)}
                     carried={carried.has(student.id)}
+                    immovable={immovable(student)}
                     onToggle={() => onToggle(student.id)}
                   />
                 ))}
@@ -196,7 +205,7 @@ export function AssignmentCard({
 const TAG_BOX = "border-border bg-background flex items-center rounded-md border";
 const TAG_PICKED = "border-ring bg-accent";
 const TAG_GRIP = "text-muted-foreground shrink-0 py-1 pl-1";
-const TAG_TEXT = "py-1 pr-2 pl-0.5 text-left text-sm whitespace-nowrap";
+const TAG_TEXT = "py-1 pr-2 pl-1 text-left text-sm whitespace-nowrap";
 
 /** What is drawn under the pointer during a drag — above every card, so no card's box clips it. */
 export function DraggedTag({ name }: { name: string }) {
@@ -217,6 +226,7 @@ function Row({
   label,
   picked,
   carried,
+  immovable = null,
   onToggle,
 }: {
   dragId: string;
@@ -225,10 +235,12 @@ function Row({
   label?: string;
   picked: boolean;
   carried: boolean;
+  immovable?: ImmovableReason | null;
   onToggle: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: dragId,
+    disabled: immovable !== null,
     // The overlay is drawn from this, so it can name the tag without looking the student up again.
     data: { ...data, name },
   });
@@ -246,6 +258,7 @@ function Row({
   const wasPicked = useRef(false);
 
   function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
+    if (immovable !== null) return;
     wasPicked.current = picked;
     // Picked on the way down rather than on the way up, so a press that turns its into a drag is
     // already carrying what it picked.
@@ -262,12 +275,12 @@ function Row({
    * A drag that really goes somewhere is released over another card, where this never runs.
    */
   function handlePointerUp() {
-    if (wasPicked.current) onToggle();
+    if (immovable === null && wasPicked.current) onToggle();
   }
 
   function handleClick(event: MouseEvent<HTMLButtonElement>) {
     // A keyboard activation has no press before it, and so no release either.
-    if (event.detail === 0) onToggle();
+    if (immovable === null && event.detail === 0) onToggle();
   }
 
   return (
@@ -276,32 +289,57 @@ function Row({
       className={cn((isDragging || carried) && "opacity-40", isDragging && "cursor-grabbing")}
     >
       <div className={cn(TAG_BOX, picked && TAG_PICKED)}>
-        <button
-          type="button"
-          aria-label={`${label ?? name} verschieben`}
-          className={cn(
-            TAG_GRIP,
-            "hover:text-foreground focus-visible:ring-ring/50 cursor-grab touch-none rounded-l-md transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing",
-            isDragging && "cursor-grabbing",
-          )}
-          {...attributes}
-          onPointerDown={startPointerDrag}
-          onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined}
-        >
-          <GripVertical aria-hidden className="size-3.5" />
-        </button>
+        {immovable === null ? (
+          <button
+            type="button"
+            aria-label={`${label ?? name} verschieben`}
+            className={cn(
+              TAG_GRIP,
+              "hover:text-foreground focus-visible:ring-ring/50 cursor-grab touch-none rounded-l-md transition-colors outline-none focus-visible:ring-3 active:cursor-grabbing",
+              isDragging && "cursor-grabbing",
+            )}
+            {...attributes}
+            onPointerDown={startPointerDrag}
+            onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined}
+          >
+            <GripVertical aria-hidden className="size-3.5" />
+          </button>
+        ) : (
+          // In the handle's place rather than beside it: there is nothing to grab, and the mark
+          // says why (US-13). The triangle is what needs fixing; the lock is what nobody can
+          // change from here, whichever it is, so it does not read as an alarm.
+          <Tooltip label={IMMOVABLE_HINTS[immovable]}>
+            <span
+              role="img"
+              aria-label={IMMOVABLE_HINTS[immovable]}
+              className={cn(
+                TAG_GRIP,
+                "inline-flex",
+                immovable === "incomplete" && "text-destructive",
+              )}
+            >
+              {immovable === "incomplete" ? (
+                <TriangleAlert aria-hidden className="size-3.5" />
+              ) : (
+                <Lock aria-hidden className="size-3.5" />
+              )}
+            </span>
+          </Tooltip>
+        )}
 
         {/* Picked is shown by colouring the tag, so there is no box to tick (US-12). */}
         <button
           type="button"
           aria-label={label}
           aria-pressed={picked}
+          disabled={immovable !== null}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onClick={handleClick}
           className={cn(
             TAG_TEXT,
             "focus-visible:ring-ring/50 touch-none rounded-r-md outline-none focus-visible:ring-3",
+            immovable !== null && "text-muted-foreground",
           )}
         >
           {name}

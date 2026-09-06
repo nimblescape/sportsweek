@@ -64,23 +64,36 @@ describe("EventSeriesTagRows", () => {
     expect(within(row).getByRole("button", { name: "Kulturwoche" })).toBeInTheDocument();
   });
 
-  /** Every page can be about every series, so the row is the same wherever the teacher is. */
-  it.each([
-    "/app/s1/registrations",
-    "/app/s1/assignment",
-    "/app/s1/report",
-    "/app/s1/master-data/programs",
-    "/app/event-series",
-  ])("offers the same row on %s", (path) => {
-    pathname.mockReturnValue(path);
-    showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
+  /** Every page the header scopes can be about every series, so the row is the same on each. */
+  it.each(["/app/s1/registrations", "/app/s1/assignment", "/app/s1/report"])(
+    "offers the same row on %s",
+    (path) => {
+      pathname.mockReturnValue(path);
+      showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
-    render(<EventSeriesTagRows mayOpen />);
+      render(<EventSeriesTagRows mayOpen />);
 
-    const row = screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL });
-    expect(within(row).getByRole("button", { name: "Wintersportwoche" })).toBeInTheDocument();
-    expect(within(row).getByRole("button", { name: "Kulturwoche" })).toBeInTheDocument();
-  });
+      const row = screen.getByRole("group", { name: EVENT_SERIES_ROW_LABEL });
+      expect(within(row).getByRole("button", { name: "Wintersportwoche" })).toBeInTheDocument();
+      expect(within(row).getByRole("button", { name: "Kulturwoche" })).toBeInTheDocument();
+    },
+  );
+
+  /**
+   * The master data pages say which series they are editing in the URL, the title and the
+   * breadcrumb — and it may be an archived one, which the header offers none of (US-33).
+   */
+  it.each(["/app/event-series", "/app/event-series/s1/classes"])(
+    "offers no row at all on %s",
+    (path) => {
+      pathname.mockReturnValue(path);
+      showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
+
+      render(<EventSeriesTagRows mayOpen />);
+
+      expect(screen.queryByRole("group", { name: EVENT_SERIES_ROW_LABEL })).not.toBeInTheDocument();
+    },
+  );
 
   /** Archived is what takes a series off every screen, the header included (US-19). */
   it("shows an archived series in no row at all", () => {
@@ -111,7 +124,7 @@ describe("EventSeriesTagRows", () => {
   });
 
   it("marks whichever series the URL names", () => {
-    pathname.mockReturnValue("/app/s2/master-data/classes");
+    pathname.mockReturnValue("/app/s2/registrations");
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
     render(<EventSeriesTagRows mayOpen />);
@@ -152,13 +165,13 @@ describe("EventSeriesTagRows", () => {
   });
 
   it("re-scopes the page that is open rather than navigating away from it", async () => {
-    pathname.mockReturnValue("/app/s1/master-data/classes");
+    pathname.mockReturnValue("/app/s1/report");
     showing(seriesNamed("s1", "Wintersportwoche"), seriesNamed("s2", "Kulturwoche"));
 
     render(<EventSeriesTagRows mayOpen />);
     await userEvent.click(screen.getByRole("button", { name: "Kulturwoche" }));
 
-    expect(push).toHaveBeenCalledWith("/app/s2/master-data/classes");
+    expect(push).toHaveBeenCalledWith("/app/s2/report");
   });
 
   it("remembers the selection, so the landing route can restore it", async () => {

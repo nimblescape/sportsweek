@@ -4,15 +4,15 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { redirect } from "next/navigation";
-import { firstMasterDataPath } from "@/lib/master-data/categories";
+import { eventSeriesRecordPath } from "@/lib/master-data/hierarchy";
 
-// The section itself has no view; it opens on the first category of the selected event series.
-export default async function MasterDataIndexPage({
+// The record has no view of its own; it opens on the first of its child collections (US-33).
+export default async function EventSeriesRecordPage({
   params,
 }: {
   params: Promise<{ eventSeriesId: string }>;
 }) {
   const { eventSeriesId } = await params;
 
-  redirect(firstMasterDataPath(eventSeriesId));
+  redirect(eventSeriesRecordPath(eventSeriesId));
 }

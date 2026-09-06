@@ -138,6 +138,10 @@ export function EventSeriesTagRows({ mayOpen = false }: { mayOpen?: boolean }) {
   }
 
   if (live.length === 0) return null;
+  // Only a page whose URL names a series is scoped by the header. The master data hierarchy says
+  // which series it is editing in the URL and the breadcrumb, and may be editing an archived one
+  // the header offers none of; the rights page is about no series at all (US-33).
+  if (selectedId === null) return null;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1">

@@ -5,21 +5,13 @@
  */
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { MasterDataCategoryKey } from "@/lib/master-data/categories";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 
 const useRegistration = vi.fn();
-const useMasterData = vi.fn();
-const usePrograms = vi.fn();
 const form = vi.fn();
 
 vi.mock("@/lib/registration/use-registration", () => ({
   useRegistration: (...args: unknown[]) => useRegistration(...args),
-}));
-
-vi.mock("@/lib/master-data/use-master-data", () => ({
-  useMasterData: (key: MasterDataCategoryKey) => useMasterData(key),
-  usePrograms: () => usePrograms(),
 }));
 
 vi.mock("./registration-form", () => ({
@@ -42,22 +34,16 @@ const eventSeries = {
   }),
 };
 
-function listOf(names: string[]) {
-  return { items: names, loading: false, error: null };
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
   // A record with a class is the ordinary case: following the link writes one before the student
   // ever reaches this form (US-23).
   useRegistration.mockReturnValue({
     eventSeries,
-    record: { class: "3AHME" },
+    record: { class: "3AHME", event: null },
     loading: false,
     error: null,
   });
-  useMasterData.mockImplementation(() => listOf(["Etwas"]));
-  usePrograms.mockReturnValue({ programs: [], loading: false, error: null });
 });
 
 function renderView() {
@@ -113,7 +99,7 @@ describe("MyRegistrationView", () => {
   it("takes the class from the record the joining wrote", () => {
     useRegistration.mockReturnValue({
       eventSeries,
-      record: { class: "4AHME" },
+      record: { class: "4AHME", event: null },
       loading: false,
       error: null,
     });
@@ -150,11 +136,7 @@ describe("MyRegistrationView", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Keine Berechtigung");
   });
 
-  it("hands the form the lists in the order the teacher set", () => {
-    useMasterData.mockImplementation((key: MasterDataCategoryKey) =>
-      key === "skill-levels" ? listOf(["Anfänger:in", "Profi"]) : listOf(["Etwas"]),
-    );
-
+  it("hands the form the series' own lists, in the order the teacher set", () => {
     renderView();
 
     expect(form).toHaveBeenCalledWith(
@@ -164,5 +146,67 @@ describe("MyRegistrationView", () => {
         lists: expect.objectContaining({ skillLevels: ["Anfänger:in", "Profi"] }),
       }),
     );
+  });
+
+  describe("resolved to the student's own event (US-33, US-35)", () => {
+    it("still asks for the series' lists where the assigned event names none of its own", () => {
+      useRegistration.mockReturnValue({
+        eventSeries: { ...eventSeries, events: [event("Woche 1")] },
+        record: { class: "3AHME", event: "Woche 1" },
+        loading: false,
+        error: null,
+      });
+
+      renderView();
+
+      expect(form).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lists: expect.objectContaining({ skillLevels: ["Anfänger:in", "Profi"] }),
+        }),
+      );
+    });
+
+    it("asks for the assigned event's own list in place of the series'", () => {
+      useRegistration.mockReturnValue({
+        eventSeries: {
+          ...eventSeries,
+          events: [event("Woche 2", { skillLevels: ["Keine Vorkenntnisse"] })],
+        },
+        record: { class: "3AHME", event: "Woche 2" },
+        loading: false,
+        error: null,
+      });
+
+      renderView();
+
+      expect(form).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lists: expect.objectContaining({ skillLevels: ["Keine Vorkenntnisse"] }),
+        }),
+      );
+    });
+
+    it("asks for what the assigned event asks, not what another event of the same series does", () => {
+      useRegistration.mockReturnValue({
+        eventSeries: {
+          ...eventSeries,
+          events: [
+            event("Woche 1", { skillLevels: ["Keine Vorkenntnisse"] }),
+            event("Woche 2", { skillLevels: ["Profi"] }),
+          ],
+        },
+        record: { class: "3AHME", event: "Woche 1" },
+        loading: false,
+        error: null,
+      });
+
+      renderView();
+
+      expect(form).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lists: expect.objectContaining({ skillLevels: ["Keine Vorkenntnisse"] }),
+        }),
+      );
+    });
   });
 });

@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { asUid } from "@/lib/schemas/common";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import { stubBoardLayout } from "@/test/stub-board-layout";
 
 const useEventSeries = vi.fn();
@@ -61,14 +61,16 @@ const ANNA = student("Anna", "Muster");
 const BENE = student("Bene", "Berger", { event: "Montafon" });
 const CLARA = student("Clara", "Cerny", { isAttending: false });
 
-/** The events are a field of this document, so a series arrives with its own weeks (US-21). */
+/**
+ * The events are a field of this document, so a series arrives with its own weeks (US-21). It is
+ * closed to students, because assigning in an open one is refused.
+ */
 const eventSeries = {
   id: "s1",
   ...storedEventSeries({
     name: "2026",
-    isOpenToStudents: true,
     hasRegistrations: true,
-    events: ["Montafon", "Gardasee"],
+    events: [event("Montafon"), event("Gardasee")],
   }),
 };
 

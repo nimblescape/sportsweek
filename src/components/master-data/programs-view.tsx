@@ -5,42 +5,33 @@
  */
 "use client";
 
-import Link from "next/link";
-import { Package } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { Tooltip } from "@/components/ui/tooltip";
 import { MasterDataView } from "@/components/master-data/master-data-view";
-import { cn } from "@/lib/utils";
+import { equipmentPath, eventEquipmentPath } from "@/lib/master-data/hierarchy";
 
 /**
- * The programs list, plus the way into each program's own required equipment (US-5). The nested
- * list stays reachable even while the program itself is locked: its items are matched through
- * the students' rental selections, so the two are blocked independently.
+ * The programs list, whose entries have a record page of their own: the equipment a program
+ * requires (US-5, US-33) — the series' own list, or one of an event's own. A program is opened
+ * by its name, as every other record is — and it stays reachable while the program itself is
+ * locked, since its equipment is blocked separately.
  */
-export function ProgramsView({ eventSeriesId }: { eventSeriesId: string }) {
+export function ProgramsView({
+  eventSeriesId,
+  eventName,
+}: {
+  eventSeriesId: string;
+  /** Undefined for the series' own list; one of an event's own names itself instead (US-33). */
+  eventName?: string;
+}) {
   return (
     <MasterDataView
       category="programs"
       eventSeriesId={eventSeriesId}
-      renderRowAction={(program, { disabled }) => (
-        <Tooltip label="Benötigte Ausrüstung">
-          <Link
-            href={`/app/${encodeURIComponent(eventSeriesId)}/master-data/programs?equipment=${encodeURIComponent(program.name)}`}
-            aria-label={`Benötigte Ausrüstung für ${program.name}`}
-            // A link has no disabled state of its own, so a write running on this program has to
-            // be spelled out for the pointer, the keyboard and assistive technology separately.
-            aria-disabled={disabled || undefined}
-            tabIndex={disabled ? -1 : undefined}
-            onClick={disabled ? (clicked) => clicked.preventDefault() : undefined}
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "icon" }),
-              disabled && "pointer-events-none opacity-50",
-            )}
-          >
-            <Package aria-hidden className="size-4" />
-          </Link>
-        </Tooltip>
-      )}
+      eventName={eventName}
+      openHref={(program) =>
+        eventName === undefined
+          ? equipmentPath(eventSeriesId, program.name)
+          : eventEquipmentPath(eventSeriesId, eventName, program.name)
+      }
     />
   );
 }

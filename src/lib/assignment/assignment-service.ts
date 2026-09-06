@@ -13,10 +13,20 @@ import { COLLECTIONS } from "@/lib/schemas/collections";
 import { registrationPath } from "@/lib/registration/registration";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema } from "@/lib/schemas/registration";
+import {
+  answersNotOfferedByEvent,
+  answersOwnedByEvent,
+  questionsFor,
+} from "@/lib/master-data/resolution";
+import { isRegistrationIncomplete } from "@/lib/registration/completeness";
+import { IMMOVABLE_HINTS } from "@/lib/assignment/movability";
 import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 
-/** The one answer the assignment turns on, derived so a rename cannot pass this by. */
-const assignableSchema = registrationSchema.pick({ isAttendingSportsWeek: true });
+/**
+ * Every answer the assignment turns on: whether the student may be assigned at all, and what a
+ * move would invalidate. The id is the document's, so it is supplied rather than stored.
+ */
+const assignableSchema = registrationSchema.omit({ id: true });
 
 /**
  * The series the teacher is working in, named by the path (Q8). Archived is refused because
@@ -43,12 +53,12 @@ async function requireEventSeries(eventSeriesId: string): Promise<EventSeries> {
  */
 function eventOfEventSeries(eventSeries: EventSeries, event: string): string {
   const wanted = normalizeName(event);
-  const offered = eventSeries.events.find((candidate) => normalizeName(candidate) === wanted);
+  const offered = eventSeries.events.find((candidate) => normalizeName(candidate.name) === wanted);
 
   if (offered === undefined) {
     throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es in dieser Eventreihe nicht.");
   }
-  return offered;
+  return offered.name;
 }
 
 /**
@@ -68,6 +78,10 @@ export async function assignStudents(
   event: string | null,
 ): Promise<void> {
   const eventSeries = await requireEventSeries(eventSeriesId);
+  if (eventSeries.isOpenToStudents) {
+    throw new ServiceError(ErrorCode.Conflict, IMMOVABLE_HINTS.seriesOpen);
+  }
+
   const assigned = event === null ? null : eventOfEventSeries(eventSeries, event);
 
   // Beneath that series by construction, so "is this registration one of ours?" is the path
@@ -93,7 +107,38 @@ export async function assignStudents(
       );
     }
 
-    return (batch) => batch.update(references[index], { event: assigned });
+    // Recomputed here rather than trusted from a stored mark, which a master-data edit since the
+    // last save could have made stale without ever touching this record (US-13, US-36). Checked
+    // only before a student's first event, the same as the board itself (movability.ts): once
+    // assigned, a question their event owns is answered afterwards, not gated on before (US-36).
+    if (
+      assigned !== null &&
+      record.event === null &&
+      isRegistrationIncomplete(record, questionsFor(eventSeries, null))
+    ) {
+      throw new ServiceError(ErrorCode.Conflict, IMMOVABLE_HINTS.incomplete);
+    }
+
+    // Moving elsewhere and taking the event away both count; assigning the same event again is
+    // neither, so a repeated drop is not turned into a refusal.
+    const leaving = record.event;
+    if (
+      leaving !== null &&
+      (assigned === null || normalizeName(leaving) !== normalizeName(assigned)) &&
+      answersOwnedByEvent(eventSeries, leaving, record).length > 0
+    ) {
+      throw new ServiceError(ErrorCode.Conflict, IMMOVABLE_HINTS.eventAnswered);
+    }
+
+    // What this event does not offer among what the student already answered — a one-step
+    // answer chosen before this event kept lists of its own, or one narrower than the series'
+    // (US-33, US-36). Left in place it would name something nothing offers, so the assignment
+    // clears it rather than carrying it into an event it was never checked against.
+    const invalidated =
+      assigned !== null ? answersNotOfferedByEvent(eventSeries, assigned, record) : [];
+    const clears = Object.fromEntries(invalidated.map((field) => [field, null]));
+
+    return (batch) => batch.update(references[index], { event: assigned, ...clears });
   });
 
   await commitInChunks(operations);

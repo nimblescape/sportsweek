@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { QueryDocumentSnapshot } from "firebase/firestore";
 import { zodConverter } from "@/lib/firebase/converters";
 import { eventSeriesSchema } from "@/lib/schemas/event-series";
+import { event } from "@/test/event-series";
 
 const converter = zodConverter(eventSeriesSchema);
 
@@ -18,9 +19,9 @@ const storedEventSeries = {
   isOpenToStudents: false,
   hasRegistrations: false,
   position: 0,
-  events: ["Woche 1"],
+  events: [event("Woche 1")],
   classOptions: ["3AHIT"],
-  programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+  programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
   skillLevels: ["Keine Vorkenntnisse"],
   seasonPassOptions: ["Saisonkarte"],
   busPickupPoints: ["Dornbirn"],

@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+
+users:
+  - firstName: Alex
+    lastName: Example
+    classTeacherOf: 2aWI
+    email: alex.example@example.edu
+    permissions:
+      - editRegistrations
+      - editAssignments
+      - editReports
+      - editMasterData
+      - editUsers
+  - firstName: Bailey
+    lastName: Example
+    email: bailey.example@example.edu
+    permissions:
+      - editRegistrations
+      - editAssignments
+      - viewReports
+      - editMasterData
+  - firstName: Casey
+    lastName: Example
+    classTeacherOf: 2aCI
+    email: casey.example@example.edu
+    permissions:
+      - editRegistrations
+
+eventSeries:
+  - name: Winter sports weeks 2026/2027
+    classOptions:
+      - 2aCI
+      - 2aWI
+      - 2bWI
+    events:
+      - name: Week 1
+      - name: Week 2
+      - name: Week 3
+    programs:
+      - name: Ski
+        requiredEquipment:
+          - name: Ski
+            isRentable: true
+          - name: Ski boots
+            isRentable: true
+          - name: Poles
+            isRentable: true
+          - name: Helmet
+            isRentable: true
+      - name: Snowboard
+        requiredEquipment:
+          - name: Board
+            isRentable: true
+          - name: Boots
+            isRentable: true
+          - name: Helmet
+            isRentable: true
+      - name: Alternative
+        requiredEquipment: []
+    skillLevels:
+      - No prior experience
+      - Beginner
+      - Advanced
+      - Expert
+    seasonPassOptions:
+      - No pass
+      - Maybe pass
+      - Resort A
+      - Resort B
+    busPickupPoints:
+      - School
+      - Central station
+      - Sports center
+      - Accommodation
+    foodOptions:
+      - No restrictions
+      - Vegetarian
+      - Vegan
+      - No pork
+  - name: Summer sports weeks 2026/2027
+    classOptions:
+      - 3aCI
+      - 3aWI

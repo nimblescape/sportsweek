@@ -4,10 +4,15 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { storedEventSeries } from "@/test/event-series";
+import { MASTER_DATA_REPORT_LABEL } from "@/components/master-data/master-data-report";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const useEventSeries = vi.fn();
+const push = vi.fn();
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 vi.mock("@/lib/event-series/use-event-series", () => ({
   useEventSeries: () => useEventSeries(),
@@ -17,35 +22,39 @@ const { EventSeriesView } = await import("./event-series-view");
 
 const active = {
   id: "s1",
-  name: "Winter 2026",
   isActive: true,
-  isArchived: false,
-  hasRegistrations: true,
-  position: 0,
+  ...storedEventSeries({
+    name: "Winter 2026",
+    isArchived: false,
+    hasRegistrations: true,
+  }),
 };
 const archived = {
   id: "s2",
-  name: "Winter 2025",
   isActive: false,
-  isArchived: true,
-  hasRegistrations: true,
-  position: 0,
+  ...storedEventSeries({
+    name: "Winter 2025",
+    isArchived: true,
+    hasRegistrations: true,
+  }),
 };
 const inactive = {
   id: "s3",
-  name: "Winter 2027",
   isActive: false,
-  isArchived: false,
-  hasRegistrations: true,
-  position: 0,
+  ...storedEventSeries({
+    name: "Winter 2027",
+    isArchived: false,
+    hasRegistrations: true,
+  }),
 };
 const noStudentData = {
   id: "s4",
-  name: "Winter 2024",
   isActive: false,
-  isArchived: false,
-  hasRegistrations: false,
-  position: 0,
+  ...storedEventSeries({
+    name: "Winter 2024",
+    isArchived: false,
+    hasRegistrations: false,
+  }),
 };
 
 function stubFetch(implementation: (...args: unknown[]) => unknown) {
@@ -94,6 +103,26 @@ describe("EventSeriesView — archived visibility", () => {
 
     expect(screen.getByText("Winter 2025")).toBeInTheDocument();
   });
+
+  it("reports the event series on show, and not the ones filtered away", async () => {
+    stubFetch(noContent);
+    renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: MASTER_DATA_REPORT_LABEL }));
+
+    expect(screen.getByRole("heading", { name: "Winter 2026" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Winter 2025" })).not.toBeInTheDocument();
+  });
+
+  it("takes the archived ones into the report once they are revealed, and says so", async () => {
+    stubFetch(noContent);
+    renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: "Archivierte Eventreihen anzeigen" }));
+    await userEvent.click(screen.getByRole("button", { name: MASTER_DATA_REPORT_LABEL }));
+
+    expect(screen.getByRole("heading", { name: "Winter 2025 (Archiviert)" })).toBeInTheDocument();
+  });
 });
 
 describe("EventSeriesView — creating and editing", () => {
@@ -101,7 +130,7 @@ describe("EventSeriesView — creating and editing", () => {
     stubFetch(okJson);
     renderView();
 
-    await userEvent.click(screen.getByRole("button", { name: "Neue Eventreihe" }));
+    await userEvent.click(screen.getByRole("button", { name: "Eventreihen: Neue Eventreihe" }));
 
     expect(screen.getByRole("dialog")).toHaveAccessibleName("Neue Eventreihe");
     expect(screen.getByLabelText("Name")).toHaveValue("");

@@ -305,17 +305,17 @@ describe("saveRegistration", () => {
     expect(record.foodOption).toBe(FOOD_OPTION_OTHER);
   });
 
-  it("refuses the free-text food choice where the food question is not asked at all", async () => {
+  /** A question nobody is asked cannot be answered wrongly either (US-21). */
+  it("saves past a free-text food choice where the food question is not asked at all", async () => {
     seedEventSeries("s1", { foodOptions: [] });
 
-    await expect(
-      saveRegistration(target(), {
-        ...attending,
-        foodOption: FOOD_OPTION_OTHER,
-        foodOtherText: "Laktosefrei",
-      }),
-    ).rejects.toMatchObject({ code: "CONFLICT", message: ANSWER_NO_LONGER_OFFERED_HINT });
-    expect(unanswered()).toBe(true);
+    const record = await saveRegistration(target(), {
+      ...attending,
+      foodOption: FOOD_OPTION_OTHER,
+      foodOtherText: "Laktosefrei",
+    });
+
+    expect(record.gender).toBe("female");
   });
 
   it("stores nothing when an answer is malformed", async () => {
@@ -327,6 +327,20 @@ describe("saveRegistration", () => {
     expect(unanswered()).toBe(true);
   });
 
+  /**
+   * Step one of a two-step series asks nothing an event could answer differently (US-36), so an
+   * event-owned answer arriving with the rest of the form — carried over from a form that still
+   * has it, whichever event it once belonged to — is not something this save has to agree with a
+   * list about; only what step one actually asks may refuse it.
+   */
+  it("saves step one of a two-step series without checking its event-owned answers", async () => {
+    seedEventSeries("s1", { events: [{ name: "Woche A", programs: [{ name: "Snowboard" }] }] });
+
+    const record = await saveRegistration(target(), attending);
+
+    expect(record.gender).toBe("female");
+  });
+
   /** A registration is filled in over time, so an unanswered question is not a failed save. */
   it("stores a registration the student has not finished", async () => {
     seedEventSeries("s1");
@@ -334,33 +348,6 @@ describe("saveRegistration", () => {
     const record = await saveRegistration(target(), { ...attending, program: null });
 
     expect(record.program).toBeNull();
-  });
-
-  it("marks a registration that is still missing answers (US-13)", async () => {
-    seedEventSeries("s1");
-
-    const record = await saveRegistration(target(), { ...attending, gender: null });
-
-    expect(record.isIncomplete).toBe(true);
-    expect(firestore.get(REGISTRATIONS, STUDENT)).toMatchObject({ isIncomplete: true });
-  });
-
-  it("clears the mark once nothing is missing", async () => {
-    seedEventSeries("s1");
-
-    const record = await saveRegistration(target(), attending);
-
-    expect(record.isIncomplete).toBe(false);
-  });
-
-  /** The client cannot be the judge of it: the report marks students by this (US-13). */
-  it("works the mark out itself rather than taking it from the client", async () => {
-    seedEventSeries("s1");
-    const claimed = { ...attending, gender: null, isIncomplete: false };
-
-    await expect(saveRegistration(target(), claimed as RegistrationInput)).rejects.toMatchObject({
-      code: "VALIDATION_ERROR",
-    });
   });
 
   it("reports which field was wrong, so the form can point at it", async () => {
@@ -499,7 +486,6 @@ describe("deleteRegistration", () => {
       email: "jane.doe@student.htldornbirn.at",
       class: "3AHME",
       isAttendingSportsWeek: true,
-      isIncomplete: false,
     });
   }
 
@@ -603,7 +589,6 @@ describe("joinEventSeries", () => {
       // Neither yes nor no: joining is not answering, and calling it "no" would file every
       // invited student as having declined.
       isAttendingSportsWeek: null,
-      isIncomplete: true,
     });
   });
 

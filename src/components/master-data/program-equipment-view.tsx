@@ -5,60 +5,99 @@
  */
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { CrudList, type CrudItem } from "@/components/master-data/crud-list";
+import { Tag } from "@/components/ui/tag";
 import { apiRequest } from "@/lib/api/client";
 import { EQUIPMENT_LABELS } from "@/lib/master-data/categories";
+import {
+  equipmentTabs,
+  eventEquipmentTabs,
+  eventEquipmentTrail,
+  programTrail,
+} from "@/lib/master-data/hierarchy";
 import { useProgram, useUsageReport } from "@/lib/master-data/use-master-data";
+import { programReport } from "@/lib/master-data/report-tree";
+import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
+import {
+  EQUIPMENT_RENTAL_LABEL,
+  NO_EQUIPMENT_RENTAL_LABEL,
+} from "@/lib/registration/answer-labels";
+import { DEFAULT_IS_RENTABLE, type EquipmentItem } from "@/lib/schemas/master-data";
 import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
 
 /**
- * A program's required equipment on the same CRUD list every category uses (US-5). The entries
- * live in a field on the program, so every change rewrites the whole list — which is what makes
- * adding, renaming and removing one atomic, and uniqueness checkable without a query.
+ * A program's required equipment, the leaf of the master data hierarchy (US-5, US-33) — the
+ * series' own program, or one of an event's own. The entries live in a field on the program, so
+ * every change rewrites the whole list — which is what makes adding, renaming and removing one
+ * atomic, and uniqueness checkable without a query.
  */
 export function ProgramEquipmentView({
   program: named,
   eventSeriesId,
+  eventName,
 }: {
   program: string;
   eventSeriesId: string;
+  /** Undefined for the series' own program; one of an event's own names itself instead (US-33). */
+  eventName?: string;
 }) {
-  const { program, loading, error } = useProgram(named, eventSeriesId);
-  const report = useUsageReport("programs", eventSeriesId);
+  const { program, loading, error } = useProgram(named, eventSeriesId, eventName);
+  const report = useUsageReport("programs", eventSeriesId, eventName);
+  const { eventSeries } = useSelectedEventSeries(eventSeriesId);
+  const seriesName = eventSeries?.name ?? "";
 
   const equipment = program?.requiredEquipment ?? [];
   // An entry has no id of its own, so its name is what identifies it within the program.
-  const items: CrudItem[] = equipment.map((name) => ({ id: name, name }));
+  const items: CrudItem[] = equipment.map((entry) => ({ id: entry.name, name: entry.name }));
   const blockedIds = new Set(report.blockedEquipment[named] ?? []);
 
-  async function save(names: string[]) {
-    await apiRequest(
-      `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/programs`,
-      {
-        method: "PATCH",
-        body: { item: named, requiredEquipment: names },
-      },
-    );
+  const endpoint =
+    eventName === undefined
+      ? `/api/event-series/${encodeURIComponent(eventSeriesId)}/master-data/programs`
+      : `/api/event-series/${encodeURIComponent(eventSeriesId)}/events/master-data/programs` +
+        `?event=${encodeURIComponent(eventName)}`;
+  const trail =
+    eventName === undefined
+      ? programTrail(eventSeriesId, seriesName, named)
+      : eventEquipmentTrail(eventSeriesId, seriesName, eventName, named);
+  const tabs =
+    eventName === undefined
+      ? equipmentTabs(eventSeriesId, named)
+      : eventEquipmentTabs(eventSeriesId, eventName, named);
+
+  async function save(requiredEquipment: EquipmentItem[]) {
+    await apiRequest(endpoint, {
+      method: "PATCH",
+      body: { item: named, requiredEquipment },
+    });
   }
 
   return (
-    <CrudList
+    <CrudList<boolean>
+      trail={trail}
+      tabs={tabs}
+      marked="required-equipment"
       labels={EQUIPMENT_LABELS}
-      title={`${EQUIPMENT_LABELS.title} – ${program?.name ?? "Programm"}`}
+      report={program === null ? undefined : [programReport(program)]}
       items={items}
       loading={loading}
       error={error}
       blockedIds={blockedIds}
       usagePending={report.loading}
-      onSubmit={(name, item) =>
+      extraField={{
+        initial: (item) =>
+          equipment.find((entry) => entry.name === item?.id)?.isRentable ?? DEFAULT_IS_RENTABLE,
+        render: (isRentable, set) => <RentableChoice isRentable={isRentable} onChange={set} />,
+      }}
+      onSubmit={(name, item, isRentable) =>
         save(
-          item === null ? [...equipment, name] : equipment.map((e) => (e === item.id ? name : e)),
+          item === null
+            ? [...equipment, { name, isRentable }]
+            : equipment.map((entry) => (entry.name === item.id ? { name, isRentable } : entry)),
         )
       }
-      onDelete={(item) => save(equipment.filter((entry) => entry !== item.id))}
-      onReorder={(order) => save(order)}
+      onDelete={(item) => save(equipment.filter((entry) => entry.name !== item.id))}
+      onReorder={(order) => save(order.map((name) => itemNamed(equipment, name)))}
       deleteNote={(item) => (
         <>
           <strong>{item.name}</strong> wird aus der Ausrüstungsliste dieses Programms entfernt.{" "}
@@ -70,14 +109,44 @@ export function ProgramEquipmentView({
           <strong>{item.name}</strong> wird umbenannt.
         </>
       )}
-    >
-      <Link
-        href={`/app/${encodeURIComponent(eventSeriesId)}/master-data/programs`}
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
-      >
-        <ArrowLeft aria-hidden className="size-4" />
-        Alle Programme
-      </Link>
-    </CrudList>
+    />
+  );
+}
+
+/** A drop rearranges names; the entries they stand for travel with them. */
+function itemNamed(equipment: readonly EquipmentItem[], name: string): EquipmentItem {
+  return (
+    equipment.find((entry) => entry.name === name) ?? { name, isRentable: DEFAULT_IS_RENTABLE }
+  );
+}
+
+/**
+ * Whether the school lends this item (US-36). One choice rather than two switches: an item either
+ * is rental equipment or is not, and two independent toggles would be heard as two questions
+ * either or neither of which might be answered.
+ */
+function RentableChoice({
+  isRentable,
+  onChange,
+}: {
+  isRentable: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label={EQUIPMENT_RENTAL_LABEL} className="flex flex-wrap gap-2">
+      {[
+        { value: false, label: NO_EQUIPMENT_RENTAL_LABEL },
+        { value: true, label: EQUIPMENT_RENTAL_LABEL },
+      ].map((option) => (
+        <Tag
+          key={option.label}
+          role="radio"
+          pressed={option.value === isRentable}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </Tag>
+      ))}
+    </div>
   );
 }

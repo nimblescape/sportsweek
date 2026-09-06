@@ -12,7 +12,7 @@ import { filterGroups } from "@/lib/filters/student-filter";
 import { INVITATION_LINK_LABEL, INVITATION_QR_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { ATTENDANCE_LABELS } from "@/lib/registration/answer-labels";
+import { ATTENDANCE_LABELS, INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
 import { ClassCards, NO_ANSWER_LABEL } from "./class-cards";
 
 const PROGRAMS = ["Ski", "Snowboard"];
@@ -152,6 +152,51 @@ describe("ClassCards — the students", () => {
     expect(listIn("5AHIF", "Teilnahme").getByText(nameOf(skier))).toBeInTheDocument();
     expect(listIn("5AHIF", "Teilnahme").queryByText(nameOf(boarder))).not.toBeInTheDocument();
   });
+
+  /**
+   * Labelled rather than hidden, so a teacher who cannot see the icon is still told which
+   * registrations are still owed answers (US-13).
+   */
+  it("marks a student whose registration is still missing answers", () => {
+    const unfinished = student({ isIncomplete: true });
+    const finished = student({ isIncomplete: false });
+    setup([unfinished, finished]);
+
+    const marks = listIn("5AHIF", "Teilnahme").getAllByLabelText(INCOMPLETE_REGISTRATION_HINT);
+
+    expect(marks).toHaveLength(1);
+    expect(marks[0].closest("li")).toHaveTextContent(nameOf(unfinished));
+  });
+
+  /** Before the name, so a column of tags can be read down for the ones still to chase. */
+  it("puts the mark ahead of the name", () => {
+    const unfinished = student({ isIncomplete: true });
+    setup([unfinished]);
+
+    const mark = listIn("5AHIF", "Teilnahme").getByLabelText(INCOMPLETE_REGISTRATION_HINT);
+    const name = listIn("5AHIF", "Teilnahme").getByText(nameOf(unfinished));
+
+    expect(mark.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("leaves a finished registration unmarked", () => {
+    setup([student({ isIncomplete: false })]);
+
+    expect(
+      listIn("5AHIF", "Teilnahme").queryByLabelText(INCOMPLETE_REGISTRATION_HINT),
+    ).not.toBeInTheDocument();
+  });
+
+  /** The icon says it to a screen reader; this says the same to everyone else. */
+  it("says on hover what the mark means", async () => {
+    setup([student({ isIncomplete: true })]);
+
+    await userEvent.hover(
+      listIn("5AHIF", "Teilnahme").getByLabelText(INCOMPLETE_REGISTRATION_HINT),
+    );
+
+    expect(await screen.findByText(INCOMPLETE_REGISTRATION_HINT)).toBeInTheDocument();
+  });
 });
 
 describe("ClassCards — the figures", () => {
@@ -162,14 +207,14 @@ describe("ClassCards — the figures", () => {
       within(figures("5AHIF"))
         .getAllByRole("columnheader")
         .map((header) => header.textContent),
-    ).toEqual(["Männlich", "Weiblich", "Gesamt", "Teilnahme"]);
-    expect(cellsOf(figures("5AHIF"))).toEqual(["1", "0", "1", "50 %"]);
+    ).toEqual(["Männlich", "Weiblich", "Divers", "Gesamt", "Teilnahme"]);
+    expect(cellsOf(figures("5AHIF"))).toEqual(["1", "0", "0", "1", "50 %"]);
   });
 
   it("answers a class nobody registered for with zero, not with a division by zero", () => {
     setup([student({ class: "5AHIF" })]);
 
-    expect(cellsOf(figures("5BHIF"))).toEqual(["0", "0", "0", "0 %"]);
+    expect(cellsOf(figures("5BHIF"))).toEqual(["0", "0", "0", "0", "0 %"]);
   });
 
   it("describes the whole class while the toggle is off, however the filter narrows the list", async () => {
@@ -177,7 +222,7 @@ describe("ClassCards — the figures", () => {
 
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Programm: Ski" }));
 
-    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "2", "2", "100 %"]);
+    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "2", "0", "2", "100 %"]);
   });
 
   it("counts only what the filter leaves once the toggle is on", async () => {
@@ -186,7 +231,7 @@ describe("ClassCards — the figures", () => {
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Programm: Ski" }));
     await userEvent.click(card("5AHIF").getByRole("button", { name: "5AHIF: Gefiltert" }));
 
-    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "1", "1", "100 %"]);
+    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "1", "0", "1", "100 %"]);
   });
 
   it("lays the matrix out with the programs across and the skill levels down", () => {

@@ -9,7 +9,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api/client";
 import { useRowAction } from "@/lib/api/use-row-action";
-import { PageHeading } from "@/components/layout/page-heading";
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { FilterNameField } from "@/components/filters/filter-name-field";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tag, TagName } from "@/components/ui/tag";
@@ -83,7 +83,8 @@ export function UserPermissionsView({ signedInUid }: { signedInUid: string }) {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <PageHeading>Benutzerrechte</PageHeading>
+      {/* Nothing sits above the rights page, so its path is the one step it is (US-33). */}
+      <Breadcrumb trail={[{ label: "Benutzerrechte", href: "/app/users" }]} />
 
       {error ? (
         <p role="alert" className="text-destructive text-sm">

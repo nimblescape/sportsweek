@@ -5,32 +5,46 @@
  */
 import { describe, expect, it } from "vitest";
 import { ANSWER_LABELS, MASTER_DATA_CATEGORIES } from "@/lib/master-data/categories";
-import { EQUIPMENT_RENTAL_LABEL } from "@/lib/registration/answer-labels";
+import { EQUIPMENT_RENTAL_LABEL, OWN_EQUIPMENT_LABEL } from "@/lib/registration/answer-labels";
 import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
 import type { Registration } from "@/lib/schemas/registration";
 import { studentRecord } from "@/test/roster-student";
-import { fieldTagsFor, NO_ANSWER, REPORT_FIELD_TAGS, reportFieldsOf } from "./report-fields";
+import { event } from "@/test/event-series";
+import type { EquipmentItem } from "@/lib/schemas/master-data";
+import {
+  fieldTagsFor,
+  NO_ANSWER,
+  REPORT_FIELD_TAGS,
+  reportFieldsOf,
+  type ReportFieldContext,
+} from "./report-fields";
 
 const keys = REPORT_FIELD_TAGS.map((tag) => tag.key);
 
-const lineFor = (label: string, record: Registration) => {
+const NO_EQUIPMENT: ReportFieldContext = {
+  requiredEquipmentOf: () => [],
+  isIncompleteOf: () => false,
+};
+
+const lineFor = (label: string, record: Registration, context = NO_EQUIPMENT) => {
   const field = REPORT_FIELD_TAGS.flatMap((tag) => tag.fields).find(
     (candidate) => candidate.label === label,
   );
   if (!field) throw new Error(`No report field labelled ${label}`);
-  return field.valueOf(record);
+  return field.valueOf(record, context);
 };
 
 describe("REPORT_FIELD_TAGS", () => {
   it("offers every field US-13 lists, in the order it lists them", () => {
     expect(keys).toEqual([
       "attendance",
-      "event",
       "class",
+      "event",
       "gender",
       "dateOfBirth",
       "contact",
       "program",
+      "ownEquipment",
       "rentedEquipment",
       "measurements",
       "skillLevel",
@@ -49,8 +63,8 @@ describe("REPORT_FIELD_TAGS", () => {
    */
   it("lists the answers a teacher's own lists supply in the menu's order (US-5 to US-10)", () => {
     const categoryOfField: Record<string, string> = {
-      event: "events",
       class: "classes",
+      event: "events",
       program: "programs",
       skillLevel: "skill-levels",
       busPickupPoint: "bus-pickup-points",
@@ -170,6 +184,48 @@ describe("a field's value", () => {
     expect(lineFor(EQUIPMENT_RENTAL_LABEL, studentRecord())).toBe("Nein");
   });
 
+  /**
+   * What a student brings is their program's list minus what they asked to borrow, so a student
+   * borrowing nothing packs all of it — borrowable items included (US-36).
+   */
+  describe(OWN_EQUIPMENT_LABEL, () => {
+    const requiring = (...items: EquipmentItem[]): ReportFieldContext => ({
+      requiredEquipmentOf: () => items,
+      isIncompleteOf: () => false,
+    });
+
+    const SKI_LIST = requiring(
+      { name: "Ski", isRentable: true },
+      { name: "Helm", isRentable: true },
+      { name: "Lange Hose", isRentable: false },
+    );
+
+    it("lists the whole requirement for a student who borrows nothing", () => {
+      expect(lineFor(OWN_EQUIPMENT_LABEL, studentRecord(), SKI_LIST)).toBe("Ski, Helm, Lange Hose");
+    });
+
+    it("leaves out what the student asked to borrow", () => {
+      const record = studentRecord({ rentedEquipment: ["Ski"] });
+
+      expect(lineFor(OWN_EQUIPMENT_LABEL, record, SKI_LIST)).toBe("Helm, Lange Hose");
+    });
+
+    /** Nothing left to pack is an answer, not a gap: the school is supplying the whole list. */
+    it("says so where the student borrows everything the program requires", () => {
+      const record = studentRecord({ rentedEquipment: ["Ski", "Helm"] });
+      const context = requiring(
+        { name: "Ski", isRentable: true },
+        { name: "Helm", isRentable: true },
+      );
+
+      expect(lineFor(OWN_EQUIPMENT_LABEL, record, context)).toBe("Nein");
+    });
+
+    it("says the same where the program requires nothing at all", () => {
+      expect(lineFor(OWN_EQUIPMENT_LABEL, studentRecord())).toBe("Nein");
+    });
+  });
+
   it("leaves an unanswered field to the placeholder rather than inventing one", () => {
     expect(lineFor("Klasse", studentRecord({ class: null }))).toBeNull();
     expect(lineFor("Geburtsdatum", studentRecord({ dateOfBirth: null }))).toBeNull();
@@ -178,8 +234,10 @@ describe("a field's value", () => {
   });
 
   it("states whether the registration is still missing answers (US-11, US-13)", () => {
+    const incomplete: ReportFieldContext = { ...NO_EQUIPMENT, isIncompleteOf: () => true };
+
     expect(lineFor("Registrierung", studentRecord())).toBe("Vollständig");
-    expect(lineFor("Registrierung", studentRecord({ isIncomplete: true }))).toBe("Unvollständig");
+    expect(lineFor("Registrierung", studentRecord(), incomplete)).toBe("Unvollständig");
   });
 
   // The record holds the name rather than a reference, so the line needs nothing but the record.
@@ -198,9 +256,17 @@ describe("a field's value", () => {
  */
 describe("fieldTagsFor", () => {
   const lists = {
-    events: ["Woche 1"],
+    events: [event("Woche 1")],
     classOptions: ["5AHIF"],
-    programs: [{ name: "Ski", requiredEquipment: ["Ski"] }],
+    programs: [
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Ski", isRentable: true },
+          { name: "Hose", isRentable: false },
+        ],
+      },
+    ],
     skillLevels: ["Profi"],
     seasonPassOptions: ["Keine"],
     busPickupPoints: ["HTL"],

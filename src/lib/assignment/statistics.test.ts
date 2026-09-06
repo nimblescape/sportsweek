@@ -115,8 +115,7 @@ describe("classOverview", () => {
       total: 1,
       attending: 0,
       attendanceRate: 0,
-      male: 0,
-      female: 0,
+      genders: { male: 0, female: 0, diverse: 0 },
     });
     expect(classOverview(roster, CLASSES, COLUMNS)[0].skillLevels).toEqual({});
   });
@@ -128,7 +127,9 @@ describe("classOverview", () => {
       student({ gender: "female", isAttending: false }),
     ];
 
-    expect(classOverview(roster, CLASSES, COLUMNS)[0]).toMatchObject({ male: 1, female: 1 });
+    expect(classOverview(roster, CLASSES, COLUMNS)[0]).toMatchObject({
+      genders: { male: 1, female: 1, diverse: 0 },
+    });
   });
 
   it("counts a skill level under the program it was chosen for", () => {
@@ -191,7 +192,7 @@ describe("assignmentGroups", () => {
     const roster = [student({ event: "Montafon", gender: null, program: null, skillLevel: null })];
 
     expect(groups(roster)[1].students).toHaveLength(1);
-    expect(groups(roster)[1]).toMatchObject({ male: 0, female: 0 });
+    expect(groups(roster)[1]).toMatchObject({ genders: { male: 0, female: 0, diverse: 0 } });
   });
 
   /** They cannot be assigned at all (US-11), so a stale assignment must not put them anywhere. */
@@ -202,6 +203,16 @@ describe("assignmentGroups", () => {
     ];
 
     expect(groups(roster).map((group) => group.students.length)).toEqual([0, 0, 0]);
+  });
+
+  /**
+   * Someone who has only followed the link is still deciding, not declining — leaving them off
+   * the board would hide whose registration a teacher still has to chase (US-13).
+   */
+  it("holds a student who has not answered yet", () => {
+    const roster = [student({ event: null, isAttending: null, isIncomplete: true })];
+
+    expect(groups(roster)[0].students).toHaveLength(1);
   });
 
   /** The card is the name, so an event another series happens to spell the same way is its own. */
@@ -218,8 +229,8 @@ describe("assignmentGroups", () => {
       student({ event: "Gardasee", gender: "female" }),
     ];
 
-    expect(groups(roster)[1]).toMatchObject({ male: 1, female: 1 });
-    expect(groups(roster)[2]).toMatchObject({ male: 0, female: 1 });
+    expect(groups(roster)[1]).toMatchObject({ genders: { male: 1, female: 1, diverse: 0 } });
+    expect(groups(roster)[2]).toMatchObject({ genders: { male: 0, female: 1, diverse: 0 } });
   });
 
   it("counts skill levels per program, as the class cards do", () => {

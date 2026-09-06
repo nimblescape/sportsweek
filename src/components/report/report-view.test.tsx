@@ -10,7 +10,7 @@ import { asUid } from "@/lib/schemas/common";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 
 const useEventSeries = vi.fn();
 const useRoster = vi.fn();
@@ -78,11 +78,19 @@ const eventSeries = {
     name: "2026",
     isOpenToStudents: true,
     hasRegistrations: true,
-    events: ["Woche 1"],
+    events: [event("Woche 1")],
     // The same lists the hooks below are mocked with: they are fields of this document, and it
     // is the document the fields row asks what the series wants asking about (US-21).
     classOptions: ["5AHIF", "5BHIF"],
-    programs: [{ name: "Ski", requiredEquipment: ["Ski", "Stöcke"] }],
+    programs: [
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Ski", isRentable: true },
+          { name: "Stöcke", isRentable: true },
+        ],
+      },
+    ],
     skillLevels: ["Profi"],
     seasonPassOptions: ["Keine"],
     busPickupPoints: ["Dornbirn", "Bregenz"],
@@ -104,7 +112,15 @@ beforeEach(() => {
     return listOf("Profi");
   });
   usePrograms.mockReturnValue({
-    programs: [{ name: "Ski", requiredEquipment: ["Ski", "Stöcke"] }],
+    programs: [
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Ski", isRentable: true },
+          { name: "Stöcke", isRentable: true },
+        ],
+      },
+    ],
     loading: false,
     error: null,
   });
@@ -158,10 +174,12 @@ describe("ReportView", () => {
   });
 
   it("marks a registration that is still missing answers, so a teacher knows whom to chase", () => {
-    const incomplete = rosterStudent(
-      { id: asUid("record-Cerny"), firstName: "Clara", lastName: "Cerny" },
-      { isIncomplete: true },
-    );
+    const incomplete = rosterStudent({
+      id: asUid("record-Cerny"),
+      firstName: "Clara",
+      lastName: "Cerny",
+      isIncomplete: true,
+    });
     useRoster.mockReturnValue({ students: [incomplete, ANNA], loading: false, error: null });
 
     render(<ReportView />);
@@ -202,10 +220,12 @@ describe("ReportView", () => {
   });
 
   it("filters by whether a registration is still missing answers", async () => {
-    const chasing = rosterStudent(
-      { id: asUid("record-Cerny"), firstName: "Clara", lastName: "Cerny", isIncomplete: true },
-      { isIncomplete: true },
-    );
+    const chasing = rosterStudent({
+      id: asUid("record-Cerny"),
+      firstName: "Clara",
+      lastName: "Cerny",
+      isIncomplete: true,
+    });
     useRoster.mockReturnValue({ students: [chasing, ANNA], loading: false, error: null });
 
     render(<ReportView />);
@@ -451,6 +471,11 @@ describe("the saved reports", () => {
       fields: [],
     };
     useSavedReports.mockReturnValue({ reports: [pickup], loading: false, error: null });
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, busPickupPoints: [] }],
+      loading: false,
+      error: null,
+    });
     useMasterData.mockImplementation((key: string) => {
       if (key === "bus-pickup-points") return listOf();
       if (key === "classes") return listOf("5AHIF", "5BHIF");

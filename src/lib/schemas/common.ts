@@ -56,7 +56,11 @@ export const asUid = (value: string): Uid => uidSchema.parse(value);
  */
 export const snapshotValueSchema = requiredText(120);
 
-export const genderSchema = z.enum(["male", "female"]);
+/**
+ * Three values, not two with a fallback (US-11). The order is the one every list of them uses:
+ * the labels, the form's options, the filter's tags and the figures table's columns.
+ */
+export const genderSchema = z.enum(["male", "female", "diverse"]);
 export type Gender = z.infer<typeof genderSchema>;
 
 export const isoDateSchema = z.iso.date();

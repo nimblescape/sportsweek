@@ -5,7 +5,6 @@
  */
 import { z } from "zod";
 import type { EventSeries } from "@/lib/schemas/event-series";
-import { eventSeriesRoutes } from "@/lib/routes";
 
 /**
  * How an item is recognised as still in use (US-5 to US-10). A registration stores the name it
@@ -27,10 +26,29 @@ export type MasterDataCategory = {
   field: EventSeriesListField;
   usage: MasterDataUsage;
   /**
+   * Whether an entry has a record page of its own — a program, or an event now that it carries
+   * lists of its own. Such a list is a step of the hierarchy rather than a leaf of it (US-33).
+   */
+  opensRecords: boolean;
+  /**
    * Set only for a category whose items carry a list of their own. Its entries are matched
    * against the students' rental selections, not against the field above (US-5).
    */
   equipmentField?: string;
+  /**
+   * Whether this list stores its entries as name-only records rather than bare strings — true
+   * only for events, which need an identity of their own to carry lists of their own later
+   * (US-33). A program also stores objects, but that is already said by `equipmentField`.
+   */
+  entriesAreRecords?: boolean;
+  /**
+   * Whether one of this series' events may name entries of its own for this list, in place of
+   * the series' (US-33) — true for the five lists a place decides, false for classes, which
+   * describes the school rather than the trip, and for events themselves. What lets one
+   * definition serve a series and its events alike, rather than a second category map repeating
+   * the same five with a different scope.
+   */
+  perEvent: boolean;
   labels: {
     title: string;
     singular: string;
@@ -53,26 +71,16 @@ export type MasterDataCategory = {
  * the order the menu shows them. The event series itself is not here: it carries archive state of
  * its own and is maintained on the one page that is not scoped to a selection.
  *
- * The events lead because they are the series divided into weeks, and everything else describes
- * the students within it — the order the report fields and the filter categories already follow.
+ * The classes lead because they describe the school itself, which is true of a series whatever it
+ * divides into; the events follow as the series divided into weeks, and the rest describe what a
+ * week offers — the order the report fields and the filter categories already follow.
  */
 export const MASTER_DATA_CATEGORIES = {
-  events: {
-    field: "events",
-    // The one list nobody is asked for: a teacher assigns the event (US-12), so this field is
-    // matched only by the in-use guard, which refuses to remove an event somebody is assigned to.
-    usage: { kind: "masterData", field: "event" },
-    labels: {
-      title: "Events",
-      singular: "Event",
-      add: "Neues Event",
-      empty: "Es gibt noch kein Event.",
-      answer: "Event",
-    },
-  },
   classes: {
     field: "classOptions",
     usage: { kind: "masterData", field: "class" },
+    opensRecords: false,
+    perEvent: false,
     labels: {
       title: "Klassen",
       singular: "Klasse",
@@ -81,10 +89,28 @@ export const MASTER_DATA_CATEGORIES = {
       answer: "Klasse",
     },
   },
+  events: {
+    field: "events",
+    // The one list nobody is asked for: a teacher assigns the event (US-12), so this field is
+    // matched only by the in-use guard, which refuses to remove an event somebody is assigned to.
+    usage: { kind: "masterData", field: "event" },
+    opensRecords: true,
+    entriesAreRecords: true,
+    perEvent: false,
+    labels: {
+      title: "Events",
+      singular: "Event",
+      add: "Neues Event",
+      empty: "Es gibt noch kein Event.",
+      answer: "Event",
+    },
+  },
   programs: {
     field: "programs",
     usage: { kind: "masterData", field: "program" },
+    opensRecords: true,
     equipmentField: "requiredEquipment",
+    perEvent: true,
     labels: {
       title: "Programme",
       singular: "Programm",
@@ -96,6 +122,8 @@ export const MASTER_DATA_CATEGORIES = {
   "skill-levels": {
     field: "skillLevels",
     usage: { kind: "masterData", field: "skillLevel" },
+    opensRecords: false,
+    perEvent: true,
     labels: {
       title: "Leistungsstufen",
       singular: "Leistungsstufe",
@@ -107,6 +135,8 @@ export const MASTER_DATA_CATEGORIES = {
   "season-pass-options": {
     field: "seasonPassOptions",
     usage: { kind: "masterData", field: "seasonPassOption" },
+    opensRecords: false,
+    perEvent: true,
     labels: {
       title: "Zugangskarten",
       singular: "Zugangskarte",
@@ -118,6 +148,8 @@ export const MASTER_DATA_CATEGORIES = {
   "bus-pickup-points": {
     field: "busPickupPoints",
     usage: { kind: "masterData", field: "busPickupPoint" },
+    opensRecords: false,
+    perEvent: true,
     labels: {
       title: "Zustiegsstellen",
       singular: "Zustiegsstelle",
@@ -129,6 +161,8 @@ export const MASTER_DATA_CATEGORIES = {
   "food-options": {
     field: "foodOptions",
     usage: { kind: "masterData", field: "foodOption" },
+    opensRecords: false,
+    perEvent: true,
     labels: {
       title: "Verpflegung",
       singular: "Verpflegungsoption",
@@ -140,6 +174,17 @@ export const MASTER_DATA_CATEGORIES = {
 } as const satisfies Record<string, MasterDataCategory>;
 
 export type MasterDataCategoryKey = keyof typeof MASTER_DATA_CATEGORIES;
+
+/**
+ * The five categories an event may name entries of its own for (US-33), derived from the map
+ * above rather than named a second time — so a category that becomes overridable, or stops being
+ * one, changes here and nowhere else.
+ */
+export type PerEventCategoryKey = {
+  [Key in MasterDataCategoryKey]: (typeof MASTER_DATA_CATEGORIES)[Key]["perEvent"] extends true
+    ? Key
+    : never;
+}[MasterDataCategoryKey];
 
 /** The registration fields the maintained lists supply an answer for (US-5 to US-11). */
 export type AnswerField = (typeof MASTER_DATA_CATEGORIES)[MasterDataCategoryKey]["usage"]["field"];
@@ -164,11 +209,23 @@ export function questionsAsked(
 }
 
 /**
- * Whether renting is asked at all. It is put to a student whose chosen program requires
- * something, so a series where no program requires anything never puts the question — which
- * makes it US-21's rule again, with the list one step further off than the other six.
+ * Whether renting is asked at all. It is put to a student whose chosen program lends something,
+ * so a series whose programs lend nothing never puts the question — which makes it US-21's rule
+ * again, with the list one step further off than the other six. A program may still require
+ * equipment nobody can borrow (US-36); that is a packing list, not a question.
  */
 export function rentsEquipment(eventSeries: Pick<EventSeries, "programs">): boolean {
+  return eventSeries.programs.some((program) =>
+    program.requiredEquipment.some((item) => item.isRentable),
+  );
+}
+
+/**
+ * Whether any program requires anything at all (US-36). What the report's "Ausrüstung" field is
+ * offered on: a student who borrows nothing brings the whole of their program's list, so the
+ * field has something to say wherever there is a list.
+ */
+export function requiresEquipment(eventSeries: Pick<EventSeries, "programs">): boolean {
   return eventSeries.programs.some((program) => program.requiredEquipment.length > 0);
 }
 
@@ -183,34 +240,6 @@ export const ANSWER_LABELS = Object.fromEntries(
     category.labels.answer,
   ]),
 ) as Record<AnswerField, string>;
-
-/**
- * The master data menu, in the order it is shown (US-4 to US-10). Every list belongs to one event
- * series, so the entries are built from the selected one's id (Q8). The event series list leads and
- * is the exception twice over: it is not a category, and it is the one page not scoped to the
- * selection — it is where the things the header offers are maintained (US-19).
- *
- * With nothing selected it is also the only entry left, since the other six would have no series
- * to be about.
- */
-export function masterDataSections(eventSeriesId: string | null) {
-  const eventSeriesList = { href: "/app/event-series", label: "Eventreihen" };
-  if (eventSeriesId === null) return [eventSeriesList];
-
-  return [
-    eventSeriesList,
-    ...Object.entries(MASTER_DATA_CATEGORIES).map(([key, category]) => ({
-      href: `/app/${encodeURIComponent(eventSeriesId)}/master-data/${key}`,
-      label: category.labels.title,
-    })),
-  ];
-}
-
-/** Where the section opens: its first category, the section itself having no view of its own. */
-export function firstMasterDataPath(eventSeriesId: string): string {
-  const [first] = Object.keys(MASTER_DATA_CATEGORIES);
-  return `${eventSeriesRoutes(eventSeriesId).masterData}/${first}`;
-}
 
 /**
  * Lives here rather than next to the server-side guard because the list view shows the same
@@ -258,6 +287,33 @@ export const masterDataCategorySchema = z.enum(
   Object.keys(MASTER_DATA_CATEGORIES) as [MasterDataCategoryKey, ...MasterDataCategoryKey[]],
 );
 
+/** The keys of the five categories an event may override, in the menu's order (US-33). */
+export const PER_EVENT_CATEGORY_KEYS = (
+  Object.keys(MASTER_DATA_CATEGORIES) as MasterDataCategoryKey[]
+).filter((key) => MASTER_DATA_CATEGORIES[key].perEvent) as PerEventCategoryKey[];
+
+/** A category segment on an event's own page — narrower than the series', which also has this. */
+export const eventCategorySchema = z.enum(
+  PER_EVENT_CATEGORY_KEYS as [PerEventCategoryKey, ...PerEventCategoryKey[]],
+);
+
 export function categoryOf(key: MasterDataCategoryKey): MasterDataCategory {
   return MASTER_DATA_CATEGORIES[key];
 }
+
+/**
+ * What an event's page says under the empty list of one of its five overridable categories
+ * (US-33). Empty means something different here than everywhere else a list is empty: not
+ * "nobody is asked", but "this event takes the series' own list instead".
+ */
+export const inheritsSeriesHint = (category: MasterDataCategory) =>
+  `Dieses Event verwendet die ${category.labels.title} der Eventreihe.`;
+
+/**
+ * Why an event may not start a list of its own once its series already has registrations
+ * (US-33, US-36). Its first entry is what turns a one-step series into a two-step one, and an
+ * answer already saved against the series' own list was never checked against a narrower one.
+ */
+export const twoStepBlockedHint = (category: MasterDataCategory) =>
+  `Diese Eventreihe hat bereits Registrierungen. Ein Event kann ihr deshalb keine eigenen ` +
+  `${category.labels.title} mehr geben.`;
