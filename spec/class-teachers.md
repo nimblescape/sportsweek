@@ -444,8 +444,6 @@ happens to be standing, and that is the press it keeps.
 
 ### What a student sees
 
-### What a student sees
-
 **One rule covers almost all of it: a student who holds a registration is taken to it, however
 they arrived.** A link, a dead link, or no link at all — the destination is the same, and the only
 thing the arrival decides is what happens to a student who holds none.
@@ -464,6 +462,9 @@ thing the arrival decides is what happens to a student who holds none.
   opens the one registration the student holds; where they hold several it asks which; where they
   hold none it says so. That is what it does today (Q7 of `spec/requirements.md`), and it is
   unchanged except in which registrations it counts.
+- **An archived series is never on that list.** Archiving is what signs a series off and takes it
+  off every screen, the student's included — so it is archiving, not closing, that ends a
+  registration's visible life.
 - **A registration whose class is closed is shown read-only**, wherever the student came from.
   Every answer is on screen, filled in and inactive, with one line saying registration is closed.
   Today the form is replaced by that sentence alone, which takes a student's own answers away from
@@ -482,10 +483,10 @@ thing the arrival decides is what happens to a student who holds none.
 
 The read-only rule moves a line in `openSeriesOfStudent`, which today lists only the series a
 student holds a registration in **and** that are open. It becomes every series they hold one in,
-archived aside. **The consequence is that the chooser appears where it did not before**: a closed
-but not yet archived series stays on the list beside a live one, so a student holding both is
-asked which. That is accepted — the alternative is hiding a registration from the person who
-filled it in.
+**archived aside**. **The consequence is that the chooser appears where it did not before**: a
+closed but not yet archived series stays on the list beside a live one, so a student holding both
+is asked which. That is accepted — the alternative is hiding a registration from the person who
+filled it in, and archiving remains the act that ends the list's growth.
 
 ### What this does to archiving
 
@@ -503,7 +504,7 @@ and it is the only one that cannot cost anybody a resend.
 - **`firestore.rules`.** Not one line — deliberately, and for now. Every write already goes
   through a handler and every rule that governs one already says `allow write: if false`, so the
   scope has a server-side home without the rules being told about it. What the rules cannot yet
-  say about reads is set out in "What it bounds, and what it does not".
+  say about reads is set out in "Two layers, two rules".
 - **`invitations`.** One document per live link, readable and writable by no client at all,
   reached only through the handlers that mint and delete one. The token never appears on a
   document a student can read (Q9).
@@ -648,8 +649,6 @@ and no others, so that I cannot wander into a series that is somebody else's job
 - Being scoped to a series shows only the pages the teacher's permissions already open — the
   navigation is unchanged.
 
-### US-43: I open registration for one class by handing out its link
-
 ### US-43: I open and close registration one class at a time
 
 As a teacher who looks after a class, I open and close registration for that class on its own, so
@@ -735,8 +734,9 @@ neither strands me nor takes my own answers away from me.
   following one that leads nowhere, asks only where I hold registrations in more than one series.
 - Amending an existing registration needs no link: it is allowed exactly while the class the
   record names is open.
-- The list of registrations I hold covers every series I hold one in, archived aside — so a closed
-  round stays reachable until the school files it away.
+- The list of registrations I hold covers every series I hold one in, **archived aside** — so a
+  closed round stays reachable until the school files it away, and an archived one is off my
+  screen as it is off everybody's.
 
 ## Questions and inconsistencies, all settled
 
@@ -859,8 +859,6 @@ comments that cite them. It still needs settling when the four documents are mer
 then a number alone is not enough to find a story by. So does its second half: the story saying
 which required equipment the school lends is US-37 in
 `spec/refactoring-per-event-categories.md` and is cited as US-36 throughout the code.
-
-### Q8 — Is a live link the only thing that makes a class open? — ANSWERED
 
 ### Q8 — Is a live link the only thing that makes a class open? — ANSWERED, after being answered the other way first
 
