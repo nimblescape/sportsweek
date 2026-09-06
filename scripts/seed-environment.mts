@@ -31,8 +31,9 @@ import { buildEmail } from "@/lib/auth/fake/email-builder";
 import { invitationKey } from "@/lib/auth/school-email";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { genderSchema, type Gender } from "@/lib/schemas/common";
-import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
+import { FOOD_OPTION_OTHER, type OverridableLists, type Program } from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { MASTER_DATA_CATEGORIES } from "@/lib/master-data/categories";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
 import { normalizeName } from "@/lib/firebase/name-key";
@@ -47,12 +48,7 @@ import {
   STAGING,
   type Environment,
 } from "./environment.mjs";
-import {
-  loadSeedConfig,
-  seedEventSeriesNamed,
-  type SeedEventSeries,
-  type SeedUser,
-} from "./seed-config.mjs";
+import { loadSeedConfig, type SeedEventSeries, type SeedUser } from "./seed-config.mjs";
 
 /**
  * Where inventing people is allowed, and where a purge needs no ceremony. Production is absent
@@ -70,29 +66,30 @@ const USER_PAGE_SIZE = 1000;
 /**
  * What a purged environment gets so there is somewhere to put students. The application seeds
  * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
- * Kulturwoche — so a fresh project holds only what `scripts/seed.yml` names. Only the winter
- * series is bare-seeded (US-33): it is the one a school cannot be without, and a summer one is
- * invented only where students are invented too.
+ * Kulturwoche — so a fresh project holds only what `scripts/seed.yml` names, in the order it
+ * lists them there. Only the first is bare-seeded (US-33): it is the one a school cannot be
+ * without, and every series after it is invented only where students are invented too.
  */
-const WINTER_EVENT_SERIES_NAME = "Wintersportwochen 26/27";
-const SUMMER_EVENT_SERIES_NAME = "Sommersportwochen 26/27";
 
 /**
- * What production gets: the five lists that are the same every year, and nothing for the two that
- * are not. Which weeks there are and which classes go on them is what a teacher fills in.
+ * The categories an event may override (US-33), derived from the categories map rather than
+ * named a second time — so a category that becomes overridable, or stops being one, changes
+ * there and nothing here needs to catch up.
+ */
+const PER_EVENT_FIELDS = Object.values(MASTER_DATA_CATEGORIES)
+  .filter((category) => category.perEvent)
+  .map((category) => category.field);
+
+/**
+ * What production gets: those categories, and nothing for the two that describe this particular
+ * year — which weeks there are and which classes go on them is what a teacher fills in.
  */
 function bareEventSeriesOf(series: SeedEventSeries): SeedEventSeries {
-  const { name, programs, skillLevels, seasonPassOptions, busPickupPoints, foodOptions } = series;
-  return {
-    name,
-    events: [],
-    classOptions: [],
-    programs,
-    skillLevels,
-    seasonPassOptions,
-    busPickupPoints,
-    foodOptions,
-  };
+  const overridable = Object.fromEntries(
+    PER_EVENT_FIELDS.map((field) => [field, series[field]]),
+  ) as OverridableLists;
+
+  return { name: series.name, events: [], classOptions: [], ...overridable };
 }
 
 /** The shape of the sports week as it is wanted in a test environment. */
@@ -121,19 +118,6 @@ const FEMALE_SHARE = 1 / 3;
 /** Small on purpose: enough that every run has some, few enough to stay a minority in the figures. */
 const DIVERSE_SHARE = 1 / 20;
 const AGE_RANGE = { min: 15, max: 16 };
-
-/**
- * Matched against the programs a teacher maintains (US-5), so a renamed one stops the run rather
- * than quietly changing the split. Whatever is left over goes to the programs not named here.
- */
-const WINTER_PROGRAM_SHARES = [
-  ["Ski", 0.6],
-  ["Snowboard", 0.3],
-] as const;
-const SUMMER_PROGRAM_SHARES = [
-  ["Kajak", 0.4],
-  ["Klettern", 0.3],
-] as const;
 
 /** How many attendees on a program that requires equipment rent it rather than bring their own. */
 const RENTAL_SHARE = 0.4;
@@ -523,61 +507,53 @@ async function importAccounts(auth: Auth, accounts: readonly SeededAccount[]): P
  * not issue — which is what a real sign-in then collides with. There is therefore no uid to key
  * a record by until somebody actually arrives.
  *
- * `classTeacherOf` names a class of `winterEventSeriesId` (US-40) — the only series bare-seeded,
- * so the only one a class assignment can be left waiting in before anybody has signed in.
+ * `classTeacherOf` names classes (US-40), matched against every series seeded so far rather than
+ * one named in advance — the same class name in two series is two different classes, and a name
+ * held by both leaves the teacher assigned to both.
  */
 async function inviteTeachers(
   db: Firestore,
   teachers: readonly SeedUser[],
-  winterEventSeriesId: string,
+  eventSeries: readonly EventSeries[],
 ): Promise<void> {
   await Promise.all(
-    teachers.map((person) =>
-      db
-        .collection(COLLECTIONS.invitedTeachers)
-        .doc(invitationKey(person.email))
-        .set({
-          firstName: person.firstName,
-          lastName: person.lastName,
-          permissions: person.permissions,
-          classAssignments: person.classTeacherOf
-            ? [{ eventSeriesId: winterEventSeriesId, class: person.classTeacherOf }]
-            : [],
-        }),
-    ),
+    teachers.map((person) => {
+      const classNames = new Set(person.classTeacherOf ?? []);
+      const classAssignments = eventSeries.flatMap((series) =>
+        series.classOptions
+          .filter((option) => classNames.has(option.name))
+          .map((option) => ({ eventSeriesId: series.id, class: option.name })),
+      );
+
+      return db.collection(COLLECTIONS.invitedTeachers).doc(invitationKey(person.email)).set({
+        firstName: person.firstName,
+        lastName: person.lastName,
+        permissions: person.permissions,
+        classAssignments,
+      });
+    }),
   );
 }
 
 /**
- * Registers a class list of students into one event series, split across its programs by the
- * shares asked for. `taken` is shared across every series seeded in the same run, so the same
- * generated name is never handed to two different students under two different series.
+ * Registers a class list of students into one event series, split evenly across whatever
+ * programs it has (US-21) — a name-matched split would stop the run over a rename this script
+ * has no reason to care about. `taken` is shared across every series seeded in the same run, so
+ * the same generated name is never handed to two different students under two different series.
  */
 async function seedRegistrations(
   db: Firestore,
   auth: Auth,
   eventSeries: EventSeries,
-  programShares: typeof WINTER_PROGRAM_SHARES | typeof SUMMER_PROGRAM_SHARES,
   taken: Set<string>,
 ): Promise<void> {
   const programs = eventSeries.programs;
-  const named = programShares.map(([name]) => programs.find((program) => program.name === name));
-  const others = programs.filter((program) => !programShares.some(([n]) => n === program.name));
-
-  if (named.some((program) => program === undefined) || others.length === 0) {
-    fail(
-      `The programs of "${eventSeries.name}" do not match the split this script seeds.`,
-      `  wanted: ${programShares.map(([name, share]) => `${name} ${share * 100}%`).join(", ")}, plus at least one more for the rest`,
-      `  found:  ${programs.map((program) => program.name).join(", ") || "none"}`,
-    );
+  if (programs.length === 0) {
+    fail(`"${eventSeries.name}" has no programs to register students into.`);
   }
 
-  const ordered = [...(named as Program[]), ...others];
-  const restShare = 1 - programShares.reduce((sum, [, share]) => sum + share, 0);
-  const shares = [
-    ...programShares.map(([, share]) => share),
-    ...others.slice(0, -1).map(() => restShare / others.length),
-  ];
+  // One share per program but the last, whose share `split` derives as the remainder.
+  const shares = programs.slice(0, -1).map(() => 1 / programs.length);
 
   const lists: Lists = {
     skillLevels: eventSeries.skillLevels,
@@ -619,7 +595,7 @@ async function seedRegistrations(
     const written = { attending: 0, incomplete: 0 };
     // Null is the absentee's "no program", which is why it is dealt alongside the real ones.
     const chosen = shuffle([
-      ...deal<Program | null>(ordered, split(attending, shares)),
+      ...deal<Program | null>(programs, split(attending, shares)),
       ...Array<Program | null>(absent).fill(null),
     ]);
 
@@ -667,7 +643,7 @@ async function seedRegistrations(
     const counted = genderSchema.options
       .map((gender) => `${genders.filter((one) => one === gender).length} ${gender}`)
       .join(" / ");
-    const perProgram = ordered
+    const perProgram = programs
       .map((program) => `${program.name} ${chosen.filter((c) => c === program).length}`)
       .join(", ");
     summary.push(
@@ -711,8 +687,7 @@ async function main(): Promise<void> {
   if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
 
   const config = loadSeedConfig();
-  const winterConfig = seedEventSeriesNamed(config, WINTER_EVENT_SERIES_NAME);
-  const summerConfig = seedEventSeriesNamed(config, SUMMER_EVENT_SERIES_NAME);
+  if (config.eventSeries.length === 0) fail("scripts/seed.yml names no event series.");
 
   // Its own app rather than @/lib/firebase/admin: that one addresses whichever project the
   // ambient environment names, and this must address the one just named and nothing else.
@@ -730,28 +705,32 @@ async function main(): Promise<void> {
 
   // The lists are fields of the event series (US-21), so there is nothing to read until it
   // exists — and creating it is what seeds them, since the application no longer does. Only the
-  // winter series is bare-seeded: production gets the one a school cannot be without, and the
-  // second is invented only where students are invented too.
-  const winter = await createEventSeries(
-    db,
-    seedsStudents ? winterConfig : bareEventSeriesOf(winterConfig),
-    0,
-    seedsStudents,
-  );
-  console.log(`Created the event series "${winter.name}".`);
+  // first is bare-seeded: production gets the one a school cannot be without, and every series
+  // after it is invented only where students are invented too.
+  //
+  // All of them are created before anybody is invited, so a class held by more than one series
+  // is matched into every one of them (US-40) — an invitation left for only the first would
+  // otherwise never see that the rest exist.
+  const created: EventSeries[] = [];
+  for (const [index, series] of config.eventSeries.entries()) {
+    if (index > 0 && !seedsStudents) continue;
 
-  await inviteTeachers(db, config.users, winter.id);
+    const data = index === 0 && !seedsStudents ? bareEventSeriesOf(series) : series;
+    const one = await createEventSeries(db, data, index, seedsStudents);
+    console.log(`Created the event series "${one.name}".`);
+    created.push(one);
+  }
+
+  await inviteTeachers(db, config.users, created);
   console.log(`Invited ${config.users.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
   if (!seedsStudents) return;
 
-  const summer = await createEventSeries(db, summerConfig, 1, true);
-  console.log(`Created the event series "${summer.name}".`);
-
   const taken = new Set<string>();
-  await seedRegistrations(db, auth, winter, WINTER_PROGRAM_SHARES, taken);
-  await seedRegistrations(db, auth, summer, SUMMER_PROGRAM_SHARES, taken);
+  for (const series of created) {
+    await seedRegistrations(db, auth, series, taken);
+  }
 }
 
 await main();

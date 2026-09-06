@@ -22,9 +22,9 @@ const seedUserSchema = z.object({
   firstName: requiredText(100),
   lastName: requiredText(100),
   email: z.email(),
-  // A class of the winter series — the only one bare-seeded, so the only one with classes to
-  // assign into before anybody has signed in (US-40). Left with the invitation, not written here.
-  classTeacherOf: z.string().optional(),
+  // Classes of the first event series — the only one bare-seeded, so the only one with classes
+  // to assign into before anybody has signed in (US-40). Left with the invitation, not written here.
+  classTeacherOf: z.array(z.string()).optional(),
   permissions: permissionsInputSchema,
 });
 export type SeedUser = z.infer<typeof seedUserSchema>;
@@ -62,11 +62,4 @@ export function loadSeedConfig(): SeedConfig {
         "scripts/seed.yml does not match what a seed expects:",
         ...parsed.error.issues.map((issue) => `  ${issue.path.join(".")}: ${issue.message}`),
       );
-}
-
-export function seedEventSeriesNamed(config: SeedConfig, name: string): SeedEventSeries {
-  return (
-    config.eventSeries.find((series) => series.name === name) ??
-    fail(`scripts/seed.yml names no event series "${name}".`)
-  );
 }

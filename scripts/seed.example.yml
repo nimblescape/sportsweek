@@ -5,7 +5,8 @@
 users:
   - firstName: Alex
     lastName: Example
-    classTeacherOf: 2aWI
+    classTeacherOf:
+      - 2aWI
     email: alex.example@example.edu
     permissions:
       - editRegistrations
@@ -23,7 +24,8 @@ users:
       - editMasterData
   - firstName: Casey
     lastName: Example
-    classTeacherOf: 2aCI
+    classTeacherOf:
+      - 2aCI
     email: casey.example@example.edu
     permissions:
       - editRegistrations
