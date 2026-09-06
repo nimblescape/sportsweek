@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_REGISTRATION,
+  INVALID_LINK_HINT,
   registrationPath,
   REGISTRATION_NOT_OPEN_HINT,
   scopeRentalToProgram,
@@ -25,8 +26,12 @@ describe("registrationPath", () => {
   });
 
   /** "Veranstaltung" because a series may be a Kulturwoche; "derzeit" because it can reclose. */
-  it("states the one message US-23 gives for every link that leads nowhere", () => {
+  it("states the message for a student signed in holding no registration at all", () => {
     expect(REGISTRATION_NOT_OPEN_HINT).toBe("Derzeit ist keine Veranstaltung freigeschaltet.");
+  });
+
+  it("states a different message for a link that never led anywhere", () => {
+    expect(INVALID_LINK_HINT).toBe("Dieser Link ist ungültig.");
   });
 });
 

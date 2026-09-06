@@ -27,8 +27,8 @@ import { ROUTES, eventSeriesRoutes } from "@/lib/routes";
  * A student who already holds a registration for the series is taken straight to it, whatever the
  * link's own class says (Q13): a link only ever leads somewhere, and never moves what it finds
  * there. Only a student who holds none yet has anything left for the class or the window to
- * decide, and a live link to a closed class tells them so by name rather than folding into the
- * one sentence a dead link gets (US-45).
+ * decide, and a live link to a closed class tells them so by name (US-45) — as does a link that
+ * never led anywhere at all, which says so rather than reading like a student with nothing joined.
  */
 export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
@@ -56,7 +56,9 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
     );
   }
 
-  if (resolution.status === "dead") return to(ROUTES.myRegistration);
+  if (resolution.status === "dead") {
+    return to(`${ROUTES.myRegistration}?invalid=1`);
+  }
 
   const { eventSeriesId, class: className } = resolution.invitation;
 

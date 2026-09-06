@@ -517,9 +517,11 @@ thing the arrival decides is what happens to a student who holds none.
   Every answer is on screen, filled in and inactive, with one line saying registration is closed.
   Today the form is replaced by that sentence alone, which takes a student's own answers away from
   them at the moment they most want to check them.
-- **A link that leads nowhere keeps the one sentence.** Mistyped, replaced by a new one, or naming
-  a class or series since removed: none of the reasons can be told apart, exactly as US-23
-  requires.
+- **A link that leads nowhere says so, apart from a plain sign-in with nothing joined.** Mistyped,
+  replaced by a new one, or naming a class or series since removed: those reasons stay untold
+  apart from each other, since none is anything a student could act on differently — but arriving
+  with a link that did not work reads differently from arriving with nothing at all, and is told
+  apart in what it says.
 - **A live link to a closed class is the one case that says something different**, and it should.
   The address is theirs and still good; only the window is shut. Telling them "no longer valid"
   would send them chasing a teacher for a link they already have — which is the very cost stable

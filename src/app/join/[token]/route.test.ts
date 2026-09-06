@@ -131,16 +131,17 @@ describe("GET /join/[token]", () => {
   });
 
   /**
-   * Every reason a link can lead nowhere is answered by the one sentence on the landing page,
-   * so this handler joins nobody and says nothing about which of them it was.
+   * A dead link says so, rather than reading like a student with nothing joined at all — the
+   * two used to fold into one message, until testing it showed how little that told a student
+   * holding a link that plainly did not work.
    */
-  it("takes a student whose link leads nowhere to the landing page, saying nothing", async () => {
+  it("takes a student whose link leads nowhere to the landing page, saying it did not work", async () => {
     resolveInvitation.mockResolvedValue({ status: "dead" });
 
     const response = await follow("mistyped");
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("/app/my-registration");
+    expect(response.headers.get("location")).toBe("/app/my-registration?invalid=1");
     expect(joinEventSeries).not.toHaveBeenCalled();
   });
 

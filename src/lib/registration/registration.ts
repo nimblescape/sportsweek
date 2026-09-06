@@ -18,11 +18,10 @@ export function registrationPath(eventSeriesId: string): string {
 }
 
 /**
- * The one sentence for every way a student can arrive at nothing to fill in (US-19, US-23): a
- * link that is mistyped, superseded or names a series since archived or deleted, and a student
- * signing in holding no registration at all. Telling those apart would say which of them
- * applies — to a caller who should not be able to tell, and to a student who could do nothing
- * about it either way.
+ * The one sentence for a student signed in holding no registration at all — never having
+ * followed a link, or every one they held since archived or deleted. Told apart from a dead
+ * link's own message (`INVALID_LINK_HINT`): arriving with nothing is not the same as arriving
+ * with something that did not work.
  *
  * What it no longer covers is a class that is merely closed (US-45): that link still works, and
  * a student who holds no registration for it yet is told to keep it instead, by
@@ -32,6 +31,14 @@ export function registrationPath(eventSeriesId: string): string {
  * "noch", because a series can be archived after having been open.
  */
 export const REGISTRATION_NOT_OPEN_HINT = "Derzeit ist keine Veranstaltung freigeschaltet.";
+
+/**
+ * Told to a student whose link did not lead anywhere — mistyped, superseded by a regenerated
+ * one, or naming a class or series since removed. The reasons stay untold apart from each other,
+ * since none of them is anything a student could act on differently; only that the link itself,
+ * rather than their standing, is what did not work.
+ */
+export const INVALID_LINK_HINT = "Dieser Link ist ungültig.";
 
 /**
  * Told to a student who followed a live link to a class that is currently closed and holds no
