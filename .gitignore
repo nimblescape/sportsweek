@@ -29,7 +29,7 @@
 *.pem
 
 # local seed data with personal information
-/seeding/seeding.yml
+/scripts/seed.yml
 
 # debug
 npm-debug.log*

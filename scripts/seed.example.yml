@@ -30,30 +30,33 @@ users:
 
 eventSeries:
   - name: Winter sports weeks 2026/2027
-    classes:
+    classOptions:
       - 2aCI
       - 2aWI
       - 2bWI
-  - name: Summer sports weeks 2026/2027
-    classes:
-      - 3aCI
-      - 3aWI
-
-scriptMasterData:
-  defaultEventSeriesName: Winter sports weeks 2026/2027
-  shared:
+    events:
+      - name: Week 1
+      - name: Week 2
+      - name: Week 3
     programs:
       - name: Ski
         requiredEquipment:
-          - Ski
-          - Ski boots
-          - Poles
-          - Helmet
+          - name: Ski
+            isRentable: true
+          - name: Ski boots
+            isRentable: true
+          - name: Poles
+            isRentable: true
+          - name: Helmet
+            isRentable: true
       - name: Snowboard
         requiredEquipment:
-          - Board
-          - Boots
-          - Helmet
+          - name: Board
+            isRentable: true
+          - name: Boots
+            isRentable: true
+          - name: Helmet
+            isRentable: true
       - name: Alternative
         requiredEquipment: []
     skillLevels:
@@ -76,16 +79,7 @@ scriptMasterData:
       - Vegetarian
       - Vegan
       - No pork
-  profiles:
-    bare:
-      events: []
-      classOptions: []
-    test:
-      events:
-        - Week 1
-        - Week 2
-        - Week 3
-      classOptions:
-        - 2aWI
-        - 2bWI
-        - 2cWI
+  - name: Summer sports weeks 2026/2027
+    classOptions:
+      - 3aCI
+      - 3aWI

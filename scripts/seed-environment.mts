@@ -22,6 +22,7 @@
  * Emptying production is a legitimate admin task and is not fenced off, but it is the one thing
  * here that cannot be undone, so it asks for the project id to be typed back first.
  */
+import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
@@ -34,7 +35,6 @@ import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
-import { FULL_PERMISSIONS } from "@/lib/auth/permissions";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
 import { questionsFor } from "@/lib/master-data/resolution";
@@ -47,6 +47,12 @@ import {
   STAGING,
   type Environment,
 } from "./environment.mjs";
+import {
+  loadSeedConfig,
+  seedEventSeriesNamed,
+  type SeedEventSeries,
+  type SeedUser,
+} from "./seed-config.mjs";
 
 /**
  * Where inventing people is allowed, and where a purge needs no ceremony. Production is absent
@@ -55,24 +61,6 @@ import {
  */
 const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
 
-/**
- * Who a purged school starts out able to administer it, in every environment including
- * production. Signing in grants nothing on its own, so without these there would be nobody who
- * could hand out a permission and no way to become that person from inside the application.
- *
- * These are records rather than accounts: they sign in through Entra ID like anybody else, and
- * provisioning then fills in the name and the photo it finds. What it does not touch is what a
- * record already holds, which is what makes these survive their first login.
- *
- * Who administers a school later on is a question for the records — `npm run logins:<environment>`
- * asks it — since a permission granted or withdrawn since is not visible from here.
- */
-const ADMINISTRATORS = [
-  { firstName: "Hannes", lastName: "Stauss", email: "hannes.stauss@htldornbirn.at" },
-  { firstName: "Julia", lastName: "Mathis", email: "julia.mathis@htldornbirn.at" },
-  { firstName: "Norbert", lastName: "Lenz", email: "norbert.lenz@htldornbirn.at" },
-] as const;
-
 /** Asks one of them for the bare state instead, which is what a school's first day is. */
 const BARE = "--bare";
 
@@ -80,51 +68,11 @@ const BARE = "--bare";
 const USER_PAGE_SIZE = 1000;
 
 /**
- * The lists a school configures once and every event series thereafter inherits by being made
- * from the template (US-22). Its own two — the events it runs and the classes it invites — are
- * not among them: those say which week it is rather than how the school works.
- */
-const CATEGORY_DEFAULTS = {
-  programs: [
-    {
-      name: "Ski",
-      requiredEquipment: [
-        { name: "Ski", isRentable: true },
-        { name: "Skischuhe", isRentable: true },
-        { name: "Stöcke", isRentable: true },
-        { name: "Helm", isRentable: true },
-      ],
-    },
-    {
-      name: "Snowboard",
-      requiredEquipment: [
-        { name: "Board", isRentable: true },
-        { name: "Boots", isRentable: true },
-        { name: "Helm", isRentable: true },
-      ],
-    },
-    { name: "Alternativ", requiredEquipment: [] },
-  ],
-  skillLevels: ["Keine Vorkenntnisse", "Anfänger:in", "Fortgeschritten", "Profi"],
-  seasonPassOptions: [
-    "Kein Skipass",
-    "Vielleicht Skipass",
-    "Golm-Bielerhöhe (Illwerke)",
-    "Silvretta-Montafon",
-  ],
-  busPickupPoints: ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Heim Tschagguns"],
-  foodOptions: ["Esse alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
-} satisfies Pick<
-  EventSeries,
-  "programs" | "skillLevels" | "seasonPassOptions" | "busPickupPoints" | "foodOptions"
->;
-
-/**
  * What a purged environment gets so there is somewhere to put students. The application seeds
  * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
- * Kulturwoche — so a fresh project holds only what is written here. Only the winter series is
- * bare-seeded (US-33): it is the one a school cannot be without, and a summer one is invented
- * only where students are invented too.
+ * Kulturwoche — so a fresh project holds only what `scripts/seed.yml` names. Only the winter
+ * series is bare-seeded (US-33): it is the one a school cannot be without, and a summer one is
+ * invented only where students are invented too.
  */
 const WINTER_EVENT_SERIES_NAME = "Wintersportwochen 26/27";
 const SUMMER_EVENT_SERIES_NAME = "Sommersportwochen 26/27";
@@ -133,78 +81,19 @@ const SUMMER_EVENT_SERIES_NAME = "Sommersportwochen 26/27";
  * What production gets: the five lists that are the same every year, and nothing for the two that
  * are not. Which weeks there are and which classes go on them is what a teacher fills in.
  */
-const BARE_LISTS = {
-  events: [],
-  classOptions: [],
-  ...CATEGORY_DEFAULTS,
-} satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
-
-/**
- * What an event's own five lists look like when it names none — inheriting the series' (US-33).
- * Every seeded event starts here; a school-specific environment can go on to override one.
- */
-const CATEGORY_DEFAULTS_INHERITED = {
-  programs: [],
-  skillLevels: [],
-  seasonPassOptions: [],
-  busPickupPoints: [],
-  foodOptions: [],
-} satisfies Pick<
-  EventSeries["events"][number],
-  "programs" | "skillLevels" | "seasonPassOptions" | "busPickupPoints" | "foodOptions"
->;
-
-/** The seven maintained lists as a test environment wants them, filled in far enough to use. */
-const WINTER_MASTER_DATA = {
-  events: [
-    { name: "Woche 1", ...CATEGORY_DEFAULTS_INHERITED },
-    { name: "Woche 2", ...CATEGORY_DEFAULTS_INHERITED },
-    { name: "Woche 3", ...CATEGORY_DEFAULTS_INHERITED },
-  ],
-  classOptions: ["2aWI", "2bWI", "2cWI"],
-  ...CATEGORY_DEFAULTS,
-} satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
-
-/**
- * The second series a test environment gets, so a two-step registration (US-36) has a real
- * example: Kärnten names its own programs, the other two events inherit the series'.
- */
-const SUMMER_MASTER_DATA = {
-  events: [
-    { name: "Salzburg 1", ...CATEGORY_DEFAULTS_INHERITED },
-    { name: "Salzburg 2", ...CATEGORY_DEFAULTS_INHERITED },
-    {
-      name: "Kärnten",
-      ...CATEGORY_DEFAULTS_INHERITED,
-      programs: [
-        { name: "Windsurfen", requiredEquipment: [] },
-        { name: "Segeln", requiredEquipment: [] },
-        {
-          name: "Mountainbiken",
-          requiredEquipment: [
-            { name: "Bike", isRentable: true },
-            { name: "Helm", isRentable: true },
-            { name: "Protektoren", isRentable: true },
-            { name: "Handschuhe", isRentable: true },
-          ],
-        },
-      ],
-    },
-  ],
-  classOptions: ["3aCI", "3aMD", "3aWI", "3aWL", "3aWM", "3aWP", "3bWI", "3cWI"],
-  programs: [
-    { name: "Kajak", requiredEquipment: [] },
-    { name: "Klettern", requiredEquipment: [] },
-    { name: "Tennis", requiredEquipment: [] },
-  ],
-  // Follows the programs (US-33), and these are graded no differently from the winter ones.
-  skillLevels: CATEGORY_DEFAULTS.skillLevels,
-  // No resort lift pass applies to any of these, so the question is never put at all.
-  seasonPassOptions: [],
-  // Shared by every event rather than named per event — Kärnten does not override it either.
-  busPickupPoints: ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch"],
-  foodOptions: CATEGORY_DEFAULTS.foodOptions,
-} satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
+function bareEventSeriesOf(series: SeedEventSeries): SeedEventSeries {
+  const { name, programs, skillLevels, seasonPassOptions, busPickupPoints, foodOptions } = series;
+  return {
+    name,
+    events: [],
+    classOptions: [],
+    programs,
+    skillLevels,
+    seasonPassOptions,
+    busPickupPoints,
+    foodOptions,
+  };
+}
 
 /** The shape of the sports week as it is wanted in a test environment. */
 const STUDENTS_PER_CLASS = { min: 20, max: 25 };
@@ -299,7 +188,9 @@ const LAST_NAMES = [
 const OTHER_RELATIONSHIPS = ["Tante", "Onkel", "Schwester", "Bruder", "Großmutter", "Stiefvater"];
 const HEALTH_NOTES = ["Asthma", "Heuschnupfen", "Pollenallergie", "Knieprobleme", "Kurzsichtig"];
 const FOOD_INTOLERANCES = ["Nussallergie", "Laktoseintoleranz", "Glutenfrei", "Kein Fisch"];
-const MOBILE_PREFIXES = ["650", "660", "664", "676", "677", "699"];
+// Austria's assigned mobile codes start at 0650 (US-11 shape), so these read as Austrian without
+// being able to reach an actual subscriber.
+const MOBILE_PREFIXES = ["600", "610", "620", "630", "640"];
 
 const BATCH_LIMIT = 500;
 
@@ -467,7 +358,9 @@ function registrationOf(
     busPickupPoint: pick(lists.busPickupPoints),
     foodOption: wantsOtherFood ? FOOD_OPTION_OTHER : pick(lists.foodOptions),
     foodOtherText: wantsOtherFood ? pick(FOOD_INTOLERANCES) : null,
-    seasonPassOption: pick(lists.seasonPassOptions),
+    // Unlike the other lists, this one is legitimately empty (a summer series asks no such
+    // question), and `pick` on an empty list answers undefined rather than null.
+    seasonPassOption: lists.seasonPassOptions.length > 0 ? pick(lists.seasonPassOptions) : null,
     dateOfBirth: dateOfBirth(),
     gender: person.gender,
     phoneNumber: phoneNumber(),
@@ -553,20 +446,18 @@ async function purgeAuth(auth: Auth): Promise<number> {
  */
 async function createEventSeries(
   db: Firestore,
-  name: string,
+  series: SeedEventSeries,
   position: number,
-  lists: typeof BARE_LISTS | typeof WINTER_MASTER_DATA | typeof SUMMER_MASTER_DATA,
   isOpenToStudents: boolean,
 ): Promise<EventSeries> {
   // The lists live in this document (US-21), so seeding them is part of creating it.
   const data = {
-    name,
-    nameKey: normalizeName(name),
+    ...series,
+    nameKey: normalizeName(series.name),
     isArchived: false,
     isOpenToStudents,
     hasRegistrations: false,
     position,
-    ...lists,
   };
   const reference = db.collection(COLLECTIONS.eventSeries).doc();
   await reference.set(data);
@@ -592,38 +483,54 @@ async function confirmed(projectId: string): Promise<boolean> {
   }
 }
 
+type SeededAccount = { uid: string; email: string; displayName: string };
+
 /**
- * The account behind a seeded record, because a record is keyed by the uid and only Firebase can
- * mint one (US-31). Purging deletes these along with everything else, so a re-run creates them
- * again rather than finding them — the lookup is for a re-run over a tree that was not purged.
+ * Every account a series' students need, made in one Admin SDK call per `BATCH_LIMIT` of them
+ * rather than one call per student (US-31). `main` always purges Auth first, so there is never
+ * an existing account to look up — a per-student `getUserByEmail` would only ever fail before
+ * falling back to `createUser`, paying for two round trips where one bulk call does the lot.
  */
-async function uidFor(auth: Auth, email: string, displayName: string): Promise<string> {
-  try {
-    return (await auth.getUserByEmail(email)).uid;
-  } catch {
-    return (await auth.createUser({ email, displayName, emailVerified: true })).uid;
+async function importAccounts(auth: Auth, accounts: readonly SeededAccount[]): Promise<void> {
+  for (let index = 0; index < accounts.length; index += BATCH_LIMIT) {
+    const chunk = accounts.slice(index, index + BATCH_LIMIT);
+    const { failureCount, errors } = await auth.importUsers(
+      chunk.map(({ uid, email, displayName }) => ({
+        uid,
+        email,
+        displayName,
+        emailVerified: true,
+      })),
+    );
+
+    if (failureCount > 0) {
+      fail(
+        `Could not create ${failureCount} of ${chunk.length} account(s):`,
+        ...errors.map(({ error }) => `  ${error.message}`),
+      );
+    }
   }
 }
 
 /**
- * Leaves an invitation at each administrator's address, for the first sign-in to claim (US-2).
+ * Leaves an invitation at each configured teacher's address, for their first sign-in to claim
+ * (US-2). Permissions come from `scripts/seed.yml`, one person at a time, rather than a shared
+ * default — the roster names class teachers alongside administrators, and not everybody holds
+ * every permission.
  *
  * Not a `users` record, and deliberately not an Auth account either: their accounts are the
  * directory's to create, and one made here would hold the address under a credential Entra did
  * not issue — which is what a real sign-in then collides with. There is therefore no uid to key
  * a record by until somebody actually arrives.
  */
-async function inviteAdministrators(db: Firestore): Promise<void> {
+async function inviteTeachers(db: Firestore, teachers: readonly SeedUser[]): Promise<void> {
   await Promise.all(
-    ADMINISTRATORS.map((person) =>
-      db
-        .collection(COLLECTIONS.invitedTeachers)
-        .doc(invitationKey(person.email))
-        .set({
-          firstName: person.firstName,
-          lastName: person.lastName,
-          permissions: [...FULL_PERMISSIONS],
-        }),
+    teachers.map((person) =>
+      db.collection(COLLECTIONS.invitedTeachers).doc(invitationKey(person.email)).set({
+        firstName: person.firstName,
+        lastName: person.lastName,
+        permissions: person.permissions,
+      }),
     ),
   );
 }
@@ -672,6 +579,7 @@ async function seedRegistrations(
   }
 
   const writes: ((batch: WriteBatch) => void)[] = [];
+  const accounts: SeededAccount[] = [];
   const summary: string[] = [];
   let seeded = 0;
 
@@ -707,7 +615,8 @@ async function seedRegistrations(
       const registration = registrationOf(person, chosen[index], lists, progress[index]);
       if (registration.isAttendingSportsWeek === true) written.attending += 1;
 
-      const uid = await uidFor(auth, person.email, `${person.firstName} ${person.lastName}`);
+      const uid = randomUUID();
+      console.log(`  ${eventSeries.name} / ${className}: ${person.firstName} ${person.lastName}`);
       const user = userSchema.parse({ id: uid, ...person, accountType: "student" });
       const record = registrationSchema.parse({
         id: uid,
@@ -730,6 +639,11 @@ async function seedRegistrations(
 
       const { id: userId, ...userFields } = user;
       const { id: recordId, ...recordFields } = record;
+      accounts.push({
+        uid,
+        email: person.email,
+        displayName: `${person.firstName} ${person.lastName}`,
+      });
       writes.push((batch) => batch.set(db.collection(COLLECTIONS.users).doc(userId), userFields));
       writes.push((batch) =>
         batch.set(db.collection(registrationPath(eventSeries.id)).doc(recordId), recordFields),
@@ -757,6 +671,7 @@ async function seedRegistrations(
     }),
   );
 
+  await importAccounts(auth, accounts);
   await inBatches(db, writes);
 
   console.log(`Seeded ${seeded} students into "${eventSeries.name}":`);
@@ -782,6 +697,10 @@ async function main(): Promise<void> {
 
   if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
 
+  const config = loadSeedConfig();
+  const winterConfig = seedEventSeriesNamed(config, WINTER_EVENT_SERIES_NAME);
+  const summerConfig = seedEventSeriesNamed(config, SUMMER_EVENT_SERIES_NAME);
+
   // Its own app rather than @/lib/firebase/admin: that one addresses whichever project the
   // ambient environment names, and this must address the one just named and nothing else.
   const app = initializeApp({ projectId });
@@ -802,20 +721,19 @@ async function main(): Promise<void> {
   // second is invented only where students are invented too.
   const winter = await createEventSeries(
     db,
-    WINTER_EVENT_SERIES_NAME,
+    seedsStudents ? winterConfig : bareEventSeriesOf(winterConfig),
     0,
-    seedsStudents ? WINTER_MASTER_DATA : BARE_LISTS,
     seedsStudents,
   );
   console.log(`Created the event series "${winter.name}".`);
 
-  await inviteAdministrators(db);
-  console.log(`Invited ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
+  await inviteTeachers(db, config.users);
+  console.log(`Invited ${config.users.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
   if (!seedsStudents) return;
 
-  const summer = await createEventSeries(db, SUMMER_EVENT_SERIES_NAME, 1, SUMMER_MASTER_DATA, true);
+  const summer = await createEventSeries(db, summerConfig, 1, true);
   console.log(`Created the event series "${summer.name}".`);
 
   const taken = new Set<string>();
