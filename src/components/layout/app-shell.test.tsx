@@ -170,7 +170,7 @@ describe("AppShell — where the busy indicator sits", () => {
     );
   }
 
-  it("shows it in the header while a request is out, at the end of the row", async () => {
+  it("shows it once a request is out, straddling the header rather than sitting inside it", async () => {
     stubFetch();
     render(
       <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>}>
@@ -181,19 +181,15 @@ describe("AppShell — where the busy indicator sits", () => {
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
     const indicator = await screen.findByRole("status", { name: "Wird gespeichert" });
-    expect(screen.getByRole("banner")).toContainElement(indicator);
-    expect(screen.getByRole("banner").lastElementChild).toContainElement(indicator);
+    expect(screen.getByRole("banner")).not.toContainElement(indicator);
+    expect(screen.getByRole("main")).not.toContainElement(indicator);
   });
 
-  /**
-   * A school with no event series yet leaves the rest of the header empty, and space-between
-   * puts a lone child at the near end — which is how the indicator came to report from the left.
-   * The row holds its far end open whether or not there is anything to its left.
-   */
-  it("keeps it at the far end when there is no event series to fill the row", async () => {
+  /** Spanning the nav column too is what centres it on the screen rather than only the content. */
+  it("spans the nav column as well, so its centre is the screen's rather than the content's", async () => {
     stubFetch();
     render(
-      <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>} scope={null}>
+      <AppShell nav={<nav aria-label="Hauptnavigation">Navigation</nav>}>
         <Writer />
       </AppShell>,
     );
@@ -201,9 +197,7 @@ describe("AppShell — where the busy indicator sits", () => {
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
     const indicator = await screen.findByRole("status", { name: "Wird gespeichert" });
-    const region = screen.getByRole("banner").lastElementChild!;
-    expect(region).toContainElement(indicator);
-    expect(region.previousElementSibling?.className).toContain("flex-1");
+    expect(indicator.closest(".col-span-2")).not.toBeNull();
   });
 });
 

@@ -92,14 +92,22 @@ function AppShellFrame({
         {/* Where there is a bar, signing out sits at the foot of it, under the person's own
             mark. A student has no bar, so it stays here. */}
         {nav ? null : <SignOutButton photo={photo} />}
-        {/* The indicator's own place at the far end, kept whether or not it is reporting, so
-            the one thing that speaks for the whole app is always found where it was last. */}
-        <div className="flex shrink-0 items-center">
-          <BusyBar />
-        </div>
       </header>
 
-      <main className="bg-background col-start-2 row-start-2 flex min-h-0 flex-col overflow-y-auto">
+      {/* Straddles the header's own border rather than sitting in either row: spanning both grid
+          columns centres it on the screen regardless of whether a nav column is there to widen
+          it, and shifting it up by half its own (small) height puts its middle exactly on the
+          line, never deep enough into the header row to sit under the tags or the sign-out
+          button above it. */}
+      <div className="pointer-events-none z-10 col-span-2 col-start-1 row-start-2 flex justify-center self-start">
+        <div className="-translate-y-1/2">
+          <BusyBar />
+        </div>
+      </div>
+
+      <main className="bg-background col-start-2 row-start-2 mt-2 flex min-h-0 flex-col overflow-y-auto">
+        {/* The margin above is outside the scrollport itself, so no amount of scrolling ever
+            carries content up into where the bars dip below the line. */}
         {/* Narrow screens have no column for the bar, so it goes above what it points at. */}
         {nav ? <div className="border-border bg-sidebar border-b md:hidden">{nav}</div> : null}
         {children}
