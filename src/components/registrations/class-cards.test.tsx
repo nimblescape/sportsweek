@@ -13,7 +13,7 @@ import { INVITATION_LINK_LABEL, INVITATION_QR_LABEL } from "@/lib/invitations/in
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
 import { ATTENDANCE_LABELS, INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
-import { ClassCards, NO_ANSWER_LABEL } from "./class-cards";
+import { ClassCards, NO_ANSWER_LABEL, REGENERATE_LABEL } from "./class-cards";
 
 const PROGRAMS = ["Ski", "Snowboard"];
 const SKILL_LEVELS = ["Anfänger", "Profi"];
@@ -417,7 +417,7 @@ describe("ClassCards — the invitation controls", () => {
 
     await userEvent.click(
       card("5AHIF").getByRole("button", {
-        name: `Neuen Link erzeugen für 5AHIF`,
+        name: `${REGENERATE_LABEL} für 5AHIF`,
       }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
@@ -433,7 +433,7 @@ describe("ClassCards — the invitation controls", () => {
 
     expect(
       card("5AHIF").queryByRole("button", {
-        name: `Neuen Link erzeugen für 5AHIF`,
+        name: `${REGENERATE_LABEL} für 5AHIF`,
       }),
     ).not.toBeInTheDocument();
   });
@@ -744,7 +744,7 @@ describe("ClassCards — regenerating asks first", () => {
   const press = () =>
     userEvent.click(
       card("5AHIF").getByRole("button", {
-        name: `Neuen Link erzeugen für 5AHIF`,
+        name: `${REGENERATE_LABEL} für 5AHIF`,
       }),
     );
 

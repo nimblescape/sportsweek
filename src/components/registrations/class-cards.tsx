@@ -65,8 +65,9 @@ const OPEN_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.open;
 const CLOSED_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.closed;
 
 /** A class card's other control on its link, distinct from the toggle: it replaces the address
- * and leaves the window as it found it (US-43, Q11). */
-export const REGENERATE_LABEL = "Neuen Link erzeugen";
+ * and leaves the window as it found it (US-43, Q11). Names the same link the copy control does,
+ * rather than the bare "Link" INVITATION_LINK_LABEL's own doc comment warns against. */
+export const REGENERATE_LABEL = `Neuen ${INVITATION_LINK_LABEL} erzeugen`;
 
 /**
  * The third state of the attendance question, which the two answers cannot cover: a student who
