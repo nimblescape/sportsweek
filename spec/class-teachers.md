@@ -180,9 +180,18 @@ today. Everything else about it is a matter of what it must be unable to do.
 The one write this editor makes is to `classOptions` on one event series document, naming a series,
 a class and a uid. That is the whole of its reach.
 
-**Somebody who has never signed in is therefore not offered**, and that is accepted: an invitation
-is provisioning, not an application feature. Where the school wants to name one in advance, the
-script that leaves the invitation leaves the class assignments with it (US-40).
+### Two consequences, both accepted
+
+**A teacher has to have signed in at least once before they can be assigned.** Until then there is
+no record, so there is no uid to store and nothing for the editor to offer — the person simply
+does not appear in the dialog. It is not an error state and it says nothing on screen: somebody
+who has never been here is not a teacher this application knows about.
+
+**Somebody can be made a class's teacher by provisioning instead.** The script that leaves the
+invitation can leave the class assignments with it (US-40), and the first sign-in applies them.
+Two ways in for one fact, then, which is the compromise being accepted — and it is bearable
+because the second is not an application path at all: it needs the Admin SDK and it happens before
+anybody has arrived, so the two can never race and the dialog never has to explain the other.
 
 ## An invitation may arrive already carrying classes
 
