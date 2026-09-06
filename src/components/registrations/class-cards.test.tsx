@@ -558,6 +558,69 @@ describe("ClassCards — the open/close toggle", () => {
   });
 });
 
+/**
+ * The door in front of the class name says the same thing the header's own door says for a
+ * series (US-44), but for this one class only — it is not moved by any other class in the row.
+ */
+describe("ClassCards — the door in front of the class name", () => {
+  const invitations = {
+    tokenFor: vi.fn(() => "tok" as string | null),
+    linkFor: vi.fn(async () => "tok"),
+    regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn((_className: string) => false),
+    setOpen: vi.fn(async () => {}),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    invitations.tokenFor.mockReturnValue("tok");
+    invitations.isOpenFor.mockReturnValue(false);
+  });
+
+  function setupWith(controls: unknown = invitations) {
+    render(
+      <ClassCards
+        rows={classOverview([], CLASSES, COLUMNS)}
+        programs={PROGRAMS}
+        skillLevels={SKILL_LEVELS}
+        columns={COLUMNS}
+        filterGroups={FILTERS}
+        invitations={controls as never}
+        removableEventSeriesId={null}
+        eventSeriesName="Wintersportwoche 2026"
+      />,
+    );
+  }
+
+  it("reads closed for a class whose window is shut", () => {
+    setupWith();
+
+    expect(
+      card("5AHIF").getByLabelText("Registrierung für Schüler:innen geschlossen"),
+    ).toBeInTheDocument();
+  });
+
+  it("reads open for a class whose window is open, and not another class's", () => {
+    invitations.isOpenFor.mockImplementation((className: string) => className === "5AHIF");
+    setupWith();
+
+    expect(
+      card("5AHIF").getByLabelText("Registrierung für Schüler:innen offen"),
+    ).toBeInTheDocument();
+    expect(
+      card("5BHIF").getByLabelText("Registrierung für Schüler:innen geschlossen"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no door where the series cannot be opened", () => {
+    setupWith(null);
+
+    expect(
+      card("5AHIF").queryByLabelText(/Registrierung für Schüler:innen/),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("ClassCards — showing a link as a QR code", () => {
   const writeText = vi.fn();
   const invitations = {

@@ -6,7 +6,17 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Link, LogIn, LogOut, QrCode, Trash2, TriangleAlert } from "lucide-react";
+import {
+  DoorClosed,
+  DoorOpen,
+  Link,
+  LogIn,
+  LogOut,
+  QrCode,
+  RefreshCw,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { FilterTagList } from "@/components/filters/filter-tag-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeading, CardTitle } from "@/components/ui/card";
@@ -20,6 +30,7 @@ import {
   INVITATION_LINK_LABEL,
   INVITATION_QR_LABEL,
 } from "@/lib/invitations/invitation-link";
+import { EVENT_SERIES_STATE_LABELS } from "@/lib/event-series/event-series-state";
 import { InvitationQr } from "./invitation-qr";
 import { classFigures, type ClassGroup, type SkillColumn } from "@/lib/assignment/statistics";
 import {
@@ -46,6 +57,12 @@ const NOT_ATTENDING_LABEL = ATTENDANCE_LABELS.notAttending;
 /** The card's one control that moves a class's window (US-43); said the same everywhere it shows. */
 export const OPEN_CLASS_LABEL = "Registrierung öffnen";
 export const CLOSE_CLASS_LABEL = "Registrierung schließen";
+
+/** What the class's own door says, distinct from the action beside it (US-43, US-44) — the same
+ * wording the header's series-wide door uses, so one class and the series it belongs to are
+ * never described in two different ways. */
+const OPEN_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.open;
+const CLOSED_TO_STUDENTS_LABEL = EVENT_SERIES_STATE_LABELS.closed;
 
 /** A class card's other control on its link, distinct from the toggle: it replaces the address
  * and leaves the window as it found it (US-43, Q11). */
@@ -178,23 +195,6 @@ function ClassCard({
           control={
             invitations === null ? null : (
               <>
-                {(() => {
-                  const open = invitations.isOpenFor(row.class);
-                  const label = open ? CLOSE_CLASS_LABEL : OPEN_CLASS_LABEL;
-                  return (
-                    <Tooltip label={label}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`${label} für ${row.class}`}
-                        onClick={() => void toggleOpen()}
-                      >
-                        {open ? <LogOut aria-hidden /> : <LogIn aria-hidden />}
-                      </Button>
-                    </Tooltip>
-                  );
-                })()}
-
                 <Tooltip label={`${INVITATION_LINK_LABEL} kopieren`}>
                   <Button
                     variant="ghost"
@@ -202,7 +202,7 @@ function ClassCard({
                     aria-label={`${INVITATION_LINK_LABEL} für ${row.class} kopieren`}
                     onClick={() => handOut(() => invitations.linkFor(row.class))}
                   >
-                    <Copy aria-hidden />
+                    <Link aria-hidden />
                   </Button>
                 </Tooltip>
 
@@ -227,7 +227,7 @@ function ClassCard({
                       aria-label={`${REGENERATE_LABEL} für ${row.class}`}
                       onClick={() => setConfirmingRegenerate(true)}
                     >
-                      <Link aria-hidden />
+                      <RefreshCw aria-hidden />
                     </Button>
                   </Tooltip>
                 )}
@@ -235,7 +235,38 @@ function ClassCard({
             )
           }
         >
-          <CardTitle className="truncate">{`${row.class}: ${row.total}`}</CardTitle>
+          {invitations === null ? (
+            <CardTitle className="truncate">{`${row.class}: ${row.total}`}</CardTitle>
+          ) : (
+            (() => {
+              const open = invitations.isOpenFor(row.class);
+              const stateLabel = open ? OPEN_TO_STUDENTS_LABEL : CLOSED_TO_STUDENTS_LABEL;
+              const Door = open ? DoorOpen : DoorClosed;
+              const actionLabel = open ? CLOSE_CLASS_LABEL : OPEN_CLASS_LABEL;
+              return (
+                <>
+                  {/* One tooltip over the door and the name together, as in the header: whichever
+                      of them the pointer finds, the question it answers is the same one. */}
+                  <Tooltip label={stateLabel}>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Door aria-label={stateLabel} className="size-4 shrink-0" />
+                      <CardTitle className="truncate">{`${row.class}: ${row.total}`}</CardTitle>
+                    </span>
+                  </Tooltip>
+                  <Tooltip label={actionLabel}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`${actionLabel} für ${row.class}`}
+                      onClick={() => void toggleOpen()}
+                    >
+                      {open ? <LogOut aria-hidden /> : <LogIn aria-hidden />}
+                    </Button>
+                  </Tooltip>
+                </>
+              );
+            })()
+          )}
         </CardHeading>
 
         {actionError !== null && (
