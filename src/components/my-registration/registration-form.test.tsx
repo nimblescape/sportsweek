@@ -289,6 +289,20 @@ describe("RegistrationForm", () => {
     expect(status).toHaveTextContent("Vorname des Notfallkontakts");
   });
 
+  /** Easy to miss in the muted grey a completed registration's hint reads fine in (#138). */
+  it("writes the incomplete hint in red, so it is not read past", async () => {
+    renderForm({
+      ...storedRecord,
+      emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
+    });
+
+    await changeSomething();
+    await userEvent.click(save());
+
+    const status = await screen.findByRole("status");
+    expect(within(status).getByText(/Registrierung unvollständig/)).toHaveClass("text-destructive");
+  });
+
   /** By then it is no longer true: what is on screen is not what was saved. */
   it("takes the confirmation away as soon as the student edits again", async () => {
     renderForm();

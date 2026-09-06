@@ -478,7 +478,11 @@ export function RegistrationForm({
         <Card role="status">
           <CardContent className="flex flex-col gap-1">
             <p className="text-sm font-medium">Deine Daten wurden gespeichert.</p>
-            <p className="text-muted-foreground text-sm">
+            <p
+              className={
+                missing.length === 0 ? "text-muted-foreground text-sm" : "text-destructive text-sm"
+              }
+            >
               {missing.length === 0
                 ? COMPLETE_REGISTRATION_HINT
                 : `${INCOMPLETE_REGISTRATION_HINT}. Es fehlen noch: ${missing
