@@ -91,6 +91,26 @@ describe("useInvitations", () => {
     expect(result.current.tokenFor("3aWI")).toBe("tok");
   });
 
+  /**
+   * The header's bulk switch mints a class's link through a write this hook never made, so its
+   * own copy of the tokens has no way to already know it (US-44). Without catching up, the card
+   * would show no regenerate control until the whole page is reloaded.
+   */
+  it("re-reads once a class opens without a token this copy already knows", async () => {
+    const { result, rerender } = await loaded();
+    apiRequest.mockClear();
+    apiRequest.mockResolvedValue({
+      invitations: [{ token: "minted-elsewhere", eventSeriesId: SERIES, class: "3aWI" }],
+    });
+
+    rerender({ classOptions: [classOption("3aWI", true)] });
+
+    await waitFor(() => expect(result.current.tokenFor("3aWI")).toBe("minted-elsewhere"));
+    expect(apiRequest).toHaveBeenCalledWith(`/api/event-series/${SERIES}/invitations`, {
+      method: "GET",
+    });
+  });
+
   /** Copying a link twice has to copy the same link (US-29), so an existing one is not replaced. */
   it("hands back the link a class already has rather than minting another", async () => {
     apiRequest.mockResolvedValue({

@@ -5,7 +5,7 @@
  */
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiRequestError, apiRequest } from "@/lib/api/client";
 import type { Invitation } from "@/lib/schemas/invitation";
 import type { ClassOption } from "@/lib/schemas/master-data";
@@ -47,31 +47,49 @@ export function useInvitations(
 
   const endpoint = `/api/event-series/${eventSeriesId}/invitations`;
   const ready = classOptions !== undefined;
-
+  const mounted = useRef(true);
   useEffect(() => {
-    if (!ready) return;
-    let current = true;
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
-    apiRequest<{ invitations: Invitation[] }>(endpoint, { method: "GET" })
+  const fetchTokens = useCallback(() => {
+    return apiRequest<{ invitations: Invitation[] }>(endpoint, { method: "GET" })
       .then((answer) => {
-        if (!current) return;
+        if (!mounted.current) return;
         setTokens(new Map((answer?.invitations ?? []).map((one) => [one.class, one.token])));
         setError(null);
       })
       .catch((caught: unknown) => {
-        if (!current) return;
+        if (!mounted.current) return;
         setError(
           caught instanceof ApiRequestError ? caught.message : "Das hat leider nicht geklappt.",
         );
-      })
-      .finally(() => {
-        if (current) setLoading(false);
       });
+  }, [endpoint]);
 
-    return () => {
-      current = false;
-    };
-  }, [endpoint, ready]);
+  useEffect(() => {
+    if (!ready) return;
+    fetchTokens().finally(() => {
+      if (mounted.current) setLoading(false);
+    });
+  }, [ready, fetchTokens]);
+
+  /**
+   * A class opened by some other write than this hook's own mint or regenerate — the header's
+   * bulk switch, say — still needs its link known here, or the card would show none until the
+   * page is reloaded. Re-reading catches this copy up rather than trusting it stays in step on
+   * its own.
+   */
+  useEffect(() => {
+    if (!ready) return;
+    const missesALink = classOptions.some(
+      (option) => option.isOpenToStudents && !tokens.has(option.name),
+    );
+    if (missesALink) void fetchTokens();
+  }, [ready, classOptions, tokens, fetchTokens]);
 
   const mint = useCallback(
     async (className: string) => {
