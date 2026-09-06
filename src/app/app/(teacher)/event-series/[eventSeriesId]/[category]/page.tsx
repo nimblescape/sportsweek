@@ -4,13 +4,13 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { notFound } from "next/navigation";
+import { ClassesView } from "@/components/master-data/classes-view";
 import { ClassTeachersView } from "@/components/master-data/class-teachers-view";
 import { EventsView } from "@/components/master-data/events-view";
 import { MasterDataView } from "@/components/master-data/master-data-view";
 import { ProgramEquipmentView } from "@/components/master-data/program-equipment-view";
 import { ProgramsView } from "@/components/master-data/programs-view";
 import { masterDataCategorySchema } from "@/lib/master-data/categories";
-import { classTeachersPath } from "@/lib/master-data/hierarchy";
 
 /**
  * One category of one event series (US-33). The category is a segment because it is a name this
@@ -45,11 +45,7 @@ export default async function MasterDataCategoryPage({
 
   if (parsed.data === "classes") {
     return teachers === undefined ? (
-      <MasterDataView
-        category="classes"
-        eventSeriesId={eventSeriesId}
-        openHref={(item) => classTeachersPath(eventSeriesId, item.name)}
-      />
+      <ClassesView eventSeriesId={eventSeriesId} />
     ) : (
       <ClassTeachersView class={teachers} eventSeriesId={eventSeriesId} />
     );
