@@ -33,10 +33,11 @@ Wintersportwoche and in the Sommersportwoche, and a different teacher looks afte
 Responsibility is therefore a fact about the class _in this series_, not about the class and not
 about the teacher — which is why it is stored on the series' own class entry and nowhere else.
 
-**Half the staff has not signed in yet.** A record is keyed by the Firebase uid (US-31), and
-there is no uid until somebody arrives. A school setting up next winter's series in August has to
-be able to say who runs "2aWI" before that person's first sign-in, so the assignment has to be
-expressible against an invitation as well as against a record.
+**Half the staff has not signed in yet.** A record is keyed by the Firebase uid (US-31,
+identity), and there is no uid until somebody arrives — so a colleague who has never signed in
+cannot be named in the application at all. A school setting next winter's series up in August can
+still name them, through the same provisioning script that invites them, and the first sign-in
+applies what was left there.
 
 ## What changes, in one page
 
@@ -45,7 +46,7 @@ expressible against an invitation as well as against a record.
 | `classOptions` is a list of names                     | `classOptions` is a list of records: a name and the teachers responsible for it            |
 | A class has no record page                            | A class opens onto one collection: the teachers responsible for it                         |
 | Every page offers every class of the selected series  | It offers the classes its reader looks after, where they look after any                    |
-| An invitation carries a name and a set of permissions | It also carries the classes waiting for its holder                                         |
+| An invitation carries a name and a set of permissions | It may also carry classes, left there by the provisioning script                           |
 | The rights page says what somebody may do             | It also says which classes they look after, read-only                                      |
 | Which pages a teacher may open follows a permission   | Unchanged. An assignment opens nothing, and somebody holding no permission reaches nothing |
 
@@ -69,12 +70,13 @@ record, and the name stays its identity.
 ```
 
 ```jsonc
-// invitedTeachers/{email} — what waits for somebody who has never signed in
+// invitedTeachers/{email} — provisioning only, written by the admin scripts through the Admin SDK
 {
   "firstName": "Ada",
   "lastName": "Auer",
   "permissions": [],
-  // Claimed once, at the first sign-in, and then gone with the rest of the invitation.
+  // Left here by the same script that leaves the invitation. No page and no handler reads or
+  // writes this document; provisionUser claims it once, at the first sign-in, and deletes it.
   "classAssignments": [{ "eventSeriesId": "0Kx…", "class": "2aWI" }],
 }
 ```
@@ -153,51 +155,53 @@ be added to: the people already exist, and the page only says which of them look
 - **One tag per candidate**, pressed for assigned and unpressed for not, using the application's
   one tag component. Pressing assigns, pressing a pressed one withdraws. That is the whole of the
   editor: there is no save button, because there is no second state to be in.
-- Candidates are **every teacher and every pending invitation**, in one row, sorted surname first.
-  The two lists are complementary by construction (below), so nobody appears twice.
+- Candidates are **every teacher who holds a record**, sorted surname first — which is everybody
+  who has signed in at least once.
 - A tag shows the name; its accessible name carries the address as well, because two colleagues
   may share a surname and a class assignment is not a thing to get wrong.
 
-## What the editor needs that is closed today
+## What the editor needs, and what it must never touch
 
-The editor is the one screen in the application that has to name people who are not the caller,
-and both places it reads them from are closed to every client — deliberately, and they stay
-closed. Two Route Handlers open exactly as much as the tags need, and nothing more.
+Naming people who are not the caller is the one thing this editor needs that it does not have
+today. Everything else about it is a matter of what it must be unable to do.
 
-- **The candidates are answered by a handler, not by widening a rule.** `users` is readable today
-  by its owner and by a holder of `editUsers` (US-2), and a rule grants a whole document — so
-  opening it to `editMasterData` would hand over the staff's permissions along with their names.
-  The handler answers with a uid, a first name, a surname and an address per person, and nothing
-  else: no permissions, no photo, no sign-in history.
-- **`invitedTeachers` stays unreadable and unwritable by every client.** A pending invitation names
-  the permissions somebody is about to hold, so reading one says who will be able to do what. The
-  same handler answers only the name and the address of each pending invitation; the permissions
-  on it are never sent.
-- **The write is strict about which fields it touches.** Assigning names a series, a class and a
-  person; the handler writes `teacherUids` on that class, or `classAssignments` on that
-  invitation, and refuses a body naming anything else. It never reads, writes or echoes
-  `permissions` — a handler that accepted a whole invitation document would be a way for
-  `editMasterData` to grant itself `editUsers`, which is the one thing this feature must not
-  become.
+- **It reads `users`, through a handler.** `users` is readable today by its owner and by a holder
+  of `editUsers` (US-2), and a rule grants a whole document — so opening it to `editMasterData`
+  would hand over the staff's permissions along with their names. A handler answers instead, with
+  a uid, a first name, a surname and an address per person, and nothing else: no permissions, no
+  photo, no sign-in history. `firestore.rules` is not touched.
+- **It never writes a user record.** Nothing about a person changes when a class is assigned. The
+  uids are stored on the event series, beside the class they belong to; a user record holds no
+  classes and gains no field.
+- **It never reads or writes an invitation.** `invitedTeachers` stays closed to every client in
+  both directions, exactly as it is today, and no handler opens it either. Its candidates are the
+  people who hold a record, and nobody else.
 
-That last point is what keeps the answer to Q2 true. An assignment grants nothing only for as long
-as the thing that records it cannot reach the thing that does grant.
+The one write this editor makes is to `classOptions` on one event series document, naming a series,
+a class and a uid. That is the whole of its reach.
 
-## Invitations and records are complementary
+**Somebody who has never signed in is therefore not offered**, and that is accepted: an invitation
+is provisioning, not an application feature. Where the school wants to name one in advance, the
+script that leaves the invitation leaves the class assignments with it (US-40).
 
-An invitation exists only until its holder first signs in; a record exists only from then on.
-Nothing is ever in both, and the editor above relies on it.
+## An invitation may arrive already carrying classes
 
-- `provisionUser` claims the invitation when it creates the record, and deletes it. That already
-  happens; what is added is the claim of `classAssignments` — for each entry, the new uid joins
-  that class's `teacherUids`.
-- `scripts/invite-teacher.mts` already refuses to invite an address that holds a record.
-- An assignment made against an invitation names the series and the class, because the same class
-  name means a different class in a different series.
+An invitation is provisioning. It is written by `scripts/invite-teacher.mts` and by the seeding
+script through the Admin SDK, and read by `provisionUser` at a first sign-in. No page reads one,
+no handler writes one, and `firestore.rules` denies both to every client. **None of that changes.**
 
-A pending assignment can be left pointing at nothing — the class is renamed, the class is deleted,
-the whole series is deleted. The claim drops it, silently and one entry at a time (Q4), so none of
-those three edits has to go looking through the invitations first.
+What is added is that those scripts may leave class assignments alongside the permissions, each
+naming an event series as well as a class — the same class name means a different class in a
+different series.
+
+- `provisionUser` already claims the invitation when it creates the record, and deletes it. It now
+  also applies the assignments: for each entry, the new uid joins that class's `teacherUids`.
+- An entry whose series or class is no longer there is skipped, silently and one at a time (Q4),
+  so renaming a class, removing one and deleting a whole series each stay decided on their own
+  terms.
+- An invitation and a user record never describe the same person: an address holding a record
+  cannot be invited, and an invitation is deleted the moment a record is made from it. That is
+  what makes the editor's candidate list complete without it ever naming an invitation.
 
 ## The rights page says which classes somebody looks after
 
@@ -220,6 +224,10 @@ needs no rule change and no new endpoint.
 
 - **`firestore.rules`.** Not one line. This is the point of the whole design, and it is what makes
   the feature one field and the views that read it.
+- **`invitedTeachers`.** Closed to every client in both directions, reached by nothing but the
+  provisioning scripts and `provisionUser`, exactly as today. The application gained no way in.
+- **A user record.** Nothing is added to it and nothing writes it: the uids live on the event
+  series, beside the class they belong to.
 - **The permissions.** Nothing is added to `PERMISSIONS`, no label changes, and the exclusivity
   rule between the two report permissions is untouched.
 - **Which pages a teacher may open.** `reachablePages`, the navigation and the header's event
@@ -252,14 +260,16 @@ this event series, so that the application knows what the staff room already kno
   assignments with it, as it takes every other list.
 - **It grants nothing.** It is not a permission, it opens no page, and it is not checked by any
   Security Rule. What somebody may do stays entirely a matter of the permissions (US-2).
-- A class's record page lists every teacher and every pending invitation as tags, pressed for
-  assigned. Pressing assigns; pressing again withdraws.
+- A class's record page lists as tags every teacher who holds a record, pressed for assigned.
+  Pressing assigns; pressing again withdraws.
 - The row is narrowed by a name field, and by one tag that shows only the teachers already
   assigned.
 - A teacher may look after any number of classes, and a class may be looked after by any number of
   teachers.
-- Assigning somebody who has never signed in writes the assignment onto their invitation, to be
-  claimed at their first sign-in (US-40).
+- **The editor writes the event series document and nothing else.** It never writes a user record
+  and never reads or writes an invitation.
+- Somebody who has never signed in holds no record and is not offered. Where the school wants to
+  name one in advance, the provisioning script leaves the assignment with their invitation (US-40).
 - Removing a class removes its assignments with it, on the same terms as removing any list entry:
   refused while a registration still names that class.
 
@@ -284,20 +294,21 @@ time.
 - Withdrawing an assignment widens the pages again on the next read, in the way the lists behind
   every other tag row already update live.
 
-### US-40: An invitation carries the classes waiting for its holder
+### US-40: An invitation can be provisioned with the classes waiting for its holder
 
-As a teacher setting a series up before the school year starts, I record that a colleague who has
-never signed in looks after a class, so that it is waiting for them rather than needing a second
-visit once they arrive.
+As the operator setting a school up, I leave a colleague's class assignments with their invitation,
+so that somebody who has not yet signed in arrives with their pages already narrowed.
 
 **Acceptance criteria:**
 
-- An invitation carries the classes its holder looks after, each naming the event series it
-  belongs to as well as the class.
-- The assignments are claimed at the holder's first sign-in, together with the permissions the
-  invitation carries, and the invitation is then deleted.
-- Claiming adds the new uid to each named class, so their pages are narrowed from that first
-  sign-in.
+- An invitation may carry class assignments, each naming the event series it belongs to as well as
+  the class.
+- They are written **only by the provisioning scripts**, through the Admin SDK. No page and no
+  Route Handler reads or writes an invitation, and the Security Rules go on denying both to every
+  client.
+- They are claimed at the holder's first sign-in, together with the permissions the invitation
+  carries, and the invitation is then deleted.
+- Claiming adds the new uid to each named class, so their pages are narrowed from that sign-in on.
 - An entry naming a class or a series that is no longer there is skipped, silently, and the rest
   are applied. Nothing is reported and nothing is blocked.
 - An invitation and a user record never describe the same person: an address holding a record
@@ -384,17 +395,18 @@ school may read in full, students included — the same rule that lets a student
 answer from. A uid is opaque and cannot be resolved to a person without reading `users`, which a
 student may not; and the class teacher is not a secret from the class.
 
-Reviewing the rest of the design turned up **two things that had been missed**, both now specified
-in "What the editor needs that is closed today":
+Reviewing the rest of the design turned up **two things that had been missed**, both now settled in
+"What the editor needs, and what it must never touch":
 
-1. **The editor reads two collections no client may read.** `users` is closed to `editMasterData`
-   today, and `invitedTeachers` is closed to everybody in both directions. Neither rule is
-   widened — widening `users` would hand over permissions with the names, because a rule grants a
-   whole document. A handler answers the names instead.
-2. **The write could have been an escalation path.** A handler that accepted a whole invitation
-   document would let a holder of `editMasterData` write `permissions`, turning the one permission
-   that grants nothing into the one that grants everything. The write names only the class fields
-   and refuses the rest. This is the one that mattered.
+1. **The editor reads a collection it may not read.** `users` is closed to `editMasterData` today,
+   and widening the rule would hand over permissions with the names, because a rule grants a whole
+   document. A handler answers the names instead, and `firestore.rules` is left alone.
+2. **Writing an invitation would have been an escalation path.** An earlier draft had the editor
+   record an absent colleague by writing `classAssignments` onto their invitation. An invitation
+   also carries `permissions` — so that write, however strictly scoped, would have put
+   `editMasterData` one handler mistake away from granting `editUsers`. The application therefore
+   does not write an invitation at all: `invitedTeachers` stays closed in both directions and
+   belongs to provisioning alone. This is the one that mattered.
 
 Three smaller things, accepted rather than fixed:
 
@@ -435,12 +447,13 @@ emulator. Test-driven throughout: the failing test that states the new behaviour
 **No question blocks any slice.** Q1 to Q4, Q6 and Q7 are answered and Q5 is withdrawn. No slice
 touches `firestore.rules`.
 
-| Slice | What lands                                                                                                                                                                                                         |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **1** | A class becomes a record. `classOptions` goes from `string[]` to objects with a name and an empty `teacherUids`. Nothing reads the new field yet. Purge and reseed.                                                |
-| **2** | The class record page and its editor, and the two handlers behind it: the candidates, and the strict write. `classAssignments` on an invitation, and the claim at first sign-in that drops what no longer applies. |
-| **3** | The narrowing: the classes offered by Registrierungen, Zuteilungen and Berichte follow what their reader looks after.                                                                                              |
-| **4** | The rights page shows the assignments, read-only.                                                                                                                                                                  |
+| Slice | What lands                                                                                                                                                          |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | A class becomes a record. `classOptions` goes from `string[]` to objects with a name and an empty `teacherUids`. Nothing reads the new field yet. Purge and reseed. |
+| **2** | The class record page and its editor, and the handler that answers the candidates from `users`. The editor writes `classOptions` and nothing else.                  |
+| **3** | Provisioning: `classAssignments` on an invitation, written by the scripts, claimed by `provisionUser`, dropping what no longer applies.                             |
+| **4** | The narrowing: the classes offered by Registrierungen, Zuteilungen and Berichte follow what their reader looks after.                                               |
+| **5** | The rights page shows the assignments, read-only.                                                                                                                   |
 
 `spec/database-erd.puml` is updated with slice 1. Environments are purged and reseeded after slice
 1; the seeding script writes the new class shape in the same slice.
