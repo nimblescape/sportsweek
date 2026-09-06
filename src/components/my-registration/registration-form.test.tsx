@@ -269,31 +269,18 @@ describe("RegistrationForm", () => {
     expect(sentBody()).not.toHaveProperty("class");
   });
 
-  it("confirms a save, and says the registration is complete when it is", async () => {
+  it("confirms a save by saying the registration is complete, centered under the heading", async () => {
     renderForm();
 
     await changeSomething();
     await userEvent.click(save());
 
     const status = await screen.findByRole("status");
-    expect(status).toHaveTextContent("gespeichert");
     expect(status).toHaveTextContent("Registrierung vollständig");
+    expect(status).toHaveClass("text-center");
   });
 
-  /** The card appends below the button that produced it, which a stale scroll position would
-   * otherwise leave both the confirmation and the button out of view. */
-  it("scrolls the confirmation into view once it appears", async () => {
-    const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
-    renderForm();
-
-    await changeSomething();
-    await userEvent.click(save());
-    await screen.findByRole("status");
-
-    expect(scrollIntoView).toHaveBeenCalled();
-  });
-
-  it("names what is still missing in the same breath as the confirmation", async () => {
+  it("says the registration is incomplete instead, with no list of which fields", async () => {
     renderForm({
       ...storedRecord,
       emergencyContact: { ...storedRecord.emergencyContact, firstName: null },
@@ -303,9 +290,8 @@ describe("RegistrationForm", () => {
     await userEvent.click(save());
 
     const status = await screen.findByRole("status");
-    expect(status).toHaveTextContent("gespeichert");
     expect(status).toHaveTextContent("Registrierung unvollständig");
-    expect(status).toHaveTextContent("Vorname des Notfallkontakts");
+    expect(status).not.toHaveTextContent("Vorname des Notfallkontakts");
   });
 
   /** Easy to miss in the muted grey a completed registration's hint reads fine in (#138). */
@@ -319,7 +305,7 @@ describe("RegistrationForm", () => {
     await userEvent.click(save());
 
     const status = await screen.findByRole("status");
-    expect(within(status).getByText(/Registrierung unvollständig/)).toHaveClass("text-destructive");
+    expect(status).toHaveClass("text-destructive");
   });
 
   /** By then it is no longer true: what is on screen is not what was saved. */
@@ -393,6 +379,7 @@ describe("RegistrationForm", () => {
 
       await waitFor(() => expect(apiRequest).toHaveBeenCalled());
       expect(await screen.findByText("Pflichtfeld.")).toBeInTheDocument();
+      expect(screen.getByLabelText("Vorname")).toHaveAttribute("aria-invalid", "true");
     });
 
     it("says nothing about missing answers before the first save", () => {

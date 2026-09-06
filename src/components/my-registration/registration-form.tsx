@@ -127,7 +127,6 @@ export function RegistrationForm({
   const [saved, setSaved] = React.useState(false);
   const [saveAttempted, setSaveAttempted] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
-  const statusRef = React.useRef<HTMLDivElement>(null);
 
   const equipmentOf = React.useCallback(
     (programName: string | null) =>
@@ -211,12 +210,9 @@ export function RegistrationForm({
     }
   });
 
-  // The card appends below everything already on screen, so a scroll position that made sense
-  // before saving can leave both it and the button that produced it out of view.
+  // Shown once, right after a save that has not since been edited over: the header line is
+  // what tells a student the save went through, so it says so only while that is still true.
   const showStatus = saved && !isDirty;
-  React.useEffect(() => {
-    if (showStatus) statusRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [showStatus]);
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
@@ -228,6 +224,21 @@ export function RegistrationForm({
         {/* The whole form is about this one event series, so it heads the form rather than a card
             inside it — where it read as the title of the answers underneath it. */}
         <PageHeading>{eventSeriesName}</PageHeading>
+
+        {/* Whether it can be handed in as it stands, restated each time it changes: a field turning
+            red already says which answer is missing, so this says only whether any still are. */}
+        {showStatus ? (
+          <p
+            role="status"
+            className={
+              missing.length === 0
+                ? "text-muted-foreground text-center text-sm"
+                : "text-destructive text-center text-sm"
+            }
+          >
+            {missing.length === 0 ? COMPLETE_REGISTRATION_HINT : INCOMPLETE_REGISTRATION_HINT}
+          </p>
+        ) : null}
 
         <Section title="Registrierung">
           <ReadOnlyField label="Name" value={studentName} />
@@ -254,19 +265,25 @@ export function RegistrationForm({
                 label="Geburtsdatum"
                 error={errors.dateOfBirth?.message ?? hint("dateOfBirth")}
               >
-                {(id) => (
-                  <Input id={id} type="date" {...register("dateOfBirth", { setValueAs: orNull })} />
+                {(id, invalid) => (
+                  <Input
+                    id={id}
+                    type="date"
+                    aria-invalid={invalid || undefined}
+                    {...register("dateOfBirth", { setValueAs: orNull })}
+                  />
                 )}
               </Field>
               <Field
                 label="Telefonnummer"
                 error={errors.phoneNumber?.message ?? hint("phoneNumber")}
               >
-                {(id) => (
+                {(id, invalid) => (
                   <Input
                     id={id}
                     inputMode="tel"
                     placeholder="+43 660 1234567"
+                    aria-invalid={invalid || undefined}
                     {...register("phoneNumber", { setValueAs: orNull })}
                   />
                 )}
@@ -280,9 +297,10 @@ export function RegistrationForm({
                   errors.emergencyContact?.firstName?.message ?? hint("emergencyContact.firstName")
                 }
               >
-                {(id) => (
+                {(id, invalid) => (
                   <Input
                     id={id}
+                    aria-invalid={invalid || undefined}
                     {...register("emergencyContact.firstName", { setValueAs: orNull })}
                   />
                 )}
@@ -293,9 +311,10 @@ export function RegistrationForm({
                   errors.emergencyContact?.lastName?.message ?? hint("emergencyContact.lastName")
                 }
               >
-                {(id) => (
+                {(id, invalid) => (
                   <Input
                     id={id}
+                    aria-invalid={invalid || undefined}
                     {...register("emergencyContact.lastName", { setValueAs: orNull })}
                   />
                 )}
@@ -318,9 +337,10 @@ export function RegistrationForm({
                     hint("emergencyContact.relationshipOtherText")
                   }
                 >
-                  {(id) => (
+                  {(id, invalid) => (
                     <Input
                       id={id}
+                      aria-invalid={invalid || undefined}
                       {...register("emergencyContact.relationshipOtherText", {
                         setValueAs: orNull,
                       })}
@@ -335,11 +355,12 @@ export function RegistrationForm({
                   hint("emergencyContact.phoneNumber")
                 }
               >
-                {(id) => (
+                {(id, invalid) => (
                   <Input
                     id={id}
                     inputMode="tel"
                     placeholder="+43 660 1234567"
+                    aria-invalid={invalid || undefined}
                     {...register("emergencyContact.phoneNumber", { setValueAs: orNull })}
                   />
                 )}
@@ -397,10 +418,11 @@ export function RegistrationForm({
                       label="Gewicht [kg]"
                       error={errors.weightKg?.message ?? hint("weightKg")}
                     >
-                      {(id) => (
+                      {(id, invalid) => (
                         <Input
                           id={id}
                           type="number"
+                          aria-invalid={invalid || undefined}
                           {...register("weightKg", { setValueAs: asNumber })}
                         />
                       )}
@@ -409,19 +431,21 @@ export function RegistrationForm({
                       label="Körpergröße [cm]"
                       error={errors.heightCm?.message ?? hint("heightCm")}
                     >
-                      {(id) => (
+                      {(id, invalid) => (
                         <Input
                           id={id}
                           type="number"
+                          aria-invalid={invalid || undefined}
                           {...register("heightCm", { setValueAs: asNumber })}
                         />
                       )}
                     </Field>
                     <Field label="Schuhgröße" error={errors.shoeSize?.message ?? hint("shoeSize")}>
-                      {(id) => (
+                      {(id, invalid) => (
                         <Input
                           id={id}
                           inputMode="numeric"
+                          aria-invalid={invalid || undefined}
                           {...register("shoeSize", { setValueAs: orNull })}
                         />
                       )}
@@ -478,8 +502,12 @@ export function RegistrationForm({
                     label="Welche Unverträglichkeit?"
                     error={errors.foodOtherText?.message ?? hint("foodOtherText")}
                   >
-                    {(id) => (
-                      <Input id={id} {...register("foodOtherText", { setValueAs: orNull })} />
+                    {(id, invalid) => (
+                      <Input
+                        id={id}
+                        aria-invalid={invalid || undefined}
+                        {...register("foodOtherText", { setValueAs: orNull })}
+                      />
                     )}
                   </Field>
                 ) : null}
@@ -488,8 +516,13 @@ export function RegistrationForm({
 
             <Section title="Gesundheit">
               <Field label="Krankheiten oder Allergien" error={errors.healthNotes?.message}>
-                {(id) => (
-                  <Textarea id={id} rows={3} {...register("healthNotes", { setValueAs: orNull })} />
+                {(id, invalid) => (
+                  <Textarea
+                    id={id}
+                    rows={3}
+                    aria-invalid={invalid || undefined}
+                    {...register("healthNotes", { setValueAs: orNull })}
+                  />
                 )}
               </Field>
               <RadioField
@@ -514,29 +547,6 @@ export function RegistrationForm({
             <p role="alert" className="text-destructive text-sm">
               {submitError}
             </p>
-          ) : null}
-
-          {/* One block for both halves of the answer: what happened, and where the student stands.
-              It goes as soon as they edit again, because by then it is no longer true. */}
-          {showStatus ? (
-            <Card role="status" ref={statusRef}>
-              <CardContent className="flex flex-col gap-1">
-                <p className="text-sm font-medium">Deine Daten wurden gespeichert.</p>
-                <p
-                  className={
-                    missing.length === 0
-                      ? "text-muted-foreground text-sm"
-                      : "text-destructive text-sm"
-                  }
-                >
-                  {missing.length === 0
-                    ? COMPLETE_REGISTRATION_HINT
-                    : `${INCOMPLETE_REGISTRATION_HINT}. Es fehlen noch: ${missing
-                        .map((answer) => answer.label)
-                        .join(", ")}.`}
-                </p>
-              </CardContent>
-            </Card>
           ) : null}
 
           <div className="flex justify-end">

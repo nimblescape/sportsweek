@@ -21,8 +21,9 @@ import {
 type FieldProps = {
   label: string;
   error?: string;
-  /** Receives the id its label points at, so the association is never left to chance. */
-  children: (id: string) => React.ReactNode;
+  /** Receives the id its label points at and whether it holds an error, so a caller can put
+   * both on the input without checking `error` a second time. */
+  children: (id: string, invalid: boolean) => React.ReactNode;
 };
 
 export function Field({ label, error, children }: FieldProps) {
@@ -31,7 +32,7 @@ export function Field({ label, error, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      {children(id)}
+      {children(id, Boolean(error))}
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
     </div>
   );
