@@ -4,7 +4,7 @@ Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
 Licensed under the MIT License. See LICENSE in the repository root for details.
 -->
 
-# A Class Names the Teachers Who Run It
+# A Class Names the Teachers Who Look After It
 
 A class stops being a bare name and becomes a record: a name, and the teachers responsible for
 that class in this event series. That is master data and nothing else — being named there grants
@@ -14,6 +14,10 @@ classes of a series, somebody responsible for some of them is offered those and 
 This document is a companion to `spec/requirements.md`, `spec/refactoring-event-series.md` and
 `spec/refactoring-per-event-categories.md`. The user story numbers are stable, not positional:
 US-38 onwards are appended by number here and placed by topic when the four documents are merged.
+
+US-33 and US-34 already mean two different things across those documents, so every reference to
+either names the document it comes from — **US-33 (identity)** against **US-33 (per-event
+categories)**. See Q7.
 
 No data migrates. Every environment is purged and reseeded, so a stored shape may change freely.
 
@@ -47,8 +51,8 @@ expressible against an invitation as well as against a record.
 
 ## The shape it moves to
 
-Classes follow the move an event already made (US-34): the entry becomes a record, and the name
-stays its identity.
+Classes follow the move an event already made (US-34, per-event categories): the entry becomes a
+record, and the name stays its identity.
 
 ```jsonc
 // eventSeries/{eventSeriesId}
@@ -111,11 +115,11 @@ holder of `editRegistrations`, `editAssignments`, `viewReports` or `editReports`
 able to read every registration of the series through the SDK, whether they look after its class
 or not.
 
-That is accepted rather than overlooked, and it follows from US-34: granting any of those four is
-already the school deciding that this person may handle student personal data — health notes, a
-medication flag, an emergency contact, a date of birth, body measurements. Responsibility for a
-class neither widens that circle nor is asked to narrow it. It decides what somebody is shown, so
-that a page opens on their own class rather than on the whole school.
+That is accepted rather than overlooked, and it follows from US-34 (identity): granting any of
+those four is already the school deciding that this person may handle student personal data —
+health notes, a medication flag, an emergency contact, a date of birth, body measurements.
+Responsibility for a class neither widens that circle nor is asked to narrow it. It decides what
+somebody is shown, so that a page opens on their own class rather than on the whole school.
 
 Two things follow, and both are worth stating where somebody will read them.
 
@@ -130,8 +134,8 @@ Two things follow, and both are worth stating where somebody will read them.
 
 ## The class detail editor
 
-A class becomes a record with one child collection, exactly as a program has one (US-33). Its
-page is reached from the class list, at
+A class becomes a record with one child collection, exactly as a program has one (US-33, per-event
+categories). Its page is reached from the class list, at
 `/app/event-series/{eventSeriesId}/classes?teachers=<class name>` — the class is named in a query
 parameter for the reason a program is, and no teacher is named in the URL at all (US-33,
 identity).
@@ -154,6 +158,31 @@ be added to: the people already exist, and the page only says which of them look
 - A tag shows the name; its accessible name carries the address as well, because two colleagues
   may share a surname and a class assignment is not a thing to get wrong.
 
+## What the editor needs that is closed today
+
+The editor is the one screen in the application that has to name people who are not the caller,
+and both places it reads them from are closed to every client — deliberately, and they stay
+closed. Two Route Handlers open exactly as much as the tags need, and nothing more.
+
+- **The candidates are answered by a handler, not by widening a rule.** `users` is readable today
+  by its owner and by a holder of `editUsers` (US-2), and a rule grants a whole document — so
+  opening it to `editMasterData` would hand over the staff's permissions along with their names.
+  The handler answers with a uid, a first name, a surname and an address per person, and nothing
+  else: no permissions, no photo, no sign-in history.
+- **`invitedTeachers` stays unreadable and unwritable by every client.** A pending invitation names
+  the permissions somebody is about to hold, so reading one says who will be able to do what. The
+  same handler answers only the name and the address of each pending invitation; the permissions
+  on it are never sent.
+- **The write is strict about which fields it touches.** Assigning names a series, a class and a
+  person; the handler writes `teacherUids` on that class, or `classAssignments` on that
+  invitation, and refuses a body naming anything else. It never reads, writes or echoes
+  `permissions` — a handler that accepted a whole invitation document would be a way for
+  `editMasterData` to grant itself `editUsers`, which is the one thing this feature must not
+  become.
+
+That last point is what keeps the answer to Q2 true. An assignment grants nothing only for as long
+as the thing that records it cannot reach the thing that does grant.
+
 ## Invitations and records are complementary
 
 An invitation exists only until its holder first signs in; a record exists only from then on.
@@ -167,7 +196,8 @@ Nothing is ever in both, and the editor above relies on it.
   name means a different class in a different series.
 
 A pending assignment can be left pointing at nothing — the class is renamed, the class is deleted,
-the whole series is deleted — and what happens then is Q4.
+the whole series is deleted. The claim drops it, silently and one entry at a time (Q4), so none of
+those three edits has to go looking through the invitations first.
 
 ## The rights page says which classes somebody looks after
 
@@ -268,6 +298,8 @@ visit once they arrive.
   invitation carries, and the invitation is then deleted.
 - Claiming adds the new uid to each named class, so their pages are narrowed from that first
   sign-in.
+- An entry naming a class or a series that is no longer there is skipped, silently, and the rest
+  are applied. Nothing is reported and nothing is blocked.
 - An invitation and a user record never describe the same person: an address holding a record
   cannot be invited, and an invitation is deleted the moment a record is made from it.
 
@@ -327,21 +359,16 @@ It cannot: there is no access to grant.
 view rather than a read boundary, the assignment board keeps every student it needs and simply
 offers the classes its reader looks after.
 
-### Q4 — A pending assignment can be left pointing at nothing
+### Q4 — A pending assignment can be left pointing at nothing — ANSWERED
 
-An invitation names a series and a class, and neither is guaranteed to be there when it is
-claimed. Three cases, and each has a defensible answer:
+**The claim drops it, silently.** At the first sign-in each entry of `classAssignments` is applied
+where its series and its class are both still there, and skipped where either is not. Nothing is
+reported, and nothing is blocked.
 
-- **The class is renamed.** The in-use guard refuses a rename while a registration names the
-  class; a pending invitation is not a registration. Refuse the rename too, rewrite the pending
-  assignments with it, or let the claim find nothing.
-- **The class is removed.** Same three answers.
-- **The series is deleted.** Deleting a series already takes its lists, reports, invitations and
-  registrations with it. Pending assignments live in another collection entirely, so pruning them
-  means a scan of `invitedTeachers` — or leaving them to be dropped when they are claimed.
-
-Dropping silently on claim is the cheapest and never blocks an edit; refusing is consistent with
-how the in-use rule already treats a name somebody depends on. **Undecided.**
+That is what keeps the assignment out of everybody else's way: renaming a class, removing one and
+deleting a whole series are each decided on their own terms, and none of them has to scan the
+invitations first. A dropped entry grants nothing and takes nothing away — it would have narrowed
+a view, and the unnarrowed view is what somebody gets instead.
 
 ### Q5 — "View" or "manage", for a teacher who looks after a class — WITHDRAWN
 
@@ -350,31 +377,54 @@ removes the case: holding no permission, they do not reach the page at all. Some
 reach it holds `editRegistrations` and carries every control it has always carried — the
 invitation link, the QR code, deleting a registration — for the classes the page offers them.
 
-### Q6 — A teacher's uid becomes readable by every school member
+### Q6 — A teacher's uid becomes readable by every school member — ANSWERED, and what it was hiding
 
-`teacherUids` sits on the event series document, which any signed-in member of the school may read
-in full, students included — the same rule that lets a student see the lists they answer from. So
-"which teacher looks after which class" becomes readable by students, as a uid.
+**Accepted.** `teacherUids` sits on the event series document, which any signed-in member of the
+school may read in full, students included — the same rule that lets a student see the lists they
+answer from. A uid is opaque and cannot be resolved to a person without reading `users`, which a
+student may not; and the class teacher is not a secret from the class.
 
-A uid is opaque and cannot be resolved to a person without reading `users`, which a student may
-not. The class teacher is not a secret from the class either. Recorded so that it reads as a
-decision, not as an oversight.
+Reviewing the rest of the design turned up **two things that had been missed**, both now specified
+in "What the editor needs that is closed today":
 
-### Q7 — The user story numbers already collide, twice
+1. **The editor reads two collections no client may read.** `users` is closed to `editMasterData`
+   today, and `invitedTeachers` is closed to everybody in both directions. Neither rule is
+   widened — widening `users` would hand over permissions with the names, because a rule grants a
+   whole document. A handler answers the names instead.
+2. **The write could have been an escalation path.** A handler that accepted a whole invitation
+   document would let a holder of `editMasterData` write `permissions`, turning the one permission
+   that grants nothing into the one that grants everything. The write names only the class fields
+   and refuses the rest. This is the one that mattered.
 
-Not caused by this change, found while placing US-38:
+Three smaller things, accepted rather than fixed:
 
-- `spec/refactoring-identity.md` uses US-33, US-34 and US-35 for "A person is never named in a
-  URL", "The permissions that reach personal data form a restricted circle" and "Every write goes
-  through the API". `spec/refactoring-per-event-categories.md` uses the same three numbers for
-  "Teacher maintains master data as a hierarchy", "An event carries master data of its own" and
-  "A student is offered their event's lists". Both meanings are referenced from code comments
-  under the same numbers, so a reader following one arrives at the other.
-- The story that says which required equipment the school lends is US-37 in
-  `spec/refactoring-per-event-categories.md` and is referenced as US-36 everywhere in the code.
+- **A copy carries the assignments.** Creating a series from another (US-22) copies `classOptions`
+  and therefore its `teacherUids`, so last year's teachers arrive in this year's series. That is
+  usually what is wanted, and where it is not, it grants nobody anything.
+- **A uid can outlive the person.** Nothing deletes a user record, so somebody who leaves the
+  school stays named on the classes they looked after until a teacher removes them. It narrows a
+  view for an account that no longer signs in.
+- **A dropped assignment is dropped late.** Q4 leaves a stale entry on an invitation until the
+  claim discards it, so a series id and a class name stay attached to an address for as long as
+  the invitation does. The invitation is the thing being retained; this adds nothing to its life.
 
-US-38 onwards is free under every reading, so this change is unaffected. It needs settling when
-the documents are merged, and until then a number is not enough to find a story by.
+### Q7 — The user story numbers already collide, twice — ANSWERED for this document
+
+US-38 to US-41 are free under every reading of the existing documents, so the stories added here
+are exclusive as they stand: `spec/refactoring-identity.md` stops at US-35 and
+`spec/refactoring-per-event-categories.md` at US-37.
+
+What was not exclusive is the way this document _referred_ to the numbers. US-33 and US-34 mean
+one thing in the identity document and another in the per-event one, and both meanings were cited
+here, pages apart. Every reference to a colliding number now names the document it comes from:
+**US-33 (identity)** is "A person is never named in a URL" and **US-33 (per-event categories)** is
+"Teacher maintains master data as a hierarchy"; likewise for US-34.
+
+The collision itself is untouched, because it lives in two other documents and in the code
+comments that cite them. It still needs settling when the four documents are merged, and until
+then a number alone is not enough to find a story by. So does its second half: the story saying
+which required equipment the school lends is US-37 in
+`spec/refactoring-per-event-categories.md` and is cited as US-36 throughout the code.
 
 ## Sequencing
 
@@ -382,15 +432,15 @@ Each slice is a pull request of its own, and each is green on the whole gate bef
 starts — tests, lint, types, formatting, licence headers, and the rules tests against the
 emulator. Test-driven throughout: the failing test that states the new behaviour comes first.
 
-**Q4 blocks slice 2.** Slices 1, 3 and 4 are unblocked; Q1, Q2, Q3 are answered and Q5 is
-withdrawn. No slice touches `firestore.rules`.
+**No question blocks any slice.** Q1 to Q4, Q6 and Q7 are answered and Q5 is withdrawn. No slice
+touches `firestore.rules`.
 
-| Slice | What lands                                                                                                                                                                                                                  |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | A class becomes a record. `classOptions` goes from `string[]` to objects with a name and an empty `teacherUids`. Nothing reads the new field yet. Purge and reseed.                                                         |
-| **2** | The class record page and its editor: candidates from records and invitations alike, the name field, the "Zugewiesen" tag, and the write that assigns. `classAssignments` on an invitation, and the claim at first sign-in. |
-| **3** | The narrowing: the classes offered by Registrierungen, Zuteilungen and Berichte follow what their reader looks after.                                                                                                       |
-| **4** | The rights page shows the assignments, read-only.                                                                                                                                                                           |
+| Slice | What lands                                                                                                                                                                                                         |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1** | A class becomes a record. `classOptions` goes from `string[]` to objects with a name and an empty `teacherUids`. Nothing reads the new field yet. Purge and reseed.                                                |
+| **2** | The class record page and its editor, and the two handlers behind it: the candidates, and the strict write. `classAssignments` on an invitation, and the claim at first sign-in that drops what no longer applies. |
+| **3** | The narrowing: the classes offered by Registrierungen, Zuteilungen and Berichte follow what their reader looks after.                                                                                              |
+| **4** | The rights page shows the assignments, read-only.                                                                                                                                                                  |
 
 `spec/database-erd.puml` is updated with slice 1. Environments are purged and reseeded after slice
 1; the seeding script writes the new class shape in the same slice.
