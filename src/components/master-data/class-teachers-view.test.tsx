@@ -6,6 +6,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { storedEventSeries } from "@/test/event-series";
+import { asUid } from "@/lib/schemas/common";
+import { MASTER_DATA_REPORT_LABEL } from "@/components/master-data/master-data-report";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -39,7 +42,16 @@ const BOB = {
 
 function eventSeries(classOptions: { name: string; teacherUids: string[] }[]) {
   useSelectedEventSeries.mockReturnValue({
-    eventSeries: { id: SERIES, name: "Wintersportwoche", classOptions },
+    eventSeries: {
+      id: SERIES,
+      ...storedEventSeries({
+        name: "Wintersportwoche",
+        classOptions: classOptions.map((option) => ({
+          ...option,
+          teacherUids: option.teacherUids.map(asUid),
+        })),
+      }),
+    },
     loading: false,
     error: null,
   });
@@ -138,6 +150,18 @@ describe("ClassTeachersView", () => {
     await userEvent.click(tagIn(`Auer Ada (${ADA.email})`));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Dafür fehlen dir die Rechte.");
+  });
+
+  /** The report never scopes narrower than the series, and this page had none before (US-46). */
+  it("offers the whole series' report, naming who looks after this very class", async () => {
+    eventSeries([{ name: CLASS, teacherUids: [ADA.uid] }]);
+    show();
+
+    await userEvent.click(screen.getByRole("button", { name: MASTER_DATA_REPORT_LABEL }));
+
+    expect(screen.getByRole("heading", { name: "Klassen" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: CLASS, level: 4 })).toBeInTheDocument();
+    expect(screen.getByText("Auer Ada")).toBeInTheDocument();
   });
 });
 

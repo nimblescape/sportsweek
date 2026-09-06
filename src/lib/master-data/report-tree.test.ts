@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { event, storedEventSeries } from "@/test/event-series";
 import { EQUIPMENT_LABELS, MASTER_DATA_CATEGORIES } from "./categories";
 import {
@@ -13,8 +14,12 @@ import {
   INHERITS_EVERYTHING,
   NOTHING_MAINTAINED,
   programReport,
+  teacherNamesFrom,
   type ReportSection,
 } from "./report-tree";
+
+const ADA = asUid("uidAda");
+const BOB = asUid("uidBob");
 
 const titlesOf = (sections: readonly ReportSection[]) => sections.map((one) => one.title);
 const sectionNamed = (parent: ReportSection, title: string) => {
@@ -22,6 +27,16 @@ const sectionNamed = (parent: ReportSection, title: string) => {
   if (!found) throw new Error(`No section titled ${title}`);
   return found;
 };
+
+describe("teacherNamesFrom", () => {
+  it("builds a lookup keyed by uid, surname first", () => {
+    const names = teacherNamesFrom([
+      { uid: ADA, firstName: "Ada", lastName: "Auer", email: "ada@htldornbirn.at" },
+    ]);
+
+    expect(names.get(ADA)).toBe("Auer Ada");
+  });
+});
 
 describe("programReport", () => {
   it("names the program and lists what it requires", () => {
@@ -112,23 +127,52 @@ describe("eventSeriesReport", () => {
   });
 
   it("lists the entries of a category of bare names", () => {
-    const report = eventSeriesReport(
-      storedEventSeries({
-        classOptions: [
-          { name: "2aWI", teacherUids: [] },
-          { name: "2bWI", teacherUids: [] },
-        ],
-      }),
-    );
+    const report = eventSeriesReport(storedEventSeries({ skillLevels: ["Anfänger", "Profi"] }));
 
-    expect(sectionNamed(report, "Klassen").entries).toEqual(["2aWI", "2bWI"]);
+    expect(sectionNamed(report, "Leistungsstufen").entries).toEqual(["Anfänger", "Profi"]);
   });
 
   /** A heading standing over nothing would read as a list that failed to load. */
   it("says so where a category has no entries", () => {
-    const report = eventSeriesReport(storedEventSeries({ classOptions: [] }));
+    const report = eventSeriesReport(storedEventSeries({ skillLevels: [] }));
 
-    expect(sectionNamed(report, "Klassen").entries).toEqual([NOTHING_MAINTAINED]);
+    expect(sectionNamed(report, "Leistungsstufen").entries).toEqual([NOTHING_MAINTAINED]);
+  });
+
+  /** A class became a record with its own child collection (US-38); the report follows (US-46). */
+  it("goes on down through a class into who looks after it", () => {
+    const report = eventSeriesReport(
+      storedEventSeries({
+        classOptions: [{ name: "2aWI", teacherUids: [BOB, ADA] }],
+      }),
+      new Map([
+        [ADA, "Auer Ada"],
+        [BOB, "Berger Bob"],
+      ]),
+    );
+
+    const twoAWI = sectionNamed(sectionNamed(report, "Klassen"), "2aWI");
+    expect(twoAWI.entries).toEqual(["Berger Bob", "Auer Ada"]);
+  });
+
+  it("leaves the bullet list empty for a class nobody looks after", () => {
+    const report = eventSeriesReport(
+      storedEventSeries({ classOptions: [{ name: "2aWI", teacherUids: [] }] }),
+    );
+
+    const twoAWI = sectionNamed(sectionNamed(report, "Klassen"), "2aWI");
+    expect(twoAWI.entries).toEqual([]);
+  });
+
+  /** A uid the lookup cannot resolve is left out, as a stale invitation entry already is (Q4). */
+  it("leaves out a teacher the lookup cannot resolve", () => {
+    const report = eventSeriesReport(
+      storedEventSeries({ classOptions: [{ name: "2aWI", teacherUids: [ADA, BOB] }] }),
+      new Map([[ADA, "Auer Ada"]]),
+    );
+
+    const twoAWI = sectionNamed(sectionNamed(report, "Klassen"), "2aWI");
+    expect(twoAWI.entries).toEqual(["Auer Ada"]);
   });
 
   it("goes on down through the events into their own lists", () => {

@@ -4,17 +4,19 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { stubRowLayout } from "@/test/stub-row-layout";
 import { CHILD_IN_USE_HINT, IN_USE_HINT, USAGE_PENDING_HINT } from "@/lib/master-data/categories";
 import { FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
+import { MASTER_DATA_REPORT_LABEL } from "@/components/master-data/master-data-report";
 
 const useMasterData = vi.fn();
 const useUsageReport = vi.fn();
 const useSelectedEventSeries = vi.fn();
+const useTeacherCandidates = vi.fn();
 const push = vi.fn();
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -22,6 +24,11 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/lib/master-data/use-master-data", () => ({
   useMasterData: (...args: unknown[]) => useMasterData(...args),
   useUsageReport: (...args: unknown[]) => useUsageReport(...args),
+}));
+
+// Only the report needs a name for a class's teachers; nothing here asserts on the candidates list.
+vi.mock("@/lib/users/use-teacher-candidates", () => ({
+  useTeacherCandidates: () => useTeacherCandidates(),
 }));
 
 // The screen names the record it is about, which reaches Firebase no test here has cause to start.
@@ -69,6 +76,7 @@ beforeEach(() => {
     blockedEquipment: {},
     loading: false,
   });
+  useTeacherCandidates.mockReturnValue({ candidates: [], loading: false, error: null });
 });
 
 afterEach(() => {
@@ -546,6 +554,27 @@ describe("MasterDataView — an event's own page (US-33)", () => {
 
     expect(useMasterData).toHaveBeenCalledWith("skill-levels", "s1", "Woche 1");
     expect(useUsageReport).toHaveBeenCalledWith("skill-levels", "s1", "Woche 1");
+  });
+
+  /** The report never scopes narrower than the series, even from one of the series' own events. */
+  it("reports the whole series, not only the event it is on", async () => {
+    useSelectedEventSeries.mockReturnValue({
+      eventSeries: {
+        id: "s1",
+        ...storedEventSeries({
+          name: "Wintersportwoche",
+          events: [event("Woche 1")],
+          classOptions: [{ name: "2aWI", teacherUids: [] }],
+        }),
+      },
+      loading: false,
+      error: null,
+    });
+    renderEventView();
+
+    await userEvent.click(screen.getByRole("button", { name: MASTER_DATA_REPORT_LABEL }));
+
+    expect(screen.getByRole("heading", { name: "Klassen" })).toBeInTheDocument();
   });
 
   it("writes to the event-scoped handler, the event named in the query", async () => {

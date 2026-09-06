@@ -14,10 +14,13 @@ import {
 } from "@/lib/registration/answer-labels";
 import { DEFAULT_IS_RENTABLE } from "@/lib/schemas/master-data";
 import { IRREVERSIBLE_HINT } from "@/lib/ui/hints";
+import { MASTER_DATA_REPORT_LABEL } from "@/components/master-data/master-data-report";
 
 const useMasterData = vi.fn();
 const useProgram = vi.fn();
 const useUsageReport = vi.fn();
+const useSelectedEventSeries = vi.fn();
+const useTeacherCandidates = vi.fn();
 const push = vi.fn();
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -30,11 +33,12 @@ vi.mock("@/lib/master-data/use-master-data", () => ({
 
 // The screen names the record it is about, which reaches Firebase no test here has cause to start.
 vi.mock("@/lib/event-series/use-selected-event-series", () => ({
-  useSelectedEventSeries: () => ({
-    eventSeries: { id: "s1", ...storedEventSeries({ name: "Wintersportwoche" }) },
-    loading: false,
-    error: null,
-  }),
+  useSelectedEventSeries: () => useSelectedEventSeries(),
+}));
+
+// Only the report needs a name for a class's teachers; nothing here asserts on the candidates list.
+vi.mock("@/lib/users/use-teacher-candidates", () => ({
+  useTeacherCandidates: () => useTeacherCandidates(),
 }));
 
 const { ProgramsView: ScopedProgramsView } = await import("./programs-view");
@@ -105,6 +109,12 @@ beforeEach(() => {
     blockedEquipment: {},
     loading: false,
   });
+  useSelectedEventSeries.mockReturnValue({
+    eventSeries: { id: "s1", ...storedEventSeries({ name: "Wintersportwoche" }) },
+    loading: false,
+    error: null,
+  });
+  useTeacherCandidates.mockReturnValue({ candidates: [], loading: false, error: null });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -185,6 +195,26 @@ describe("ProgramEquipmentView", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ski");
     expect(screen.getByText("Helm")).toBeInTheDocument();
     expect(screen.getByText("Stöcke")).toBeInTheDocument();
+  });
+
+  /** The report never scopes narrower than the series, even from a programme's own page. */
+  it("reports the whole series, not only the programme it is on", async () => {
+    useSelectedEventSeries.mockReturnValue({
+      eventSeries: {
+        id: "s1",
+        ...storedEventSeries({
+          name: "Wintersportwoche",
+          classOptions: [{ name: "2aWI", teacherUids: [] }],
+        }),
+      },
+      loading: false,
+      error: null,
+    });
+    render(<ProgramEquipmentView program="Ski" />);
+
+    await userEvent.click(screen.getByRole("button", { name: MASTER_DATA_REPORT_LABEL }));
+
+    expect(screen.getByRole("heading", { name: "Klassen" })).toBeInTheDocument();
   });
 
   it("offers a way back to the programs list of the same series", () => {

@@ -341,17 +341,14 @@ needs no rule change and no new endpoint.
 
 The report writes out what a record is made of, expanded downwards (US-33). A class became a
 record with one child collection the moment slice 1 landed, and the report went on listing it as a
-bare name — so the report and the page it reports on now disagree about what a class is. A
-programme already expands onto its "Ausrüstung"; a class expands onto its "Lehrpersonen" on
-exactly the same terms.
+bare name — so the report and the page it reports on now disagree about what a class is.
 
-- Under "Klassen", each class is a **heading** rather than a bullet, and beneath it sits one
-  section, "Lehrpersonen", holding the teachers who look after it.
-- A class nobody looks after keeps its "Lehrpersonen" heading and says "Keine Einträge." beneath
-  it, as every empty collection in the report already does. This is deliberately **not** what the
-  rights page does: there, a teacher with no classes is a person with nothing to say, and a line
-  saying so would be noise on a page listing everybody; here, the report's shape is the point, and
-  a class silently missing its one collection would read as a class that has none.
+- Under "Klassen", each class is a **heading** rather than a bullet, and the teachers who look
+  after it are its bullets directly — there is no "Lehrpersonen" heading of its own between the
+  class and its names, the class heading already says whose names these are.
+- A class nobody looks after has an empty bullet list, not a "Keine Einträge." line. The heading
+  itself — the class's own name, still under "Klassen" — is what a teacher reads; a line under it
+  saying nothing was assigned would repeat what the empty list already shows.
 - A teacher is named surname first, matching the rights page, the class editor and the report's
   own name field. The order is the stored order of `teacherUids`, which is the order they were
   assigned in — no meaning is claimed for it, and none is imposed either.
@@ -372,6 +369,20 @@ A uid that resolves to nobody is **left out**, silently, one at a time — the s
 stale entry gets when an invitation is claimed (Q4). The report is a reading of master data, not
 an audit of it, and a line about a person who is not there would be the only thing in it that is
 not a fact about the school.
+
+### The report never scopes narrower than a series
+
+The root lists every series; below the root, the report is always **one series, in full** —
+never an event's own slice of it, and never a programme's own slice of it either. A teacher
+standing on an event's own page or a programme's own equipment list reads the same report as one
+standing on the series itself, because a class's teachers are something the report should say
+regardless of which of the series' own pages happens to be open, and a second, narrower shape of
+the same report is a second thing to keep in sync with the first.
+
+This closes two places that used to scope narrower and opens one that used to have no report at
+all: an event's own page reported only that event; a programme's own page reported only that
+programme; a class's own page — the teachers editor — reported nothing. All three now show the
+open series' `eventSeriesReport`, exactly as the series' own category pages already did.
 
 ## What "open" means
 
@@ -783,13 +794,15 @@ it now is rather than as the name it used to be.
 
 **Acceptance criteria:**
 
-- Under "Klassen", each class is a heading with one section beneath it, "Lehrpersonen", naming the
-  teachers who look after it — the shape a programme and its "Ausrüstung" already have.
-- A class nobody looks after keeps the heading and says "Keine Einträge." beneath it, as every
-  other empty collection in the report does.
+- Under "Klassen", each class is a heading; the teachers who look after it are its bullets
+  directly, with no "Lehrpersonen" heading of its own between the class and its names.
+- A class nobody looks after has an empty bullet list, not a "Keine Einträge." line — the class's
+  own heading, still under "Klassen", is what says which class this is.
 - A teacher is named surname first, in the stored order of the assignment.
-- It holds at every level the report is shown at: the whole-school report over every series, one
-  series' report, and the classes category's own.
+- The report shown anywhere below the root is the open series' report in full, never an event's
+  or a programme's own slice of it — so a class's teachers show wherever that series' report is
+  read, including from an event's own page, a programme's own page, and a class's own page,
+  which did not offer a report before.
 - Both exports follow, being built from what is on screen.
 - A uid naming nobody is left out silently; the rest of the class is reported as usual.
 - The names come from `GET /api/users/teacher-candidates`, which already re-verifies
@@ -1115,7 +1128,7 @@ piece of work and is not in this sequence.
 | **3**  | Provisioning: `classAssignments` on an invitation, written by the scripts, claimed by `provisionUser`, dropping what no longer applies. ✅ landed                                                                                                                                                                                                                                                                            |
 | **4**  | The narrowing: the classes offered by Registrierungen, Zuteilungen and Berichte follow what their reader looks after (US-39). ✅ landed                                                                                                                                                                                                                                                                                      |
 | **5**  | The rights page shows the assignments, read-only (US-41). ✅ landed                                                                                                                                                                                                                                                                                                                                                          |
-| **6**  | The Stammdatenbericht expands a class onto its "Lehrpersonen", resolving the uids through the candidates handler (US-46).                                                                                                                                                                                                                                                                                                    |
+| **6**  | The Stammdatenbericht expands a class onto the teachers who look after it, resolving the uids through the candidates handler (US-46).                                                                                                                                                                                                                                                                                        |
 | **7**  | The scope itself: one module answering "which series is this teacher scoped to", the header offering only those, and the three pages refusing the rest (US-42).                                                                                                                                                                                                                                                              |
 | **8**  | Open becomes per class and stops meaning "a link exists". `isOpenToStudents` moves onto `classOptions` and leaves the series; the card gains an open/close toggle; copying stops opening; "Regenerieren" becomes "Neuen Link erzeugen"; assigning asks the student's own class; archiving asks the classes and deletes the links; renaming and removing a class carry their invitation (US-43, Q8 to Q12). Purge and reseed. |
 | **9**  | The bulk switch: the header's door reads the classes in scope and opens or closes over that set, destroying no link (US-44).                                                                                                                                                                                                                                                                                                 |

@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import {
+  CLASS_TEACHERS_LABEL,
   EQUIPMENT_LABELS,
   MASTER_DATA_CATEGORIES,
   PER_EVENT_CATEGORY_KEYS,
@@ -135,7 +136,7 @@ export function classTeachersTabs(eventSeriesId: string, className: string): Rec
   return [
     {
       key: "teachers",
-      label: "Lehrpersonen",
+      label: CLASS_TEACHERS_LABEL,
       href: classTeachersPath(eventSeriesId, className),
       opensRecords: false,
     },

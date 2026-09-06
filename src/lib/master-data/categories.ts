@@ -184,6 +184,12 @@ export const MASTER_DATA_CATEGORIES = {
 export type MasterDataCategoryKey = keyof typeof MASTER_DATA_CATEGORIES;
 
 /**
+ * What a class's one child collection is called, on its own tab and in the report (US-38, US-46)
+ * — one constant rather than two literals drifting apart at the next rename.
+ */
+export const CLASS_TEACHERS_LABEL = "Lehrpersonen";
+
+/**
  * The five categories an event may name entries of its own for (US-33), derived from the map
  * above rather than named a second time — so a category that becomes overridable, or stops being
  * one, changes here and nowhere else.

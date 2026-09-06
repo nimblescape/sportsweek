@@ -13,11 +13,13 @@ import { Tag, TagName } from "@/components/ui/tag";
 import { apiRequest } from "@/lib/api/client";
 import { useRowAction } from "@/lib/api/use-row-action";
 import { useSelectedEventSeries } from "@/lib/event-series/use-selected-event-series";
+import { CLASS_TEACHERS_LABEL } from "@/lib/master-data/categories";
 import { classTeachersTabs, classTrail } from "@/lib/master-data/hierarchy";
+import { eventSeriesReport, teacherNamesFrom } from "@/lib/master-data/report-tree";
 import { useTeacherCandidates } from "@/lib/users/use-teacher-candidates";
 import type { TeacherCandidate } from "@/lib/schemas/user";
 
-export const FILTER_LABEL = "Lehrpersonen";
+export const FILTER_LABEL = CLASS_TEACHERS_LABEL;
 
 export const ASSIGNED_LABEL = "Zugewiesen";
 
@@ -92,6 +94,12 @@ export function ClassTeachersView({
   }
 
   const loading = seriesLoading || candidatesLoading;
+  // The report never scopes narrower than the series, so it names this class among every other
+  // record the series holds, whichever of the series' own pages happens to be open (US-46).
+  const report =
+    eventSeries === null
+      ? undefined
+      : [eventSeriesReport(eventSeries, teacherNamesFrom(candidates))];
 
   return (
     <RecordScreen
@@ -99,6 +107,7 @@ export function ClassTeachersView({
       tabs={classTeachersTabs(eventSeriesId, named)}
       marked="teachers"
       busy={pending}
+      report={report}
     >
       {error ? (
         <p role="alert" className="text-destructive text-sm">
