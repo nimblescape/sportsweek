@@ -106,7 +106,10 @@ Three things the table does not spell out:
 - **It is asked one series at a time.** Somebody who looks after a class in the Wintersportwoche
   and none in the Sommersportwoche is narrowed in the first and sees the second whole.
 - **Looking after nothing narrows nothing.** A school that never assigns a class is unaffected by
-  the whole feature, and the day this ships takes nothing away from anybody.
+  the whole feature, and the day this ships takes nothing away from anybody. It runs the other way
+  too: removing the last class somebody looks after widens them back to the whole series rather
+  than leaving them with an empty one. That is the safe direction for a rule whose only job is to
+  focus a page.
 - **It is not a permission.** It is not granted on the rights page, it is not in `PERMISSIONS`,
   no permission implies it, and it implies no permission.
 
@@ -142,9 +145,9 @@ categories). Its page is reached from the class list, at
 parameter for the reason a program is, and no teacher is named in the URL at all (US-33,
 identity).
 
-It is `editMasterData`, like every other master data page, which is uncontroversial precisely
-because the assignment grants nothing: this is a page for recording who looks after what, not for
-handing anything out.
+It is `editMasterData`, like every other master data page. That is uncontroversial for the
+assignment itself, which grants nothing — but it does mean a holder of `editMasterData` comes to
+read the staff's names, which is what the section after this one is about.
 
 The tag row above the list holds the one tag, "Lehrpersonen". Beneath it is not a list that can
 be added to: the people already exist, and the page only says which of them look after this class.
@@ -170,6 +173,10 @@ today. Everything else about it is a matter of what it must be unable to do.
   would hand over the staff's permissions along with their names. A handler answers instead, with
   a uid, a first name, a surname and an address per person, and nothing else: no permissions, no
   photo, no sign-in history. `firestore.rules` is not touched.
+- **That is a widening, and it is accepted.** Enumerating the staff was `editUsers`' alone; it is
+  now also `editMasterData`'s, for names and school addresses. It is the staff directory shown to
+  staff, and it is exactly what the tags are — but it is a change, so it is written down as one
+  rather than arriving with the feature.
 - **It never writes a user record.** Nothing about a person changes when a class is assigned. The
   uids are stored on the event series, beside the class they belong to; a user record holds no
   classes and gains no field.
@@ -264,6 +271,8 @@ this event series, so that the application knows what the staff room already kno
 - A class is a record: a name, and the teachers who look after it. The name remains its identity,
   and everything US-6 says about maintaining the list — uniqueness, the maximum count, the maximum
   length, the teacher's order — holds unchanged.
+- Renaming a class and reordering the list carry the teachers with them: the entry is respelled or
+  moves, and who looks after it is left alone.
 - It belongs to the class _of this series_. The same class name in another series carries its own
   assignment, and a new series copied from an old one (US-22) takes the classes and their
   assignments with it, as it takes every other list.
@@ -280,7 +289,8 @@ this event series, so that the application knows what the staff room already kno
 - Somebody who has never signed in holds no record and is not offered. Where the school wants to
   name one in advance, the provisioning script leaves the assignment with their invitation (US-40).
 - Removing a class removes its assignments with it, on the same terms as removing any list entry:
-  refused while a registration still names that class.
+  refused while a registration still names that class. Somebody left looking after nothing in that
+  series is thereby widened back to all of it, rather than narrowed to none.
 
 ### US-39: My pages open on the classes I look after
 
@@ -339,7 +349,7 @@ they may do, so that both halves of "who does what here" are on one page.
 - A teacher who looks after nothing shows nothing at all — no line, and no sentence saying so.
 - The list updates live, as the permissions already do.
 
-## Open questions and inconsistencies
+## Questions and inconsistencies, all settled
 
 ### Q1 — What a report permission alone sees, once class scoping exists — ANSWERED
 
@@ -417,8 +427,10 @@ Reviewing the rest of the design turned up **two things that had been missed**, 
    does not write an invitation at all: `invitedTeachers` stays closed in both directions and
    belongs to provisioning alone. This is the one that mattered.
 
-Three smaller things, accepted rather than fixed:
+Four smaller things, accepted rather than fixed:
 
+- **`editMasterData` comes to read the staff directory.** Names and school addresses, which only
+  `editUsers` could enumerate before. Narrowed to what the tags show, and no permissions with it.
 - **A copy carries the assignments.** Creating a series from another (US-22) copies `classOptions`
   and therefore its `teacherUids`, so last year's teachers arrive in this year's series. That is
   usually what is wanted, and where it is not, it grants nobody anything.
