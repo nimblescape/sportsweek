@@ -22,7 +22,8 @@ const seedUserSchema = z.object({
   firstName: requiredText(100),
   lastName: requiredText(100),
   email: z.email(),
-  // Not read anywhere yet — the application has no notion of a class teacher.
+  // A class of the winter series — the only one bare-seeded, so the only one with classes to
+  // assign into before anybody has signed in (US-40). Left with the invitation, not written here.
   classTeacherOf: z.string().optional(),
   permissions: permissionsInputSchema,
 });

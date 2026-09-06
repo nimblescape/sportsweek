@@ -522,15 +522,28 @@ async function importAccounts(auth: Auth, accounts: readonly SeededAccount[]): P
  * directory's to create, and one made here would hold the address under a credential Entra did
  * not issue — which is what a real sign-in then collides with. There is therefore no uid to key
  * a record by until somebody actually arrives.
+ *
+ * `classTeacherOf` names a class of `winterEventSeriesId` (US-40) — the only series bare-seeded,
+ * so the only one a class assignment can be left waiting in before anybody has signed in.
  */
-async function inviteTeachers(db: Firestore, teachers: readonly SeedUser[]): Promise<void> {
+async function inviteTeachers(
+  db: Firestore,
+  teachers: readonly SeedUser[],
+  winterEventSeriesId: string,
+): Promise<void> {
   await Promise.all(
     teachers.map((person) =>
-      db.collection(COLLECTIONS.invitedTeachers).doc(invitationKey(person.email)).set({
-        firstName: person.firstName,
-        lastName: person.lastName,
-        permissions: person.permissions,
-      }),
+      db
+        .collection(COLLECTIONS.invitedTeachers)
+        .doc(invitationKey(person.email))
+        .set({
+          firstName: person.firstName,
+          lastName: person.lastName,
+          permissions: person.permissions,
+          classAssignments: person.classTeacherOf
+            ? [{ eventSeriesId: winterEventSeriesId, class: person.classTeacherOf }]
+            : [],
+        }),
     ),
   );
 }
@@ -727,7 +740,7 @@ async function main(): Promise<void> {
   );
   console.log(`Created the event series "${winter.name}".`);
 
-  await inviteTeachers(db, config.users);
+  await inviteTeachers(db, config.users, winter.id);
   console.log(`Invited ${config.users.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
