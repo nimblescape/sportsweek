@@ -274,6 +274,19 @@ describe("RegistrationForm", () => {
     expect(status).toHaveTextContent("Registrierung vollständig");
   });
 
+  /** The card appends below the button that produced it, which a stale scroll position would
+   * otherwise leave both the confirmation and the button out of view. */
+  it("scrolls the confirmation into view once it appears", async () => {
+    const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
+    renderForm();
+
+    await changeSomething();
+    await userEvent.click(save());
+    await screen.findByRole("status");
+
+    expect(scrollIntoView).toHaveBeenCalled();
+  });
+
   it("names what is still missing in the same breath as the confirmation", async () => {
     renderForm({
       ...storedRecord,

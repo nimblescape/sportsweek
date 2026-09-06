@@ -119,6 +119,7 @@ export function RegistrationForm({
   const [saved, setSaved] = React.useState(false);
   const [saveAttempted, setSaveAttempted] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const statusRef = React.useRef<HTMLDivElement>(null);
 
   const equipmentOf = React.useCallback(
     (programName: string | null) =>
@@ -201,6 +202,13 @@ export function RegistrationForm({
       );
     }
   });
+
+  // The card appends below everything already on screen, so a scroll position that made sense
+  // before saving can leave both it and the button that produced it out of view.
+  const showStatus = saved && !isDirty;
+  React.useEffect(() => {
+    if (showStatus) statusRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [showStatus]);
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
@@ -474,8 +482,8 @@ export function RegistrationForm({
 
       {/* One block for both halves of the answer: what happened, and where the student stands.
           It goes as soon as they edit again, because by then it is no longer true. */}
-      {saved && !isDirty ? (
-        <Card role="status">
+      {showStatus ? (
+        <Card role="status" ref={statusRef}>
           <CardContent className="flex flex-col gap-1">
             <p className="text-sm font-medium">Deine Daten wurden gespeichert.</p>
             <p
