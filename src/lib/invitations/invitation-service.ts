@@ -132,29 +132,38 @@ export async function createInvitation(
 }
 
 /**
- * What a link leads to, or null where it leads nowhere — mistyped, superseded by a regenerated
- * one, or naming a class that is not currently open. The caller says the one sentence US-23 gives
- * for all of those, so that none of them can be told apart.
+ * What a link leads to (US-45). `"dead"` is every reason it can lead nowhere — mistyped,
+ * superseded by a regenerated one, or naming a series or class since removed — which the caller
+ * answers with the one sentence US-23 gives for all of them, telling none apart. Where the link
+ * is live, `"open"` or `"closed"` says whether its class currently admits a joining, which is the
+ * one thing a live link's holder is told apart from the other (see "What a student sees").
  */
-export async function resolveInvitation(token: string): Promise<Invitation | null> {
+export type InvitationResolution =
+  | { status: "open"; invitation: Invitation }
+  | { status: "closed"; invitation: Invitation }
+  | { status: "dead" };
+
+const DEAD: InvitationResolution = { status: "dead" };
+
+export async function resolveInvitation(token: string): Promise<InvitationResolution> {
   const stored = await invitationDoc(token).get();
-  if (!stored.exists) return null;
+  if (!stored.exists) return DEAD;
 
   const invitation = invitationSchema.safeParse({ token, ...stored.data() });
-  if (!invitation.success) return null;
+  if (!invitation.success) return DEAD;
 
   const series = await adminDb
     .collection(COLLECTIONS.eventSeries)
     .doc(invitation.data.eventSeriesId)
     .get();
-  if (!series.exists) return null;
+  if (!series.exists) return DEAD;
 
   const parsed = eventSeriesSchema.safeParse({ id: series.id, ...series.data() });
-  if (!parsed.success || !classIsOpen(parsed.data.classOptions, invitation.data.class)) {
-    return null;
-  }
+  if (!parsed.success) return DEAD;
 
-  return invitation.data;
+  return classIsOpen(parsed.data.classOptions, invitation.data.class)
+    ? { status: "open", invitation: invitation.data }
+    : { status: "closed", invitation: invitation.data };
 }
 
 /**

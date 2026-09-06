@@ -27,6 +27,7 @@ import {
 import { genderSchema } from "@/lib/schemas/common";
 import {
   EMPTY_REGISTRATION,
+  REGISTRATION_CLOSED_HINT,
   scopeRentalToProgram,
   toRegistrationInput,
 } from "@/lib/registration/registration";
@@ -61,6 +62,12 @@ type RegistrationFormProps = {
   asked: ReadonlySet<AnswerField>;
   record: Registration | null;
   lists: MasterDataLists;
+  /**
+   * Set once the class this registration names has closed (US-45): every answer stays on
+   * screen, filled in and inactive, with one line saying why. Nothing here decides that for
+   * itself — it is the caller who knows the class, and only the caller.
+   */
+  readOnly?: boolean;
 };
 
 const GENDERS = genderSchema.options.map((value) => ({ value, label: GENDER_LABELS[value] }));
@@ -115,6 +122,7 @@ export function RegistrationForm({
   asked,
   record,
   lists,
+  readOnly = false,
 }: RegistrationFormProps) {
   const [saved, setSaved] = React.useState(false);
   const [saveAttempted, setSaveAttempted] = React.useState(false);
@@ -212,301 +220,333 @@ export function RegistrationForm({
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-      {/* The whole form is about this one event series, so it heads the form rather than a card
-          inside it — where it read as the title of the answers underneath it. */}
-      <PageHeading>{eventSeriesName}</PageHeading>
+      {/* A native fieldset rather than a `disabled` prop threaded through every field: it disables
+          every input, select trigger and radio beneath it in one place, the way the browser
+          already disables a button inside one — and `contents` keeps it from adding a box of its
+          own, so the form's own gap still applies as if it were not there (US-45). */}
+      <fieldset disabled={readOnly} className="contents">
+        {/* The whole form is about this one event series, so it heads the form rather than a card
+            inside it — where it read as the title of the answers underneath it. */}
+        <PageHeading>{eventSeriesName}</PageHeading>
 
-      <Section title="Registrierung">
-        <ReadOnlyField label="Name" value={studentName} />
-        <ReadOnlyField label={ANSWER_LABELS.class} value={studentClass} />
-        <RadioField
-          control={control}
-          name="isAttendingSportsWeek"
-          label="Nimmst du an der Veranstaltung teil?"
-          options={YES_NO}
-        />
-      </Section>
+        <Section title="Registrierung">
+          <ReadOnlyField label="Name" value={studentName} />
+          <ReadOnlyField label={ANSWER_LABELS.class} value={studentClass} />
+          <RadioField
+            control={control}
+            name="isAttendingSportsWeek"
+            label="Nimmst du an der Veranstaltung teil?"
+            options={YES_NO}
+          />
+        </Section>
 
-      {isAttending ? (
-        <>
-          <Section title="Persönliches">
-            <RadioField
-              control={control}
-              name="gender"
-              label="Geschlecht"
-              options={GENDERS}
-              error={errors.gender?.message ?? hint("gender")}
-            />
-            <Field label="Geburtsdatum" error={errors.dateOfBirth?.message ?? hint("dateOfBirth")}>
-              {(id) => (
-                <Input id={id} type="date" {...register("dateOfBirth", { setValueAs: orNull })} />
-              )}
-            </Field>
-            <Field label="Telefonnummer" error={errors.phoneNumber?.message ?? hint("phoneNumber")}>
-              {(id) => (
-                <Input
-                  id={id}
-                  inputMode="tel"
-                  placeholder="+43 660 1234567"
-                  {...register("phoneNumber", { setValueAs: orNull })}
-                />
-              )}
-            </Field>
-          </Section>
-
-          <Section title="Notfallkontakt">
-            <Field
-              label="Vorname"
-              error={
-                errors.emergencyContact?.firstName?.message ?? hint("emergencyContact.firstName")
-              }
-            >
-              {(id) => (
-                <Input
-                  id={id}
-                  {...register("emergencyContact.firstName", { setValueAs: orNull })}
-                />
-              )}
-            </Field>
-            <Field
-              label="Nachname"
-              error={
-                errors.emergencyContact?.lastName?.message ?? hint("emergencyContact.lastName")
-              }
-            >
-              {(id) => (
-                <Input id={id} {...register("emergencyContact.lastName", { setValueAs: orNull })} />
-              )}
-            </Field>
-            <RadioField
-              control={control}
-              name="emergencyContact.relationship"
-              label="Beziehung"
-              options={RELATIONSHIPS}
-              error={
-                errors.emergencyContact?.relationship?.message ??
-                hint("emergencyContact.relationship")
-              }
-            />
-            {relationship === "other" ? (
+        {isAttending ? (
+          <>
+            <Section title="Persönliches">
+              <RadioField
+                control={control}
+                name="gender"
+                label="Geschlecht"
+                options={GENDERS}
+                error={errors.gender?.message ?? hint("gender")}
+              />
               <Field
-                label="Welche Beziehung?"
+                label="Geburtsdatum"
+                error={errors.dateOfBirth?.message ?? hint("dateOfBirth")}
+              >
+                {(id) => (
+                  <Input id={id} type="date" {...register("dateOfBirth", { setValueAs: orNull })} />
+                )}
+              </Field>
+              <Field
+                label="Telefonnummer"
+                error={errors.phoneNumber?.message ?? hint("phoneNumber")}
+              >
+                {(id) => (
+                  <Input
+                    id={id}
+                    inputMode="tel"
+                    placeholder="+43 660 1234567"
+                    {...register("phoneNumber", { setValueAs: orNull })}
+                  />
+                )}
+              </Field>
+            </Section>
+
+            <Section title="Notfallkontakt">
+              <Field
+                label="Vorname"
                 error={
-                  errors.emergencyContact?.relationshipOtherText?.message ??
-                  hint("emergencyContact.relationshipOtherText")
+                  errors.emergencyContact?.firstName?.message ?? hint("emergencyContact.firstName")
                 }
               >
                 {(id) => (
                   <Input
                     id={id}
-                    {...register("emergencyContact.relationshipOtherText", { setValueAs: orNull })}
+                    {...register("emergencyContact.firstName", { setValueAs: orNull })}
                   />
                 )}
               </Field>
-            ) : null}
-            <Field
-              label="Telefonnummer des Notfallkontakts"
-              error={
-                errors.emergencyContact?.phoneNumber?.message ??
-                hint("emergencyContact.phoneNumber")
-              }
-            >
-              {(id) => (
-                <Input
-                  id={id}
-                  inputMode="tel"
-                  placeholder="+43 660 1234567"
-                  {...register("emergencyContact.phoneNumber", { setValueAs: orNull })}
-                />
-              )}
-            </Field>
-          </Section>
-
-          {asksAboutTheEvent ? (
-            <Section title="Veranstaltung">
-              {asked.has("program") ? (
-                <SelectField
-                  control={control}
-                  name="program"
-                  label="Für welches Programm meldest du dich an?"
-                  options={lists.programs.map((entry) => entry.name)}
-                  placeholder={`${ANSWER_LABELS.program} wählen`}
-                  error={errors.program?.message ?? hint("program")}
-                />
-              ) : null}
-              {equipment.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-                    <span className="text-sm leading-none font-medium">Benötigte Ausrüstung</span>
-                    {/* A program that lends nothing shows a packing list and asks nothing (US-36). */}
-                    {lendsAnything ? (
-                      <RadioField
-                        control={control}
-                        name="equipmentRentalNeeded"
-                        label="Musst du etwas ausleihen?"
-                        options={YES_NO}
-                        error={
-                          errors.equipmentRentalNeeded?.message ?? hint("equipmentRentalNeeded")
-                        }
-                        inline
-                      />
-                    ) : null}
-                  </div>
-                  <Controller
-                    control={control}
-                    name="rentedEquipment"
-                    render={({ field }) => (
-                      <EquipmentChecklist
-                        items={equipment}
-                        selectable={needsRental === true}
-                        value={field.value ?? []}
-                        onChange={field.onChange}
-                        error={errors.rentedEquipment?.message ?? hint("rentedEquipment")}
-                      />
-                    )}
+              <Field
+                label="Nachname"
+                error={
+                  errors.emergencyContact?.lastName?.message ?? hint("emergencyContact.lastName")
+                }
+              >
+                {(id) => (
+                  <Input
+                    id={id}
+                    {...register("emergencyContact.lastName", { setValueAs: orNull })}
                   />
-                </div>
-              ) : null}
-              {lendsAnything && needsRental === true ? (
-                <>
-                  <Field label="Gewicht [kg]" error={errors.weightKg?.message ?? hint("weightKg")}>
-                    {(id) => (
-                      <Input
-                        id={id}
-                        type="number"
-                        {...register("weightKg", { setValueAs: asNumber })}
-                      />
-                    )}
-                  </Field>
-                  <Field
-                    label="Körpergröße [cm]"
-                    error={errors.heightCm?.message ?? hint("heightCm")}
-                  >
-                    {(id) => (
-                      <Input
-                        id={id}
-                        type="number"
-                        {...register("heightCm", { setValueAs: asNumber })}
-                      />
-                    )}
-                  </Field>
-                  <Field label="Schuhgröße" error={errors.shoeSize?.message ?? hint("shoeSize")}>
-                    {(id) => (
-                      <Input
-                        id={id}
-                        inputMode="numeric"
-                        {...register("shoeSize", { setValueAs: orNull })}
-                      />
-                    )}
-                  </Field>
-                </>
-              ) : null}
-              {asked.has("skillLevel") ? (
-                <SelectField
-                  control={control}
-                  name="skillLevel"
-                  label={ANSWER_LABELS.skillLevel}
-                  options={lists.skillLevels}
-                  placeholder={`${ANSWER_LABELS.skillLevel} wählen`}
-                  error={errors.skillLevel?.message ?? hint("skillLevel")}
-                />
-              ) : null}
-              {asked.has("seasonPassOption") ? (
-                <SelectField
-                  control={control}
-                  name="seasonPassOption"
-                  label={ANSWER_LABELS.seasonPassOption}
-                  options={lists.seasonPassOptions}
-                  placeholder={`${ANSWER_LABELS.seasonPassOption} wählen`}
-                  error={errors.seasonPassOption?.message ?? hint("seasonPassOption")}
-                />
-              ) : null}
-              {asked.has("busPickupPoint") ? (
-                <SelectField
-                  control={control}
-                  name="busPickupPoint"
-                  label={ANSWER_LABELS.busPickupPoint}
-                  options={lists.busPickupPoints}
-                  placeholder={`${ANSWER_LABELS.busPickupPoint} wählen`}
-                  error={errors.busPickupPoint?.message ?? hint("busPickupPoint")}
-                />
-              ) : null}
-              {/* "Sonstiges" is an answer rather than a list item, so it cannot keep the question
-                alive on its own (Q22). */}
-              {asked.has("foodOption") ? (
-                <SelectField
-                  control={control}
-                  name="foodOption"
-                  label={ANSWER_LABELS.foodOption}
-                  options={[...lists.foodOptions, FOOD_OPTION_OTHER]}
-                  labelOf={(option) =>
-                    option === FOOD_OPTION_OTHER ? FOOD_OPTION_OTHER_LABEL : option
-                  }
-                  placeholder={`${ANSWER_LABELS.foodOption} wählen`}
-                  error={errors.foodOption?.message ?? hint("foodOption")}
-                />
-              ) : null}
-              {foodOption === FOOD_OPTION_OTHER ? (
+                )}
+              </Field>
+              <RadioField
+                control={control}
+                name="emergencyContact.relationship"
+                label="Beziehung"
+                options={RELATIONSHIPS}
+                error={
+                  errors.emergencyContact?.relationship?.message ??
+                  hint("emergencyContact.relationship")
+                }
+              />
+              {relationship === "other" ? (
                 <Field
-                  label="Welche Unverträglichkeit?"
-                  error={errors.foodOtherText?.message ?? hint("foodOtherText")}
+                  label="Welche Beziehung?"
+                  error={
+                    errors.emergencyContact?.relationshipOtherText?.message ??
+                    hint("emergencyContact.relationshipOtherText")
+                  }
                 >
-                  {(id) => <Input id={id} {...register("foodOtherText", { setValueAs: orNull })} />}
+                  {(id) => (
+                    <Input
+                      id={id}
+                      {...register("emergencyContact.relationshipOtherText", {
+                        setValueAs: orNull,
+                      })}
+                    />
+                  )}
                 </Field>
               ) : null}
+              <Field
+                label="Telefonnummer des Notfallkontakts"
+                error={
+                  errors.emergencyContact?.phoneNumber?.message ??
+                  hint("emergencyContact.phoneNumber")
+                }
+              >
+                {(id) => (
+                  <Input
+                    id={id}
+                    inputMode="tel"
+                    placeholder="+43 660 1234567"
+                    {...register("emergencyContact.phoneNumber", { setValueAs: orNull })}
+                  />
+                )}
+              </Field>
             </Section>
+
+            {asksAboutTheEvent ? (
+              <Section title="Veranstaltung">
+                {asked.has("program") ? (
+                  <SelectField
+                    control={control}
+                    name="program"
+                    label="Für welches Programm meldest du dich an?"
+                    options={lists.programs.map((entry) => entry.name)}
+                    placeholder={`${ANSWER_LABELS.program} wählen`}
+                    error={errors.program?.message ?? hint("program")}
+                  />
+                ) : null}
+                {equipment.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                      <span className="text-sm leading-none font-medium">Benötigte Ausrüstung</span>
+                      {/* A program that lends nothing shows a packing list and asks nothing (US-36). */}
+                      {lendsAnything ? (
+                        <RadioField
+                          control={control}
+                          name="equipmentRentalNeeded"
+                          label="Musst du etwas ausleihen?"
+                          options={YES_NO}
+                          error={
+                            errors.equipmentRentalNeeded?.message ?? hint("equipmentRentalNeeded")
+                          }
+                          inline
+                        />
+                      ) : null}
+                    </div>
+                    <Controller
+                      control={control}
+                      name="rentedEquipment"
+                      render={({ field }) => (
+                        <EquipmentChecklist
+                          items={equipment}
+                          selectable={needsRental === true}
+                          value={field.value ?? []}
+                          onChange={field.onChange}
+                          error={errors.rentedEquipment?.message ?? hint("rentedEquipment")}
+                        />
+                      )}
+                    />
+                  </div>
+                ) : null}
+                {lendsAnything && needsRental === true ? (
+                  <>
+                    <Field
+                      label="Gewicht [kg]"
+                      error={errors.weightKg?.message ?? hint("weightKg")}
+                    >
+                      {(id) => (
+                        <Input
+                          id={id}
+                          type="number"
+                          {...register("weightKg", { setValueAs: asNumber })}
+                        />
+                      )}
+                    </Field>
+                    <Field
+                      label="Körpergröße [cm]"
+                      error={errors.heightCm?.message ?? hint("heightCm")}
+                    >
+                      {(id) => (
+                        <Input
+                          id={id}
+                          type="number"
+                          {...register("heightCm", { setValueAs: asNumber })}
+                        />
+                      )}
+                    </Field>
+                    <Field label="Schuhgröße" error={errors.shoeSize?.message ?? hint("shoeSize")}>
+                      {(id) => (
+                        <Input
+                          id={id}
+                          inputMode="numeric"
+                          {...register("shoeSize", { setValueAs: orNull })}
+                        />
+                      )}
+                    </Field>
+                  </>
+                ) : null}
+                {asked.has("skillLevel") ? (
+                  <SelectField
+                    control={control}
+                    name="skillLevel"
+                    label={ANSWER_LABELS.skillLevel}
+                    options={lists.skillLevels}
+                    placeholder={`${ANSWER_LABELS.skillLevel} wählen`}
+                    error={errors.skillLevel?.message ?? hint("skillLevel")}
+                  />
+                ) : null}
+                {asked.has("seasonPassOption") ? (
+                  <SelectField
+                    control={control}
+                    name="seasonPassOption"
+                    label={ANSWER_LABELS.seasonPassOption}
+                    options={lists.seasonPassOptions}
+                    placeholder={`${ANSWER_LABELS.seasonPassOption} wählen`}
+                    error={errors.seasonPassOption?.message ?? hint("seasonPassOption")}
+                  />
+                ) : null}
+                {asked.has("busPickupPoint") ? (
+                  <SelectField
+                    control={control}
+                    name="busPickupPoint"
+                    label={ANSWER_LABELS.busPickupPoint}
+                    options={lists.busPickupPoints}
+                    placeholder={`${ANSWER_LABELS.busPickupPoint} wählen`}
+                    error={errors.busPickupPoint?.message ?? hint("busPickupPoint")}
+                  />
+                ) : null}
+                {/* "Sonstiges" is an answer rather than a list item, so it cannot keep the question
+                alive on its own (Q22). */}
+                {asked.has("foodOption") ? (
+                  <SelectField
+                    control={control}
+                    name="foodOption"
+                    label={ANSWER_LABELS.foodOption}
+                    options={[...lists.foodOptions, FOOD_OPTION_OTHER]}
+                    labelOf={(option) =>
+                      option === FOOD_OPTION_OTHER ? FOOD_OPTION_OTHER_LABEL : option
+                    }
+                    placeholder={`${ANSWER_LABELS.foodOption} wählen`}
+                    error={errors.foodOption?.message ?? hint("foodOption")}
+                  />
+                ) : null}
+                {foodOption === FOOD_OPTION_OTHER ? (
+                  <Field
+                    label="Welche Unverträglichkeit?"
+                    error={errors.foodOtherText?.message ?? hint("foodOtherText")}
+                  >
+                    {(id) => (
+                      <Input id={id} {...register("foodOtherText", { setValueAs: orNull })} />
+                    )}
+                  </Field>
+                ) : null}
+              </Section>
+            ) : null}
+
+            <Section title="Gesundheit">
+              <Field label="Krankheiten oder Allergien" error={errors.healthNotes?.message}>
+                {(id) => (
+                  <Textarea id={id} rows={3} {...register("healthNotes", { setValueAs: orNull })} />
+                )}
+              </Field>
+              <RadioField
+                control={control}
+                name="hasMedication"
+                label="Nimmst du Medikamente mit?"
+                options={YES_NO}
+                error={errors.hasMedication?.message ?? hint("hasMedication")}
+              />
+            </Section>
+          </>
+        ) : null}
+      </fieldset>
+
+      {readOnly ? (
+        <p role="status" className="text-muted-foreground text-sm">
+          {REGISTRATION_CLOSED_HINT}
+        </p>
+      ) : (
+        <>
+          {submitError ? (
+            <p role="alert" className="text-destructive text-sm">
+              {submitError}
+            </p>
           ) : null}
 
-          <Section title="Gesundheit">
-            <Field label="Krankheiten oder Allergien" error={errors.healthNotes?.message}>
-              {(id) => (
-                <Textarea id={id} rows={3} {...register("healthNotes", { setValueAs: orNull })} />
-              )}
-            </Field>
-            <RadioField
-              control={control}
-              name="hasMedication"
-              label="Nimmst du Medikamente mit?"
-              options={YES_NO}
-              error={errors.hasMedication?.message ?? hint("hasMedication")}
-            />
-          </Section>
+          {/* One block for both halves of the answer: what happened, and where the student stands.
+              It goes as soon as they edit again, because by then it is no longer true. */}
+          {showStatus ? (
+            <Card role="status" ref={statusRef}>
+              <CardContent className="flex flex-col gap-1">
+                <p className="text-sm font-medium">Deine Daten wurden gespeichert.</p>
+                <p
+                  className={
+                    missing.length === 0
+                      ? "text-muted-foreground text-sm"
+                      : "text-destructive text-sm"
+                  }
+                >
+                  {missing.length === 0
+                    ? COMPLETE_REGISTRATION_HINT
+                    : `${INCOMPLETE_REGISTRATION_HINT}. Es fehlen noch: ${missing
+                        .map((answer) => answer.label)
+                        .join(", ")}.`}
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <div className="flex justify-end">
+            {/* Enabled as soon as an answer changes: an incomplete registration is still worth keeping. */}
+            <Button type="submit" disabled={!isDirty || isSubmitting}>
+              Speichern
+            </Button>
+          </div>
         </>
-      ) : null}
-
-      {submitError ? (
-        <p role="alert" className="text-destructive text-sm">
-          {submitError}
-        </p>
-      ) : null}
-
-      {/* One block for both halves of the answer: what happened, and where the student stands.
-          It goes as soon as they edit again, because by then it is no longer true. */}
-      {showStatus ? (
-        <Card role="status" ref={statusRef}>
-          <CardContent className="flex flex-col gap-1">
-            <p className="text-sm font-medium">Deine Daten wurden gespeichert.</p>
-            <p
-              className={
-                missing.length === 0 ? "text-muted-foreground text-sm" : "text-destructive text-sm"
-              }
-            >
-              {missing.length === 0
-                ? COMPLETE_REGISTRATION_HINT
-                : `${INCOMPLETE_REGISTRATION_HINT}. Es fehlen noch: ${missing
-                    .map((answer) => answer.label)
-                    .join(", ")}.`}
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div className="flex justify-end">
-        {/* Enabled as soon as an answer changes: an incomplete registration is still worth keeping. */}
-        <Button type="submit" disabled={!isDirty || isSubmitting}>
-          Speichern
-        </Button>
-      </div>
+      )}
     </form>
   );
 }

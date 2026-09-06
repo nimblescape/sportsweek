@@ -126,7 +126,7 @@ describe("createInvitation", () => {
 });
 
 describe("resolveInvitation", () => {
-  it("answers with what the link enrols into", async () => {
+  it("answers open with what the link enrols into", async () => {
     seedSeries({
       classOptions: [
         { name: "3aWI", teacherUids: [], isOpenToStudents: true },
@@ -135,23 +135,24 @@ describe("resolveInvitation", () => {
     });
     const { token } = await createInvitation(SERIES, "3aWI");
 
-    await expect(resolveInvitation(token)).resolves.toMatchObject({
-      eventSeriesId: SERIES,
-      class: "3aWI",
+    await expect(resolveInvitation(token)).resolves.toEqual({
+      status: "open",
+      invitation: { token, eventSeriesId: SERIES, class: "3aWI" },
     });
   });
 
-  it("answers with nothing for a token nobody minted", async () => {
+  it("answers dead for a token nobody minted", async () => {
     seedSeries();
 
-    await expect(resolveInvitation("made-up")).resolves.toBeNull();
+    await expect(resolveInvitation("made-up")).resolves.toEqual({ status: "dead" });
   });
 
   /**
-   * Closing is how registration is closed for that one class (US-43), so a link stops working
-   * for that reason rather than through a second mechanism of its own.
+   * Closing is how registration is closed for that one class (US-43), which is a live link's
+   * holder told apart from a dead one (US-45): the address still works, so the answer still
+   * names the invitation rather than folding into the one sentence a dead link gets.
    */
-  it("answers with nothing once its own class is closed again", async () => {
+  it("answers closed, not dead, once its own class is closed again", async () => {
     seedSeries({ classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }] });
     const { token } = await createInvitation(SERIES, "3aWI");
     firestore.seed(
@@ -162,15 +163,18 @@ describe("resolveInvitation", () => {
       }),
     );
 
-    await expect(resolveInvitation(token)).resolves.toBeNull();
+    await expect(resolveInvitation(token)).resolves.toEqual({
+      status: "closed",
+      invitation: { token, eventSeriesId: SERIES, class: "3aWI" },
+    });
   });
 
-  it("answers with nothing when the series it names has gone", async () => {
+  it("answers dead when the series it names has gone", async () => {
     seedSeries();
     const { token } = await createInvitation(SERIES, "3aWI");
     firestore.reset();
 
-    await expect(resolveInvitation(token)).resolves.toBeNull();
+    await expect(resolveInvitation(token)).resolves.toEqual({ status: "dead" });
   });
 });
 

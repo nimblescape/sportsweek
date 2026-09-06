@@ -20,6 +20,7 @@ vi.mock("@/lib/api/client", async () => {
 
 const { RegistrationForm } = await import("./registration-form");
 const { ApiRequestError } = await import("@/lib/api/client");
+const { REGISTRATION_CLOSED_HINT } = await import("@/lib/registration/registration");
 
 const LISTS = {
   programs: [
@@ -83,7 +84,11 @@ const ALL_ASKED = questionsAsked(
   }),
 );
 
-function renderForm(record: Registration | null = storedRecord, asked = ALL_ASKED) {
+function renderForm(
+  record: Registration | null = storedRecord,
+  asked = ALL_ASKED,
+  readOnly = false,
+) {
   render(
     <RegistrationForm
       eventSeriesId="s1"
@@ -93,6 +98,7 @@ function renderForm(record: Registration | null = storedRecord, asked = ALL_ASKE
       asked={asked}
       record={record}
       lists={LISTS}
+      readOnly={readOnly}
     />,
   );
 }
@@ -532,6 +538,30 @@ describe("RegistrationForm", () => {
       await answer("Beziehung", "Sonstiges");
 
       expect(screen.getByLabelText("Welche Beziehung?")).toBeInTheDocument();
+    });
+  });
+
+  describe("read-only, once the class it names has closed (US-45)", () => {
+    it("says so in one line", () => {
+      renderForm(storedRecord, ALL_ASKED, true);
+
+      expect(screen.getByText(REGISTRATION_CLOSED_HINT)).toBeInTheDocument();
+    });
+
+    it("shows every saved answer, inactive rather than withheld", () => {
+      renderForm(storedRecord, ALL_ASKED, true);
+
+      expect(
+        within(screen.getByRole("group", { name: ATTENDING })).getByRole("radio", { name: "Ja" }),
+      ).toBeDisabled();
+      expect(screen.getByLabelText("Geburtsdatum")).toBeDisabled();
+      expect(screen.getByLabelText(ANSWER_LABELS.skillLevel)).toBeDisabled();
+    });
+
+    it("offers nothing to save", () => {
+      renderForm(storedRecord, ALL_ASKED, true);
+
+      expect(screen.queryByRole("button", { name: "Speichern" })).not.toBeInTheDocument();
     });
   });
 });

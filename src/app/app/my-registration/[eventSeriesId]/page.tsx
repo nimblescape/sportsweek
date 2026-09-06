@@ -15,17 +15,22 @@ import { MyRegistrationView } from "@/components/my-registration/my-registration
  * Not from the registration, which carries one too (US-26): the header names the student before
  * they have registered, and there is no record to read it from until they have.
  *
- * The class the link enrols into is resolved here for the same reason: on a first visit there is
- * no record yet to read it from, and it is a fact the form states rather than asks (US-23).
+ * `closed` is the one fact the join route knows that this page otherwise could not: a live link
+ * to a class that is currently shut, followed by a student who holds no registration for it yet
+ * (US-45). Reading it from the query string rather than deciding it again here keeps that
+ * decision where it was already made.
  */
 export default async function RegistrationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventSeriesId: string }>;
+  searchParams: Promise<{ closed?: string }>;
 }) {
   const user = await requireStudent();
   const studentUid = user.uid;
   const { eventSeriesId } = await params;
+  const { closed } = await searchParams;
 
   const snapshot = await adminDb.collection(COLLECTIONS.users).doc(studentUid).get();
   const stored = userSchema.safeParse({ id: snapshot.id, ...snapshot.data() });
@@ -38,6 +43,7 @@ export default async function RegistrationPage({
       eventSeriesId={eventSeriesId}
       studentUid={studentUid}
       studentName={studentName}
+      linkClosed={closed === "1"}
     />
   );
 }

@@ -14,7 +14,7 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const { saveRegistration, deleteRegistration, joinEventSeries } =
+const { saveRegistration, deleteRegistration, joinEventSeries, hasRegistration } =
   await import("./registration-service");
 const { ANSWER_NO_LONGER_OFFERED_HINT, REGISTRATION_NOT_OPEN_HINT, registrationPath } =
   await import("./registration");
@@ -639,16 +639,16 @@ describe("joinEventSeries", () => {
     });
   });
 
-  /** Another link, for another class, is how a student's class changes (Q20). */
-  it("moves an existing registration to the class the newer link names", async () => {
+  /** A link only ever leads somewhere; it never moves what is already there (Q13). */
+  it("leaves an existing registration's class alone even when a newer link names another", async () => {
     seedEventSeries("s1");
-    seedJoined();
+    seedJoined("3AHME");
     await saveRegistration(target(), attending);
 
     await joinEventSeries("s1", STUDENT, "4AHME");
 
     expect(firestore.get(registrationPath("s1"), STUDENT)).toMatchObject({
-      class: "4AHME",
+      class: "3AHME",
       isAttendingSportsWeek: true,
     });
   });
@@ -675,5 +675,18 @@ describe("joinEventSeries", () => {
     await joinEventSeries("s1", STUDENT, "3AHME");
 
     expect(firestore.get(registrationPath("s1"), STUDENT)).toMatchObject({ class: "3AHME" });
+  });
+});
+
+/** Checked before a link decides anything further for a student (Q13, US-45). */
+describe("hasRegistration", () => {
+  it("answers true once the student has joined", async () => {
+    seedJoined();
+
+    await expect(hasRegistration("s1", STUDENT)).resolves.toBe(true);
+  });
+
+  it("answers false for a student who has not joined", async () => {
+    await expect(hasRegistration("s1", STUDENT)).resolves.toBe(false);
   });
 });

@@ -206,8 +206,10 @@ export const NO_SUCH_REGISTRATION = "Diese Registrierung gibt es nicht.";
  * a fact in the data rather than a token they are carrying — and signing in again finds it by
  * looking, whichever way they arrived.
  *
- * Following the same link twice is one joining: an existing registration keeps every answer.
- * What a newer link does change is the class, which is the one way it moves (Q20).
+ * Following a link never moves an existing registration to another class (Q13): it navigates,
+ * and nothing more. A record is only ever created here, and only for a class that is currently
+ * open — amending one that already exists needs no link at all, and asks only whether its own
+ * class is still open (US-45).
  */
 export async function joinEventSeries(
   eventSeriesId: string,
@@ -218,6 +220,11 @@ export async function joinEventSeries(
 
   await adminDb.runTransaction(async (transaction) => {
     const eventSeries = await requireEventSeries(transaction, eventSeriesId);
+    const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUid);
+    const stored = await transaction.get(reference);
+
+    // A link only ever leads somewhere; there is nothing left for it to do (Q13).
+    if (stored.exists) return;
 
     // A token names a class as well as a series (US-43), and joining is the one act that still
     // demands it be open — amending an existing record no longer needs the link at all (US-45).
@@ -225,19 +232,12 @@ export async function joinEventSeries(
       throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
     }
 
-    const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUid);
-    const stored = await transaction.get(reference);
-
-    if (stored.exists) {
-      transaction.update(reference, { class: className });
-    } else {
-      transaction.set(reference, {
-        ...identity,
-        class: className,
-        event: null,
-        ...EMPTY_REGISTRATION,
-      });
-    }
+    transaction.set(reference, {
+      ...identity,
+      class: className,
+      event: null,
+      ...EMPTY_REGISTRATION,
+    });
 
     if (!eventSeries.hasRegistrations) {
       transaction.update(adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeries.id), {
@@ -245,6 +245,15 @@ export async function joinEventSeries(
       });
     }
   });
+}
+
+/**
+ * Whether a student already holds a registration for a series (US-45), checked before a link
+ * decides anything further for them — holding one already answers where they land (Q13).
+ */
+export async function hasRegistration(eventSeriesId: string, studentUid: string): Promise<boolean> {
+  const stored = await adminDb.collection(registrationPath(eventSeriesId)).doc(studentUid).get();
+  return stored.exists;
 }
 
 /**

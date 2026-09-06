@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getAuthenticatedUser = vi.fn();
 const resolveInvitation = vi.fn();
+const hasRegistration = vi.fn();
 const joinEventSeries = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({ getAuthenticatedUser: () => getAuthenticatedUser() }));
@@ -14,6 +15,7 @@ vi.mock("@/lib/invitations/invitation-service", () => ({
   resolveInvitation: (token: string) => resolveInvitation(token),
 }));
 vi.mock("@/lib/registration/registration-service", () => ({
+  hasRegistration: (...args: unknown[]) => hasRegistration(...args),
   joinEventSeries: (...args: unknown[]) => joinEventSeries(...args),
 }));
 
@@ -34,7 +36,11 @@ beforeEach(() => {
     email: "S@student.at",
     accountType: "student",
   });
-  resolveInvitation.mockResolvedValue({ token: TOKEN, eventSeriesId: "s1", class: "3aWI" });
+  resolveInvitation.mockResolvedValue({
+    status: "open",
+    invitation: { token: TOKEN, eventSeriesId: "s1", class: "3aWI" },
+  });
+  hasRegistration.mockResolvedValue(false);
 });
 
 /**
@@ -100,11 +106,28 @@ describe("GET /join/[token]", () => {
       email: "t@htl.at",
       accountType: "teacher",
     });
-    resolveInvitation.mockResolvedValue(null);
+    resolveInvitation.mockResolvedValue({ status: "dead" });
 
     const response = await follow();
 
     expect(response.headers.get("location")).toBe("/app");
+  });
+
+  /** A live link to a closed class is still the series a teacher regenerated it for (Q12). */
+  it("takes a teacher whose link leads to a closed class to that series' own dashboard", async () => {
+    getAuthenticatedUser.mockResolvedValue({
+      uid: "u2",
+      email: "t@htl.at",
+      accountType: "teacher",
+    });
+    resolveInvitation.mockResolvedValue({
+      status: "closed",
+      invitation: { token: TOKEN, eventSeriesId: "s1", class: "3aWI" },
+    });
+
+    const response = await follow();
+
+    expect(response.headers.get("location")).toBe("/app/s1/registrations");
   });
 
   /**
@@ -112,7 +135,7 @@ describe("GET /join/[token]", () => {
    * so this handler joins nobody and says nothing about which of them it was.
    */
   it("takes a student whose link leads nowhere to the landing page, saying nothing", async () => {
-    resolveInvitation.mockResolvedValue(null);
+    resolveInvitation.mockResolvedValue({ status: "dead" });
 
     const response = await follow("mistyped");
 
@@ -128,5 +151,44 @@ describe("GET /join/[token]", () => {
     const response = await follow();
 
     expect(response.headers.get("location")).toBe("/app/my-registration");
+  });
+
+  /**
+   * The address is still good, only its window is shut — told apart from a dead link so a
+   * student is not sent looking for a new one they do not need (US-45).
+   */
+  it("tells a student with no registration yet that the link's class is closed", async () => {
+    resolveInvitation.mockResolvedValue({
+      status: "closed",
+      invitation: { token: TOKEN, eventSeriesId: "s1", class: "3aWI" },
+    });
+
+    const response = await follow();
+
+    expect(response.headers.get("location")).toBe("/app/my-registration/s1?closed=1");
+    expect(joinEventSeries).not.toHaveBeenCalled();
+  });
+
+  /** A link only ever leads somewhere; it never moves what a student already holds (Q13). */
+  it("takes a student who already holds a registration straight to it, class closed or not", async () => {
+    resolveInvitation.mockResolvedValue({
+      status: "closed",
+      invitation: { token: TOKEN, eventSeriesId: "s1", class: "3aWI" },
+    });
+    hasRegistration.mockResolvedValue(true);
+
+    const response = await follow();
+
+    expect(response.headers.get("location")).toBe("/app/my-registration/s1");
+    expect(joinEventSeries).not.toHaveBeenCalled();
+  });
+
+  it("does the same for a still-open link, once a registration already exists", async () => {
+    hasRegistration.mockResolvedValue(true);
+
+    const response = await follow();
+
+    expect(response.headers.get("location")).toBe("/app/my-registration/s1");
+    expect(joinEventSeries).not.toHaveBeenCalled();
   });
 });

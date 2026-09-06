@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/guards";
 import { resolveInvitation } from "@/lib/invitations/invitation-service";
-import { joinEventSeries } from "@/lib/registration/registration-service";
+import { hasRegistration, joinEventSeries } from "@/lib/registration/registration-service";
 import { ROUTES, eventSeriesRoutes } from "@/lib/routes";
 
 /**
@@ -24,9 +24,11 @@ import { ROUTES, eventSeriesRoutes } from "@/lib/routes";
  * commonest teacher to follow a link is the one who made it, checking it before sending it out,
  * and a refusal would be a message for somebody who has done nothing wrong.
  *
- * It refuses nothing and says nothing. Every reason a link can lead nowhere — mistyped,
- * superseded, naming a series since closed — is answered by the one sentence on the landing
- * page, so that none of them can be told apart, and a joining the server declines reads the same.
+ * A student who already holds a registration for the series is taken straight to it, whatever the
+ * link's own class says (Q13): a link only ever leads somewhere, and never moves what it finds
+ * there. Only a student who holds none yet has anything left for the class or the window to
+ * decide, and a live link to a closed class tells them so by name rather than folding into the
+ * one sentence a dead link gets (US-45).
  */
 export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
@@ -44,23 +46,39 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
     return to(`${ROUTES.signIn}?${query}`);
   }
 
-  const invitation = await resolveInvitation(token);
+  const resolution = await resolveInvitation(token);
 
   if (user.accountType === "teacher") {
     return to(
-      invitation ? eventSeriesRoutes(invitation.eventSeriesId).registrations : ROUTES.appRoot,
+      resolution.status === "dead"
+        ? ROUTES.appRoot
+        : eventSeriesRoutes(resolution.invitation.eventSeriesId).registrations,
     );
   }
 
-  if (invitation === null) return to(ROUTES.myRegistration);
+  if (resolution.status === "dead") return to(ROUTES.myRegistration);
+
+  const { eventSeriesId, class: className } = resolution.invitation;
+
+  // Holding one already answers where they land; the link decides nothing further for them
+  // (Q13, US-45).
+  if (await hasRegistration(eventSeriesId, user.uid)) {
+    return to(`${ROUTES.myRegistration}/${eventSeriesId}`);
+  }
+
+  // The address is still good and only the window is shut — told apart from a dead link so a
+  // student is not sent looking for a new one they do not need (US-45).
+  if (resolution.status === "closed") {
+    return to(`${ROUTES.myRegistration}/${eventSeriesId}?closed=1`);
+  }
 
   try {
     // The uid is the registration's id, so following the link enrols the account that followed
     // it rather than whatever address its token happens to carry (US-31).
-    await joinEventSeries(invitation.eventSeriesId, user.uid, invitation.class);
+    await joinEventSeries(eventSeriesId, user.uid, className);
   } catch {
     return to(ROUTES.myRegistration);
   }
 
-  return to(`${ROUTES.myRegistration}/${invitation.eventSeriesId}`);
+  return to(`${ROUTES.myRegistration}/${eventSeriesId}`);
 }
