@@ -56,6 +56,7 @@ applies what was left there.
 | The header offers every unarchived series                 | It offers the series its reader looks after a class in, where they look after any |
 | An invitation carries a name and a set of permissions     | It may also carry classes, left there by the provisioning script                  |
 | The rights page says what somebody may do                 | It also says which classes they look after, read-only                             |
+| The Stammdatenbericht lists a class as a bare name        | It expands the class onto the teachers who look after it, as it does a programme  |
 | A permission alone decides which pages a teacher may open | A permission still decides _which_ pages; an assignment decides _which series'_   |
 | One flag opens a whole event series to students           | A class is open on its own, and closing one keeps its invitation link             |
 | A link dies whenever the series is closed                 | A link is a stable address, replaced only by a teacher deliberately replacing it  |
@@ -335,6 +336,42 @@ class pairs they look after.
 
 It is read from the event series documents, which every school member may already read, so this
 needs no rule change and no new endpoint.
+
+## The Stammdatenbericht expands a class onto its teachers
+
+The report writes out what a record is made of, expanded downwards (US-33). A class became a
+record with one child collection the moment slice 1 landed, and the report went on listing it as a
+bare name — so the report and the page it reports on now disagree about what a class is. A
+programme already expands onto its "Ausrüstung"; a class expands onto its "Lehrpersonen" on
+exactly the same terms.
+
+- Under "Klassen", each class is a **heading** rather than a bullet, and beneath it sits one
+  section, "Lehrpersonen", holding the teachers who look after it.
+- A class nobody looks after keeps its "Lehrpersonen" heading and says "Keine Einträge." beneath
+  it, as every empty collection in the report already does. This is deliberately **not** what the
+  rights page does: there, a teacher with no classes is a person with nothing to say, and a line
+  saying so would be noise on a page listing everybody; here, the report's shape is the point, and
+  a class silently missing its one collection would read as a class that has none.
+- A teacher is named surname first, matching the rights page, the class editor and the report's
+  own name field. The order is the stored order of `teacherUids`, which is the order they were
+  assigned in — no meaning is claimed for it, and none is imposed either.
+
+### Where the names come from
+
+The report is built from master data, and master data holds uids. Resolving one to a name needs
+`users`, which a holder of `editMasterData` cannot read declaratively — the same wall the class
+editor met, and it is answered the same way: `GET /api/users/teacher-candidates` already returns a
+uid, a first name, a surname and an address per teacher, and already re-verifies `editMasterData`
+server-side. **No new endpoint, no rule change, and no widening beyond the one already recorded
+under "What the editor needs".**
+
+The report tree stays a pure function. It is handed the resolved names rather than fetching them,
+so what a teacher reads remains one testable answer computed from its inputs.
+
+A uid that resolves to nobody is **left out**, silently, one at a time — the same treatment a
+stale entry gets when an invitation is claimed (Q4). The report is a reading of master data, not
+an audit of it, and a line about a person who is not there would be the only thing in it that is
+not a fact about the school.
 
 ## What "open" means
 
@@ -738,6 +775,27 @@ neither strands me nor takes my own answers away from me.
   closed round stays reachable until the school files it away, and an archived one is off my
   screen as it is off everybody's.
 
+### US-46: The Stammdatenbericht names the teachers of each class
+
+As a teacher maintaining master data, I read who looks after each class in the same report that
+tells me everything else the series is made of, so that the report describes a class as the record
+it now is rather than as the name it used to be.
+
+**Acceptance criteria:**
+
+- Under "Klassen", each class is a heading with one section beneath it, "Lehrpersonen", naming the
+  teachers who look after it — the shape a programme and its "Ausrüstung" already have.
+- A class nobody looks after keeps the heading and says "Keine Einträge." beneath it, as every
+  other empty collection in the report does.
+- A teacher is named surname first, in the stored order of the assignment.
+- It holds at every level the report is shown at: the whole-school report over every series, one
+  series' report, and the classes category's own.
+- Both exports follow, being built from what is on screen.
+- A uid naming nobody is left out silently; the rest of the class is reported as usual.
+- The names come from `GET /api/users/teacher-candidates`, which already re-verifies
+  `editMasterData`. No new endpoint, and `firestore.rules` is not touched.
+- The report tree stays a pure function: it is handed the resolved names, and does no fetching.
+
 ## Questions and inconsistencies, all settled
 
 ### Q1 — What a report permission alone sees, once class scoping exists — ANSWERED
@@ -1050,22 +1108,27 @@ emulator. Test-driven throughout: the failing test that states the new behaviour
 slice touches `firestore.rules`** — the debt recorded under "Two layers, two rules" is a separate
 piece of work and is not in this sequence.
 
-| Slice | What lands                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | A class becomes a record. `classOptions` goes from `string[]` to objects with a name and an empty `teacherUids`. Nothing reads the new field yet. Purge and reseed. ✅ landed                                                                                                                                                                                                                                                |
-| **2** | The class record page and its editor, and the handler that answers the candidates from `users`. The editor writes `classOptions` and nothing else. ✅ landed                                                                                                                                                                                                                                                                 |
-| **3** | Provisioning: `classAssignments` on an invitation, written by the scripts, claimed by `provisionUser`, dropping what no longer applies. ✅ landed                                                                                                                                                                                                                                                                            |
-| **4** | The narrowing: the classes offered by Registrierungen, Zuteilungen and Berichte follow what their reader looks after (US-39). ✅ landed                                                                                                                                                                                                                                                                                      |
-| **5** | The rights page shows the assignments, read-only (US-41).                                                                                                                                                                                                                                                                                                                                                                    |
-| **6** | The scope itself: one module answering "which series is this teacher scoped to", the header offering only those, and the three pages refusing the rest (US-42).                                                                                                                                                                                                                                                              |
-| **7** | Open becomes per class and stops meaning "a link exists". `isOpenToStudents` moves onto `classOptions` and leaves the series; the card gains an open/close toggle; copying stops opening; "Regenerieren" becomes "Neuen Link erzeugen"; assigning asks the student's own class; archiving asks the classes and deletes the links; renaming and removing a class carry their invitation (US-43, Q8 to Q12). Purge and reseed. |
-| **8** | The bulk switch: the header's door reads the classes in scope and opens or closes over that set, destroying no link (US-44).                                                                                                                                                                                                                                                                                                 |
-| **9** | The student's side: a live link to a closed class says so, a dead one lands on their own registration, a closed registration is shown read-only, and the series list stops filtering on open (US-45).                                                                                                                                                                                                                        |
+| Slice  | What lands                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1**  | A class becomes a record. `classOptions` goes from `string[]` to objects with a name and an empty `teacherUids`. Nothing reads the new field yet. Purge and reseed. ✅ landed                                                                                                                                                                                                                                                |
+| **2**  | The class record page and its editor, and the handler that answers the candidates from `users`. The editor writes `classOptions` and nothing else. ✅ landed                                                                                                                                                                                                                                                                 |
+| **3**  | Provisioning: `classAssignments` on an invitation, written by the scripts, claimed by `provisionUser`, dropping what no longer applies. ✅ landed                                                                                                                                                                                                                                                                            |
+| **4**  | The narrowing: the classes offered by Registrierungen, Zuteilungen and Berichte follow what their reader looks after (US-39). ✅ landed                                                                                                                                                                                                                                                                                      |
+| **5**  | The rights page shows the assignments, read-only (US-41). ✅ landed                                                                                                                                                                                                                                                                                                                                                          |
+| **6**  | The Stammdatenbericht expands a class onto its "Lehrpersonen", resolving the uids through the candidates handler (US-46).                                                                                                                                                                                                                                                                                                    |
+| **7**  | The scope itself: one module answering "which series is this teacher scoped to", the header offering only those, and the three pages refusing the rest (US-42).                                                                                                                                                                                                                                                              |
+| **8**  | Open becomes per class and stops meaning "a link exists". `isOpenToStudents` moves onto `classOptions` and leaves the series; the card gains an open/close toggle; copying stops opening; "Regenerieren" becomes "Neuen Link erzeugen"; assigning asks the student's own class; archiving asks the classes and deletes the links; renaming and removing a class carry their invitation (US-43, Q8 to Q12). Purge and reseed. |
+| **9**  | The bulk switch: the header's door reads the classes in scope and opens or closes over that set, destroying no link (US-44).                                                                                                                                                                                                                                                                                                 |
+| **10** | The student's side: a live link to a closed class says so, a dead one lands on their own registration, a closed registration is shown read-only, and the series list stops filtering on open (US-45).                                                                                                                                                                                                                        |
 
-Slices 6 to 9 are ordered by what each needs from the one before: 7 needs the scope 6 establishes
-to know which classes a control may act on, 8 needs the per-class acts 7 introduces, and 9 is the
+Slices 5 and 6 are the same piece of work seen from two pages — where an assignment is looked for,
+it is now stated — and neither needs anything from the other, so 6 follows 5 only because they
+were noticed in that order.
+
+Slices 7 to 10 are ordered by what each needs from the one before: 8 needs the scope 7 establishes
+to know which classes a control may act on, 9 needs the per-class acts 8 introduces, and 10 is the
 only one a student ever sees, so it lands once the teacher's half is settled.
 
-`spec/database-erd.puml` is updated with slice 1 and again with slice 7. Environments are purged
-and reseeded after slice 1 and after slice 7; the seeding script writes the new class shape in the
+`spec/database-erd.puml` is updated with slice 1 and again with slice 8. Environments are purged
+and reseeded after slice 1 and after slice 8; the seeding script writes the new class shape in the
 same slice each time.
