@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeFirestore } from "@/test/fake-firestore";
 import { event, storedEventSeries } from "@/test/event-series";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { asUid } from "@/lib/schemas/common";
 import { registrationPath } from "@/lib/registration/registration";
 
 const firestore = new FakeFirestore();
@@ -29,6 +30,7 @@ const deleteMasterDataItem = service.deleteMasterDataItem.bind(null, SERIES);
 const readMasterDataItems = service.readMasterDataItems.bind(null, SERIES);
 const reorderMasterDataItems = service.reorderMasterDataItems.bind(null, SERIES);
 const updateMasterDataItem = service.updateMasterDataItem.bind(null, SERIES);
+const setClassTeachers = service.setClassTeachers.bind(null, SERIES);
 
 beforeEach(() => firestore.reset());
 afterEach(() => vi.restoreAllMocks());
@@ -895,5 +897,75 @@ describe("event scope", () => {
     await expect(
       createMasterDataItem("skill-levels", { name: "Profi" }, { kind: "event", name: "Ghost" }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+/**
+ * US-38: the class-teachers editor's one write. Distinct from `updateMasterDataItem`, which
+ * knows only a name and a program's equipment — a client naming `teacherUids` there would be
+ * changing a field the generic handler never learned to guard (class-teachers spec).
+ */
+describe("setClassTeachers", () => {
+  it("replaces the teachers a class carries, leaving its name and its siblings untouched", async () => {
+    seedActiveEventSeries({
+      classOptions: [
+        { name: "3AHIT", teacherUids: [] },
+        { name: "4BHIT", teacherUids: [asUid("uid-of-ada")] },
+      ],
+    });
+
+    const item = await setClassTeachers("3AHIT", ["uid-of-ada", "uid-of-bob"]);
+
+    expect(item).toEqual({ name: "3AHIT", teacherUids: ["uid-of-ada", "uid-of-bob"] });
+    expect(storedList("classOptions")).toEqual([
+      { name: "3AHIT", teacherUids: ["uid-of-ada", "uid-of-bob"] },
+      { name: "4BHIT", teacherUids: ["uid-of-ada"] },
+    ]);
+  });
+
+  it("withdraws every teacher when the list sent is empty", async () => {
+    seedActiveEventSeries({
+      classOptions: [{ name: "3AHIT", teacherUids: [asUid("uid-of-ada")] }],
+    });
+
+    await setClassTeachers("3AHIT", []);
+
+    expect(storedList("classOptions")).toEqual([{ name: "3AHIT", teacherUids: [] }]);
+  });
+
+  it("finds the class by name, ignoring case and surrounding space", async () => {
+    seedActiveEventSeries({ classOptions: [{ name: "3AHIT", teacherUids: [] }] });
+
+    await setClassTeachers(" 3ahit ", ["uid-of-ada"]);
+
+    expect(storedList("classOptions")).toEqual([{ name: "3AHIT", teacherUids: ["uid-of-ada"] }]);
+  });
+
+  it("reports a class that is no longer on the list", async () => {
+    seedActiveEventSeries({ classOptions: [{ name: "3AHIT", teacherUids: [] }] });
+
+    await expect(setClassTeachers("Weg", ["uid-of-ada"])).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("refuses anything that is not a uid", async () => {
+    seedActiveEventSeries({ classOptions: [{ name: "3AHIT", teacherUids: [] }] });
+
+    await expect(setClassTeachers("3AHIT", [""])).rejects.toBeInstanceOf(ServiceError);
+    expect(storedList("classOptions")).toEqual([{ name: "3AHIT", teacherUids: [] }]);
+  });
+
+  /**
+   * Assigning a teacher touches no name a registration stores (US-11), so it strands nothing
+   * and needs no in-use guard — unlike a rename, which the same list is refused for.
+   */
+  it("asks the in-use guard nothing, since no registration names a teacher", async () => {
+    seedActiveEventSeries({ classOptions: [{ name: "3AHIT", teacherUids: [] }] });
+    seedRegistration("r1", { class: "3AHIT" });
+
+    await expect(setClassTeachers("3AHIT", ["uid-of-ada"])).resolves.toMatchObject({
+      teacherUids: ["uid-of-ada"],
+    });
   });
 });

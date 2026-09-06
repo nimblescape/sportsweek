@@ -5,11 +5,13 @@
  */
 import "server-only";
 import type { Transaction } from "firebase-admin/firestore";
+import { z } from "zod";
 import { adminDb } from "@/lib/firebase/admin";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { uidSchema } from "@/lib/schemas/common";
 import { NO_SUCH_EVENT_SERIES } from "@/lib/event-series/event-series-state";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import {
@@ -425,4 +427,37 @@ export async function deleteMasterDataItem(
 
     return items.filter((_, at) => at !== index);
   });
+}
+
+/**
+ * The class-teachers editor's one write (US-38): it replaces the assignment whole, the same way
+ * the candidate row it comes from always shows the whole set. Nothing else about the class
+ * changes, so no in-use guard applies — unlike a rename, no registration's stored text depends
+ * on who teaches it.
+ */
+export async function setClassTeachers(
+  eventSeriesId: string,
+  className: string,
+  teacherUids: readonly string[],
+): Promise<MasterDataItem> {
+  const category = categoryOf(masterDataCategorySchema.parse("classes"));
+  const parsed = z.array(uidSchema).safeParse(teacherUids);
+  if (!parsed.success) {
+    throw new ServiceError(
+      ErrorCode.ValidationError,
+      parsed.error.issues[0]?.message ?? "Ungültige Liste von Lehrpersonen.",
+    );
+  }
+
+  let next!: MasterDataItem;
+
+  await editList(eventSeriesId, SERIES_SCOPE, category, async (items) => {
+    const index = indexOf(items, className);
+    if (index === -1) throw new ServiceError(ErrorCode.NotFound, "Diese Klasse gibt es nicht.");
+
+    next = { ...items[index]!, teacherUids: parsed.data };
+    return items.map((stored, at) => (at === index ? next : stored));
+  });
+
+  return next;
 }

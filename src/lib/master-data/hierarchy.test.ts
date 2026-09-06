@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
 import { EQUIPMENT_LABELS, MASTER_DATA_CATEGORIES } from "./categories";
 import {
   categoryTabs,
+  classTeachersPath,
+  classTeachersTabs,
+  classTrail,
   equipmentPath,
   equipmentTabs,
   eventCategoryPath,
@@ -67,6 +70,22 @@ describe("equipmentPath", () => {
     );
     expect(equipmentPath("s1", "Ski+Board")).toBe(
       "/app/event-series/s1/programs?equipment=Ski%2BBoard",
+    );
+  });
+});
+
+describe("classTeachersPath", () => {
+  /** A class is identified by its name (US-38), which a teacher typed and which may hold a slash. */
+  it("names the class in a search parameter", () => {
+    expect(classTeachersPath("s1", "3AHIT")).toBe("/app/event-series/s1/classes?teachers=3AHIT");
+  });
+
+  it("encodes a name a path could not carry, and the plus a query would read as a space", () => {
+    expect(classTeachersPath("s1", "3A/HIT")).toBe(
+      "/app/event-series/s1/classes?teachers=3A%2FHIT",
+    );
+    expect(classTeachersPath("s1", "3A+HIT")).toBe(
+      "/app/event-series/s1/classes?teachers=3A%2BHIT",
     );
   });
 });
@@ -133,7 +152,7 @@ describe("the tabs of a record", () => {
       .filter((tab) => tab.opensRecords)
       .map((tab) => tab.key);
 
-    expect(opening).toEqual(["events", "programs"]);
+    expect(opening).toEqual(["classes", "events", "programs"]);
     expect(ROOT_TABS[0].opensRecords).toBe(true);
     expect(equipmentTabs("s1", "Ski")[0].opensRecords).toBe(false);
   });
@@ -154,6 +173,16 @@ describe("the tabs of a record", () => {
     expect(tabs.map((tab) => tab.label)).toEqual([EQUIPMENT_LABELS.title]);
     expect(tabs[0].addLabel).toBe(EQUIPMENT_LABELS.add);
     expect(tabs[0].href).toBe(equipmentPath("s1", "Ski"));
+  });
+
+  /** A class has no add control of its own: every candidate already has a record in `users`. */
+  it("offers a class its one child collection, with nothing to add to it", () => {
+    const tabs = classTeachersTabs("s1", "3AHIT");
+
+    expect(tabs.map((tab) => tab.label)).toEqual(["Lehrpersonen"]);
+    expect(tabs[0].addLabel).toBeUndefined();
+    expect(tabs[0].href).toBe(classTeachersPath("s1", "3AHIT"));
+    expect(tabs[0].opensRecords).toBe(false);
   });
 
   /** An event's row offers only the five categories it may override, not classes or events. */
@@ -208,10 +237,20 @@ describe("the breadcrumb trails", () => {
     ]);
   });
 
+  it("names the whole path down to a class", () => {
+    expect(classTrail("s1", "Wintersportwoche", "3AHIT")).toEqual([
+      { label: "Eventreihen", href: "/app/event-series" },
+      { label: "Wintersportwoche", href: "/app/event-series/s1/classes" },
+      { label: "Klassen", href: "/app/event-series/s1/classes" },
+      { label: "3AHIT", href: "/app/event-series/s1/classes?teachers=3AHIT" },
+    ]);
+  });
+
   /** The screen's own last step follows it, so the record is a step the teacher can go back to. */
   it("ends at the record the collection on show belongs to", () => {
     expect(eventSeriesTrail("s1", "Wintersportwoche").at(-1)?.label).toBe("Wintersportwoche");
     expect(programTrail("s1", "Wintersportwoche", "Ski").at(-1)?.label).toBe("Ski");
+    expect(classTrail("s1", "Wintersportwoche", "3AHIT").at(-1)?.label).toBe("3AHIT");
   });
 
   /** An event is a step of the path now that it carries lists of its own (US-33). */

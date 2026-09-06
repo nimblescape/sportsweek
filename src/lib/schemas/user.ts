@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { permissionsSchema } from "@/lib/auth/permissions";
-import { requiredText, uidSchema } from "./common";
+import { requiredText, uidSchema, type Uid } from "./common";
 
 export const accountTypeSchema = z.enum(["teacher", "student"]);
 export type AccountType = z.infer<typeof accountTypeSchema>;
@@ -30,3 +30,16 @@ export type User = z.infer<typeof userSchema>;
 
 /** Keep in sync with the denylist in firestore.rules — no client may ever write these (US-3). */
 export const userLockedFields = userSchema.pick({ accountType: true, permissions: true });
+
+/**
+ * What the class-teachers editor needs of a candidate (US-38): a name to show and toggle by, and
+ * an address to tell two colleagues who share a surname apart. Never the permissions or the
+ * photo — the editor has no use for either, and a teacher's own record is not this route's to
+ * hand out.
+ */
+export const teacherCandidateSchema = userSchema.pick({
+  firstName: true,
+  lastName: true,
+  email: true,
+});
+export type TeacherCandidate = z.infer<typeof teacherCandidateSchema> & { uid: Uid };

@@ -85,7 +85,8 @@ export const MASTER_DATA_CATEGORIES = {
   classes: {
     field: "classOptions",
     usage: { kind: "masterData", field: "class" },
-    opensRecords: false,
+    // An entry now opens its own record, the teachers who look after it (class-teachers spec).
+    opensRecords: true,
     hasTeacherAssignments: true,
     perEvent: false,
     labels: {
