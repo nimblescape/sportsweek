@@ -42,6 +42,12 @@ export type MasterDataCategory = {
    */
   entriesAreRecords?: boolean;
   /**
+   * Set only for classes, whose entries carry the teachers who look after them (class-teachers
+   * spec, US-38). Present so a rename, reorder or delete read back through this list carries the
+   * assignment forward, rather than the plain-name shape every other list uses collapsing it away.
+   */
+  hasTeacherAssignments?: boolean;
+  /**
    * Whether one of this series' events may name entries of its own for this list, in place of
    * the series' (US-33) — true for the five lists a place decides, false for classes, which
    * describes the school rather than the trip, and for events themselves. What lets one
@@ -80,6 +86,7 @@ export const MASTER_DATA_CATEGORIES = {
     field: "classOptions",
     usage: { kind: "masterData", field: "class" },
     opensRecords: false,
+    hasTeacherAssignments: true,
     perEvent: false,
     labels: {
       title: "Klassen",

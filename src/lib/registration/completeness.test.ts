@@ -42,7 +42,7 @@ const complete: RegistrationInput = {
 const ALL_ASKED = questionsAsked(
   storedEventSeries({
     events: [event("Woche 1")],
-    classOptions: ["3AHME"],
+    classOptions: [{ name: "3AHME", teacherUids: [] }],
     programs: [{ name: "Ski", requiredEquipment: [] }],
     skillLevels: ["Anfänger"],
     seasonPassOptions: ["Keine"],

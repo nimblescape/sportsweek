@@ -112,7 +112,14 @@ describe("eventSeriesReport", () => {
   });
 
   it("lists the entries of a category of bare names", () => {
-    const report = eventSeriesReport(storedEventSeries({ classOptions: ["2aWI", "2bWI"] }));
+    const report = eventSeriesReport(
+      storedEventSeries({
+        classOptions: [
+          { name: "2aWI", teacherUids: [] },
+          { name: "2bWI", teacherUids: [] },
+        ],
+      }),
+    );
 
     expect(sectionNamed(report, "Klassen").entries).toEqual(["2aWI", "2bWI"]);
   });

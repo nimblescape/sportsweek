@@ -29,7 +29,10 @@ const { useSavedReports } = await import("./use-saved-reports");
 const { storedEventSeries } = await import("@/test/event-series");
 const { EMPTY_FILTER } = await import("@/lib/filters/student-filter");
 
-const LISTS = storedEventSeries({ name: "Wintersportwoche", classOptions: ["5AHIF"] });
+const LISTS = storedEventSeries({
+  name: "Wintersportwoche",
+  classOptions: [{ name: "5AHIF", teacherUids: [] }],
+});
 
 /** The hook waits for Firebase Auth, so a test has to announce a signed-in user first. */
 function signIn() {

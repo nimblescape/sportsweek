@@ -93,7 +93,10 @@ describe("createEventSeries", () => {
 describe("createEventSeries — from a source", () => {
   const lists = {
     events: [event("Woche 1"), event("Woche 2")],
-    classOptions: ["5AHIF", "5BHIF"],
+    classOptions: [
+      { name: "5AHIF", teacherUids: [] },
+      { name: "5BHIF", teacherUids: [] },
+    ],
     programs: [
       {
         name: "Ski",
@@ -135,12 +138,16 @@ describe("createEventSeries — from a source", () => {
     firestore.seed(
       "eventSeries",
       "old",
-      storedEventSeries({ name: "Alt", isArchived: true, classOptions: ["4AHIF"] }),
+      storedEventSeries({
+        name: "Alt",
+        isArchived: true,
+        classOptions: [{ name: "4AHIF", teacherUids: [] }],
+      }),
     );
 
     const copy = await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "old" });
 
-    expect(copy.classOptions).toEqual(["4AHIF"]);
+    expect(copy.classOptions).toEqual([{ name: "4AHIF", teacherUids: [] }]);
   });
 
   it("refuses a source that is not there rather than making a blank one", async () => {
@@ -224,7 +231,10 @@ describe("updateEventSeries", () => {
   });
 
   it("leaves untouched fields alone, the maintained lists among them", async () => {
-    seedEventSeries("s1", { isOpenToStudents: true, classOptions: ["5AHIF"] });
+    seedEventSeries("s1", {
+      isOpenToStudents: true,
+      classOptions: [{ name: "5AHIF", teacherUids: [] }],
+    });
 
     await updateEventSeries("s1", { name: "Neuer Name" });
 
@@ -232,7 +242,7 @@ describe("updateEventSeries", () => {
       storedEventSeries({
         name: "Neuer Name",
         isOpenToStudents: true,
-        classOptions: ["5AHIF"],
+        classOptions: [{ name: "5AHIF", teacherUids: [] }],
       }),
     );
   });
@@ -630,7 +640,7 @@ describe("event series names are unique", () => {
  */
 describe("updateEventSeries — opening to students", () => {
   it("opens a series to students", async () => {
-    seedEventSeries("s1", { classOptions: ["3aWI"] });
+    seedEventSeries("s1", { classOptions: [{ name: "3aWI", teacherUids: [] }] });
 
     await updateEventSeries("s1", { isOpenToStudents: true });
 
@@ -728,7 +738,7 @@ describe("updateEventSeries — opening needs a class to invite", () => {
   });
 
   it("opens one that has a class", async () => {
-    seedEventSeries("s1", { classOptions: ["3aWI"] });
+    seedEventSeries("s1", { classOptions: [{ name: "3aWI", teacherUids: [] }] });
 
     await updateEventSeries("s1", { isOpenToStudents: true });
 

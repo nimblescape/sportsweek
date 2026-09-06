@@ -24,7 +24,7 @@ const validEventSeries = {
       foodOptions: [],
     },
   ],
-  classOptions: ["3AHIT"],
+  classOptions: [{ name: "3AHIT", teacherUids: [] }],
   programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
   skillLevels: ["Keine Vorkenntnisse"],
   seasonPassOptions: ["Saisonkarte"],

@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { z } from "zod";
-import { hasUniqueNames, requiredText } from "./common";
+import { hasUniqueNames, requiredText, uidSchema } from "./common";
 
 /** One entry of a teacher-maintained list (US-5 to US-10). Its name is its identity (US-21). */
 export const listItemNameSchema = requiredText(120);
@@ -24,6 +24,26 @@ export const namedListSchema = z
   .array(listItemNameSchema)
   .max(MAX_LIST_ITEMS, `Höchstens ${MAX_LIST_ITEMS} Einträge.`)
   .refine(hasUniqueNames, "Jeder Eintrag darf nur einmal vorkommen.");
+
+/**
+ * A class, and the teachers who look after it (class-teachers spec, US-38). An assignment grants
+ * nothing by itself — it only narrows what a few pages show once a teacher already holds one of
+ * the permissions that opens them (see `spec/class-teachers.md`) — so an empty list is not a gap
+ * to fill, it is the ordinary state before anybody has been assigned.
+ */
+export const classOptionSchema = z.object({
+  name: listItemNameSchema,
+  teacherUids: z.array(uidSchema).default([]),
+});
+export type ClassOption = z.infer<typeof classOptionSchema>;
+
+export const classOptionListSchema = z
+  .array(classOptionSchema)
+  .max(MAX_LIST_ITEMS, `Höchstens ${MAX_LIST_ITEMS} Einträge.`)
+  .refine(
+    (classes) => hasUniqueNames(classes.map((option) => option.name)),
+    "Jeder Eintrag darf nur einmal vorkommen.",
+  );
 
 /**
  * How many entries either equipment list may hold. The school hands out a handful of items per

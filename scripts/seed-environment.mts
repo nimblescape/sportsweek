@@ -573,7 +573,7 @@ async function seedRegistrations(
     seasonPassOptions: eventSeries.seasonPassOptions,
   };
 
-  const classNames = eventSeries.classOptions;
+  const classNames = eventSeries.classOptions.map((option) => option.name);
   if (classNames.length === 0) {
     fail(`"${eventSeries.name}" has no classes to register students into.`);
   }

@@ -13,11 +13,13 @@ import { COLLECTIONS } from "@/lib/schemas/collections";
 import { NO_SUCH_EVENT_SERIES } from "@/lib/event-series/event-series-state";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import {
+  classOptionListSchema,
   eventListSchema,
   listItemNameSchema,
   namedListSchema,
   programListSchema,
   requiredEquipmentSchema,
+  type ClassOption,
   type EquipmentItem,
   type Program,
 } from "@/lib/schemas/master-data";
@@ -41,10 +43,15 @@ const SERIES_SCOPE: MasterDataScope = { kind: "series" };
 
 /**
  * One entry of a maintained list, in the shape the handlers answer with. Five of the six lists
- * store a bare name; only a program carries a list of its own (US-5), so the field is absent
- * rather than empty wherever it would mean nothing.
+ * store a bare name; a program carries a list of its own (US-5) and a class carries the teachers
+ * who look after it (US-38), so each field is absent rather than empty wherever it would mean
+ * nothing.
  */
-export type MasterDataItem = { name: string; requiredEquipment?: EquipmentItem[] };
+export type MasterDataItem = {
+  name: string;
+  requiredEquipment?: EquipmentItem[];
+  teacherUids?: ClassOption["teacherUids"];
+};
 
 export type MasterDataUpdate = { name?: string; requiredEquipment?: readonly EquipmentItem[] };
 
@@ -125,10 +132,10 @@ function itemsOf(
 }
 
 /**
- * The three shapes a list is stored in, matched to the schema that validates it. A program's
- * equipment goes with it; an event carries whatever its own five lists already hold (US-33),
- * since renaming or reordering the events themselves must not disturb them; every other list is
- * bare names.
+ * The four shapes a list is stored in, matched to the schema that validates it. A program's
+ * equipment goes with it; a class's teachers go with it (US-38); an event carries whatever its
+ * own five lists already hold (US-33), since renaming or reordering the events themselves must
+ * not disturb them; every other list is bare names.
  */
 function shapedList(category: MasterDataCategory, items: readonly MasterDataItem[]) {
   if (category.equipmentField !== undefined) {
@@ -137,6 +144,13 @@ function shapedList(category: MasterDataCategory, items: readonly MasterDataItem
       requiredEquipment: item.requiredEquipment ?? [],
     }));
     return { schema: programListSchema, value };
+  }
+  if (category.hasTeacherAssignments === true) {
+    const value: ClassOption[] = items.map((item) => ({
+      name: item.name,
+      teacherUids: item.teacherUids ?? [],
+    }));
+    return { schema: classOptionListSchema, value };
   }
   if (category.entriesAreRecords === true) {
     return { schema: eventListSchema, value: items };
@@ -286,8 +300,11 @@ export async function createMasterDataItem(
       ? undefined
       : parseEquipment(category, input.requiredEquipment ?? []);
 
-  const item: MasterDataItem =
-    equipment === undefined ? { name } : { name, requiredEquipment: equipment };
+  const item: MasterDataItem = {
+    name,
+    ...(equipment === undefined ? {} : { requiredEquipment: equipment }),
+    ...(category.hasTeacherAssignments === true ? { teacherUids: [] } : {}),
+  };
 
   // Adding strands nothing, so it needs no guard: a value nobody could have chosen yet cannot
   // be one a registration holds. A new item goes to the end of the order (see Ordering).

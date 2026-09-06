@@ -20,7 +20,7 @@ const storedEventSeries = {
   hasRegistrations: false,
   position: 0,
   events: [event("Woche 1")],
-  classOptions: ["3AHIT"],
+  classOptions: [{ name: "3AHIT", teacherUids: [] }],
   programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
   skillLevels: ["Keine Vorkenntnisse"],
   seasonPassOptions: ["Saisonkarte"],

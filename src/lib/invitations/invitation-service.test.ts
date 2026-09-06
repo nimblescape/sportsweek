@@ -24,7 +24,13 @@ function seedSeries(overrides: Partial<Omit<EventSeries, "id" | "nameKey">> = {}
   firestore.seed(
     "eventSeries",
     SERIES,
-    storedEventSeries({ classOptions: ["3aWI", "3bWI"], ...overrides }),
+    storedEventSeries({
+      classOptions: [
+        { name: "3aWI", teacherUids: [] },
+        { name: "3bWI", teacherUids: [] },
+      ],
+      ...overrides,
+    }),
   );
 }
 
@@ -132,7 +138,7 @@ describe("resolveInvitation", () => {
     seedSeries();
     const { token } = await createInvitation(SERIES, "3aWI");
     firestore.seed("eventSeries", SERIES, {
-      ...storedEventSeries({ classOptions: ["3aWI"] }),
+      ...storedEventSeries({ classOptions: [{ name: "3aWI", teacherUids: [] }] }),
       isOpenToStudents: false,
     });
 
@@ -168,7 +174,11 @@ describe("invitationsOf", () => {
   /** Holding one link tells its holder nothing about any other, series included (US-23). */
   it("leaves another series' links out", async () => {
     seedSeries();
-    firestore.seed("eventSeries", "other", storedEventSeries({ classOptions: ["3aWI"] }));
+    firestore.seed(
+      "eventSeries",
+      "other",
+      storedEventSeries({ classOptions: [{ name: "3aWI", teacherUids: [] }] }),
+    );
     await createInvitation("other", "3aWI");
 
     await expect(invitationsOf(SERIES)).resolves.toEqual([]);

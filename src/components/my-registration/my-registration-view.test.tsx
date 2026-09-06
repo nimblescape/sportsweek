@@ -29,7 +29,7 @@ const eventSeries = {
   ...storedEventSeries({
     name: "Winter 2026",
     isOpenToStudents: true,
-    classOptions: ["3AHME"],
+    classOptions: [{ name: "3AHME", teacherUids: [] }],
     skillLevels: ["Anfänger:in", "Profi"],
   }),
 };

@@ -5,6 +5,8 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  classOptionListSchema,
+  classOptionSchema,
   eventListSchema,
   eventSchema,
   equipmentItemSchema,
@@ -64,6 +66,49 @@ describe("namedListSchema", () => {
 
   it("rejects a list longer than that, so one field cannot fill the whole document", () => {
     expect(namedListSchema.safeParse(namesOfLength(MAX_LIST_ITEMS + 1)).success).toBe(false);
+  });
+});
+
+describe("classOptionSchema", () => {
+  it("defaults teacherUids to empty, which is the ordinary state (US-38)", () => {
+    expect(classOptionSchema.parse({ name: "2aWI" })).toEqual({ name: "2aWI", teacherUids: [] });
+  });
+
+  it("carries the uids of the teachers who look after it", () => {
+    expect(classOptionSchema.parse({ name: "2aWI", teacherUids: ["t1", "t2"] })).toEqual({
+      name: "2aWI",
+      teacherUids: ["t1", "t2"],
+    });
+  });
+
+  it("trims the name", () => {
+    expect(classOptionSchema.parse({ name: "  2aWI  " }).name).toBe("2aWI");
+  });
+});
+
+describe("classOptionListSchema", () => {
+  const option = (name: string, teacherUids: string[] = []) => ({ name, teacherUids });
+
+  it("accepts a list of classes, each with its own teachers", () => {
+    expect(classOptionListSchema.parse([{ name: "2aWI" }, { name: "2bWI" }])).toEqual([
+      option("2aWI"),
+      option("2bWI"),
+    ]);
+  });
+
+  it("accepts an empty list", () => {
+    expect(classOptionListSchema.parse([])).toEqual([]);
+  });
+
+  it("rejects a duplicate name, ignoring case and surrounding space", () => {
+    expect(classOptionListSchema.safeParse([{ name: "2aWI" }, { name: " 2awi " }]).success).toBe(
+      false,
+    );
+  });
+
+  it("rejects a list longer than a school could plausibly need", () => {
+    const names = namesOfLength(MAX_LIST_ITEMS + 1).map((name) => ({ name }));
+    expect(classOptionListSchema.safeParse(names).success).toBe(false);
   });
 });
 

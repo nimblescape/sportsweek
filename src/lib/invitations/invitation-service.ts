@@ -62,7 +62,7 @@ export async function createInvitation(
     // The link names a class the series actually offers, so a stale page cannot enrol a room
     // full of students into one that has since been renamed away (US-23, US-24).
     const offered = series.classOptions.find(
-      (candidate) => normalizeName(candidate) === normalizeName(className),
+      (candidate) => normalizeName(candidate.name) === normalizeName(className),
     );
     if (offered === undefined) {
       throw new ServiceError(ErrorCode.NotFound, "Diese Klasse gibt es nicht.");
@@ -72,14 +72,14 @@ export async function createInvitation(
       adminDb
         .collection(COLLECTIONS.invitations)
         .where("eventSeriesId", "==", eventSeriesId)
-        .where("class", "==", offered),
+        .where("class", "==", offered.name),
     );
 
     for (const stale of previous.docs) transaction.delete(stale.ref);
-    transaction.set(invitationDoc(token), { eventSeriesId, class: offered });
+    transaction.set(invitationDoc(token), { eventSeriesId, class: offered.name });
     transaction.update(reference, { isOpenToStudents: true });
 
-    return { token, eventSeriesId, class: offered };
+    return { token, eventSeriesId, class: offered.name };
   });
 }
 

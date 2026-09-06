@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { documentIdSchema, requiredText } from "./common";
-import { eventListSchema, namedListSchema, overridableListsSchema } from "./master-data";
+import { classOptionListSchema, eventListSchema, overridableListsSchema } from "./master-data";
 import { positionSchema } from "./position";
 
 // What the list shows about a series is derived from these flags, never stored.
@@ -46,7 +46,7 @@ export const eventSeriesSchema = z
      * — and an empty list is a question the student is never asked (US-21).
      */
     events: eventListSchema.default([]),
-    classOptions: namedListSchema.default([]),
+    classOptions: classOptionListSchema.default([]),
   })
   .merge(overridableListsSchema);
 export type EventSeries = z.infer<typeof eventSeriesSchema>;

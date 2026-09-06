@@ -79,7 +79,10 @@ function seedEventSeries(id: string, fields: Record<string, unknown> = {}) {
     storedEventSeries({
       name: `Eventreihe ${id}`,
       isOpenToStudents: true,
-      classOptions: ["3AHME", "4AHME"],
+      classOptions: [
+        { name: "3AHME", teacherUids: [] },
+        { name: "4AHME", teacherUids: [] },
+      ],
       programs: [{ name: "Ski", requiredEquipment: [] }],
       skillLevels: ["Anfänger"],
       seasonPassOptions: ["Keine"],
@@ -276,7 +279,7 @@ describe("saveRegistration", () => {
 
   /** A class a link still names has to be one the series offers, like every other list value. */
   it("checks the class the link named, not only the answers", async () => {
-    seedEventSeries("s1", { classOptions: ["1AHME"] });
+    seedEventSeries("s1", { classOptions: [{ name: "1AHME", teacherUids: [] }] });
 
     await expect(saveRegistration(target(), attending)).rejects.toMatchObject({
       message: ANSWER_NO_LONGER_OFFERED_HINT,

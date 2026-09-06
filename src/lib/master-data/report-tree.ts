@@ -5,7 +5,7 @@
  */
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { eventSeriesLabel } from "@/lib/event-series/event-series-state";
-import type { EquipmentItem, Program } from "@/lib/schemas/master-data";
+import type { ClassOption, EquipmentItem, Program } from "@/lib/schemas/master-data";
 import {
   EQUIPMENT_LABELS,
   MASTER_DATA_CATEGORIES,
@@ -19,7 +19,7 @@ import {
 } from "@/lib/registration/answer-labels";
 
 type EventRecord = EventSeries["events"][number];
-type ListEntries = readonly (string | Program | EventRecord)[];
+type ListEntries = readonly (string | ClassOption | Program | EventRecord)[];
 /** Everything the report reads of a series: what to call it and its lists, never its stored identity. */
 type ReportableSeries = Pick<EventSeries, "name" | "isArchived" | EventSeriesListField>;
 
@@ -85,6 +85,11 @@ function categorySection(key: MasterDataCategoryKey, list: ListEntries): ReportS
   if (list.length === 0) return section(title, [NOTHING_MAINTAINED]);
   if (key === "programs") return section(title, [], (list as Program[]).map(programReport));
   if (key === "events") return section(title, [], (list as EventRecord[]).map(eventReport));
+  if (key === "classes")
+    return section(
+      title,
+      (list as ClassOption[]).map((option) => option.name),
+    );
   return section(title, list as string[]);
 }
 

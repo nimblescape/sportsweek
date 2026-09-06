@@ -35,11 +35,18 @@ beforeEach(() => {
   firestore.reset();
   // A report is pruned to the lists its series maintains (US-21), so the series has to ask the
   // question this one filters on.
-  firestore.seed("eventSeries", SERIES, storedEventSeries({ classOptions: ["5AHIF"] }));
+  firestore.seed(
+    "eventSeries",
+    SERIES,
+    storedEventSeries({ classOptions: [{ name: "5AHIF", teacherUids: [] }] }),
+  );
   firestore.seed(
     "eventSeries",
     "s2",
-    storedEventSeries({ name: "Wintersportwoche 2027", classOptions: ["5AHIF"] }),
+    storedEventSeries({
+      name: "Wintersportwoche 2027",
+      classOptions: [{ name: "5AHIF", teacherUids: [] }],
+    }),
   );
 });
 

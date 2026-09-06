@@ -81,7 +81,10 @@ const eventSeries = {
     events: [event("Woche 1")],
     // The same lists the hooks below are mocked with: they are fields of this document, and it
     // is the document the fields row asks what the series wants asking about (US-21).
-    classOptions: ["5AHIF", "5BHIF"],
+    classOptions: [
+      { name: "5AHIF", teacherUids: [] },
+      { name: "5BHIF", teacherUids: [] },
+    ],
     programs: [
       {
         name: "Ski",
