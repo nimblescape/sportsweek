@@ -16,28 +16,36 @@ import {
 } from "firebase/auth";
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { ROUTES, homeFor, safeDestination } from "@/lib/routes";
+import { entraGroupClaims } from "@/lib/auth/entra-groups";
 import { accountTypeSchema, type AccountType } from "@/lib/schemas/user";
 
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
 const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.";
 
+/** What Entra returned for this sign-in: an access token for Graph, and its own ID token. */
+type EntraCredential = { accessToken?: string; idToken?: string };
+
 /**
- * The Graph access token, which exists only in the redirect result and only right after a
- * sign-in — an already-signed-in visitor simply has none.
+ * The Entra tokens, which exist only in the redirect result and only right after a sign-in —
+ * an already-signed-in visitor simply has none.
  *
  * Held for the page rather than for the effect, because Firebase hands the result to whoever
  * asks first and answers null to everyone after. React mounts an effect twice in development,
  * so asking once per mount gave the token to a listener that had already been torn down and
  * left the one doing the posting with nothing.
  */
-let claimed: Promise<string | undefined> | null = null;
+let claimed: Promise<EntraCredential> | null = null;
 
-function graphAccessTokenOfRedirect(): Promise<string | undefined> {
+function credentialOfRedirect(): Promise<EntraCredential> {
   claimed ??= getRedirectResult(auth)
-    .then((result) =>
-      result ? (OAuthProvider.credentialFromResult(result)?.accessToken ?? undefined) : undefined,
-    )
-    .catch(() => undefined);
+    .then((result) => {
+      const credential = result ? OAuthProvider.credentialFromResult(result) : null;
+      return {
+        accessToken: credential?.accessToken ?? undefined,
+        idToken: credential?.idToken ?? undefined,
+      };
+    })
+    .catch(() => ({}));
 
   return claimed;
 }
@@ -68,7 +76,7 @@ export function useSignIn() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const redirectSettled = graphAccessTokenOfRedirect();
+    const redirectSettled = credentialOfRedirect();
 
     // Tokens rather than sign-in state: impersonating yourself keeps the same uid, and
     // onAuthStateChanged only reports a *change* of user — it would stay silent exactly
@@ -84,8 +92,16 @@ export function useSignIn() {
       setChecking(true);
 
       try {
-        const graphAccessToken = await redirectSettled;
+        const { accessToken: graphAccessToken, idToken: entraIdToken } = await redirectSettled;
         const { token, signInProvider } = await user.getIdTokenResult();
+
+        // Said out loud because nothing else can show it: Firebase keeps an OIDC provider's
+        // claims out of its own token, so the tenant's Token configuration is only observable
+        // here, in the token Entra itself issued for this login.
+        if (entraIdToken) {
+          console.info("Entra ID token group claims:", entraGroupClaims(entraIdToken));
+        }
+
         const response = await fetch("/api/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

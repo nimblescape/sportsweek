@@ -62,6 +62,13 @@ function userSignedInVia(provider: string) {
 
 const signedInUser = userSignedInVia("microsoft.com");
 
+const GROUP_ID = "0a1b2c3d-4e5f-6071-8293-a4b5c6d7e8f9";
+
+/** An unsigned stand-in for the ID token Entra returns alongside the access token. */
+const entraIdToken = ["header", { groups: [GROUP_ID] }, "signature"]
+  .map((part) => Buffer.from(JSON.stringify(part), "utf8").toString("base64url"))
+  .join(".");
+
 function respondWith(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
@@ -151,6 +158,35 @@ describe("SignInCard", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(JSON.parse(fetchMock.mock.calls[1][1].body).msAccessToken).toBeUndefined();
+  });
+
+  // Firebase keeps an OIDC provider's claims out of its own token, so a sign-in is the only
+  // place the tenant's group configuration is observable at all.
+  it("says what groups Entra put in the ID token of this sign-in", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    respondWith(200, { status: "ok" });
+    getRedirectResult.mockResolvedValue({ user: signedInUser });
+    credentialFromResult.mockReturnValue({ accessToken: "graph-token", idToken: entraIdToken });
+
+    render(<SignInCard />);
+
+    await waitFor(() => expect(info).toHaveBeenCalled());
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining("Entra"),
+      expect.objectContaining({ groups: [GROUP_ID], roles: [] }),
+    );
+    info.mockRestore();
+  });
+
+  it("says nothing about groups when this login carried no Entra ID token", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const fetchMock = respondWith(200, { status: "ok" });
+
+    render(<SignInCard />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(info).not.toHaveBeenCalled();
+    info.mockRestore();
   });
 
   it("shows the HTL Dornbirn logo", () => {
