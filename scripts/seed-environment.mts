@@ -7,17 +7,17 @@
  * Resets a project to its defaults: everything is deleted, and what this script writes is then
  * all it holds.
  *
- * | production              | one event series with the lists that are the same every year        |
- * | development, staging    | that series and a second one, both filled in with a roster and registrations |
+ * | production              | every event series `scripts/seed.yml` names, in full                  |
+ * | development, staging    | the same, plus an invented roster and registrations                  |
  *
  * Seeding on top of what a project already holds says nothing about whether the application put
  * it there, so the point of a seeded environment — that its contents are known — needs the delete
  * as much as the write.
  *
- * `--bare` asks a test environment for what production gets, which is what a school's first day
- * looks like and the only way to see the empty states behind seeded data. It can only ever leave
- * a project holding less, so production receives no invented person whatever is passed — that
- * stays true by construction rather than by a check, because no argument adds anything anywhere.
+ * `--bare` asks a test environment for what production gets: no invented roster or registrations,
+ * which is the only way to see the empty states behind seeded data. It can only ever leave a
+ * project holding less, so production receives no invented person whatever is passed — that stays
+ * true by construction rather than by a check, because no argument adds anything anywhere.
  *
  * Emptying production is a legitimate admin task and is not fenced off, but it is the one thing
  * here that cannot be undone, so it asks for the project id to be typed back first.
@@ -31,14 +31,8 @@ import { buildEmail } from "@/lib/auth/fake/email-builder";
 import { invitationKey } from "@/lib/auth/school-email";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { genderSchema, type Gender } from "@/lib/schemas/common";
-import {
-  FOOD_OPTION_OTHER,
-  type ClassOption,
-  type OverridableLists,
-  type Program,
-} from "@/lib/schemas/master-data";
+import { FOOD_OPTION_OTHER, type ClassOption, type Program } from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
-import { MASTER_DATA_CATEGORIES } from "@/lib/master-data/categories";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
 import { normalizeName } from "@/lib/firebase/name-key";
@@ -62,40 +56,18 @@ import { loadSeedConfig, type SeedEventSeries, type SeedUser } from "./seed-conf
  */
 const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
 
-/** Asks one of them for the bare state instead, which is what a school's first day is. */
+/** Asks a test environment for no invented roster or registrations, same as production gets. */
 const BARE = "--bare";
 
 /** Both listUsers and deleteUsers cap a single call at this many accounts. */
 const USER_PAGE_SIZE = 1000;
 
 /**
- * What a purged environment gets so there is somewhere to put students. The application seeds
- * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
- * Kulturwoche — so a fresh project holds only what `scripts/seed.yml` names, in the order it
- * lists them there. Only the first is bare-seeded (US-33): it is the one a school cannot be
- * without, and every series after it is invented only where students are invented too.
+ * What a purged environment gets. The application seeds nothing at all any more — it cannot know
+ * whether it is being asked for a Wintersportwoche or a Kulturwoche — so a fresh project holds
+ * every event series `scripts/seed.yml` names, in full, in the order it lists them there. Only a
+ * test environment goes on to invent a roster and registrations on top.
  */
-
-/**
- * The categories an event may override (US-33), derived from the categories map rather than
- * named a second time — so a category that becomes overridable, or stops being one, changes
- * there and nothing here needs to catch up.
- */
-const PER_EVENT_FIELDS = Object.values(MASTER_DATA_CATEGORIES)
-  .filter((category) => category.perEvent)
-  .map((category) => category.field);
-
-/**
- * What production gets: those categories, and nothing for the two that describe this particular
- * year — which weeks there are and which classes go on them is what a teacher fills in.
- */
-function bareEventSeriesOf(series: SeedEventSeries): SeedEventSeries {
-  const overridable = Object.fromEntries(
-    PER_EVENT_FIELDS.map((field) => [field, series[field]]),
-  ) as OverridableLists;
-
-  return { name: series.name, events: [], classOptions: [], ...overridable };
-}
 
 /** The shape of the sports week as it is wanted in a test environment. */
 const STUDENTS_PER_CLASS = { min: 20, max: 25 };
@@ -525,25 +497,17 @@ async function importAccounts(auth: Auth, accounts: readonly SeededAccount[]): P
  * `classTeacherOf` names classes (US-40), matched against every series seeded so far rather than
  * one named in advance — the same class name in two series is two different classes, and a name
  * held by both leaves the teacher assigned to both.
- *
- * Matched against `configSeries` — the classes `scripts/seed.yml` names — rather than
- * `eventSeries[…].classOptions` as actually written: production bare-seeds its first series with
- * no classes at all (US-33), so the written list is empty there and would leave every invitation
- * with nothing. The assignment still belongs with the invitation regardless (US-40); the class
- * merely does not exist until a teacher adds it, and `applyClassAssignments` already skips an
- * entry naming one that never turns up.
  */
 async function inviteTeachers(
   db: Firestore,
   teachers: readonly SeedUser[],
   eventSeries: readonly EventSeries[],
-  configSeries: readonly SeedEventSeries[],
 ): Promise<void> {
   await Promise.all(
     teachers.map((person) => {
       const classNames = new Set(person.classTeacherOf ?? []);
-      const classAssignments = eventSeries.flatMap((series, index) =>
-        configSeries[index].classOptions
+      const classAssignments = eventSeries.flatMap((series) =>
+        series.classOptions
           .filter((option) => classNames.has(option.name))
           .map((option) => ({ eventSeriesId: series.id, class: option.name })),
       );
@@ -727,26 +691,21 @@ async function main(): Promise<void> {
   console.log(`  ${accounts} account(s)`);
 
   // The lists are fields of the event series (US-21), so there is nothing to read until it
-  // exists — and creating it is what seeds them, since the application no longer does. Only the
-  // first is bare-seeded: production gets the one a school cannot be without, and every series
-  // after it is invented only where students are invented too.
+  // exists — and creating it is what seeds them, since the application no longer does. Every
+  // series `scripts/seed.yml` names is created in full, everywhere; only the invented roster and
+  // registrations below are test-only.
   //
   // All of them are created before anybody is invited, so a class held by more than one series
   // is matched into every one of them (US-40) — an invitation left for only the first would
   // otherwise never see that the rest exist.
   const created: EventSeries[] = [];
-  const createdFrom: SeedEventSeries[] = [];
   for (const [index, series] of config.eventSeries.entries()) {
-    if (index > 0 && !seedsStudents) continue;
-
-    const data = index === 0 && !seedsStudents ? bareEventSeriesOf(series) : series;
-    const one = await createEventSeries(db, data, index, seedsStudents);
+    const one = await createEventSeries(db, series, index, seedsStudents);
     console.log(`Created the event series "${one.name}".`);
     created.push(one);
-    createdFrom.push(series);
   }
 
-  await inviteTeachers(db, config.users, created, createdFrom);
+  await inviteTeachers(db, config.users, created);
   console.log(`Invited ${config.users.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
