@@ -60,21 +60,21 @@ describe("POST /api/session", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
-  // "not enabled for Sportsweek" would send a student turned away from a test environment
-  // looking for someone to enable them.
+  // "not enabled for Sportsweek" would send somebody turned away over their provider looking
+  // for an administrator to enable them, when what they need is a different way in.
   it("uses the wording the refusal came with", async () => {
     verifyIdToken.mockResolvedValue({ uid: "u", email: "max@student.htldornbirn.at" });
     provisionUser.mockResolvedValue({
       ok: false,
-      reason: "students-excluded",
-      message: "Diese Umgebung steht nur Lehrpersonen offen.",
+      reason: "untrusted-provider",
+      message: "Anmeldung nur über Office 365 möglich.",
     });
 
     const response = await POST(postRequest({ idToken: "good-token" }));
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body.error.message).toMatch(/Lehrpersonen/);
+    expect(body.error.message).toMatch(/Office 365/);
     expect(cookieStore.set).not.toHaveBeenCalled();
   });
 

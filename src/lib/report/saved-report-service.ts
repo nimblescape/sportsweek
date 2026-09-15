@@ -10,6 +10,7 @@ import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { NO_SUCH_EVENT_SERIES } from "@/lib/event-series/event-series-state";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import type { Uid } from "@/lib/schemas/common";
 import { eventSeriesSchema } from "@/lib/schemas/event-series";
 import { prunedSelection, savedReportPath } from "@/lib/report/saved-reports";
 import {
@@ -62,7 +63,7 @@ async function readReport(eventSeriesId: string, id: string): Promise<SavedRepor
 export async function createSavedReport(
   eventSeriesId: string,
   input: SavedReportInput,
-  createdByUserId: string,
+  createdByUserId: Uid,
 ): Promise<SavedReport> {
   const parsed = savedReportInputSchema.safeParse(input);
   if (!parsed.success) {

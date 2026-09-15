@@ -30,7 +30,7 @@ const { useRegistration } = await import("./use-registration");
 const STUDENT = "uidJaneDoe";
 
 function eventSeries(id: string): EventSeries {
-  return { id, ...storedEventSeries({ name: `Eventreihe ${id}`, isOpenToStudents: true }) };
+  return { id, ...storedEventSeries({ name: `Eventreihe ${id}` }) };
 }
 
 /** The subscription waits for Firebase Auth, so tests have to announce a signed-in user first. */

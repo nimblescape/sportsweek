@@ -5,21 +5,13 @@
  */
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { MasterDataCategoryKey } from "@/lib/master-data/categories";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 
 const useRegistration = vi.fn();
-const useMasterData = vi.fn();
-const usePrograms = vi.fn();
 const form = vi.fn();
 
 vi.mock("@/lib/registration/use-registration", () => ({
   useRegistration: (...args: unknown[]) => useRegistration(...args),
-}));
-
-vi.mock("@/lib/master-data/use-master-data", () => ({
-  useMasterData: (key: MasterDataCategoryKey) => useMasterData(key),
-  usePrograms: () => usePrograms(),
 }));
 
 vi.mock("./registration-form", () => ({
@@ -30,21 +22,20 @@ vi.mock("./registration-form", () => ({
 }));
 
 const { MyRegistrationView } = await import("./my-registration-view");
-const { REGISTRATION_NOT_OPEN_HINT } = await import("@/lib/registration/registration");
+const { REGISTRATION_NOT_OPEN_HINT, CLASS_CLOSED_KEEP_LINK_HINT } =
+  await import("@/lib/registration/registration");
 
 const eventSeries = {
   id: "s1",
   ...storedEventSeries({
     name: "Winter 2026",
-    isOpenToStudents: true,
-    classOptions: ["3AHME"],
+    classOptions: [
+      { name: "3AHME", teacherUids: [], isOpenToStudents: true },
+      { name: "4AHME", teacherUids: [], isOpenToStudents: true },
+    ],
     skillLevels: ["Anfänger:in", "Profi"],
   }),
 };
-
-function listOf(names: string[]) {
-  return { items: names, loading: false, error: null };
-}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -52,16 +43,21 @@ beforeEach(() => {
   // ever reaches this form (US-23).
   useRegistration.mockReturnValue({
     eventSeries,
-    record: { class: "3AHME" },
+    record: { class: "3AHME", event: null },
     loading: false,
     error: null,
   });
-  useMasterData.mockImplementation(() => listOf(["Etwas"]));
-  usePrograms.mockReturnValue({ programs: [], loading: false, error: null });
 });
 
-function renderView() {
-  render(<MyRegistrationView eventSeriesId="s1" studentUid="uidJane" studentName="Jane Doe" />);
+function renderView(linkClosed = false) {
+  render(
+    <MyRegistrationView
+      eventSeriesId="s1"
+      studentUid="uidJane"
+      studentName="Jane Doe"
+      linkClosed={linkClosed}
+    />,
+  );
 }
 
 describe("MyRegistrationView", () => {
@@ -69,20 +65,24 @@ describe("MyRegistrationView", () => {
     renderView();
 
     expect(screen.getByTestId("form")).toBeInTheDocument();
+    expect(form).toHaveBeenCalledWith(expect.objectContaining({ readOnly: false }));
   });
 
-  it("says nothing is released while the series is not open to students (US-19)", () => {
+  it("shows the registration read-only, saved answers and all, once its class has closed (US-45)", () => {
     useRegistration.mockReturnValue({
-      eventSeries: { ...eventSeries, isOpenToStudents: false },
-      record: null,
+      eventSeries: {
+        ...eventSeries,
+        classOptions: [{ name: "3AHME", teacherUids: [], isOpenToStudents: false }],
+      },
+      record: { class: "3AHME", event: null },
       loading: false,
       error: null,
     });
 
     renderView();
 
-    expect(screen.getByText(REGISTRATION_NOT_OPEN_HINT)).toBeInTheDocument();
-    expect(screen.queryByTestId("form")).not.toBeInTheDocument();
+    expect(screen.getByTestId("form")).toBeInTheDocument();
+    expect(form).toHaveBeenCalledWith(expect.objectContaining({ readOnly: true }));
   });
 
   /** Deleted, or never existing: to a student both are the same situation (US-23). */
@@ -110,10 +110,23 @@ describe("MyRegistrationView", () => {
     expect(screen.queryByTestId("form")).not.toBeInTheDocument();
   });
 
+  /**
+   * The address is still good, only the window is shut (US-45): told apart from a dead or
+   * unjoined link so a student is not sent looking for a new one they do not need.
+   */
+  it("tells a student with no registration yet to keep a link whose class is merely closed", () => {
+    useRegistration.mockReturnValue({ eventSeries, record: null, loading: false, error: null });
+
+    renderView(true);
+
+    expect(screen.getByText(CLASS_CLOSED_KEEP_LINK_HINT)).toBeInTheDocument();
+    expect(screen.queryByTestId("form")).not.toBeInTheDocument();
+  });
+
   it("takes the class from the record the joining wrote", () => {
     useRegistration.mockReturnValue({
       eventSeries,
-      record: { class: "4AHME" },
+      record: { class: "4AHME", event: null },
       loading: false,
       error: null,
     });
@@ -150,11 +163,7 @@ describe("MyRegistrationView", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Keine Berechtigung");
   });
 
-  it("hands the form the lists in the order the teacher set", () => {
-    useMasterData.mockImplementation((key: MasterDataCategoryKey) =>
-      key === "skill-levels" ? listOf(["Anfänger:in", "Profi"]) : listOf(["Etwas"]),
-    );
-
+  it("hands the form the series' own lists, in the order the teacher set", () => {
     renderView();
 
     expect(form).toHaveBeenCalledWith(
@@ -164,5 +173,67 @@ describe("MyRegistrationView", () => {
         lists: expect.objectContaining({ skillLevels: ["Anfänger:in", "Profi"] }),
       }),
     );
+  });
+
+  describe("resolved to the student's own event (US-33, US-35)", () => {
+    it("still asks for the series' lists where the assigned event names none of its own", () => {
+      useRegistration.mockReturnValue({
+        eventSeries: { ...eventSeries, events: [event("Woche 1")] },
+        record: { class: "3AHME", event: "Woche 1" },
+        loading: false,
+        error: null,
+      });
+
+      renderView();
+
+      expect(form).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lists: expect.objectContaining({ skillLevels: ["Anfänger:in", "Profi"] }),
+        }),
+      );
+    });
+
+    it("asks for the assigned event's own list in place of the series'", () => {
+      useRegistration.mockReturnValue({
+        eventSeries: {
+          ...eventSeries,
+          events: [event("Woche 2", { skillLevels: ["Keine Vorkenntnisse"] })],
+        },
+        record: { class: "3AHME", event: "Woche 2" },
+        loading: false,
+        error: null,
+      });
+
+      renderView();
+
+      expect(form).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lists: expect.objectContaining({ skillLevels: ["Keine Vorkenntnisse"] }),
+        }),
+      );
+    });
+
+    it("asks for what the assigned event asks, not what another event of the same series does", () => {
+      useRegistration.mockReturnValue({
+        eventSeries: {
+          ...eventSeries,
+          events: [
+            event("Woche 1", { skillLevels: ["Keine Vorkenntnisse"] }),
+            event("Woche 2", { skillLevels: ["Profi"] }),
+          ],
+        },
+        record: { class: "3AHME", event: "Woche 1" },
+        loading: false,
+        error: null,
+      });
+
+      renderView();
+
+      expect(form).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lists: expect.objectContaining({ skillLevels: ["Keine Vorkenntnisse"] }),
+        }),
+      );
+    });
   });
 });

@@ -5,7 +5,6 @@
  */
 import { z } from "zod";
 import {
-  documentIdSchema,
   genderSchema,
   hasUniqueNames,
   isoDateSchema,
@@ -13,6 +12,7 @@ import {
   phoneNumberSchema,
   requiredText,
   snapshotValueSchema,
+  uidSchema,
 } from "./common";
 import { MAX_EQUIPMENT_ITEMS } from "./master-data";
 
@@ -55,14 +55,14 @@ export const rentedEquipmentSchema = z
   .refine(hasUniqueNames, "Jeder Ausrüstungsgegenstand darf nur einmal vorkommen.");
 
 const registrationFields = z.object({
-  id: documentIdSchema,
+  id: uidSchema,
   /**
    * The one reference this record keeps, and the reason it keeps it: the access rules have to be
    * able to say "yours" about a registration, and a record naming nobody could be owned by
    * nobody (US-26). It is also the document's own id, so a student's registration in a series is
    * reached without a query.
    */
-  studentUid: documentIdSchema,
+  studentUid: uidSchema,
   /**
    * Copied from the session on every save and refreshed at every login (US-1, US-26), so a
    * reader needs no join: the report, the board, the overview and both exports read the name
@@ -77,12 +77,6 @@ const registrationFields = z.object({
    */
   event: snapshotValueSchema.nullable(),
   /**
-   * Whether answers are still outstanding, recomputed by the server on every save. Denormalised
-   * so the report can mark the students a teacher has to chase (US-13) without re-deriving it
-   * per row; the student's own view never shows it. Defaulted for records written before it.
-   */
-  isIncomplete: z.boolean().default(true),
-  /**
    * Null until the student answers. Following the link is what joins them (US-23), so a
    * registration exists before anything has been said in it — and a boolean would have to call
    * that silence a refusal, which would file every invited student as having declined.
@@ -95,25 +89,25 @@ const registrationFields = z.object({
    * so one mistyped choice would quietly falsify two classes' numbers with nothing to show it.
    */
   class: snapshotValueSchema.nullable(),
-  program: snapshotValueSchema.nullable(),
-  skillLevel: snapshotValueSchema.nullable(),
-  busPickupPoint: snapshotValueSchema.nullable(),
-  foodOption: snapshotValueSchema.nullable(),
-  foodOtherText: optionalText(500),
-  seasonPassOption: snapshotValueSchema.nullable(),
-  dateOfBirth: isoDateSchema.nullable(),
   gender: genderSchema.nullable(),
+  dateOfBirth: isoDateSchema.nullable(),
   phoneNumber: phoneNumberSchema.nullable(),
   // Defaulted like the rented equipment: records written before the field existed carry none.
   emergencyContact: emergencyContactSchema.default(EMPTY_EMERGENCY_CONTACT),
-  healthNotes: optionalText(2000),
-  hasMedication: z.boolean().nullable(),
+  program: snapshotValueSchema.nullable(),
   equipmentRentalNeeded: z.boolean().nullable(),
   // Defaulted, because records written before the field existed simply rent nothing.
   rentedEquipment: rentedEquipmentSchema.default([]),
-  shoeSize: requiredText(10).nullable(),
-  heightCm: z.number().int().positive().max(300).nullable(),
   weightKg: z.number().positive().max(400).nullable(),
+  heightCm: z.number().int().positive().max(300).nullable(),
+  shoeSize: requiredText(10).nullable(),
+  skillLevel: snapshotValueSchema.nullable(),
+  seasonPassOption: snapshotValueSchema.nullable(),
+  busPickupPoint: snapshotValueSchema.nullable(),
+  foodOption: snapshotValueSchema.nullable(),
+  foodOtherText: optionalText(500),
+  healthNotes: optionalText(2000),
+  hasMedication: z.boolean().nullable(),
 });
 
 /**
@@ -134,7 +128,6 @@ const SERVER_OWNED = {
   email: true,
   event: true,
   class: true,
-  isIncomplete: true,
 } as const;
 
 /** Keep in sync with the student denylist in firestore.rules — students must never write these. */

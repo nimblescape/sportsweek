@@ -41,7 +41,7 @@ export function DeleteRegistrationDialog({
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
-  const name = `${student.lastName} ${student.firstName}`;
+  const name = `${student.firstName} ${student.lastName}`;
 
   async function handleDelete() {
     setDeleting(true);

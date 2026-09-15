@@ -10,7 +10,7 @@ import {
   rentsEquipment,
   type EventSeriesListField,
 } from "@/lib/master-data/categories";
-import { snapshotValueSchema, type Gender } from "@/lib/schemas/common";
+import { genderSchema, snapshotValueSchema, type Gender } from "@/lib/schemas/common";
 import type { EventSeries } from "@/lib/schemas/event-series";
 import { FOOD_OPTION_OTHER, FOOD_OPTION_OTHER_LABEL } from "@/lib/schemas/master-data";
 import {
@@ -33,8 +33,8 @@ import {
  */
 export const FILTER_CATEGORIES = [
   "attendance",
-  "event",
   "class",
+  "event",
   "gender",
   "program",
   "equipmentRental",
@@ -55,8 +55,8 @@ export type FilterCategory = (typeof FILTER_CATEGORIES)[number];
  */
 export const FIELD_TAG_KEY_BY_CATEGORY: Record<FilterCategory, string> = {
   attendance: "attendance",
-  event: "event",
   class: "class",
+  event: "event",
   gender: "gender",
   program: "program",
   equipmentRental: "rentedEquipment",
@@ -126,8 +126,8 @@ export const EMPTY_FILTER: StudentFilter = {
   name: "",
   tags: {
     attendance: [],
-    event: [],
     class: [],
+    event: [],
     gender: [],
     program: [],
     equipmentRental: [],
@@ -240,10 +240,10 @@ export function filterSummary(
   return parts.length === 0 ? null : parts.join(" \u00b7 ");
 }
 
-const GENDER_OPTIONS: readonly FilterOption[] = [
-  { value: "male", label: GENDER_LABELS.male },
-  { value: "female", label: GENDER_LABELS.female },
-];
+const GENDER_OPTIONS: readonly FilterOption[] = genderSchema.options.map((value) => ({
+  value,
+  label: GENDER_LABELS[value],
+}));
 
 /** Named in full, since the tag now reads as its own category would and would otherwise stutter. */
 const ATTENDANCE_OPTIONS: readonly FilterOption[] = [
@@ -272,17 +272,20 @@ const COMPLETENESS_OPTIONS: readonly FilterOption[] = [
   },
 ];
 
-/** Both tags name the equipment themselves, because the row they sit in carries no headings. */
+/**
+ * Both tags name the equipment themselves, because the row they sit in carries no headings. The
+ * negative leads, as it does in the equipment dialog, so the two rows read the same way round.
+ */
 const EQUIPMENT_RENTAL_OPTIONS: readonly FilterOption[] = [
-  {
-    value: EQUIPMENT_RENTAL_VALUES.needed,
-    label: EQUIPMENT_RENTAL_LABEL,
-    name: EQUIPMENT_RENTAL_LABEL,
-  },
   {
     value: EQUIPMENT_RENTAL_VALUES.notNeeded,
     label: NO_EQUIPMENT_RENTAL_LABEL,
     name: NO_EQUIPMENT_RENTAL_LABEL,
+  },
+  {
+    value: EQUIPMENT_RENTAL_VALUES.needed,
+    label: EQUIPMENT_RENTAL_LABEL,
+    name: EQUIPMENT_RENTAL_LABEL,
   },
 ];
 
@@ -290,6 +293,9 @@ const EQUIPMENT_RENTAL_OPTIONS: readonly FilterOption[] = [
 const HEALTH_OPTIONS: readonly FilterOption[] = [
   { value: HEALTH_VALUES.noted, label: HEALTH_NOTED_LABEL },
 ];
+
+/** "Sonstiges" alone says nothing in a row that carries no headings, so the tag names its own. */
+const FOOD_OTHER_TAG_LABEL = `Essen ${FOOD_OPTION_OTHER_LABEL}`;
 
 /** Whether a student has anything health-related to be aware of, which is either answer (US-11). */
 function hasHealthNote(student: FilterableStudent): boolean {
@@ -352,11 +358,13 @@ export function filterGroups(
   if (attendance) {
     groups.push({ category: "attendance", label: "Teilnahme", options: ATTENDANCE_OPTIONS });
   }
+
+  pushList("class", ANSWER_LABELS.class, asOptions(lists.classes));
+
   if (events) {
     pushList("event", ANSWER_LABELS.event, asOptions(events));
   }
 
-  pushList("class", ANSWER_LABELS.class, asOptions(lists.classes));
   groups.push({ category: "gender", label: "Geschlecht", options: GENDER_OPTIONS });
   pushList(
     "program",
@@ -398,7 +406,7 @@ export function filterGroups(
       ANSWER_LABELS.foodOption,
       food.length === 0
         ? []
-        : [...asOptions(food), { value: FOOD_OPTION_OTHER, label: FOOD_OPTION_OTHER_LABEL }],
+        : [...asOptions(food), { value: FOOD_OPTION_OTHER, label: FOOD_OTHER_TAG_LABEL }],
     );
   }
   if (health) {

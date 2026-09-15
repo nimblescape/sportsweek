@@ -21,5 +21,6 @@ export function invitationLink(token: string, origin = window.location.origin): 
  */
 export const INVITATION_LINK_LABEL = "Schüler:innen-Anmeldelink";
 
-/** The same invitation, offered as something to scan rather than something to send. */
-export const INVITATION_QR_LABEL = "Anmelde-QR-Code";
+/** The same invitation, offered as something to scan rather than something to send — named the
+ * same way INVITATION_LINK_LABEL is, so the two controls read as one invitation in two forms. */
+export const INVITATION_QR_LABEL = "Schüler:innen-Anmelde-QR-Code";

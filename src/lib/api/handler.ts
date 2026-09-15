@@ -10,6 +10,7 @@ import { apiError, ErrorCode } from "@/lib/errors";
 import { ServiceError, statusForCode } from "@/lib/service-error";
 import { getAuthenticatedUser } from "@/lib/auth/guards";
 import { may, type Permission } from "@/lib/auth/permissions";
+import { asUid, type Uid } from "@/lib/schemas/common";
 
 /** One refusal for every permission, so a caller learns nothing about which one was missing. */
 export const PERMISSION_DENIED_HINT = "Dafür fehlen dir die Rechte.";
@@ -49,7 +50,7 @@ export async function requirePermissionOrResponse(
   return null;
 }
 
-type IdentifiedOutcome = { ok: true; userId: string } | { ok: false; response: NextResponse };
+type IdentifiedOutcome = { ok: true; userId: Uid } | { ok: false; response: NextResponse };
 
 /**
  * The same check as above, plus who the caller is — for a write that records its author rather
@@ -72,7 +73,8 @@ export async function requirePermissionIdentityOrResponse(
       response: errorResponse(ErrorCode.PermissionDenied, PERMISSION_DENIED_HINT),
     };
   }
-  return { ok: true, userId: user.uid };
+  // Branded here because this is where a uid enters: Firebase verified the token that carries it.
+  return { ok: true, userId: asUid(user.uid) };
 }
 
 /**
@@ -94,7 +96,7 @@ export async function requireStudentOrResponse(): Promise<IdentifiedOutcome> {
       response: errorResponse(ErrorCode.PermissionDenied, PERMISSION_DENIED_HINT),
     };
   }
-  return { ok: true, userId: user.uid };
+  return { ok: true, userId: asUid(user.uid) };
 }
 
 type ParseOutcome<T> = { ok: true; data: T } | { ok: false; response: NextResponse };

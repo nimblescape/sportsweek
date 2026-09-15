@@ -20,14 +20,14 @@ function seedSeries(id: string, overrides: Partial<Omit<EventSeries, "id" | "nam
   firestore.seed(
     "eventSeries",
     id,
-    storedEventSeries({ name: id, isOpenToStudents: true, hasRegistrations: true, ...overrides }),
+    storedEventSeries({ name: id, hasRegistrations: true, ...overrides }),
   );
 }
 
 beforeEach(() => firestore.reset());
 
 describe("openSeriesOfStudent", () => {
-  it("returns the open series the student has joined", async () => {
+  it("returns a series the student has joined", async () => {
     seedSeries("winter");
     firestore.seed("eventSeries/winter/registrations", STUDENT, { studentUid: STUDENT });
 
@@ -36,16 +36,27 @@ describe("openSeriesOfStudent", () => {
     expect(found.map((one) => one.id)).toEqual(["winter"]);
   });
 
-  /** An open series nobody invited them to is not theirs: joining is what a link does (US-23). */
-  it("leaves out an open series the student has not joined", async () => {
+  it("leaves out a series the student has not joined", async () => {
     seedSeries("kultur");
 
     await expect(openSeriesOfStudent(STUDENT)).resolves.toEqual([]);
   });
 
-  /** Past series are closed, which is what keeps the chooser away in the ordinary case (Q7). */
-  it("leaves out a closed series the student registered in years ago", async () => {
-    seedSeries("winter24", { isOpenToStudents: false });
+  /** Closing a class evicts nobody (US-43), so a closed series still shows its own student. */
+  it("keeps a closed series the student is registered in, read-only or not", async () => {
+    seedSeries("winter24", {
+      classOptions: [{ name: "3AHME", teacherUids: [], isOpenToStudents: false }],
+    });
+    firestore.seed("eventSeries/winter24/registrations", STUDENT, { studentUid: STUDENT });
+
+    const found = await openSeriesOfStudent(STUDENT);
+
+    expect(found.map((one) => one.id)).toEqual(["winter24"]);
+  });
+
+  /** Archiving is what ends a registration's visible life, not closing (US-45). */
+  it("leaves out an archived series the student registered in years ago", async () => {
+    seedSeries("winter24", { isArchived: true });
     firestore.seed("eventSeries/winter24/registrations", STUDENT, { studentUid: STUDENT });
 
     await expect(openSeriesOfStudent(STUDENT)).resolves.toEqual([]);
@@ -60,7 +71,7 @@ describe("openSeriesOfStudent", () => {
     await expect(openSeriesOfStudent(STUDENT)).resolves.toEqual([]);
   });
 
-  it("returns both where a Wintersportwoche and a Kulturwoche are open together", async () => {
+  it("returns both where a Wintersportwoche and a Kulturwoche are joined together", async () => {
     seedSeries("kultur", { position: 2 });
     seedSeries("winter", { position: 1 });
     firestore.seed("eventSeries/kultur/registrations", STUDENT, { studentUid: STUDENT });

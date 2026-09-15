@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ApiRequestError } from "@/lib/api/client";
-import { EVENT_SERIES_STATE_LABELS } from "@/lib/event-series/event-series-state";
+import { eventSeriesLabel } from "@/lib/event-series/event-series-state";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 
 const formSchema = z.object({
@@ -39,11 +39,6 @@ export type NewEventSeries = { name: string; sourceId: string | null };
  */
 const NO_SOURCE = "__none__";
 const NO_SOURCE_LABEL = "Keine";
-
-/** In words rather than by colour, which the tag row has already spent (US-22). */
-function sourceLabel(one: EventSeries): string {
-  return one.isArchived ? `${one.name} (${EVENT_SERIES_STATE_LABELS.archived})` : one.name;
-}
 
 type EventSeriesFormDialogProps = {
   open: boolean;
@@ -142,7 +137,7 @@ export function EventSeriesFormDialog({
                 <Select
                   items={[
                     { label: NO_SOURCE_LABEL, value: NO_SOURCE },
-                    ...sources.map((one) => ({ label: sourceLabel(one), value: one.id })),
+                    ...sources.map((one) => ({ label: eventSeriesLabel(one), value: one.id })),
                   ]}
                   value={field.value}
                   onValueChange={(value) => field.onChange(value)}
@@ -154,7 +149,7 @@ export function EventSeriesFormDialog({
                     <SelectItem value={NO_SOURCE}>{NO_SOURCE_LABEL}</SelectItem>
                     {sources.map((one) => (
                       <SelectItem key={one.id} value={one.id}>
-                        {sourceLabel(one)}
+                        {eventSeriesLabel(one)}
                       </SelectItem>
                     ))}
                   </SelectContent>

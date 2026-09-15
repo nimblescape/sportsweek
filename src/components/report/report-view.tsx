@@ -12,7 +12,13 @@ import { useBusyWhile } from "@/lib/api/busy";
 import { buildInfo } from "@/lib/build-info";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { EMPTY_FILTER, filterStudents, filterSummary, scopeFilterToGroups } from "@/lib/filters/student-filter"; // prettier-ignore
-import { fieldTagsFor, offeredFieldTags, reportFieldsOf } from "@/lib/report/report-fields";
+import { seriesWideLists } from "@/lib/master-data/resolution";
+import {
+  fieldTagsFor,
+  offeredFieldTags,
+  reportFieldContext,
+  reportFieldsOf,
+} from "@/lib/report/report-fields";
 import {
   downloadReportPdf,
   downloadReportWorkbook,
@@ -23,6 +29,7 @@ import { matchingSavedReport } from "@/lib/report/saved-reports";
 import { useSavedReports } from "@/lib/report/use-saved-reports";
 import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import type { ReportSelection, SavedReport, SavedReportEdit } from "@/lib/schemas/saved-report";
+import type { Uid } from "@/lib/schemas/common";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeading } from "@/components/layout/page-heading";
@@ -50,9 +57,11 @@ function CardHeading({ children }: { children: string }) {
 export function ReportView({
   eventSeriesId,
   mayEdit = false,
+  teacherUid = null,
 }: {
   eventSeriesId: string;
   mayEdit?: boolean;
+  teacherUid?: Uid | null;
 }) {
   const { eventSeries, missing, error, students, filterGroups } = useEventSeriesRoster(
     eventSeriesId,
@@ -63,6 +72,7 @@ export function ReportView({
       health: true,
       answerLists: true,
       events: true,
+      teacherUid,
     },
   );
   const { reports: savedReports } = useSavedReports(eventSeriesId, eventSeries);
@@ -76,7 +86,10 @@ export function ReportView({
   useBusyWhile(exporting);
 
   const shown = useMemo(() => filterStudents(students, filter), [students, filter]);
-  const fields = useMemo(() => reportFieldsOf(activeFields), [activeFields]);
+  const fields = useMemo(
+    () => reportFieldsOf(activeFields, reportFieldContext(eventSeries)),
+    [activeFields, eventSeries],
+  );
   // What a saved report holds, and so what one is compared against and what a save keeps.
   const selection = useMemo<ReportSelection>(
     () => ({ filter, fields: activeFields }),
@@ -84,7 +97,7 @@ export function ReportView({
   );
 
   const offeredTags = useMemo(
-    () => (eventSeries === null ? [] : fieldTagsFor(eventSeries)),
+    () => (eventSeries === null ? [] : fieldTagsFor(seriesWideLists(eventSeries))),
     [eventSeries],
   );
 

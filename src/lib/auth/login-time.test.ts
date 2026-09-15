@@ -4,7 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { describe, expect, it } from "vitest";
-import { localTimestamp, SCHOOL_TIME_ZONE } from "@/lib/auth/login-time";
+import { formatLoginTime, localTimestamp, SCHOOL_TIME_ZONE } from "@/lib/auth/login-time";
 
 describe("localTimestamp", () => {
   it("reads as the school's own clock in summer, two hours ahead of UTC", () => {
@@ -31,5 +31,15 @@ describe("localTimestamp", () => {
 
   it("names the school's time zone, which is the one it is read in", () => {
     expect(SCHOOL_TIME_ZONE).toBe("Europe/Vienna");
+  });
+});
+
+describe("formatLoginTime", () => {
+  it("reads a stored sign-in the way the school reads a date, weekday first", () => {
+    expect(formatLoginTime("2026-09-06T14:30:45+02:00")).toBe("So., 06.09.2026, 14:30:45");
+  });
+
+  it("shows the offset the value was stored in, not the reader's own", () => {
+    expect(formatLoginTime("2026-01-15T16:04:05+01:00")).toBe("Do., 15.01.2026, 16:04:05");
   });
 });

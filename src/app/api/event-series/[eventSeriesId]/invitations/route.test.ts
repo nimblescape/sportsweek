@@ -50,7 +50,7 @@ describe("POST /api/event-series/[eventSeriesId]/invitations", () => {
     await expect(response.json()).resolves.toEqual({
       invitation: { token: "tok", eventSeriesId: "s1", class: "3aWI" },
     });
-    expect(createInvitation).toHaveBeenCalledWith("s1", "3aWI");
+    expect(createInvitation).toHaveBeenCalledWith("s1", "3aWI", "u1");
   });
 
   /** A student holding a link must not be able to mint one, least of all for another class. */

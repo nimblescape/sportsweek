@@ -2,9 +2,21 @@
 # Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 #
-# Dependabot version updates. Security updates are driven by the advisory database and need
-# no configuration here, but they inherit this file's grouping and scheduling, so keeping the
-# two ecosystems below configured is what stops security bumps arriving one PR at a time.
+# Dependabot is here to answer one question: has something this application depends on been
+# fixed in a way that matters to it? Minor and patch releases carry those fixes, so they are
+# what it opens pull requests for. A major is a different kind of event -- work to schedule,
+# not news to receive -- so it is ignored here and taken deliberately when there is a reason.
+#
+# Minor cannot be excluded, however tempting it looks. Several dependencies here publish no
+# patches at all: `lucide-react` shipped 178 minors against 3 patches over two years, and
+# `@base-ui/react` 8 against 1. For those, a patch-only rule would not mean "only fixes", it
+# would mean "no fixes", because their fixes ride minors.
+#
+# Security updates are exempt from all of this and stay that way. They come from the advisory
+# database, and an `ignore` scoped to `version-update:` has no effect on them -- so a
+# vulnerable dependency is still offered whatever version fixes it, major included. They also
+# inherit this file's grouping and scheduling, which is what stops a security bump arriving
+# one pull request at a time.
 # Reference: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
@@ -23,6 +35,11 @@ updates:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
       include: "scope"
+    # A major is scheduled work, not a notification. Security updates ignore this entry.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     # Order matters: a dependency joins the *first* group it matches, so the narrow Firebase
     # group has to precede the catch-all ones or it would never match anything.
     groups:
@@ -39,8 +56,8 @@ updates:
           - "minor"
           - "patch"
       # Every PR runs the full CI matrix and `main` refuses anything that is not green, so a
-      # PR costs a CI run rather than a click. Group the low-risk updates to keep that bill
-      # small; majors stay ungrouped, since those are the ones that need actually reading.
+      # PR costs a CI run rather than a click. One PR per side of the manifest keeps that bill
+      # small and keeps a runtime bump from being read as a tooling one.
       production-minor-and-patch:
         dependency-type: "production"
         update-types:
@@ -65,6 +82,8 @@ updates:
       prefix: "chore(ci)"
     groups:
       # The workflows pin actions by major tag, so these are nearly always retag bumps.
+      # No `ignore` here, deliberately: a floating major tag means every update Dependabot can
+      # see for this ecosystem *is* a major, so the npm rule would silence it permanently.
       actions:
         patterns:
           - "*"

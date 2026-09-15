@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import { storedEventSeries } from "@/test/event-series";
 import { FakeFirestore } from "@/test/fake-firestore";
@@ -19,7 +20,7 @@ const { ServiceError } = await import("@/lib/service-error");
 
 const SERIES = "s1";
 const PATH = savedReportPath(SERIES);
-const TEACHER = "uidJaneDoe";
+const TEACHER = asUid("uidJaneDoe");
 const selection = toggleTag(EMPTY_FILTER, "class", "5AHIF");
 const FIELDS = ["class", "contact"];
 const stored = {
@@ -34,11 +35,20 @@ beforeEach(() => {
   firestore.reset();
   // A report is pruned to the lists its series maintains (US-21), so the series has to ask the
   // question this one filters on.
-  firestore.seed("eventSeries", SERIES, storedEventSeries({ classOptions: ["5AHIF"] }));
+  firestore.seed(
+    "eventSeries",
+    SERIES,
+    storedEventSeries({
+      classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: false }],
+    }),
+  );
   firestore.seed(
     "eventSeries",
     "s2",
-    storedEventSeries({ name: "Wintersportwoche 2027", classOptions: ["5AHIF"] }),
+    storedEventSeries({
+      name: "Wintersportwoche 2027",
+      classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: false }],
+    }),
   );
 });
 

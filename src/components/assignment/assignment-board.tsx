@@ -21,12 +21,14 @@ import {
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import type { AssignmentGroup, SkillColumn } from "@/lib/assignment/statistics";
+import type { ImmovableReason } from "@/lib/assignment/movability";
 import {
   EMPTY_FILTER,
   filterStudents,
   type FilterGroup,
   type StudentFilter,
 } from "@/lib/filters/student-filter";
+import type { Uid } from "@/lib/schemas/common";
 import type { RosterStudent } from "@/lib/students/roster";
 import { DraggingCursor } from "@/components/ui/dragging-cursor";
 import { ALL_LABEL, AssignmentCard, DraggedTag, studentTagName } from "./assignment-card";
@@ -71,8 +73,10 @@ type AssignmentBoardProps = {
   /** Everyone registered for the event series, taking part or not — what "Teilnahme" is measured against. */
   registered: readonly RosterStudent[];
   filterGroups: readonly FilterGroup[];
+  /** Why a student cannot be moved at all, for the ones no drop would accept (US-12, US-36). */
+  immovable: (student: RosterStudent) => ImmovableReason | null;
   /** Given the students to move and the week to move them to, or null to take the week away. */
-  onMove: (recordIds: string[], event: string | null) => Promise<void>;
+  onMove: (recordIds: Uid[], event: string | null) => Promise<void>;
 };
 
 /**
@@ -89,10 +93,11 @@ export function AssignmentBoard({
   columns,
   registered,
   filterGroups,
+  immovable,
   onMove,
 }: AssignmentBoardProps) {
   const [filters, setFilters] = useState<Readonly<Record<string, StudentFilter>>>({});
-  const [picked, setPicked] = useState<readonly string[]>([]);
+  const [picked, setPicked] = useState<readonly Uid[]>([]);
   const [error, setError] = useState<string | null>(null);
   // What a drag is carrying: the ids to fade where they stand, and the tags to draw under the
   // pointer. The tag that was grabbed is one of them, "Alle" included — it travels too.
@@ -104,13 +109,25 @@ export function AssignmentBoard({
 
   const carried = drag?.ids ?? NOTHING_CARRIED;
 
+  /**
+   * The rules can take every move away without a drag ever happening here — the series a picked
+   * student belongs to reopens to students — and a tag left looking picked would promise a move
+   * that no drop will now accept. Adjusted during render rather than in an effect, so the answer
+   * is never shown stale for a frame.
+   */
+  const stillMovable = picked.filter((id) => {
+    const student = registered.find((one) => one.id === id);
+    return student === undefined || immovable(student) === null;
+  });
+  if (stillMovable.length !== picked.length) setPicked(stillMovable);
+
   const sensors = useSensors(
     // A short distance threshold, so a tap on a row is not mistaken for the start of a drag.
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: crossToNextCard }),
   );
 
-  const togglePicked = (recordId: string) =>
+  const togglePicked = (recordId: Uid) =>
     setPicked((current) =>
       current.includes(recordId) ? current.filter((id) => id !== recordId) : [...current, recordId],
     );
@@ -123,7 +140,7 @@ export function AssignmentBoard({
         : [...current, ...shown.filter((id) => !current.includes(id))];
     });
 
-  async function move(recordIds: string[], target: AssignmentGroup) {
+  async function move(recordIds: Uid[], target: AssignmentGroup) {
     setError(null);
     try {
       await onMove(recordIds, target.event);
@@ -145,7 +162,7 @@ export function AssignmentBoard({
     if (!source || !target) return;
 
     void move(
-      carriedBy(active, source, filters[source.id], picked).map((student) => student.id),
+      carriedBy(active, source, filters[source.id], picked, immovable).map((student) => student.id),
       target,
     );
   }
@@ -155,11 +172,11 @@ export function AssignmentBoard({
     const source = groups.find((group) => group.id === from);
     if (!source) return;
 
-    const students = carriedBy(active, source, filters[source.id], picked);
+    const students = carriedBy(active, source, filters[source.id], picked, immovable);
     const grabbed = String(active.data.current?.name ?? "");
     // Where everything the card shows is going, the tag that stands for all of them goes too.
     const carrying = new Set(students.map((student) => student.id));
-    const takesAll = filterStudentsOf(source, filters[source.id]).every((student) =>
+    const takesAll = movableStudentsOf(source, filters[source.id], immovable).every((student) =>
       carrying.has(student.id),
     );
 
@@ -207,6 +224,7 @@ export function AssignmentBoard({
               onFilterChange={(next) => setFilters((current) => ({ ...current, [group.id]: next }))}
               picked={picked}
               carried={carried}
+              immovable={immovable}
               onToggle={togglePicked}
               onToggleAll={toggleAll}
             />
@@ -231,8 +249,15 @@ export function AssignmentBoard({
   );
 }
 
-function filterStudentsOf(group: AssignmentGroup, filter: StudentFilter | undefined) {
-  return filterStudents(group.students, filter ?? EMPTY_FILTER);
+/** What a drag from this card could carry: what its filter leaves, less whoever cannot move. */
+function movableStudentsOf(
+  group: AssignmentGroup,
+  filter: StudentFilter | undefined,
+  immovable: (student: RosterStudent) => ImmovableReason | null,
+) {
+  return filterStudents(group.students, filter ?? EMPTY_FILTER).filter(
+    (student) => immovable(student) === null,
+  );
 }
 
 /**
@@ -246,9 +271,10 @@ function carriedBy(
   active: DragEndEvent["active"],
   source: AssignmentGroup,
   filter: StudentFilter | undefined,
-  picked: readonly string[],
+  picked: readonly Uid[],
+  immovable: (student: RosterStudent) => ImmovableReason | null,
 ): RosterStudent[] {
-  const shown = filterStudentsOf(source, filter);
+  const shown = movableStudentsOf(source, filter, immovable);
   if (active.data.current?.all === true) return shown;
 
   const recordId = String(active.id);

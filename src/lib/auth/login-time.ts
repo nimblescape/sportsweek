@@ -38,3 +38,23 @@ export function localTimestamp(at: Date): string {
 
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
 }
+
+/**
+ * How the school reads a stored sign-in, for a person rather than for the record it lives in.
+ * The weekday leads because "was that a school day?" is most of what a login is read for; every
+ * part is a fixed width, so several of them line up as a column.
+ */
+const WHEN = new Intl.DateTimeFormat("de-AT", {
+  timeZone: SCHOOL_TIME_ZONE,
+  weekday: "short",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+export function formatLoginTime(at: string): string {
+  return WHEN.format(new Date(at));
+}

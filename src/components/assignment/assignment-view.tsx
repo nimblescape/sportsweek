@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { assignmentGroups } from "@/lib/assignment/statistics";
+import { immovableReason } from "@/lib/assignment/movability";
 import { useEventSeriesRoster } from "@/lib/assignment/use-event-series-roster";
 import { apiRequest } from "@/lib/api/client";
 import { useBusyWhile } from "@/lib/api/busy";
@@ -14,6 +15,7 @@ import { NO_EVENT_SERIES_HINT } from "@/lib/event-series/event-series-state";
 import { BusyRegion } from "@/components/ui/busy-region";
 import { PageHeading } from "@/components/layout/page-heading";
 import { MASTER_DATA_CATEGORIES, noneMaintainedHint } from "@/lib/master-data/categories";
+import type { Uid } from "@/lib/schemas/common";
 import { AssignmentBoard } from "./assignment-board";
 
 /**
@@ -23,8 +25,14 @@ import { AssignmentBoard } from "./assignment-board";
  * Every figure is computed from the same live roster the cards are drawn from, so an assignment
  * shows up as soon as the subscription brings the record back.
  */
-export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
-  const { eventSeries, missing, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId); // prettier-ignore
+export function AssignmentView({
+  eventSeriesId,
+  teacherUid = null,
+}: {
+  eventSeriesId: string;
+  teacherUid?: Uid | null;
+}) {
+  const { eventSeries, missing, error, students, events, columns, programNames, skillLevelNames, filterGroups } = useEventSeriesRoster(eventSeriesId, { teacherUid }); // prettier-ignore
   const [saving, setSaving] = useState(false);
 
   // Answered by the one spinner in the header, so this view places none of its own. The read is
@@ -79,6 +87,7 @@ export function AssignmentView({ eventSeriesId }: { eventSeriesId: string }) {
                 columns={columns}
                 registered={students}
                 filterGroups={filterGroups}
+                immovable={(student) => immovableReason(eventSeries, student.record)}
                 onMove={assign}
               />
             )}

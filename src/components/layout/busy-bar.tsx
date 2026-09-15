@@ -11,12 +11,9 @@ import { useBusy } from "@/lib/api/busy";
 const BARS = [0, 0.15, 0.3, 0.45];
 
 /**
- * One indicator for the whole app (US-14, US-15).
- *
- * At the end of the row it is placed in rather than over anything: the header's own row already
- * ends in space nothing else occupies, and an indicator drawn over the event series tags (US-20)
- * cannot be read. One place always answering "the app is working on it" is easier to learn than
- * an indicator that appears somewhere new each time.
+ * One indicator for the whole app (US-14, US-15). Takes no position of its own — app-shell.tsx
+ * centres it on the header's own separation line, the one place always answering "the app is
+ * working on it" rather than an indicator that appears somewhere new each time.
  *
  * Bars rather than a bar that travels: most writes are answered before a sweep has crossed even
  * once, so it looked like nothing was happening. These cycle several times a second, which is
@@ -39,8 +36,10 @@ export function BusyBar() {
           data-busy-bar
           style={{ animationDelay: `${delay}s` }}
           // Wide enough to be seen from across the header: four hairlines in the corner of the
-          // window read as nothing at all, which is the same as having no indicator.
-          className="bg-muted-foreground animate-busy-bar block h-4 w-1 rounded-full"
+          // window read as nothing at all, which is the same as having no indicator. Short of
+          // the control height around it, since it now sits over the header's border rather than
+          // beside a button it has to match.
+          className="bg-muted-foreground animate-busy-bar block h-3 w-1 rounded-full"
         />
       ))}
     </div>

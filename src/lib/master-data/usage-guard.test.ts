@@ -270,7 +270,13 @@ describe("usageReport", () => {
 
     await expect(
       usageReport(SERIES, MASTER_DATA_CATEGORIES.programs, [
-        { name: "Ski", requiredEquipment: ["Helm", "Stöcke"] },
+        {
+          name: "Ski",
+          requiredEquipment: [
+            { name: "Helm", isRentable: true },
+            { name: "Stöcke", isRentable: true },
+          ],
+        },
       ]),
     ).resolves.toEqual({ blockedNames: [], blockedEquipment: { Ski: ["Helm"] } });
   });
@@ -280,7 +286,7 @@ describe("usageReport", () => {
 
     await expect(
       usageReport(SERIES, MASTER_DATA_CATEGORIES.programs, [
-        { name: "Ski", requiredEquipment: ["Helm"] },
+        { name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] },
       ]),
     ).resolves.toEqual({ blockedNames: [], blockedEquipment: {} });
   });
@@ -299,8 +305,8 @@ describe("usageReport", () => {
     seedRegistration("r1", SERIES, { program: "Snowboard", rentedEquipment: ["Helm"] });
 
     const report = await usageReport(SERIES, MASTER_DATA_CATEGORIES.programs, [
-      { name: "Ski", requiredEquipment: ["Stöcke"] },
-      { name: "Snowboard", requiredEquipment: ["Helm"] },
+      { name: "Ski", requiredEquipment: [{ name: "Stöcke", isRentable: true }] },
+      { name: "Snowboard", requiredEquipment: [{ name: "Helm", isRentable: true }] },
     ]);
 
     expect(report.blockedEquipment).toEqual({ Snowboard: ["Helm"] });
@@ -320,7 +326,7 @@ describe("usageReport", () => {
 
     await expect(
       usageReport(SERIES, MASTER_DATA_CATEGORIES.classes, [
-        { name: "3AHIT", requiredEquipment: ["Helm"] },
+        { name: "3AHIT", requiredEquipment: [{ name: "Helm", isRentable: true }] },
       ]),
     ).resolves.toEqual({ blockedNames: ["3AHIT"], blockedEquipment: {} });
   });

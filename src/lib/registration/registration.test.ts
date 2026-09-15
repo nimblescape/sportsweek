@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_REGISTRATION,
+  INVALID_LINK_HINT,
   registrationPath,
   REGISTRATION_NOT_OPEN_HINT,
   scopeRentalToProgram,
@@ -25,8 +26,12 @@ describe("registrationPath", () => {
   });
 
   /** "Veranstaltung" because a series may be a Kulturwoche; "derzeit" because it can reclose. */
-  it("states the one message US-23 gives for every link that leads nowhere", () => {
+  it("states the message for a student signed in holding no registration at all", () => {
     expect(REGISTRATION_NOT_OPEN_HINT).toBe("Derzeit ist keine Veranstaltung freigeschaltet.");
+  });
+
+  it("states a different message for a link that never led anywhere", () => {
+    expect(INVALID_LINK_HINT).toBe("Dieser Link ist ungültig.");
   });
 });
 
@@ -38,17 +43,29 @@ describe("scopeRentalToProgram", () => {
     rentedEquipment: ["Helm", "Ski"],
   };
 
-  it("keeps a selection the program still requires", () => {
-    const scoped = scopeRentalToProgram(renting, ["Ski", "Helm", "Stöcke"]);
+  const lent = (...names: string[]) => names.map((name) => ({ name, isRentable: true }));
+
+  it("keeps a selection the program still lends", () => {
+    const scoped = scopeRentalToProgram(renting, lent("Ski", "Helm", "Stöcke"));
 
     expect(scoped.rentedEquipment).toEqual(["Helm", "Ski"]);
   });
 
   /** Switching program leaves the old boxes ticked in form state; they must not be stored. */
   it("drops an item the selected program does not require", () => {
-    const scoped = scopeRentalToProgram(renting, ["Board", "Helm"]);
+    const scoped = scopeRentalToProgram(renting, lent("Board", "Helm"));
 
     expect(scoped.rentedEquipment).toEqual(["Helm"]);
+  });
+
+  /** The list is what a student needs; only part of it is what the school hands out (US-36). */
+  it("drops an item the program requires but does not lend", () => {
+    const scoped = scopeRentalToProgram(renting, [
+      { name: "Ski", isRentable: true },
+      { name: "Helm", isRentable: false },
+    ]);
+
+    expect(scoped.rentedEquipment).toEqual(["Ski"]);
   });
 
   /**
@@ -56,7 +73,7 @@ describe("scopeRentalToProgram", () => {
    * who is not borrowing anything must not keep blocking it.
    */
   it("clears the selection once the student says they need nothing", () => {
-    const scoped = scopeRentalToProgram({ ...renting, equipmentRentalNeeded: false }, ["Ski"]);
+    const scoped = scopeRentalToProgram({ ...renting, equipmentRentalNeeded: false }, lent("Ski"));
 
     expect(scoped.rentedEquipment).toEqual([]);
   });
@@ -67,8 +84,15 @@ describe("scopeRentalToProgram", () => {
     expect(scoped).toMatchObject({ equipmentRentalNeeded: null, rentedEquipment: [] });
   });
 
+  /** A packing list is not a question: nothing to borrow means nothing to answer (US-36). */
+  it("takes it away too for a program that requires things it does not lend", () => {
+    const scoped = scopeRentalToProgram(renting, [{ name: "Hose", isRentable: false }]);
+
+    expect(scoped).toMatchObject({ equipmentRentalNeeded: null, rentedEquipment: [] });
+  });
+
   it("leaves every other answer untouched", () => {
-    const scoped = scopeRentalToProgram(renting, ["Ski", "Helm"]);
+    const scoped = scopeRentalToProgram(renting, lent("Ski", "Helm"));
 
     expect(scoped).toMatchObject({ program: "Ski" });
   });

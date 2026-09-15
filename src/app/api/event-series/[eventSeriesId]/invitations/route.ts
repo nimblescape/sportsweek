@@ -8,6 +8,7 @@ import { z } from "zod";
 import {
   handleServiceFailure,
   parseJsonBody,
+  requirePermissionIdentityOrResponse,
   requirePermissionOrResponse,
 } from "@/lib/api/handler";
 import { createInvitation, invitationsOf } from "@/lib/invitations/invitation-service";
@@ -36,24 +37,23 @@ export async function GET(_request: Request, context: Context) {
 }
 
 /**
- * Hands out a class's invitation link, and opens the series to students by doing so (US-19,
- * US-23). Regenerating is the same call: it replaces that class's token and leaves every other
- * class alone.
+ * Hands out a class's invitation link (US-23, US-43). Regenerating is the same call: it replaces
+ * that class's token and leaves every other class, and that class's own window, alone.
  *
  * The token is answered once, here, and never read back: a client that loses it asks for a new
  * one. Nothing may read the collection it lives in (see firestore.rules), because a secret that
  * a rule would hand to everyone the document is readable by is not a secret.
  */
 export async function POST(request: Request, context: Context) {
-  const denied = await requirePermissionOrResponse("editRegistrations");
-  if (denied) return denied;
+  const identified = await requirePermissionIdentityOrResponse("editRegistrations");
+  if (!identified.ok) return identified.response;
 
   const { eventSeriesId } = await context.params;
   const body = await parseJsonBody(request, createInvitationSchema);
   if (!body.ok) return body.response;
 
   try {
-    const invitation = await createInvitation(eventSeriesId, body.data.class);
+    const invitation = await createInvitation(eventSeriesId, body.data.class, identified.userId);
     return NextResponse.json({ invitation }, { status: 201 });
   } catch (error) {
     return handleServiceFailure(error, `Inviting ${body.data.class}`);

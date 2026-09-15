@@ -72,11 +72,14 @@ describe("POST /api/master-data/[category]", () => {
   });
 
   it("passes the equipment list through for a program", async () => {
-    await POST(request("POST", { name: "Ski", requiredEquipment: ["Helm"] }), context("programs"));
+    await POST(
+      request("POST", { name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }),
+      context("programs"),
+    );
 
     expect(createMasterDataItem).toHaveBeenCalledWith("s1", "programs", {
       name: "Ski",
-      requiredEquipment: ["Helm"],
+      requiredEquipment: [{ name: "Helm", isRentable: true }],
     });
   });
 
@@ -235,12 +238,12 @@ describe("PATCH /api/master-data/[category] — editing one item", () => {
 
   it("rewrites a program's equipment without touching its name", async () => {
     await PATCH(
-      request("PATCH", { item: "Ski", requiredEquipment: ["Helm"] }),
+      request("PATCH", { item: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }),
       context("programs"),
     );
 
     expect(updateMasterDataItem).toHaveBeenCalledWith("s1", "programs", "Ski", {
-      requiredEquipment: ["Helm"],
+      requiredEquipment: [{ name: "Helm", isRentable: true }],
     });
   });
 

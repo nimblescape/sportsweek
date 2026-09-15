@@ -6,10 +6,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import { FakeFirestore } from "@/test/fake-firestore";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import { registrationPath } from "@/lib/registration/registration";
 import { savedReportPath } from "@/lib/report/saved-reports";
 import { ARCHIVE_OPEN_HINT } from "@/lib/event-series/event-series-state";
+import { asUid } from "@/lib/schemas/common";
 
 const firestore = new FakeFirestore();
 
@@ -17,9 +18,17 @@ vi.mock("@/lib/firebase/admin", () => ({
   adminDb: firestore,
 }));
 
-const { createEventSeries, updateEventSeries, deleteEventSeries, resolveSelectedEventSeriesId } =
-  await import("./event-series-service");
+const {
+  createEventSeries,
+  updateEventSeries,
+  deleteEventSeries,
+  resolveSelectedEventSeriesId,
+  isEventSeriesReachable,
+} = await import("./event-series-service");
 const { ServiceError } = await import("@/lib/service-error");
+
+const TEACHER = asUid("uidTeacher");
+const COLLEAGUE = asUid("uidColleague");
 
 beforeEach(() => firestore.reset());
 
@@ -92,10 +101,19 @@ describe("createEventSeries", () => {
  */
 describe("createEventSeries — from a source", () => {
   const lists = {
-    events: ["Woche 1", "Woche 2"],
-    classOptions: ["5AHIF", "5BHIF"],
+    events: [event("Woche 1"), event("Woche 2")],
+    classOptions: [
+      { name: "5AHIF", teacherUids: [], isOpenToStudents: false },
+      { name: "5BHIF", teacherUids: [], isOpenToStudents: false },
+    ],
     programs: [
-      { name: "Ski", requiredEquipment: ["Ski", "Helm"] },
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Ski", isRentable: true },
+          { name: "Helm", isRentable: true },
+        ],
+      },
       { name: "Snowboard", requiredEquipment: [] },
     ],
     skillLevels: ["Anfänger:in", "Profi"],
@@ -129,12 +147,36 @@ describe("createEventSeries — from a source", () => {
     firestore.seed(
       "eventSeries",
       "old",
-      storedEventSeries({ name: "Alt", isArchived: true, classOptions: ["4AHIF"] }),
+      storedEventSeries({
+        name: "Alt",
+        isArchived: true,
+        classOptions: [{ name: "4AHIF", teacherUids: [], isOpenToStudents: false }],
+      }),
     );
 
     const copy = await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "old" });
 
-    expect(copy.classOptions).toEqual(["4AHIF"]);
+    expect(copy.classOptions).toEqual([
+      { name: "4AHIF", teacherUids: [], isOpenToStudents: false },
+    ]);
+  });
+
+  /** A copy takes no invitation (Q12), so none of its classes can already be open (US-22). */
+  it("forces every copied class shut, whatever the source said", async () => {
+    firestore.seed(
+      "eventSeries",
+      "open",
+      storedEventSeries({
+        name: "Offen",
+        classOptions: [{ name: "4AHIF", teacherUids: [], isOpenToStudents: true }],
+      }),
+    );
+
+    const copy = await createEventSeries({ name: "Wintersportwoche 2027", sourceId: "open" });
+
+    expect(copy.classOptions).toEqual([
+      { name: "4AHIF", teacherUids: [], isOpenToStudents: false },
+    ]);
   });
 
   it("refuses a source that is not there rather than making a blank one", async () => {
@@ -218,15 +260,16 @@ describe("updateEventSeries", () => {
   });
 
   it("leaves untouched fields alone, the maintained lists among them", async () => {
-    seedEventSeries("s1", { isOpenToStudents: true, classOptions: ["5AHIF"] });
+    seedEventSeries("s1", {
+      classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: true }],
+    });
 
     await updateEventSeries("s1", { name: "Neuer Name" });
 
     expect(firestore.get("eventSeries", "s1")).toEqual(
       storedEventSeries({
         name: "Neuer Name",
-        isOpenToStudents: true,
-        classOptions: ["5AHIF"],
+        classOptions: [{ name: "5AHIF", teacherUids: [], isOpenToStudents: true }],
       }),
     );
   });
@@ -278,59 +321,76 @@ describe("updateEventSeries — archiving", () => {
   });
 
   /**
-   * Closing is a decision a teacher makes on the tag of the series it concerns (US-19). Archiving
-   * an open one used to make that decision for them, quietly, as a side effect of a different
-   * action — and students holding the link would have found it shut without anyone shutting it.
+   * Closing is a decision a teacher makes on the card of the class it concerns (US-43). Archiving
+   * a series with a class still open used to make that decision for them, quietly, as a side
+   * effect of a different action — and students holding that class's link would have found it
+   * shut without anyone shutting it.
    */
-  it("refuses to archive an event series that is still open to students", async () => {
-    seedEventSeries("s1", { isOpenToStudents: true });
+  it("refuses to archive an event series with a class still open", async () => {
+    seedEventSeries("s1", {
+      classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+    });
     firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await expect(updateEventSeries("s1", { isArchived: true })).rejects.toMatchObject({
       code: "CONFLICT",
       message: ARCHIVE_OPEN_HINT,
     });
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({
-      isArchived: false,
-      isOpenToStudents: true,
-    });
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isArchived: false });
   });
 
-  it("archives it once it has been closed", async () => {
-    seedEventSeries("s1", { isOpenToStudents: false });
+  it("archives it once every class has been closed", async () => {
+    seedEventSeries("s1", {
+      classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: false }],
+    });
     firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await updateEventSeries("s1", { isArchived: true });
 
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({
-      isArchived: true,
-      isOpenToStudents: false,
-    });
+    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isArchived: true });
   });
 
-  /** Closing and archiving in one call is the teacher doing both, in the order that makes sense. */
-  it("archives an open series when the same call closes it", async () => {
-    seedEventSeries("s1", { isOpenToStudents: true });
-    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
-
-    await updateEventSeries("s1", { isArchived: true, isOpenToStudents: false });
-
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({
+  /** Looking at last year is not letting last year's students back in, and there is nothing left
+   * to reopen anyway: archiving already refused unless every class was already closed (US-19). */
+  it("unarchives an event series without reopening any of its classes", async () => {
+    seedEventSeries("s1", {
       isArchived: true,
-      isOpenToStudents: false,
+      classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: false }],
     });
-  });
-
-  /** Looking at last year is not letting last year's students back in (US-19). */
-  it("unarchives an event series without reopening it to students", async () => {
-    seedEventSeries("s1", { isArchived: true });
 
     await updateEventSeries("s1", { isArchived: false });
 
     expect(firestore.get("eventSeries", "s1")).toMatchObject({
       isArchived: false,
-      isOpenToStudents: false,
+      classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: false }],
     });
+  });
+
+  /** Archiving is terminal, and the one act left that invalidates every link of the series at
+   * once (Q12) — an ordinary close leaves them alone, but nobody is admitted after this. */
+  it("deletes every invitation of the series once it is archived", async () => {
+    seedEventSeries("s1", {
+      classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: false }],
+    });
+    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
+    firestore.seed("invitations", "tokenA", { eventSeriesId: "s1", class: "3aWI" });
+    firestore.seed("invitations", "tokenOther", { eventSeriesId: "s2", class: "3aWI" });
+
+    await updateEventSeries("s1", { isArchived: true });
+
+    expect(firestore.get("invitations", "tokenA")).toBeUndefined();
+    expect(firestore.get("invitations", "tokenOther")).toBeDefined();
+  });
+
+  it("leaves invitations alone on a rename, which is not an archiving", async () => {
+    seedEventSeries("s1", {
+      classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: false }],
+    });
+    firestore.seed("invitations", "tokenA", { eventSeriesId: "s1", class: "3aWI" });
+
+    await updateEventSeries("s1", { name: "Neuer Name" });
+
+    expect(firestore.get("invitations", "tokenA")).toBeDefined();
   });
 });
 
@@ -344,7 +404,9 @@ describe("deleteEventSeries", () => {
   });
 
   it("refuses to delete an open event series that still has registrations", async () => {
-    seedEventSeries("s1", { isOpenToStudents: true });
+    seedEventSeries("s1", {
+      classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+    });
     firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
 
     await expect(deleteEventSeries("s1")).rejects.toMatchObject({ code: "CONFLICT" });
@@ -360,7 +422,9 @@ describe("deleteEventSeries", () => {
   });
 
   it("deletes an open event series that has no registrations", async () => {
-    seedEventSeries("s1", { isOpenToStudents: true });
+    seedEventSeries("s1", {
+      classOptions: [{ name: "3aWI", teacherUids: [], isOpenToStudents: true }],
+    });
     seedEventSeries("s2");
 
     await deleteEventSeries("s1");
@@ -429,7 +493,10 @@ describe("deleteEventSeries", () => {
   });
 
   it("takes the events of the event series with it, since they are fields of its document", async () => {
-    seedEventSeries("s1", { isArchived: true, events: ["Montafon", "Lech"] });
+    seedEventSeries("s1", {
+      isArchived: true,
+      events: [{ name: "Montafon" }, { name: "Lech" }],
+    });
 
     await deleteEventSeries("s1");
 
@@ -500,8 +567,8 @@ describe("deleteEventSeries", () => {
   });
 
   it("leaves documents of other event series untouched", async () => {
-    seedEventSeries("s1", { isArchived: true, events: ["Montafon"] });
-    seedEventSeries("s2", { events: ["Behalten"] });
+    seedEventSeries("s1", { isArchived: true, events: [{ name: "Montafon" }] });
+    seedEventSeries("s2", { events: [{ name: "Behalten" }] });
     firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
     firestore.seed(registrationPath("s2"), "keep", { studentUid: "u2" });
     firestore.seed("invitations", "tok1", { eventSeriesId: "s1", class: "5AHIF" });
@@ -511,7 +578,7 @@ describe("deleteEventSeries", () => {
 
     await deleteEventSeries("s1");
 
-    expect(firestore.get("eventSeries", "s2")).toMatchObject({ events: ["Behalten"] });
+    expect(firestore.get("eventSeries", "s2")).toMatchObject({ events: [{ name: "Behalten" }] });
     expect(Object.keys(firestore.docs(registrationPath("s2")))).toEqual(["keep"]);
     expect(Object.keys(firestore.docs("invitations"))).toEqual(["keep"]);
     expect(Object.keys(firestore.docs(savedReportPath("s2")))).toEqual(["keep"]);
@@ -615,88 +682,6 @@ describe("event series names are unique", () => {
 });
 
 /**
- * Pressing the overview page's tag is the whole of opening and closing registration (US-19,
- * US-29). The invitation link opens a series too, but closing it again needs no new link.
- */
-describe("updateEventSeries — opening to students", () => {
-  it("opens a series to students", async () => {
-    seedEventSeries("s1", { classOptions: ["3aWI"] });
-
-    await updateEventSeries("s1", { isOpenToStudents: true });
-
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: true });
-  });
-
-  it("closes it again without touching the links it handed out", async () => {
-    seedEventSeries("s1", { isOpenToStudents: true });
-
-    await updateEventSeries("s1", { isOpenToStudents: false });
-
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
-  });
-
-  it("refuses to open an archived series, which cannot even be selected", async () => {
-    seedEventSeries("s1", { isArchived: true });
-
-    await expect(updateEventSeries("s1", { isOpenToStudents: true })).rejects.toMatchObject({
-      code: "CONFLICT",
-    });
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
-  });
-
-  /** Archiving closes, and it wins: the two cannot be argued into disagreeing in one call. */
-  it("refuses to open and archive in the same call", async () => {
-    seedEventSeries("s1");
-    firestore.seed(registrationPath("s1"), "m1", { studentUid: "u1" });
-
-    await expect(
-      updateEventSeries("s1", { isOpenToStudents: true, isArchived: true }),
-    ).rejects.toMatchObject({ code: "CONFLICT" });
-  });
-
-  it("leaves the flag alone when only the name changes", async () => {
-    seedEventSeries("s1", { isOpenToStudents: true });
-
-    await updateEventSeries("s1", { name: "Neuer Name" });
-
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: true });
-  });
-});
-
-/**
- * US-23: a series with no classes has no link to hand out, so it cannot be opened. That held by
- * construction while generating a link was the only way in; the overview page's tag is a second
- * way (US-29), and it has to be held to the same rule.
- */
-describe("updateEventSeries — opening needs a class to invite", () => {
-  it("refuses to open a series that has no classes yet", async () => {
-    seedEventSeries("s1", { classOptions: [] });
-
-    await expect(updateEventSeries("s1", { isOpenToStudents: true })).rejects.toMatchObject({
-      code: "CONFLICT",
-    });
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
-  });
-
-  it("opens one that has a class", async () => {
-    seedEventSeries("s1", { classOptions: ["3aWI"] });
-
-    await updateEventSeries("s1", { isOpenToStudents: true });
-
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: true });
-  });
-
-  /** Closing needs no class: a series that lost its last one must still be closable. */
-  it("closes one with no classes, which is not the same question", async () => {
-    seedEventSeries("s1", { classOptions: [], isOpenToStudents: true });
-
-    await updateEventSeries("s1", { isOpenToStudents: false });
-
-    expect(firestore.get("eventSeries", "s1")).toMatchObject({ isOpenToStudents: false });
-  });
-});
-
-/**
  * What `/app` opens on, and what the navigation points at from a page that names no series (Q8).
  * Archiving is what takes a series off every screen, so it is the only thing that can make a
  * remembered id unusable.
@@ -706,26 +691,110 @@ describe("resolveSelectedEventSeriesId", () => {
     seedEventSeries("s1", { position: 0 });
     seedEventSeries("s2", { position: 1 });
 
-    expect(await resolveSelectedEventSeriesId("s2")).toBe("s2");
+    expect(await resolveSelectedEventSeriesId("s2", TEACHER)).toBe("s2");
   });
 
   it("falls back to the first in the teacher's order", async () => {
     seedEventSeries("s2", { position: 1 });
     seedEventSeries("s1", { position: 0 });
 
-    expect(await resolveSelectedEventSeriesId()).toBe("s1");
+    expect(await resolveSelectedEventSeriesId(undefined, TEACHER)).toBe("s1");
   });
 
   it("passes over a remembered archived series, which has no pages left to open", async () => {
     seedEventSeries("remembered", { position: 0, isArchived: true });
     seedEventSeries("s1", { position: 1 });
 
-    expect(await resolveSelectedEventSeriesId("remembered")).toBe("s1");
+    expect(await resolveSelectedEventSeriesId("remembered", TEACHER)).toBe("s1");
   });
 
   it("selects nothing when every series is archived", async () => {
     seedEventSeries("old", { position: 0, isArchived: true });
 
-    expect(await resolveSelectedEventSeriesId()).toBeNull();
+    expect(await resolveSelectedEventSeriesId(undefined, TEACHER)).toBeNull();
+  });
+
+  /** US-42: the same widening a page's guard and the header's tag row rely on (Q8). */
+  it("lands in the series the teacher looks after a class in, ahead of the remembered one", async () => {
+    seedEventSeries("other", { position: 0 });
+    seedEventSeries("own", {
+      position: 1,
+      classOptions: [{ name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: false }],
+    });
+
+    expect(await resolveSelectedEventSeriesId("other", TEACHER)).toBe("own");
+  });
+
+  it("falls back to the first scoped series when the remembered one is somebody else's", async () => {
+    seedEventSeries("other", {
+      position: 0,
+      classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: false }],
+    });
+    seedEventSeries("own", {
+      position: 1,
+      classOptions: [{ name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: false }],
+    });
+
+    expect(await resolveSelectedEventSeriesId("other", TEACHER)).toBe("own");
+  });
+
+  it("offers every series to a teacher who looks after no class anywhere", async () => {
+    seedEventSeries("s1", {
+      position: 0,
+      classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: false }],
+    });
+
+    expect(await resolveSelectedEventSeriesId("s1", TEACHER)).toBe("s1");
+  });
+});
+
+/**
+ * Whether a URL naming a series still opens it (US-42): the same question the header's tag row
+ * asks, asked again where the teacher may have typed a series it never offered.
+ */
+describe("isEventSeriesReachable", () => {
+  it("is reachable when the teacher looks after a class in it", async () => {
+    seedEventSeries("own", {
+      classOptions: [{ name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: false }],
+    });
+
+    expect(await isEventSeriesReachable("own", TEACHER)).toBe(true);
+  });
+
+  it("is not reachable when the teacher looks after a class elsewhere but not in it", async () => {
+    seedEventSeries("own", {
+      classOptions: [{ name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: false }],
+    });
+    seedEventSeries("other", {
+      classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: false }],
+    });
+
+    expect(await isEventSeriesReachable("other", TEACHER)).toBe(false);
+  });
+
+  it("is reachable when the teacher looks after no class anywhere", async () => {
+    seedEventSeries("s1", {
+      classOptions: [{ name: "3aWI", teacherUids: [COLLEAGUE], isOpenToStudents: false }],
+    });
+
+    expect(await isEventSeriesReachable("s1", TEACHER)).toBe(true);
+  });
+
+  /** Archiving already takes a series off every screen; this is not this feature's concern. */
+  it("is reachable for an archived series, unaffected by scope", async () => {
+    seedEventSeries("own", {
+      classOptions: [{ name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: false }],
+    });
+    seedEventSeries("old", { isArchived: true });
+
+    expect(await isEventSeriesReachable("old", TEACHER)).toBe(true);
+  });
+
+  it("is reachable for a series that does not exist, which is the client's own hint to give", async () => {
+    seedEventSeries("own", {
+      classOptions: [{ name: "2aWI", teacherUids: [TEACHER], isOpenToStudents: false }],
+    });
+
+    expect(await isEventSeriesReachable("ghost", TEACHER)).toBe(true);
   });
 });

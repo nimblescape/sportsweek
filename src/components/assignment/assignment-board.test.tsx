@@ -6,7 +6,9 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { assignmentGroups, skillColumns } from "@/lib/assignment/statistics";
+import type { ImmovableReason } from "@/lib/assignment/movability";
 import { filterGroups } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
@@ -32,8 +34,8 @@ function student(
   overrides: Partial<Omit<RosterStudent, "record">> = {},
 ): RosterStudent {
   return rosterStudent({
-    id: `record-${lastName}`,
-    studentUid: `uid-${lastName}`,
+    id: asUid(`record-${lastName}`),
+    studentUid: asUid(`uid-${lastName}`),
     firstName,
     lastName,
     ...overrides,
@@ -55,8 +57,12 @@ const ELIAS = student("Elias", "Egger", {
 
 const onMove = vi.fn();
 
-function setup(roster: RosterStudent[] = [BENE, ANNA, CLARA, DORA]) {
-  render(
+/** What every render of the board under test is built from, so a rerender can vary just one part. */
+function board(
+  roster: readonly RosterStudent[],
+  immovable: (student: RosterStudent) => ImmovableReason | null,
+) {
+  return (
     <AssignmentBoard
       groups={assignmentGroups(roster, EVENTS, COLUMNS)}
       programs={PROGRAMS}
@@ -64,9 +70,18 @@ function setup(roster: RosterStudent[] = [BENE, ANNA, CLARA, DORA]) {
       columns={COLUMNS}
       registered={roster}
       filterGroups={FILTERS}
+      immovable={immovable}
       onMove={onMove}
-    />,
+    />
   );
+}
+
+/** Everyone can move unless a test says otherwise; which students cannot is movability's own subject. */
+function setup(
+  roster: RosterStudent[] = [BENE, ANNA, CLARA, DORA],
+  immovable: (student: RosterStudent) => ImmovableReason | null = () => null,
+) {
+  return render(board(roster, immovable));
 }
 
 const card = (name: string) => within(screen.getByRole("group", { name }));
@@ -104,10 +119,10 @@ describe("AssignmentBoard", () => {
     setup();
 
     expect(
-      card("Nicht zugeteilt").getByRole("button", { name: "Muster Anna" }),
+      card("Nicht zugeteilt").getByRole("button", { name: "Anna Muster" }),
     ).toBeInTheDocument();
-    expect(card("Montafon").getByRole("button", { name: "Cerny Clara" })).toBeInTheDocument();
-    expect(card("Gardasee").getByRole("button", { name: "Danner Dora" })).toBeInTheDocument();
+    expect(card("Montafon").getByRole("button", { name: "Clara Cerny" })).toBeInTheDocument();
+    expect(card("Gardasee").getByRole("button", { name: "Dora Danner" })).toBeInTheDocument();
   });
 
   it("counts what the card holds in its title", () => {
@@ -137,7 +152,7 @@ describe("AssignmentBoard", () => {
 
     expect(card("Nicht zugeteilt").getByText("0 von 2 ausgewählt")).toBeInTheDocument();
 
-    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Berger Bene" }));
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Bene Berger" }));
 
     expect(card("Nicht zugeteilt").getByText("1 von 2 ausgewählt")).toBeInTheDocument();
   });
@@ -146,7 +161,7 @@ describe("AssignmentBoard", () => {
   it("counts only the students the filter leaves", async () => {
     setup();
 
-    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Muster Anna" }));
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Anna Muster" }));
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
 
     expect(card("Nicht zugeteilt").getByText("0 von 1 ausgewählt")).toBeInTheDocument();
@@ -158,9 +173,9 @@ describe("AssignmentBoard", () => {
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
 
     expect(
-      card("Nicht zugeteilt").queryByRole("button", { name: "Muster Anna" }),
+      card("Nicht zugeteilt").queryByRole("button", { name: "Anna Muster" }),
     ).not.toBeInTheDocument();
-    expect(card("Montafon").getByRole("button", { name: "Cerny Clara" })).toBeInTheDocument();
+    expect(card("Montafon").getByRole("button", { name: "Clara Cerny" })).toBeInTheDocument();
   });
 
   it("leaves the card's own figures alone when its filter narrows the list", async () => {
@@ -174,7 +189,7 @@ describe("AssignmentBoard", () => {
   it("assigns a student dragged onto a week", async () => {
     setup();
 
-    await dragTo(handleIn("Nicht zugeteilt", "Berger Bene"), "{ArrowDown}");
+    await dragTo(handleIn("Nicht zugeteilt", "Bene Berger"), "{ArrowDown}");
 
     await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Berger"], "Montafon"));
   });
@@ -183,7 +198,7 @@ describe("AssignmentBoard", () => {
   it("moves a student straight from one week to another", async () => {
     setup();
 
-    await dragTo(handleIn("Montafon", "Cerny Clara"), "{ArrowDown}");
+    await dragTo(handleIn("Montafon", "Clara Cerny"), "{ArrowDown}");
 
     await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Cerny"], "Gardasee"));
   });
@@ -191,7 +206,7 @@ describe("AssignmentBoard", () => {
   it("takes the week away from a student dragged back onto the unassigned card", async () => {
     setup();
 
-    await dragTo(handleIn("Montafon", "Cerny Clara"), "{ArrowUp}");
+    await dragTo(handleIn("Montafon", "Clara Cerny"), "{ArrowUp}");
 
     await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Cerny"], null));
   });
@@ -200,7 +215,7 @@ describe("AssignmentBoard", () => {
     setup();
 
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Alle auswählen" }));
-    await dragTo(handleIn("Nicht zugeteilt", "Berger Bene"), "{ArrowDown}");
+    await dragTo(handleIn("Nicht zugeteilt", "Bene Berger"), "{ArrowDown}");
 
     await waitFor(() =>
       expect(onMove).toHaveBeenCalledWith(["record-Berger", "record-Muster"], "Montafon"),
@@ -213,7 +228,7 @@ describe("AssignmentBoard", () => {
 
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Alle auswählen" }));
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
-    await dragTo(handleIn("Nicht zugeteilt", "Berger Bene"), "{ArrowDown}");
+    await dragTo(handleIn("Nicht zugeteilt", "Bene Berger"), "{ArrowDown}");
 
     await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Berger"], "Montafon"));
   });
@@ -221,8 +236,8 @@ describe("AssignmentBoard", () => {
   it("leaves a student picked in another card where they are", async () => {
     setup();
 
-    await userEvent.click(card("Montafon").getByRole("button", { name: "Cerny Clara" }));
-    await dragTo(handleIn("Nicht zugeteilt", "Berger Bene"), "{ArrowDown}");
+    await userEvent.click(card("Montafon").getByRole("button", { name: "Clara Cerny" }));
+    await dragTo(handleIn("Nicht zugeteilt", "Bene Berger"), "{ArrowDown}");
 
     await waitFor(() => expect(onMove).toHaveBeenCalledWith(["record-Berger"], "Montafon"));
   });
@@ -254,10 +269,10 @@ describe("AssignmentBoard", () => {
   it("leaves every card alone when the drag is cancelled", async () => {
     setup();
 
-    await dragTo(handleIn("Nicht zugeteilt", "Berger Bene"), "{ArrowDown}");
+    await dragTo(handleIn("Nicht zugeteilt", "Bene Berger"), "{ArrowDown}");
     onMove.mockClear();
 
-    handleIn("Nicht zugeteilt", "Muster Anna").focus();
+    handleIn("Nicht zugeteilt", "Anna Muster").focus();
     await userEvent.keyboard("{ }");
     await userEvent.keyboard("{ArrowDown}");
     await userEvent.keyboard("{Escape}");
@@ -269,11 +284,84 @@ describe("AssignmentBoard", () => {
     onMove.mockRejectedValue(new Error("Wer nicht teilnimmt, kann keinem Event zugeteilt werden."));
     setup();
 
-    await dragTo(handleIn("Nicht zugeteilt", "Berger Bene"), "{ArrowDown}");
+    await dragTo(handleIn("Nicht zugeteilt", "Bene Berger"), "{ArrowDown}");
 
     expect(
       await screen.findByText("Wer nicht teilnimmt, kann keinem Event zugeteilt werden."),
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * A student the rule refuses every move for is one no drop would accept, so the handle a teacher
+ * would otherwise drag is taken away rather than offered for a drag that could only fail (US-12).
+ */
+describe("AssignmentBoard — a student who cannot be moved", () => {
+  const HINT = "Wer die Registrierung noch nicht abgeschlossen hat, kann keinem Event zugeteilt werden."; // prettier-ignore
+  const immovableAnna = (candidate: RosterStudent) => (candidate.id === ANNA.id ? "incomplete" : null); // prettier-ignore
+  // A second movable student besides Bene, so excluding Anna still leaves an "Alle" worth showing.
+  const FYNN = student("Fynn", "Fink");
+  const roster = [BENE, ANNA, CLARA, DORA, FYNN];
+
+  it("offers no handle to drag, and marks the row instead", () => {
+    setup(roster, immovableAnna);
+
+    expect(
+      card("Nicht zugeteilt").queryByRole("button", { name: "Anna Muster verschieben" }),
+    ).not.toBeInTheDocument();
+    expect(card("Nicht zugeteilt").getByRole("img", { name: HINT })).toBeInTheDocument();
+  });
+
+  it("cannot be picked", async () => {
+    setup(roster, immovableAnna);
+
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Anna Muster" }));
+
+    expect(
+      card("Nicht zugeteilt").getByRole("button", { name: "Anna Muster" }),
+    ).not.toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("leaves them out of 'Alle', and out of what it carries", async () => {
+    setup(roster, immovableAnna);
+
+    await dragTo(
+      card("Nicht zugeteilt").getByRole("button", { name: "Alle auswählen verschieben" }),
+      "{ArrowDown}",
+    );
+
+    await waitFor(() =>
+      expect(onMove).toHaveBeenCalledWith(["record-Berger", "record-Fink"], "Montafon"),
+    );
+  });
+
+  it("still offers a movable student's own handle on the same card", () => {
+    setup(roster, immovableAnna);
+
+    expect(
+      card("Nicht zugeteilt").getByRole("button", { name: "Bene Berger verschieben" }),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The rules can take every move away without a drag ever happening here — the class a teacher
+   * had open in another tab is reopened to students — and a tag left looking picked would promise
+   * a move that no drop will now accept.
+   */
+  it("deselects everyone the moment the rules refuse every move", async () => {
+    const { rerender } = setup(roster, () => null);
+
+    await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Bene Berger" }));
+    expect(card("Nicht zugeteilt").getByRole("button", { name: "Bene Berger" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    rerender(board(roster, () => "classOpen"));
+
+    expect(
+      card("Nicht zugeteilt").getByRole("button", { name: "Bene Berger" }),
+    ).not.toHaveAttribute("aria-pressed", "true");
   });
 });
 
@@ -305,20 +393,20 @@ describe("AssignmentBoard — what the figures count", () => {
       within(table)
         .getAllByRole("columnheader")
         .map((header) => header.textContent),
-    ).toEqual(["Männlich", "Weiblich", "Gesamt", "Teilnahme"]);
-    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "2", "50 %"]);
+    ).toEqual(["Männlich", "Weiblich", "Divers", "Gesamt", "Teilnahme"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "0", "2", "50 %"]);
   });
 
   it("takes the share of the whole board, so the cards' shares add up to everyone", () => {
     setup();
 
-    expect(genderCells("Montafon")).toEqual(["0", "1", "1", "25 %"]);
+    expect(genderCells("Montafon")).toEqual(["0", "1", "0", "1", "25 %"]);
   });
 
   it("measures against everyone registered, not only against those taking part", () => {
     setup([BENE, ANNA, CLARA, DORA, ELIAS]);
 
-    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "2", "40 %"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "0", "2", "40 %"]);
   });
 
   it("counts the whole card while the toggle is off, however the filter narrows the list", async () => {
@@ -326,7 +414,7 @@ describe("AssignmentBoard — what the figures count", () => {
 
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
 
-    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "2", "50 %"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "1", "0", "2", "50 %"]);
   });
 
   it("counts only what the filter leaves once the toggle is on", async () => {
@@ -335,7 +423,7 @@ describe("AssignmentBoard — what the figures count", () => {
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
     await userEvent.click(toggleIn("Nicht zugeteilt"));
 
-    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "0", "1", "100 %"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "0", "0", "1", "100 %"]);
   });
 
   // Filtering to a class asks what that class did, so the students of it who stay at home have
@@ -346,7 +434,7 @@ describe("AssignmentBoard — what the figures count", () => {
     await userEvent.click(card("Nicht zugeteilt").getByRole("button", { name: "Klasse: 5BHIF" }));
     await userEvent.click(toggleIn("Nicht zugeteilt"));
 
-    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "0", "1", "50 %"]);
+    expect(genderCells("Nicht zugeteilt")).toEqual(["1", "0", "0", "1", "50 %"]);
   });
 
   it("is answered per card, since each card carries a filter of its own", async () => {
@@ -368,7 +456,7 @@ describe("AssignmentBoard — picking a student without a click", () => {
 
   it("picks a student on the press, before any click", () => {
     setup();
-    const row = rowFor("Muster Anna");
+    const row = rowFor("Anna Muster");
 
     fireEvent.pointerDown(row);
 
@@ -377,7 +465,7 @@ describe("AssignmentBoard — picking a student without a click", () => {
 
   it("un-picks on the release, which arrives even where the click does not", () => {
     setup();
-    const row = rowFor("Muster Anna");
+    const row = rowFor("Anna Muster");
 
     fireEvent.pointerDown(row);
     fireEvent.pointerUp(row);
@@ -392,7 +480,7 @@ describe("AssignmentBoard — picking a student without a click", () => {
   /** A keyboard activation has no press and no release, so the click is all it has. */
   it("toggles on a keyboard activation", () => {
     setup();
-    const row = rowFor("Muster Anna");
+    const row = rowFor("Anna Muster");
 
     fireEvent.click(row, { detail: 0 });
 

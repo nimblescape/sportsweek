@@ -5,6 +5,7 @@
  */
 import type { Registration, RegistrationInput } from "@/lib/schemas/registration";
 import { EMPTY_EMERGENCY_CONTACT } from "@/lib/schemas/registration";
+import type { EquipmentItem } from "@/lib/schemas/master-data";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 
 /**
@@ -17,16 +18,43 @@ export function registrationPath(eventSeriesId: string): string {
 }
 
 /**
- * The one sentence for every way a student can arrive at nothing to fill in (US-19, US-23): a
- * link that is mistyped, superseded or names a series since closed, archived or deleted, and a
- * student signing in with no open series they have joined. Telling those apart would say which
- * of them applies — to a caller who should not be able to tell, and to a student who could do
- * nothing about it either way.
+ * The one sentence for a student signed in holding no registration at all — never having
+ * followed a link, or every one they held since archived or deleted. Told apart from a dead
+ * link's own message (`INVALID_LINK_HINT`): arriving with nothing is not the same as arriving
+ * with something that did not work.
+ *
+ * What it no longer covers is a class that is merely closed (US-45): that link still works, and
+ * a student who holds no registration for it yet is told to keep it instead, by
+ * `CLASS_CLOSED_KEEP_LINK_HINT`.
  *
  * "Veranstaltung", not "Sportveranstaltung": a series may be a Kulturwoche. "Derzeit", not
- * "noch", because a series can be closed after having been open.
+ * "noch", because a series can be archived after having been open.
  */
 export const REGISTRATION_NOT_OPEN_HINT = "Derzeit ist keine Veranstaltung freigeschaltet.";
+
+/**
+ * Told to a student whose link did not lead anywhere — mistyped, superseded by a regenerated
+ * one, or naming a class or series since removed. The reasons stay untold apart from each other,
+ * since none of them is anything a student could act on differently; only that the link itself,
+ * rather than their standing, is what did not work.
+ */
+export const INVALID_LINK_HINT = "Dieser Link ist ungültig.";
+
+/**
+ * Told to a student who followed a live link to a class that is currently closed and holds no
+ * registration for it yet (US-45): the address is still good, so they are asked to keep it
+ * rather than sent looking for a new one.
+ */
+export const CLASS_CLOSED_KEEP_LINK_HINT =
+  "Die Anmeldung für deine Klasse ist derzeit geschlossen. Bewahre den Link auf, über den du " +
+  "hierhergekommen bist — du kannst ihn wieder verwenden, sobald deine Klasse erneut öffnet.";
+
+/**
+ * Shown in place of an editable field once the class a registration names has closed (US-45):
+ * the record is frozen, not withheld, and this is the one line saying why nothing on it can be
+ * changed.
+ */
+export const REGISTRATION_CLOSED_HINT = "Die Registrierung für deine Klasse ist geschlossen.";
 
 /**
  * Shown when an answer names something the event series stopped offering while the form was
@@ -42,23 +70,23 @@ export const EMPTY_REGISTRATION: RegistrationInput = {
   // Taking part is the student's to answer, and an unanswered form has not answered it. Borrowing
   // equipment is only asked of somebody taking part, so it starts on "no".
   isAttendingSportsWeek: null,
+  gender: null,
+  dateOfBirth: null,
+  phoneNumber: null,
+  emergencyContact: EMPTY_EMERGENCY_CONTACT,
   program: null,
+  equipmentRentalNeeded: false,
+  rentedEquipment: [],
+  weightKg: null,
+  heightCm: null,
+  shoeSize: null,
   skillLevel: null,
+  seasonPassOption: null,
   busPickupPoint: null,
   foodOption: null,
   foodOtherText: null,
-  seasonPassOption: null,
-  dateOfBirth: null,
-  gender: null,
-  phoneNumber: null,
-  emergencyContact: EMPTY_EMERGENCY_CONTACT,
   healthNotes: null,
   hasMedication: null,
-  equipmentRentalNeeded: false,
-  rentedEquipment: [],
-  shoeSize: null,
-  heightCm: null,
-  weightKg: null,
 };
 
 /**
@@ -73,16 +101,18 @@ export function toRegistrationInput(record: Registration): RegistrationInput {
 }
 
 /**
- * Holds the rental answers to what the selected program actually requires (US-11). The form
+ * Holds the rental answers to what the selected program actually lends (US-11, US-36). The form
  * keeps the boxes a student ticked for a program they have since switched away from, which is
  * the right thing on screen and the wrong thing to store: a rented name is what holds a teacher
  * back from removing that equipment (US-5).
  */
 export function scopeRentalToProgram(
   values: RegistrationInput,
-  programEquipment: readonly string[],
+  programEquipment: readonly EquipmentItem[],
 ): RegistrationInput {
-  if (programEquipment.length === 0) {
+  const borrowable = programEquipment.filter((item) => item.isRentable).map((item) => item.name);
+
+  if (borrowable.length === 0) {
     return { ...values, equipmentRentalNeeded: null, rentedEquipment: [] };
   }
   if (values.equipmentRentalNeeded !== true) {
@@ -90,6 +120,6 @@ export function scopeRentalToProgram(
   }
   return {
     ...values,
-    rentedEquipment: values.rentedEquipment.filter((name) => programEquipment.includes(name)),
+    rentedEquipment: values.rentedEquipment.filter((name) => borrowable.includes(name)),
   };
 }

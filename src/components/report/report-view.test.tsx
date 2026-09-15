@@ -6,10 +6,11 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid, type Uid } from "@/lib/schemas/common";
 import { EMPTY_FILTER, toggleTag } from "@/lib/filters/student-filter";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 
 const useEventSeries = vi.fn();
 const useRoster = vi.fn();
@@ -48,8 +49,8 @@ const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-s
 // Which series the view is about comes from the page (Q8); the data hooks are mocked, so the id
 // only has to be present. The page also decides whether what is set up here may be kept, which
 // these tests take as granted unless they are about the refusal.
-function ReportView({ mayEdit = true }: { mayEdit?: boolean } = {}) {
-  return <ScopedReportView eventSeriesId="s1" mayEdit={mayEdit} />;
+function ReportView({ mayEdit = true, teacherUid }: { mayEdit?: boolean; teacherUid?: Uid } = {}) {
+  return <ScopedReportView eventSeriesId="s1" mayEdit={mayEdit} teacherUid={teacherUid} />;
 }
 
 function student(
@@ -58,8 +59,8 @@ function student(
   overrides: Partial<Omit<RosterStudent, "record">> = {},
 ): RosterStudent {
   return rosterStudent({
-    id: `record-${lastName}`,
-    studentUid: `uid-${lastName}`,
+    id: asUid(`record-${lastName}`),
+    studentUid: asUid(`uid-${lastName}`),
     email: `${lastName.toLowerCase()}@student.htldornbirn.at`,
     firstName,
     lastName,
@@ -75,13 +76,23 @@ const eventSeries = {
   id: "s1",
   ...storedEventSeries({
     name: "2026",
-    isOpenToStudents: true,
     hasRegistrations: true,
-    events: ["Woche 1"],
+    events: [event("Woche 1")],
     // The same lists the hooks below are mocked with: they are fields of this document, and it
     // is the document the fields row asks what the series wants asking about (US-21).
-    classOptions: ["5AHIF", "5BHIF"],
-    programs: [{ name: "Ski", requiredEquipment: ["Ski", "Stöcke"] }],
+    classOptions: [
+      { name: "5AHIF", teacherUids: [], isOpenToStudents: false },
+      { name: "5BHIF", teacherUids: [], isOpenToStudents: false },
+    ],
+    programs: [
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Ski", isRentable: true },
+          { name: "Stöcke", isRentable: true },
+        ],
+      },
+    ],
     skillLevels: ["Profi"],
     seasonPassOptions: ["Keine"],
     busPickupPoints: ["Dornbirn", "Bregenz"],
@@ -103,7 +114,15 @@ beforeEach(() => {
     return listOf("Profi");
   });
   usePrograms.mockReturnValue({
-    programs: [{ name: "Ski", requiredEquipment: ["Ski", "Stöcke"] }],
+    programs: [
+      {
+        name: "Ski",
+        requiredEquipment: [
+          { name: "Ski", isRentable: true },
+          { name: "Stöcke", isRentable: true },
+        ],
+      },
+    ],
     loading: false,
     error: null,
   });
@@ -142,12 +161,19 @@ describe("ReportView", () => {
     expect(rowOf("Berger")).toBeInTheDocument();
   });
 
-  it("names each student on one master line, with the e-mail address in parentheses", () => {
+  it("names each student on one master line, without the e-mail address next to it", () => {
     render(<ReportView />);
 
     const row = within(rowOf("Muster"));
     expect(row.getByText("Anna Muster")).toBeInTheDocument();
-    expect(row.getByText("(muster@student.htldornbirn.at)")).toBeInTheDocument();
+    expect(row.queryByText("(muster@student.htldornbirn.at)")).not.toBeInTheDocument();
+  });
+
+  it("numbers each student's master line in the order the list gives them", () => {
+    render(<ReportView />);
+
+    expect(within(rowOf("Berger")).getByText("1.")).toBeInTheDocument();
+    expect(within(rowOf("Muster")).getByText("2.")).toBeInTheDocument();
   });
 
   it("reduces a student to their master line while no field is activated", () => {
@@ -157,10 +183,12 @@ describe("ReportView", () => {
   });
 
   it("marks a registration that is still missing answers, so a teacher knows whom to chase", () => {
-    const incomplete = rosterStudent(
-      { id: "record-Cerny", firstName: "Clara", lastName: "Cerny" },
-      { isIncomplete: true },
-    );
+    const incomplete = rosterStudent({
+      id: asUid("record-Cerny"),
+      firstName: "Clara",
+      lastName: "Cerny",
+      isIncomplete: true,
+    });
     useRoster.mockReturnValue({ students: [incomplete, ANNA], loading: false, error: null });
 
     render(<ReportView />);
@@ -201,10 +229,12 @@ describe("ReportView", () => {
   });
 
   it("filters by whether a registration is still missing answers", async () => {
-    const chasing = rosterStudent(
-      { id: "record-Cerny", firstName: "Clara", lastName: "Cerny", isIncomplete: true },
-      { isIncomplete: true },
-    );
+    const chasing = rosterStudent({
+      id: asUid("record-Cerny"),
+      firstName: "Clara",
+      lastName: "Cerny",
+      isIncomplete: true,
+    });
     useRoster.mockReturnValue({ students: [chasing, ANNA], loading: false, error: null });
 
     render(<ReportView />);
@@ -304,6 +334,7 @@ describe("the fields tag list", () => {
     await activate("Kontaktdaten");
 
     expect(detailsOf("Muster")).toEqual([
+      "E-Mail:",
       "Telefonnummer:",
       "Notfallkontakt:",
       "Beziehung:",
@@ -311,17 +342,17 @@ describe("the fields tag list", () => {
     ]);
   });
 
-  it("adds no e-mail line, since the master line already carries the address", async () => {
+  it("adds the e-mail address as a detail line once contact data is activated", async () => {
     render(<ReportView />);
 
     await activate("Kontaktdaten");
 
-    expect(detailsOf("Muster")).not.toContain("E-Mail");
+    expect(screen.getByText("muster@student.htldornbirn.at")).toBeInTheDocument();
   });
 
   it("says a field is unanswered rather than leaving the line blank", async () => {
     const nameless = rosterStudent(
-      { id: "record-Cerny", firstName: "Clara", lastName: "Cerny" },
+      { id: asUid("record-Cerny"), firstName: "Clara", lastName: "Cerny" },
       { healthNotes: null },
     );
     useRoster.mockReturnValue({ students: [nameless], loading: false, error: null });
@@ -450,6 +481,11 @@ describe("the saved reports", () => {
       fields: [],
     };
     useSavedReports.mockReturnValue({ reports: [pickup], loading: false, error: null });
+    useEventSeries.mockReturnValue({
+      eventSeries: [{ ...eventSeries, busPickupPoints: [] }],
+      loading: false,
+      error: null,
+    });
     useMasterData.mockImplementation((key: string) => {
       if (key === "bus-pickup-points") return listOf();
       if (key === "classes") return listOf("5AHIF", "5BHIF");
@@ -636,5 +672,47 @@ describe("exporting", () => {
 
     expect(screen.getByRole("button", { name: "PDF" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Excel" })).toBeDisabled();
+  });
+});
+
+/** US-39: a teacher's own pages open on the classes they look after, and no others. */
+describe("ReportView — narrowed to a teacher's own classes (US-39)", () => {
+  const TEACHER = asUid("uidTeacher");
+
+  beforeEach(() => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [
+        {
+          ...eventSeries,
+          classOptions: [
+            { name: "5AHIF", teacherUids: [TEACHER], isOpenToStudents: false },
+            { name: "5BHIF", teacherUids: [], isOpenToStudents: false },
+          ],
+        },
+      ],
+      loading: false,
+      error: null,
+    });
+  });
+
+  it("lists only the students of the classes this teacher looks after", () => {
+    render(<ReportView teacherUid={TEACHER} />);
+
+    expect(rows()).toHaveLength(1);
+    expect(rowOf("Muster")).toBeInTheDocument();
+  });
+
+  it("offers only the classes this teacher looks after as a filter tag", () => {
+    render(<ReportView teacherUid={TEACHER} />);
+
+    expect(screen.getByRole("button", { name: "Klasse: 5AHIF" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Klasse: 5BHIF" })).not.toBeInTheDocument();
+  });
+
+  it("lists every student where the reader looks after none of this series' classes", () => {
+    render(<ReportView teacherUid={asUid("uidColleague")} />);
+
+    expect(rows()).toHaveLength(2);
+    expect(rowOf("Berger")).toBeInTheDocument();
   });
 });

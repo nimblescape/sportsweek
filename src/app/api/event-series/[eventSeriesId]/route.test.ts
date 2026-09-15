@@ -60,25 +60,7 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
     expect(updateEventSeries).toHaveBeenCalledWith("s1", { name: "Neuer Name" });
   });
 
-  /**
-   * Opening and closing registration is what the registrations page is for, so it is that
-   * permission rather than the one that maintains the series itself (US-2).
-   */
-  it("lets somebody who may only edit registrations open it", async () => {
-    getAuthenticatedUser.mockResolvedValue({
-      uid: "u2",
-      email: "t2@htldornbirn.at",
-      accountType: "teacher",
-      permissions: ["editRegistrations"],
-    });
-
-    const response = await PATCH(patchRequest({ isOpenToStudents: true }), context);
-
-    expect(response.status).toBe(200);
-    expect(updateEventSeries).toHaveBeenCalledWith("s1", { isOpenToStudents: true });
-  });
-
-  it("refuses them the rest of the record", async () => {
+  it("rejects a caller who may only edit registrations", async () => {
     getAuthenticatedUser.mockResolvedValue({
       uid: "u2",
       email: "t2@htldornbirn.at",
@@ -92,46 +74,9 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
     expect(updateEventSeries).not.toHaveBeenCalled();
   });
 
-  it("refuses a change that smuggles a rename in beside the opening", async () => {
-    getAuthenticatedUser.mockResolvedValue({
-      uid: "u2",
-      email: "t2@htldornbirn.at",
-      accountType: "teacher",
-      permissions: ["editRegistrations"],
-    });
-
-    const response = await PATCH(
-      patchRequest({ isOpenToStudents: true, name: "Neuer Name" }),
-      context,
-    );
-
-    expect(response.status).toBe(403);
-    expect(updateEventSeries).not.toHaveBeenCalled();
-  });
-
-  it("refuses somebody who may only maintain master data the opening", async () => {
-    const response = await PATCH(patchRequest({ isOpenToStudents: true }), context);
-
-    expect(response.status).toBe(403);
-    expect(updateEventSeries).not.toHaveBeenCalled();
-  });
-
-  it("lets somebody holding both do either", async () => {
-    getAuthenticatedUser.mockResolvedValue({
-      uid: "u3",
-      email: "t3@htldornbirn.at",
-      accountType: "teacher",
-      permissions: ["editRegistrations", "editMasterData"],
-    });
-
-    expect((await PATCH(patchRequest({ isOpenToStudents: true }), context)).status).toBe(200);
-    expect((await PATCH(patchRequest({ name: "X" }), context)).status).toBe(200);
-  });
-
   /**
-   * Which permission this needs depends on what the body changes, so the body is read before the
-   * permission is known — but not before the caller is. A stranger is answered 401 rather than
-   * shown which fields a valid body would name.
+   * Whether somebody may act on this at all is checked once the caller is known, before the body
+   * is inspected further — a stranger is answered 401 rather than shown what a valid body names.
    */
   it("refuses a caller with no session before reading their body", async () => {
     getAuthenticatedUser.mockResolvedValue(null);
@@ -139,9 +84,6 @@ describe("PATCH /api/event-series/[eventSeriesId]", () => {
     const response = await PATCH(patchRequest({ nonsense: true }), context);
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toMatchObject({
-      error: { message: expect.not.stringContaining("isOpenToStudents") },
-    });
     expect(updateEventSeries).not.toHaveBeenCalled();
   });
 

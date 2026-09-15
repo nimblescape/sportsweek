@@ -20,7 +20,7 @@ export function SignInCard() {
   return (
     <div className="bg-muted/50 flex flex-1 items-center justify-center p-4">
       <SignInLayout
-        subtitle="Sportwochen-Verwaltung"
+        subtitle="Veranstaltungsverwaltung"
         action="Anmelden über Office 365"
         onSignIn={signIn}
         busy={checking}

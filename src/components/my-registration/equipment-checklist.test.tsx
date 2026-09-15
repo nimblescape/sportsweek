@@ -7,13 +7,15 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { EquipmentChecklist } from "./equipment-checklist";
+import type { EquipmentItem } from "@/lib/schemas/master-data";
 
-const ITEMS = ["Ski", "Skischuhe", "Stöcke", "Helm"];
+const NAMES = ["Ski", "Skischuhe", "Stöcke", "Helm"];
+const ITEMS: EquipmentItem[] = NAMES.map((name) => ({ name, isRentable: true }));
 
-function setup(value: string[] = [], selectable = true) {
+function setup(value: string[] = [], selectable = true, items: EquipmentItem[] = ITEMS) {
   const onChange = vi.fn();
   render(
-    <EquipmentChecklist items={ITEMS} selectable={selectable} value={value} onChange={onChange} />,
+    <EquipmentChecklist items={items} selectable={selectable} value={value} onChange={onChange} />,
   );
   return onChange;
 }
@@ -29,7 +31,7 @@ describe("EquipmentChecklist", () => {
     it("lists what the program requires, with nothing to tick", () => {
       setup([], false);
 
-      for (const item of ITEMS) expect(box(item)).toBeDisabled();
+      for (const item of NAMES) expect(box(item)).toBeDisabled();
     });
 
     /** The boxes stay laid out, only hidden, so the entries do not shift when the answer does. */
@@ -42,7 +44,7 @@ describe("EquipmentChecklist", () => {
     it("shows every entry as one the student is not borrowing", () => {
       setup(["Helm"], false);
 
-      for (const item of ITEMS) expect(isMuted(item)).toBe(true);
+      for (const item of NAMES) expect(isMuted(item)).toBe(true);
       expect(box("Helm")).not.toBeChecked();
     });
 
@@ -56,7 +58,7 @@ describe("EquipmentChecklist", () => {
   it("offers every item the program requires", () => {
     setup();
 
-    for (const item of ITEMS) expect(box(item)).not.toBeChecked();
+    for (const item of NAMES) expect(box(item)).not.toBeChecked();
   });
 
   it("checks the items already chosen", () => {
@@ -95,11 +97,11 @@ describe("EquipmentChecklist", () => {
 
     await userEvent.click(box("Alles"));
 
-    expect(onChange).toHaveBeenCalledWith(ITEMS);
+    expect(onChange).toHaveBeenCalledWith(NAMES);
   });
 
   it("clears the selection when 'Alles' is unchecked", async () => {
-    const onChange = setup(ITEMS);
+    const onChange = setup(NAMES);
 
     await userEvent.click(box("Alles"));
 
@@ -107,7 +109,7 @@ describe("EquipmentChecklist", () => {
   });
 
   it("shows 'Alles' as checked once every item is checked by hand", () => {
-    setup(ITEMS);
+    setup(NAMES);
 
     expect(box("Alles")).toBeChecked();
   });
@@ -118,18 +120,18 @@ describe("EquipmentChecklist", () => {
     expect(box("Alles")).not.toBeChecked();
   });
 
-  it("leaves 'Alles' unchecked while the program requires nothing", () => {
+  it("offers no 'Alles' while the program lends nothing", () => {
     const onChange = vi.fn();
     render(<EquipmentChecklist items={[]} selectable value={[]} onChange={onChange} />);
 
-    expect(box("Alles")).not.toBeChecked();
+    expect(screen.queryByText("Alles")).not.toBeInTheDocument();
   });
 
   it("offers 'Alles' after the items, not before them", () => {
     setup();
 
     const names = screen.getAllByRole("checkbox").map((entry) => entry.parentElement?.textContent);
-    expect(names).toEqual([...ITEMS, "Alles"]);
+    expect(names).toEqual([...NAMES, "Alles"]);
   });
 
   it("ignores a stored item the program no longer requires", () => {

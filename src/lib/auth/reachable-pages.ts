@@ -45,7 +45,7 @@ export function firstReachableHref(
   if (reachable.length === 0) return null;
 
   if (eventSeriesId === null) {
-    if (reachable.includes("users")) return `${ROUTES.appRoot}/users`;
+    if (reachable.includes("users")) return ROUTES.users;
     return reachable.includes("masterData") ? ROUTES.eventSeries : null;
   }
 
@@ -55,7 +55,7 @@ export function firstReachableHref(
     assignment: scoped.assignment,
     report: scoped.report,
     masterData: ROUTES.eventSeries,
-    users: `${ROUTES.appRoot}/users`,
+    users: ROUTES.users,
   };
 
   return hrefs[reachable[0]];

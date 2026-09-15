@@ -21,8 +21,9 @@ import {
 type FieldProps = {
   label: string;
   error?: string;
-  /** Receives the id its label points at, so the association is never left to chance. */
-  children: (id: string) => React.ReactNode;
+  /** Receives the id its label points at and whether it holds an error, so a caller can put
+   * both on the input without checking `error` a second time. */
+  children: (id: string, invalid: boolean) => React.ReactNode;
 };
 
 export function Field({ label, error, children }: FieldProps) {
@@ -31,7 +32,7 @@ export function Field({ label, error, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      {children(id)}
+      {children(id, Boolean(error))}
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
     </div>
   );
@@ -58,9 +59,11 @@ export function ReadOnlyField({ label, value }: { label: string; value: string }
 }
 
 /**
- * A group of choices, named as a group so the question is announced with its answers. A plain
- * element with `role="group"` rather than a fieldset: a legend is laid out by the browser in
- * ways that will not sit beside anything, and the inline variant has to.
+ * A group of radios, named as a group so the question is announced with its answers. A plain
+ * element with `role="radiogroup"` rather than a fieldset: a legend is laid out by the browser
+ * in ways that will not sit beside anything, and the inline variant has to. `radiogroup` rather
+ * than the plainer `group` is what lets it carry `aria-invalid` at all — the two roles differ
+ * exactly there, and this one is never used for anything but radios.
  */
 export function ChoiceGroup({
   label,
@@ -74,14 +77,28 @@ export function ChoiceGroup({
   children: React.ReactNode;
 }) {
   const id = React.useId();
+  const invalid = Boolean(error);
 
   return (
-    <div role="group" aria-labelledby={id} className="flex flex-col gap-1.5">
+    <div
+      role="radiogroup"
+      aria-labelledby={id}
+      aria-invalid={invalid || undefined}
+      className="flex flex-col gap-1.5"
+    >
       <div className={cn("flex gap-1.5", inline ? "flex-wrap items-center gap-x-3" : "flex-col")}>
         <span id={id} className="text-sm leading-none font-medium">
           {label}
         </span>
-        <div className="flex flex-wrap items-center gap-4">{children}</div>
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-4 rounded-lg border border-transparent p-1.5",
+            invalid &&
+              "border-destructive ring-destructive/20 dark:border-destructive/50 dark:ring-destructive/40 ring-3",
+          )}
+        >
+          {children}
+        </div>
       </div>
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
     </div>

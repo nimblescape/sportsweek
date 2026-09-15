@@ -3,7 +3,9 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
-import { asPercent, type AttendingCounts } from "@/lib/assignment/statistics";
+import { asPercent, countedTotal, type AttendingCounts } from "@/lib/assignment/statistics";
+import { GENDER_LABELS } from "@/lib/registration/answer-labels";
+import { genderSchema } from "@/lib/schemas/common";
 
 const cell = "border-border border-b px-3 py-1.5";
 
@@ -20,10 +22,11 @@ export function GenderTable({
   counts: AttendingCounts;
   registeredTotal: number;
 }) {
-  const total = counts.male + counts.female;
+  const total = countedTotal(counts);
   const columns = [
-    ["Männlich", counts.male],
-    ["Weiblich", counts.female],
+    ...genderSchema.options.map(
+      (gender) => [GENDER_LABELS[gender], counts.genders[gender]] as const,
+    ),
     ["Gesamt", total],
     ["Teilnahme", asPercent(registeredTotal === 0 ? 0 : total / registeredTotal)],
   ] as const;

@@ -10,6 +10,8 @@ import { collection, query } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { subscribeWithRecovery } from "@/lib/firebase/live-query";
 import { registrationPath } from "@/lib/registration/registration";
+import type { EventSeriesListField } from "@/lib/master-data/categories";
+import type { EventSeries } from "@/lib/schemas/event-series";
 import { registrationSchema, type Registration } from "@/lib/schemas/registration";
 import { toRoster, type RosterStudent } from "./roster";
 
@@ -27,7 +29,10 @@ type RosterState = {
  * assignment the moment it is stored. One subscription and no join — the registration carries
  * the student's name itself (US-26).
  */
-export function useRoster(eventSeriesId: string | null): RosterState {
+export function useRoster(
+  eventSeriesId: string | null,
+  eventSeries: Pick<EventSeries, EventSeriesListField> | null,
+): RosterState {
   const [records, setRecords] = useState<Registration[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,7 +56,10 @@ export function useRoster(eventSeriesId: string | null): RosterState {
     });
   }, [eventSeriesId]);
 
-  const students = useMemo(() => (records === null ? [] : toRoster(records)), [records]);
+  const students = useMemo(
+    () => (records === null || eventSeries === null ? [] : toRoster(records, eventSeries)),
+    [records, eventSeries],
+  );
 
   return {
     students,

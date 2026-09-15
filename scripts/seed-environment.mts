@@ -7,8 +7,8 @@
  * Resets a project to its defaults: everything is deleted, and what this script writes is then
  * all it holds.
  *
- * | production              | one event series with the lists that are the same every year |
- * | development, staging    | that series, filled in, plus a roster and its registrations  |
+ * | production              | one event series with the lists that are the same every year        |
+ * | development, staging    | that series and a second one, both filled in with a roster and registrations |
  *
  * Seeding on top of what a project already holds says nothing about whether the application put
  * it there, so the point of a seeded environment — that its contents are known — needs the delete
@@ -22,21 +22,28 @@
  * Emptying production is a legitimate admin task and is not fenced off, but it is the one thing
  * here that cannot be undone, so it asks for the project id to be typed back first.
  */
+import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore, type WriteBatch } from "firebase-admin/firestore";
 import { buildEmail } from "@/lib/auth/fake/email-builder";
+import { invitationKey } from "@/lib/auth/school-email";
 import { COLLECTIONS } from "@/lib/schemas/collections";
-import type { Gender } from "@/lib/schemas/common";
-import { FOOD_OPTION_OTHER, type Program } from "@/lib/schemas/master-data";
+import { genderSchema, type Gender } from "@/lib/schemas/common";
+import {
+  FOOD_OPTION_OTHER,
+  type ClassOption,
+  type OverridableLists,
+  type Program,
+} from "@/lib/schemas/master-data";
 import type { EventSeries } from "@/lib/schemas/event-series";
+import { MASTER_DATA_CATEGORIES } from "@/lib/master-data/categories";
 import { registrationSchema, type RegistrationInput } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema } from "@/lib/schemas/user";
-import { FULL_PERMISSIONS } from "@/lib/auth/permissions";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { isRegistrationIncomplete } from "@/lib/registration/completeness";
-import { questionsAsked } from "@/lib/master-data/categories";
+import { questionsFor } from "@/lib/master-data/resolution";
 import { EMPTY_REGISTRATION, registrationPath } from "@/lib/registration/registration";
 import {
   apphostingValue,
@@ -46,6 +53,7 @@ import {
   STAGING,
   type Environment,
 } from "./environment.mjs";
+import { loadSeedConfig, type SeedEventSeries, type SeedUser } from "./seed-config.mjs";
 
 /**
  * Where inventing people is allowed, and where a purge needs no ceremony. Production is absent
@@ -54,24 +62,6 @@ import {
  */
 const TEST_ENVIRONMENTS: readonly Environment[] = [DEVELOPMENT, STAGING];
 
-/**
- * Who a purged school starts out able to administer it, in every environment including
- * production. Signing in grants nothing on its own, so without these there would be nobody who
- * could hand out a permission and no way to become that person from inside the application.
- *
- * These are records rather than accounts: they sign in through Entra ID like anybody else, and
- * provisioning then fills in the name and the photo it finds. What it does not touch is what a
- * record already holds, which is what makes these survive their first login.
- *
- * Who administers a school later on is a question for the records — `npm run logins:<environment>`
- * asks it — since a permission granted or withdrawn since is not visible from here.
- */
-const ADMINISTRATORS = [
-  { firstName: "Hannes", lastName: "Stauss", email: "hannes.stauss@htldornbirn.at" },
-  { firstName: "Julia", lastName: "Mathis", email: "julia.mathis@htldornbirn.at" },
-  { firstName: "Norbert", lastName: "Lenz", email: "norbert.lenz@htldornbirn.at" },
-] as const;
-
 /** Asks one of them for the bare state instead, which is what a school's first day is. */
 const BARE = "--bare";
 
@@ -79,53 +69,33 @@ const BARE = "--bare";
 const USER_PAGE_SIZE = 1000;
 
 /**
- * The lists a school configures once and every event series thereafter inherits by being made
- * from the template (US-22). Its own two — the events it runs and the classes it invites — are
- * not among them: those say which week it is rather than how the school works.
- */
-const CATEGORY_DEFAULTS = {
-  programs: [
-    { name: "Ski", requiredEquipment: ["Ski", "Skischuhe", "Stöcke", "Helm"] },
-    { name: "Snowboard", requiredEquipment: ["Board", "Boots", "Helm"] },
-    { name: "Alternativ", requiredEquipment: [] },
-  ],
-  skillLevels: ["Keine Vorkenntnisse", "Anfänger:in", "Fortgeschritten", "Profi"],
-  seasonPassOptions: [
-    "Kein Skipass",
-    "Vielleicht Skipass",
-    "Golm-Bielerhöhe (Illwerke)",
-    "Silvretta-Montafon",
-  ],
-  busPickupPoints: ["HTL Dornbirn", "Bahnhof Bregenz", "Bahnhof Feldkirch", "Heim Tschagguns"],
-  foodOptions: ["Esse alles", "Vegetarisch", "Vegan", "Kein Schweinefleisch"],
-} satisfies Pick<
-  EventSeries,
-  "programs" | "skillLevels" | "seasonPassOptions" | "busPickupPoints" | "foodOptions"
->;
-
-/**
  * What a purged environment gets so there is somewhere to put students. The application seeds
  * nothing at all any more — it cannot know whether it is being asked for a Wintersportwoche or a
- * Kulturwoche — so a fresh project holds only what is written here.
+ * Kulturwoche — so a fresh project holds only what `scripts/seed.yml` names, in the order it
+ * lists them there. Only the first is bare-seeded (US-33): it is the one a school cannot be
+ * without, and every series after it is invented only where students are invented too.
  */
-const DEFAULT_EVENT_SERIES_NAME = "Wintersportwochen 2026/2027";
 
 /**
- * What production gets: the five lists that are the same every year, and nothing for the two that
- * are not. Which weeks there are and which classes go on them is what a teacher fills in.
+ * The categories an event may override (US-33), derived from the categories map rather than
+ * named a second time — so a category that becomes overridable, or stops being one, changes
+ * there and nothing here needs to catch up.
  */
-const BARE_LISTS = {
-  events: [],
-  classOptions: [],
-  ...CATEGORY_DEFAULTS,
-} satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
+const PER_EVENT_FIELDS = Object.values(MASTER_DATA_CATEGORIES)
+  .filter((category) => category.perEvent)
+  .map((category) => category.field);
 
-/** The seven maintained lists as a test environment wants them, filled in far enough to use. */
-const MASTER_DATA_DEFAULTS = {
-  events: ["Woche 1", "Woche 2", "Woche 3"],
-  classOptions: ["2aWI", "2bWI", "2cWI"],
-  ...CATEGORY_DEFAULTS,
-} satisfies Pick<EventSeries, "events" | "classOptions"> & typeof CATEGORY_DEFAULTS;
+/**
+ * What production gets: those categories, and nothing for the two that describe this particular
+ * year — which weeks there are and which classes go on them is what a teacher fills in.
+ */
+function bareEventSeriesOf(series: SeedEventSeries): SeedEventSeries {
+  const overridable = Object.fromEntries(
+    PER_EVENT_FIELDS.map((field) => [field, series[field]]),
+  ) as OverridableLists;
+
+  return { name: series.name, events: [], classOptions: [], ...overridable };
+}
 
 /** The shape of the sports week as it is wanted in a test environment. */
 const STUDENTS_PER_CLASS = { min: 20, max: 25 };
@@ -150,16 +120,9 @@ const UNFINISHED_ANSWERS = [
   "hasMedication",
 ] as const satisfies readonly (keyof RegistrationInput)[];
 const FEMALE_SHARE = 1 / 3;
+/** Small on purpose: enough that every run has some, few enough to stay a minority in the figures. */
+const DIVERSE_SHARE = 1 / 20;
 const AGE_RANGE = { min: 15, max: 16 };
-
-/**
- * Matched against the programs a teacher maintains (US-5), so a renamed one stops the run rather
- * than quietly changing the split. Whatever is left over goes to the programs not named here.
- */
-const PROGRAM_SHARES = [
-  ["Ski", 0.6],
-  ["Snowboard", 0.3],
-] as const;
 
 /** How many attendees on a program that requires equipment rent it rather than bring their own. */
 const RENTAL_SHARE = 0.4;
@@ -214,7 +177,9 @@ const LAST_NAMES = [
 const OTHER_RELATIONSHIPS = ["Tante", "Onkel", "Schwester", "Bruder", "Großmutter", "Stiefvater"];
 const HEALTH_NOTES = ["Asthma", "Heuschnupfen", "Pollenallergie", "Knieprobleme", "Kurzsichtig"];
 const FOOD_INTOLERANCES = ["Nussallergie", "Laktoseintoleranz", "Glutenfrei", "Kein Fisch"];
-const MOBILE_PREFIXES = ["650", "660", "664", "676", "677", "699"];
+// Austria's assigned mobile codes start at 0650 (US-11 shape), so these read as Austrian without
+// being able to reach an actual subscriber.
+const MOBILE_PREFIXES = ["600", "610", "620", "630", "640"];
 
 const BATCH_LIMIT = 500;
 
@@ -302,7 +267,14 @@ type Person = { firstName: string; lastName: string; email: string; gender: Gend
  * is the way out that stays an address the tenant could have issued — a digit would not be.
  */
 function createPerson(gender: Gender, taken: Set<string>): Person {
-  const firstNames = gender === "male" ? MALE_FIRST_NAMES : FEMALE_FIRST_NAMES;
+  // The two pools are given names sorted by the gender they read as, and a third gender is not a
+  // third way of reading one — so it draws from both rather than from a pool invented for it.
+  const firstNames =
+    gender === "male"
+      ? MALE_FIRST_NAMES
+      : gender === "female"
+        ? FEMALE_FIRST_NAMES
+        : [...MALE_FIRST_NAMES, ...FEMALE_FIRST_NAMES];
 
   for (let attempt = 0; ; attempt += 1) {
     const firstName = pick(firstNames);
@@ -361,7 +333,11 @@ function registrationOf(
     };
   }
 
-  const rents = program.requiredEquipment.length > 0 && chance(RENTAL_SHARE);
+  // Only what the school lends can be asked for, so a program that lends nothing asks nothing.
+  const rentable = program.requiredEquipment
+    .filter((item) => item.isRentable)
+    .map((item) => item.name);
+  const rents = rentable.length > 0 && chance(RENTAL_SHARE);
   const wantsOtherFood = chance(OTHER_FOOD_SHARE);
 
   const answers: RegistrationInput = {
@@ -371,15 +347,17 @@ function registrationOf(
     busPickupPoint: pick(lists.busPickupPoints),
     foodOption: wantsOtherFood ? FOOD_OPTION_OTHER : pick(lists.foodOptions),
     foodOtherText: wantsOtherFood ? pick(FOOD_INTOLERANCES) : null,
-    seasonPassOption: pick(lists.seasonPassOptions),
+    // Unlike the other lists, this one is legitimately empty (a summer series asks no such
+    // question), and `pick` on an empty list answers undefined rather than null.
+    seasonPassOption: lists.seasonPassOptions.length > 0 ? pick(lists.seasonPassOptions) : null,
     dateOfBirth: dateOfBirth(),
     gender: person.gender,
     phoneNumber: phoneNumber(),
     emergencyContact: emergencyContact(person),
     healthNotes: chance(HEALTH_NOTE_SHARE) ? pick(HEALTH_NOTES) : null,
     hasMedication: chance(MEDICATION_SHARE),
-    equipmentRentalNeeded: program.requiredEquipment.length > 0 ? rents : null,
-    rentedEquipment: rents ? program.requiredEquipment.filter(() => chance(0.75)).slice(0, 4) : [],
+    equipmentRentalNeeded: rentable.length > 0 ? rents : null,
+    rentedEquipment: rents ? rentable.filter(() => chance(0.75)).slice(0, 4) : [],
     shoeSize: rents ? String(intBetween(36, 47)) : null,
     heightCm: rents ? intBetween(155, 192) : null,
     weightKg: rents ? intBetween(45, 92) : null,
@@ -447,28 +425,38 @@ async function purgeAuth(auth: Auth): Promise<number> {
   }
 }
 
+/** `seed.yml` names classes in whatever order is easiest to read there, not the seeded order. */
+const byReversedName = (one: ClassOption, other: ClassOption): number =>
+  [...one.name]
+    .reverse()
+    .join("")
+    .localeCompare([...other.name].reverse().join(""));
+
 /**
  * The one event series a school cannot be without: every teacher view is scoped to a selection,
  * so with none at all the header offers nothing and the navigation bar points nowhere. Deleting
  * the last unarchived one is refused, so once this has run that state is out of reach.
  *
  * Open only where the students are invented too: seeding stands in for the invitation link a
- * teacher would hand out (US-23), and production has nobody to let in yet.
+ * teacher would hand out (US-23, US-43), and production has nobody to let in yet.
  */
 async function createEventSeries(
   db: Firestore,
-  lists: typeof BARE_LISTS | typeof MASTER_DATA_DEFAULTS,
+  series: SeedEventSeries,
+  position: number,
   isOpenToStudents: boolean,
 ): Promise<EventSeries> {
-  // The lists live in this document (US-21), so seeding them is part of creating it.
+  // The lists live in this document (US-21), so seeding them is part of creating it. Classes are
+  // seeded in reversed-name order (a teacher may still drag them into any order afterwards).
   const data = {
-    name: DEFAULT_EVENT_SERIES_NAME,
-    nameKey: normalizeName(DEFAULT_EVENT_SERIES_NAME),
+    ...series,
+    classOptions: [...series.classOptions]
+      .sort(byReversedName)
+      .map((option) => ({ ...option, isOpenToStudents })),
+    nameKey: normalizeName(series.name),
     isArchived: false,
-    isOpenToStudents,
     hasRegistrations: false,
-    position: 0,
-    ...lists,
+    position,
   };
   const reference = db.collection(COLLECTIONS.eventSeries).doc();
   await reference.set(data);
@@ -494,40 +482,204 @@ async function confirmed(projectId: string): Promise<boolean> {
   }
 }
 
+type SeededAccount = { uid: string; email: string; displayName: string };
+
 /**
- * The account behind a seeded record, because a record is keyed by the uid and only Firebase can
- * mint one (US-31). Purging deletes these along with everything else, so a re-run creates them
- * again rather than finding them — the lookup is for a re-run over a tree that was not purged.
+ * Every account a series' students need, made in one Admin SDK call per `BATCH_LIMIT` of them
+ * rather than one call per student (US-31). `main` always purges Auth first, so there is never
+ * an existing account to look up — a per-student `getUserByEmail` would only ever fail before
+ * falling back to `createUser`, paying for two round trips where one bulk call does the lot.
  */
-async function uidFor(auth: Auth, email: string, displayName: string): Promise<string> {
-  try {
-    return (await auth.getUserByEmail(email)).uid;
-  } catch {
-    return (await auth.createUser({ email, displayName, emailVerified: true })).uid;
+async function importAccounts(auth: Auth, accounts: readonly SeededAccount[]): Promise<void> {
+  for (let index = 0; index < accounts.length; index += BATCH_LIMIT) {
+    const chunk = accounts.slice(index, index + BATCH_LIMIT);
+    const { failureCount, errors } = await auth.importUsers(
+      chunk.map(({ uid, email, displayName }) => ({
+        uid,
+        email,
+        displayName,
+        emailVerified: true,
+      })),
+    );
+
+    if (failureCount > 0) {
+      fail(
+        `Could not create ${failureCount} of ${chunk.length} account(s):`,
+        ...errors.map(({ error }) => `  ${error.message}`),
+      );
+    }
   }
 }
 
 /**
- * Leaves an invitation at each administrator's address, for the first sign-in to claim (US-2).
+ * Leaves an invitation at each configured teacher's address, for their first sign-in to claim
+ * (US-2). Permissions come from `scripts/seed.yml`, one person at a time, rather than a shared
+ * default — the roster names class teachers alongside administrators, and not everybody holds
+ * every permission.
  *
  * Not a `users` record, and deliberately not an Auth account either: their accounts are the
  * directory's to create, and one made here would hold the address under a credential Entra did
  * not issue — which is what a real sign-in then collides with. There is therefore no uid to key
  * a record by until somebody actually arrives.
+ *
+ * `classTeacherOf` names classes (US-40), matched against every series seeded so far rather than
+ * one named in advance — the same class name in two series is two different classes, and a name
+ * held by both leaves the teacher assigned to both.
  */
-async function inviteAdministrators(db: Firestore): Promise<void> {
+async function inviteTeachers(
+  db: Firestore,
+  teachers: readonly SeedUser[],
+  eventSeries: readonly EventSeries[],
+): Promise<void> {
   await Promise.all(
-    ADMINISTRATORS.map((person) =>
-      db
-        .collection(COLLECTIONS.invitedTeachers)
-        .doc(person.email)
-        .set({
-          firstName: person.firstName,
-          lastName: person.lastName,
-          permissions: [...FULL_PERMISSIONS],
-        }),
-    ),
+    teachers.map((person) => {
+      const classNames = new Set(person.classTeacherOf ?? []);
+      const classAssignments = eventSeries.flatMap((series) =>
+        series.classOptions
+          .filter((option) => classNames.has(option.name))
+          .map((option) => ({ eventSeriesId: series.id, class: option.name })),
+      );
+
+      return db.collection(COLLECTIONS.invitedTeachers).doc(invitationKey(person.email)).set({
+        firstName: person.firstName,
+        lastName: person.lastName,
+        permissions: person.permissions,
+        classAssignments,
+      });
+    }),
   );
+}
+
+/**
+ * Registers a class list of students into one event series, split evenly across whatever
+ * programs it has (US-21) — a name-matched split would stop the run over a rename this script
+ * has no reason to care about. `taken` is shared across every series seeded in the same run, so
+ * the same generated name is never handed to two different students under two different series.
+ */
+async function seedRegistrations(
+  db: Firestore,
+  auth: Auth,
+  eventSeries: EventSeries,
+  taken: Set<string>,
+): Promise<void> {
+  const programs = eventSeries.programs;
+  if (programs.length === 0) {
+    fail(`"${eventSeries.name}" has no programs to register students into.`);
+  }
+
+  // One share per program but the last, whose share `split` derives as the remainder.
+  const shares = programs.slice(0, -1).map(() => 1 / programs.length);
+
+  const lists: Lists = {
+    skillLevels: eventSeries.skillLevels,
+    busPickupPoints: eventSeries.busPickupPoints,
+    foodOptions: eventSeries.foodOptions,
+    seasonPassOptions: eventSeries.seasonPassOptions,
+  };
+
+  const classNames = eventSeries.classOptions.map((option) => option.name);
+  if (classNames.length === 0) {
+    fail(`"${eventSeries.name}" has no classes to register students into.`);
+  }
+
+  const writes: ((batch: WriteBatch) => void)[] = [];
+  const accounts: SeededAccount[] = [];
+  const summary: string[] = [];
+  let seeded = 0;
+
+  for (const className of classNames) {
+    const size = intBetween(STUDENTS_PER_CLASS.min, STUDENTS_PER_CLASS.max);
+    const [attending, absent] = split(size, [between(ATTENDING_SHARE.min, ATTENDING_SHARE.max)]);
+    const genders = deal(
+      ["female", "diverse", "male"] as const,
+      split(size, [FEMALE_SHARE, DIVERSE_SHARE]),
+    );
+    // Alternated rather than rolled, so a class always gets both kinds rather than three of one.
+    const unfinished = Math.min(
+      intBetween(INCOMPLETE_PER_CLASS.min, INCOMPLETE_PER_CLASS.max),
+      size,
+    );
+    const progress = shuffle<Progress>([
+      ...Array.from({ length: unfinished }, (_, at) =>
+        at % 2 === 0 ? "unanswered" : ("unfinished" as Progress),
+      ),
+      ...Array<Progress>(size - unfinished).fill("answered"),
+    ]);
+    // Counted from what was written rather than from `attending`: a student the plan meant to
+    // take part may have been left unanswered instead, and a summary that says otherwise lies.
+    const written = { attending: 0, incomplete: 0 };
+    // Null is the absentee's "no program", which is why it is dealt alongside the real ones.
+    const chosen = shuffle([
+      ...deal<Program | null>(programs, split(attending, shares)),
+      ...Array<Program | null>(absent).fill(null),
+    ]);
+
+    for (let index = 0; index < size; index += 1) {
+      const person = createPerson(genders[index], taken);
+      const registration = registrationOf(person, chosen[index], lists, progress[index]);
+      if (registration.isAttendingSportsWeek === true) written.attending += 1;
+
+      const uid = randomUUID();
+      console.log(`  ${eventSeries.name} / ${className}: ${person.firstName} ${person.lastName}`);
+      const user = userSchema.parse({ id: uid, ...person, accountType: "student" });
+      const record = registrationSchema.parse({
+        id: uid,
+        studentUid: uid,
+        // Copied onto the record, which is what a reader takes the name from (US-26).
+        firstName: person.firstName,
+        lastName: person.lastName,
+        email: person.email,
+        // Set by the invitation link a student joins through rather than answered (US-23).
+        class: className,
+        // Unassigned on purpose: putting students into events is what the board is for (US-12).
+        event: null,
+        ...registration,
+      });
+      // Nobody has an event yet, so a two-step series asks nothing an event could answer
+      // differently here either (US-36) — the same rule a real registration is read under.
+      if (isRegistrationIncomplete(record, questionsFor(eventSeries, null))) {
+        written.incomplete += 1;
+      }
+
+      const { id: userId, ...userFields } = user;
+      const { id: recordId, ...recordFields } = record;
+      accounts.push({
+        uid,
+        email: person.email,
+        displayName: `${person.firstName} ${person.lastName}`,
+      });
+      writes.push((batch) => batch.set(db.collection(COLLECTIONS.users).doc(userId), userFields));
+      writes.push((batch) =>
+        batch.set(db.collection(registrationPath(eventSeries.id)).doc(recordId), recordFields),
+      );
+    }
+
+    seeded += size;
+    const counted = genderSchema.options
+      .map((gender) => `${genders.filter((one) => one === gender).length} ${gender}`)
+      .join(" / ");
+    const perProgram = programs
+      .map((program) => `${program.name} ${chosen.filter((c) => c === program).length}`)
+      .join(", ");
+    summary.push(
+      `  ${className}: ${size} students, ${written.attending} attending, ` +
+        `${written.incomplete} incomplete, ` +
+        `${counted}, ${perProgram}`,
+    );
+  }
+
+  // Mirrors what a student's own save does, so the event series view knows it may no longer be deleted.
+  writes.push((batch) =>
+    batch.update(db.collection(COLLECTIONS.eventSeries).doc(eventSeries.id), {
+      hasRegistrations: true,
+    }),
+  );
+
+  await importAccounts(auth, accounts);
+  await inBatches(db, writes);
+
+  console.log(`Seeded ${seeded} students into "${eventSeries.name}":`);
+  for (const line of summary) console.log(line);
 }
 
 async function main(): Promise<void> {
@@ -549,6 +701,9 @@ async function main(): Promise<void> {
 
   if (!isTest && !(await confirmed(projectId))) fail("That is not the project id. Nothing done.");
 
+  const config = loadSeedConfig();
+  if (config.eventSeries.length === 0) fail("scripts/seed.yml names no event series.");
+
   // Its own app rather than @/lib/firebase/admin: that one addresses whichever project the
   // ambient environment names, and this must address the one just named and nothing else.
   const app = initializeApp({ projectId });
@@ -564,132 +719,33 @@ async function main(): Promise<void> {
   console.log(`  ${accounts} account(s)`);
 
   // The lists are fields of the event series (US-21), so there is nothing to read until it
-  // exists — and creating it is what seeds them, since the application no longer does.
-  const eventSeries = await createEventSeries(
-    db,
-    seedsStudents ? MASTER_DATA_DEFAULTS : BARE_LISTS,
-    seedsStudents,
-  );
-  console.log(`Created the event series "${eventSeries.name}".`);
+  // exists — and creating it is what seeds them, since the application no longer does. Only the
+  // first is bare-seeded: production gets the one a school cannot be without, and every series
+  // after it is invented only where students are invented too.
+  //
+  // All of them are created before anybody is invited, so a class held by more than one series
+  // is matched into every one of them (US-40) — an invitation left for only the first would
+  // otherwise never see that the rest exist.
+  const created: EventSeries[] = [];
+  for (const [index, series] of config.eventSeries.entries()) {
+    if (index > 0 && !seedsStudents) continue;
 
-  await inviteAdministrators(db);
-  console.log(`Invited ${ADMINISTRATORS.map((one) => one.email).join(", ")}.`);
+    const data = index === 0 && !seedsStudents ? bareEventSeriesOf(series) : series;
+    const one = await createEventSeries(db, data, index, seedsStudents);
+    console.log(`Created the event series "${one.name}".`);
+    created.push(one);
+  }
+
+  await inviteTeachers(db, config.users, created);
+  console.log(`Invited ${config.users.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
   if (!seedsStudents) return;
 
-  const programs = eventSeries.programs;
-  const named = PROGRAM_SHARES.map(([name]) => programs.find((program) => program.name === name));
-  const others = programs.filter((program) => !PROGRAM_SHARES.some(([n]) => n === program.name));
-
-  if (named.some((program) => program === undefined) || others.length === 0) {
-    fail(
-      `The programs of "${eventSeries.name}" in ${projectId} do not match the split this script seeds.`,
-      `  wanted: ${PROGRAM_SHARES.map(([name, share]) => `${name} ${share * 100}%`).join(", ")}, plus at least one more for the rest`,
-      `  found:  ${programs.map((program) => program.name).join(", ") || "none"}`,
-    );
-  }
-
-  const ordered = [...(named as Program[]), ...others];
-  const restShare = 1 - PROGRAM_SHARES.reduce((sum, [, share]) => sum + share, 0);
-  const programShares = [
-    ...PROGRAM_SHARES.map(([, share]) => share),
-    ...others.slice(0, -1).map(() => restShare / others.length),
-  ];
-
-  const lists: Lists = {
-    skillLevels: eventSeries.skillLevels,
-    busPickupPoints: eventSeries.busPickupPoints,
-    foodOptions: eventSeries.foodOptions,
-    seasonPassOptions: eventSeries.seasonPassOptions,
-  };
-
-  const classNames = eventSeries.classOptions;
-  if (classNames.length === 0) {
-    fail(`"${eventSeries.name}" in ${projectId} has no classes to register students into.`);
-  }
-
   const taken = new Set<string>();
-  const writes: ((batch: WriteBatch) => void)[] = [];
-  const summary: string[] = [];
-
-  for (const className of classNames) {
-    const size = intBetween(STUDENTS_PER_CLASS.min, STUDENTS_PER_CLASS.max);
-    const [attending, absent] = split(size, [between(ATTENDING_SHARE.min, ATTENDING_SHARE.max)]);
-    const genders = deal(["female", "male"] as const, split(size, [FEMALE_SHARE]));
-    // Alternated rather than rolled, so a class always gets both kinds rather than three of one.
-    const unfinished = Math.min(
-      intBetween(INCOMPLETE_PER_CLASS.min, INCOMPLETE_PER_CLASS.max),
-      size,
-    );
-    const progress = shuffle<Progress>([
-      ...Array.from({ length: unfinished }, (_, at) =>
-        at % 2 === 0 ? "unanswered" : ("unfinished" as Progress),
-      ),
-      ...Array<Progress>(size - unfinished).fill("answered"),
-    ]);
-    // Counted from what was written rather than from `attending`: a student the plan meant to
-    // take part may have been left unanswered instead, and a summary that says otherwise lies.
-    const written = { attending: 0, incomplete: 0 };
-    // Null is the absentee's "no program", which is why it is dealt alongside the real ones.
-    const chosen = shuffle([
-      ...deal<Program | null>(ordered, split(attending, programShares)),
-      ...Array<Program | null>(absent).fill(null),
-    ]);
-
-    for (let index = 0; index < size; index += 1) {
-      const person = createPerson(genders[index], taken);
-      const registration = registrationOf(person, chosen[index], lists, progress[index]);
-      if (registration.isAttendingSportsWeek === true) written.attending += 1;
-
-      const uid = await uidFor(auth, person.email, `${person.firstName} ${person.lastName}`);
-      const user = userSchema.parse({ id: uid, ...person, accountType: "student" });
-      const record = registrationSchema.parse({
-        id: uid,
-        studentUid: uid,
-        // Copied onto the record, which is what a reader takes the name from (US-26).
-        firstName: person.firstName,
-        lastName: person.lastName,
-        email: person.email,
-        // Set by the invitation link a student joins through rather than answered (US-23).
-        class: className,
-        // Unassigned on purpose: putting students into events is what the board is for (US-12).
-        event: null,
-        isIncomplete: isRegistrationIncomplete(registration, questionsAsked(eventSeries)),
-        ...registration,
-      });
-      if (record.isIncomplete) written.incomplete += 1;
-
-      const { id: userId, ...userFields } = user;
-      const { id: recordId, ...recordFields } = record;
-      writes.push((batch) => batch.set(db.collection(COLLECTIONS.users).doc(userId), userFields));
-      writes.push((batch) =>
-        batch.set(db.collection(registrationPath(eventSeries.id)).doc(recordId), recordFields),
-      );
-    }
-
-    const female = genders.filter((gender) => gender === "female").length;
-    const perProgram = ordered
-      .map((program) => `${program.name} ${chosen.filter((c) => c === program).length}`)
-      .join(", ");
-    summary.push(
-      `  ${className}: ${size} students, ${written.attending} attending, ` +
-        `${written.incomplete} incomplete, ` +
-        `${size - female} male / ${female} female, ${perProgram}`,
-    );
+  for (const series of created) {
+    await seedRegistrations(db, auth, series, taken);
   }
-
-  // Mirrors what a student's own save does, so the event series view knows it may no longer be deleted.
-  writes.push((batch) =>
-    batch.update(db.collection(COLLECTIONS.eventSeries).doc(eventSeries.id), {
-      hasRegistrations: true,
-    }),
-  );
-
-  await inBatches(db, writes);
-
-  console.log(`Seeded ${taken.size} students into "${eventSeries.name}":`);
-  for (const line of summary) console.log(line);
 }
 
 await main();

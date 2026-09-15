@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { QueryDocumentSnapshot } from "firebase/firestore";
 import { zodConverter } from "@/lib/firebase/converters";
 import { eventSeriesSchema } from "@/lib/schemas/event-series";
+import { event } from "@/test/event-series";
 
 const converter = zodConverter(eventSeriesSchema);
 
@@ -15,12 +16,11 @@ const storedEventSeries = {
   name: "Wintersportwoche 2026",
   nameKey: "wintersportwoche 2026",
   isArchived: false,
-  isOpenToStudents: false,
   hasRegistrations: false,
   position: 0,
-  events: ["Woche 1"],
-  classOptions: ["3AHIT"],
-  programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+  events: [event("Woche 1")],
+  classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+  programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
   skillLevels: ["Keine Vorkenntnisse"],
   seasonPassOptions: ["Saisonkarte"],
   busPickupPoints: ["Dornbirn"],

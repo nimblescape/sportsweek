@@ -70,7 +70,7 @@ export function useTeachers() {
   return { teachers, loading, error };
 }
 
-/** Surname first, as a staff list is read. */
+/** Sorted by surname, then first name — how the list is ordered, not how a name is displayed. */
 function byName(a: Teacher, b: Teacher): number {
   return (
     a.lastName.localeCompare(b.lastName, "de-AT") || a.firstName.localeCompare(b.firstName, "de-AT")

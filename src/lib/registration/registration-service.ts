@@ -10,8 +10,12 @@ import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
-import { FOOD_OPTION_OTHER } from "@/lib/schemas/master-data";
-import { MASTER_DATA_CATEGORIES, questionsAsked } from "@/lib/master-data/categories";
+import {
+  MASTER_DATA_CATEGORIES,
+  type AnswerField,
+  type EventSeriesListField,
+} from "@/lib/master-data/categories";
+import { isAnswerOffered, questionsFor, resolveEventLists } from "@/lib/master-data/resolution";
 import {
   registrationInputSchema,
   registrationSchema,
@@ -21,9 +25,9 @@ import {
 import { userSchema } from "@/lib/schemas/user";
 import {
   ARCHIVED_IS_READ_ONLY_HINT,
+  classIsOpen,
   NO_SUCH_EVENT_SERIES,
 } from "@/lib/event-series/event-series-state";
-import { isRegistrationIncomplete } from "./completeness";
 import {
   ANSWER_NO_LONGER_OFFERED_HINT,
   EMPTY_REGISTRATION,
@@ -42,14 +46,11 @@ export type RegistrationTarget = {
 };
 
 /**
- * The series as it has to stand for a student to write into it (US-19).
- *
- * One flag rather than two: archiving closes, and the server refuses to open an archived series,
- * so `isOpenToStudents` already excludes it. A series that has since been
- * closed, archived or deleted, and one that was never named by a link the student holds, are all
- * answered with the same sentence — from where the student stands they are the same thing.
+ * The series a link or a record names, read inside the caller's own transaction. A series that
+ * has since been deleted, and one that was never named at all, are answered with the same
+ * sentence a closed class is (US-43) — from where the student stands they are the same thing.
  */
-async function requireOpenSeries(
+async function requireEventSeries(
   transaction: Transaction,
   eventSeriesId: string,
 ): Promise<EventSeries> {
@@ -61,7 +62,7 @@ async function requireOpenSeries(
     ? eventSeriesSchema.safeParse({ id: stored.id, ...stored.data() })
     : null;
 
-  if (!series?.success || !series.data.isOpenToStudents) {
+  if (!series?.success) {
     throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
   }
   return series.data;
@@ -80,7 +81,7 @@ function parseInput(input: RegistrationInput): RegistrationInput {
 }
 
 /**
- * Every list value a registration carries has to be one the event series currently offers.
+ * Every list value a registration carries has to be one the event resolves to (US-33, US-35).
  *
  * Checked against the series read inside the save's own transaction, which is the other half of
  * closing the race the in-use guard opens: a teacher removing an option writes the series
@@ -88,24 +89,19 @@ function parseInput(input: RegistrationInput): RegistrationInput {
  * than storing a value nothing offers. Without a cascade there is nothing to repair it later.
  */
 function assertAnswersAreOffered(
-  eventSeries: EventSeries,
+  lists: Pick<EventSeries, EventSeriesListField>,
+  asked: ReadonlySet<AnswerField>,
   answers: RegistrationInput & Pick<Registration, "class">,
 ): void {
   for (const category of Object.values(MASTER_DATA_CATEGORIES)) {
     const answer = answers[category.usage.field as keyof typeof answers];
     if (typeof answer !== "string" || answer === "") continue;
 
-    const list = eventSeries[category.field];
-    const offered = list.map((entry) => (typeof entry === "string" ? entry : entry.name));
+    // A question step one does not put has nothing to check the answer against yet — carried
+    // over from before the student was unassigned, not one this save is making (US-36).
+    if (!asked.has(category.usage.field)) continue;
 
-    // The free-text choice is never a row a teacher keeps, but it is offered alongside a
-    // non-empty list (US-9, US-21), so it is a legitimate answer wherever the question is asked.
-    const permitted =
-      category.usage.field === "foodOption" && offered.length > 0
-        ? [...offered, FOOD_OPTION_OTHER]
-        : offered;
-
-    if (!permitted.includes(answer)) {
+    if (!isAnswerOffered(lists, category, answer)) {
       throw new ServiceError(ErrorCode.Conflict, ANSWER_NO_LONGER_OFFERED_HINT);
     }
   }
@@ -152,7 +148,7 @@ export async function saveRegistration(
   const identity = await identityOf(target.studentUid);
 
   return adminDb.runTransaction(async (transaction) => {
-    const eventSeries = await requireOpenSeries(transaction, target.eventSeriesId);
+    const eventSeries = await requireEventSeries(transaction, target.eventSeriesId);
 
     // The series is the path and the student's uid is the id, so one registration per student
     // per series holds by construction rather than by a check (US-26).
@@ -161,12 +157,12 @@ export async function saveRegistration(
 
     // Nothing already enrolling them: following the link is what joins a student and writes the
     // registration (US-23), so without one this is somebody who has arrived at the wrong series.
+    // Amending asks only whether their own class is open, never for the link that got them in
+    // (US-43, US-45) — closing evicts nobody, it only stops what they say from changing.
     const studentClass = (stored.data()?.class as string) ?? null;
-    if (studentClass === null) {
+    if (studentClass === null || !classIsOpen(eventSeries.classOptions, studentClass)) {
       throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
     }
-
-    assertAnswersAreOffered(eventSeries, { ...fields, class: studentClass });
 
     // The teacher owns the assignment, so a save carries the stored one forward — unless the
     // student has just said they are not coming, which unassigns them (US-11). Saying nothing
@@ -174,13 +170,19 @@ export async function saveRegistration(
     const event =
       fields.isAttendingSportsWeek === false ? null : ((stored.data()?.event as string) ?? null);
 
+    // What the student's own event offers, falling back to the series' (US-33, US-35) — the one
+    // resolution both the check below and the completeness it feeds are asked for.
+    const lists = resolveEventLists(eventSeries, event);
+    // Until a teacher assigns them, a two-step series asks nothing an event could answer
+    // differently — so those answers are neither expected nor stored (US-36).
+    const asked = questionsFor(eventSeries, event);
+
+    assertAnswersAreOffered(lists, asked, { ...fields, class: studentClass });
+
     const data = {
       ...identity,
       class: studentClass,
       event,
-      // Recomputed here rather than trusted from the client: it is what the report marks a
-      // student by (US-13), so it has to follow the answers actually stored.
-      isIncomplete: isRegistrationIncomplete(fields, questionsAsked(eventSeries)),
       ...fields,
     };
     const record = registrationSchema.parse({ id: identity.studentUid, ...data });
@@ -204,8 +206,10 @@ export const NO_SUCH_REGISTRATION = "Diese Registrierung gibt es nicht.";
  * a fact in the data rather than a token they are carrying — and signing in again finds it by
  * looking, whichever way they arrived.
  *
- * Following the same link twice is one joining: an existing registration keeps every answer.
- * What a newer link does change is the class, which is the one way it moves (Q20).
+ * Following a link never moves an existing registration to another class (Q13): it navigates,
+ * and nothing more. A record is only ever created here, and only for a class that is currently
+ * open — amending one that already exists needs no link at all, and asks only whether its own
+ * class is still open (US-45).
  */
 export async function joinEventSeries(
   eventSeriesId: string,
@@ -215,22 +219,25 @@ export async function joinEventSeries(
   const identity = await identityOf(studentUid);
 
   await adminDb.runTransaction(async (transaction) => {
-    const eventSeries = await requireOpenSeries(transaction, eventSeriesId);
-
+    const eventSeries = await requireEventSeries(transaction, eventSeriesId);
     const reference = adminDb.collection(registrationPath(eventSeries.id)).doc(identity.studentUid);
     const stored = await transaction.get(reference);
 
-    if (stored.exists) {
-      transaction.update(reference, { class: className });
-    } else {
-      transaction.set(reference, {
-        ...identity,
-        class: className,
-        event: null,
-        isIncomplete: isRegistrationIncomplete(EMPTY_REGISTRATION, questionsAsked(eventSeries)),
-        ...EMPTY_REGISTRATION,
-      });
+    // A link only ever leads somewhere; there is nothing left for it to do (Q13).
+    if (stored.exists) return;
+
+    // A token names a class as well as a series (US-43), and joining is the one act that still
+    // demands it be open — amending an existing record no longer needs the link at all (US-45).
+    if (!classIsOpen(eventSeries.classOptions, className)) {
+      throw new ServiceError(ErrorCode.Conflict, REGISTRATION_NOT_OPEN_HINT);
     }
+
+    transaction.set(reference, {
+      ...identity,
+      class: className,
+      event: null,
+      ...EMPTY_REGISTRATION,
+    });
 
     if (!eventSeries.hasRegistrations) {
       transaction.update(adminDb.collection(COLLECTIONS.eventSeries).doc(eventSeries.id), {
@@ -238,6 +245,15 @@ export async function joinEventSeries(
       });
     }
   });
+}
+
+/**
+ * Whether a student already holds a registration for a series (US-45), checked before a link
+ * decides anything further for them — holding one already answers where they land (Q13).
+ */
+export async function hasRegistration(eventSeriesId: string, studentUid: string): Promise<boolean> {
+  const stored = await adminDb.collection(registrationPath(eventSeriesId)).doc(studentUid).get();
+  return stored.exists;
 }
 
 /**

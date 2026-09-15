@@ -9,6 +9,13 @@ export const TEACHER_DOMAIN = "htldornbirn.at";
 export const STUDENT_DOMAIN = "student.htldornbirn.at";
 
 /**
+ * Where an invitation waits for the person it names (US-2). The only key left that is an address
+ * rather than a uid, and a document id is case-sensitive where an address is not — so both ends
+ * ask this rather than folding it themselves, or an invitation is written where nobody reads.
+ */
+export const invitationKey = (email: string) => email.trim().toLowerCase();
+
+/**
  * Derives the account type from the address the school issued (US-3).
  * The domain must match exactly, so lookalikes such as `evil-htldornbirn.at`,
  * `mail.htldornbirn.at` or `htldornbirn.at.evil.com` are rejected.

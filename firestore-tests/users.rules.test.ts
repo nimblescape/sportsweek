@@ -295,8 +295,8 @@ describe("/users/{uid} create and delete", () => {
 });
 
 /**
- * When somebody signed in is nobody's to read (US-1). It is written server-side with the Admin
- * SDK, and no client has a use for it -- so the rule grants none, and these say so.
+ * When somebody signed in, readable only by whoever hands out the permissions (US-47) -- not
+ * even the person it is about, and not a teacher holding some other permission.
  */
 describe("/users/{uid}/logins", () => {
   async function seedLogin(uid: string) {
@@ -317,9 +317,8 @@ describe("/users/{uid}/logins", () => {
     await assertFails(db.collection(`users/${ALICE}/logins`).doc("login1").get());
   });
 
-  // Reading every user record is what editUsers grants, and it stops at the record.
-  it("denies whoever hands out the permissions reading somebody's sign-ins", async () => {
-    await seedUser(CAROL, admin());
+  it("denies a teacher without editUsers reading somebody's sign-ins", async () => {
+    await seedUser(CAROL, teacher());
     await seedUser(ALICE, student());
     await seedLogin(ALICE);
     const db = signInAs(CAROL);
@@ -327,9 +326,40 @@ describe("/users/{uid}/logins", () => {
     await assertFails(db.collection(`users/${ALICE}/logins`).get());
   });
 
+  it("denies a teacher holding a different permission reading somebody's sign-ins", async () => {
+    await seedUser(CAROL, teacher({ permissions: ["editMasterData"] }));
+    await seedUser(ALICE, student());
+    await seedLogin(ALICE);
+    const db = signInAs(CAROL);
+
+    await assertFails(db.collection(`users/${ALICE}/logins`).get());
+  });
+
+  it("allows whoever hands out the permissions reading somebody's sign-ins", async () => {
+    await seedUser(CAROL, admin());
+    await seedUser(ALICE, student());
+    await seedLogin(ALICE);
+    const db = signInAs(CAROL);
+
+    await assertSucceeds(db.collection(`users/${ALICE}/logins`).get());
+  });
+
   it("denies somebody writing a sign-in of their own", async () => {
     await seedUser(ALICE, student());
     const db = signInAs(ALICE);
+
+    await assertFails(
+      db
+        .collection(`users/${ALICE}/logins`)
+        .doc("invented")
+        .set({ at: "2026-08-29T17:04:05+02:00" }),
+    );
+  });
+
+  it("denies whoever hands out the permissions writing a sign-in", async () => {
+    await seedUser(CAROL, admin());
+    await seedUser(ALICE, student());
+    const db = signInAs(CAROL);
 
     await assertFails(
       db

@@ -7,6 +7,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_FILTER, toggleTag, type StudentFilter } from "@/lib/filters/student-filter";
+import { asUid } from "@/lib/schemas/common";
 import type { ReportSelection, SavedReport } from "@/lib/schemas/saved-report";
 import { stubTagRowLayout } from "@/test/stub-tag-row-layout";
 import { SavedReportTagList, MAY_NOT_EDIT_HINT } from "./saved-report-tag-list";
@@ -24,7 +25,7 @@ const saved = (
   filter,
   fields,
   position: 0,
-  createdByUserId: "uidJaneDoe",
+  createdByUserId: asUid("uidJaneDoe"),
 });
 
 const REPORTS = [saved("r1", "5AHIF"), saved("r2", "Alle Mädchen")];

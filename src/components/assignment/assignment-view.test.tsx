@@ -6,9 +6,10 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid, type Uid } from "@/lib/schemas/common";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { storedEventSeries } from "@/test/event-series";
+import { event, storedEventSeries } from "@/test/event-series";
 import { stubBoardLayout } from "@/test/stub-board-layout";
 
 const useEventSeries = vi.fn();
@@ -38,8 +39,8 @@ const { NO_EVENT_SERIES_HINT } = await import("@/lib/event-series/event-series-s
 
 // Which series the view is about comes from the page (Q8); the roster hook is mocked, so the id
 // only has to be present.
-function AssignmentView() {
-  return <ScopedAssignmentView eventSeriesId="s1" />;
+function AssignmentView({ teacherUid }: { teacherUid?: Uid } = {}) {
+  return <ScopedAssignmentView eventSeriesId="s1" teacherUid={teacherUid} />;
 }
 
 function student(
@@ -48,8 +49,8 @@ function student(
   overrides: Partial<Omit<RosterStudent, "record">> = {},
 ): RosterStudent {
   return rosterStudent({
-    id: `record-${lastName}`,
-    studentUid: `uid-${lastName}`,
+    id: asUid(`record-${lastName}`),
+    studentUid: asUid(`uid-${lastName}`),
     firstName,
     lastName,
     ...overrides,
@@ -60,14 +61,16 @@ const ANNA = student("Anna", "Muster");
 const BENE = student("Bene", "Berger", { event: "Montafon" });
 const CLARA = student("Clara", "Cerny", { isAttending: false });
 
-/** The events are a field of this document, so a series arrives with its own weeks (US-21). */
+/**
+ * The events are a field of this document, so a series arrives with its own weeks (US-21). It is
+ * closed to students, because assigning in an open one is refused.
+ */
 const eventSeries = {
   id: "s1",
   ...storedEventSeries({
     name: "2026",
-    isOpenToStudents: true,
     hasRegistrations: true,
-    events: ["Montafon", "Gardasee"],
+    events: [event("Montafon"), event("Gardasee")],
   }),
 };
 
@@ -132,21 +135,21 @@ describe("AssignmentView", () => {
     render(<AssignmentView />);
 
     expect(
-      card("Nicht zugeteilt").getByRole("button", { name: "Muster Anna" }),
+      card("Nicht zugeteilt").getByRole("button", { name: "Anna Muster" }),
     ).toBeInTheDocument();
-    expect(card("Montafon").getByRole("button", { name: "Berger Bene" })).toBeInTheDocument();
+    expect(card("Montafon").getByRole("button", { name: "Bene Berger" })).toBeInTheDocument();
   });
 
   it("keeps a student who is not attending out of every card", () => {
     render(<AssignmentView />);
 
-    expect(screen.queryByRole("button", { name: "Cerny Clara" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clara Cerny" })).not.toBeInTheDocument();
   });
 
   it("assigns a student dragged onto a week", async () => {
     render(<AssignmentView />);
 
-    await drag("Nicht zugeteilt", "Muster Anna", "{ArrowDown}");
+    await drag("Nicht zugeteilt", "Anna Muster", "{ArrowDown}");
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/assignments", {
@@ -159,7 +162,7 @@ describe("AssignmentView", () => {
   it("takes the week away from a student dragged back onto the unassigned card", async () => {
     render(<AssignmentView />);
 
-    await drag("Montafon", "Berger Bene", "{ArrowUp}");
+    await drag("Montafon", "Bene Berger", "{ArrowUp}");
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/event-series/s1/assignments", {
@@ -178,7 +181,7 @@ describe("AssignmentView", () => {
     );
 
     render(<AssignmentView />);
-    await drag("Nicht zugeteilt", "Muster Anna", "{ArrowDown}");
+    await drag("Nicht zugeteilt", "Anna Muster", "{ArrowDown}");
 
     await waitFor(() => expect(useBusyWhile).toHaveBeenCalledWith(true));
     settle();
@@ -219,5 +222,55 @@ describe("AssignmentView", () => {
       "aria-pressed",
       "true",
     );
+  });
+});
+
+/** US-39: a teacher's own pages open on the classes they look after, and no others. */
+describe("AssignmentView — narrowed to a teacher's own classes (US-39)", () => {
+  const TEACHER = asUid("uidTeacher");
+
+  beforeEach(() => {
+    useEventSeries.mockReturnValue({
+      eventSeries: [
+        {
+          ...eventSeries,
+          classOptions: [
+            { name: "5AHIF", teacherUids: [TEACHER] },
+            { name: "5BHIF", teacherUids: [] },
+          ],
+        },
+      ],
+      loading: false,
+      error: null,
+    });
+    useRoster.mockReturnValue({
+      students: [
+        student("Anna", "Muster", { class: "5AHIF", event: "Montafon" }),
+        student("Clara", "Cerny", { class: "5BHIF", event: "Montafon" }),
+      ],
+      loading: false,
+      error: null,
+    });
+  });
+
+  it("lists only the students of the classes this teacher looks after", () => {
+    render(<AssignmentView teacherUid={TEACHER} />);
+
+    expect(card("Montafon").getByRole("button", { name: "Anna Muster verschieben" })).toBeInTheDocument(); // prettier-ignore
+    expect(card("Montafon").queryByRole("button", { name: "Clara Cerny verschieben" })).not.toBeInTheDocument(); // prettier-ignore
+  });
+
+  it("offers only the classes this teacher looks after as filter tags", () => {
+    render(<AssignmentView teacherUid={TEACHER} />);
+
+    expect(card("Montafon").getByRole("button", { name: "Klasse: 5AHIF" })).toBeInTheDocument();
+    expect(card("Montafon").queryByRole("button", { name: "Klasse: 5BHIF" })).not.toBeInTheDocument(); // prettier-ignore
+  });
+
+  it("lists every student where the reader looks after none of this series' classes", () => {
+    render(<AssignmentView teacherUid={asUid("uidColleague")} />);
+
+    expect(card("Montafon").getByRole("button", { name: "Anna Muster verschieben" })).toBeInTheDocument(); // prettier-ignore
+    expect(card("Montafon").getByRole("button", { name: "Clara Cerny verschieben" })).toBeInTheDocument(); // prettier-ignore
   });
 });

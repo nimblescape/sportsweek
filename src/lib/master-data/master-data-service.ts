@@ -5,22 +5,29 @@
  */
 import "server-only";
 import type { Transaction } from "firebase-admin/firestore";
+import { z } from "zod";
 import { adminDb } from "@/lib/firebase/admin";
 import { normalizeName } from "@/lib/firebase/name-key";
 import { ErrorCode } from "@/lib/errors";
 import { ServiceError } from "@/lib/service-error";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { uidSchema } from "@/lib/schemas/common";
 import { NO_SUCH_EVENT_SERIES } from "@/lib/event-series/event-series-state";
 import { eventSeriesSchema, type EventSeries } from "@/lib/schemas/event-series";
 import {
+  classOptionListSchema,
+  eventListSchema,
   listItemNameSchema,
   namedListSchema,
   programListSchema,
   requiredEquipmentSchema,
+  type ClassOption,
+  type EquipmentItem,
   type Program,
 } from "@/lib/schemas/master-data";
 import {
   categoryOf,
+  INVITATION_ACTIVE_HINT,
   masterDataCategorySchema,
   type MasterDataCategory,
   type MasterDataCategoryKey,
@@ -28,13 +35,29 @@ import {
 import { assertEquipmentNotInUse, assertNotInUse } from "./usage-guard";
 
 /**
- * One entry of a maintained list, in the shape the handlers answer with. Five of the six lists
- * store a bare name; only a program carries a list of its own (US-5), so the field is absent
- * rather than empty wherever it would mean nothing.
+ * Which document a list edit reads and writes: the series itself, or one of its events — the
+ * same five categories either way (US-33), so nothing downstream of this needs to ask which.
+ * Defaulted to the series everywhere below, so the series-scoped API route this already served
+ * needs no change of its own to keep working.
  */
-export type MasterDataItem = { name: string; requiredEquipment?: string[] };
+export type MasterDataScope = { kind: "series" } | { kind: "event"; name: string };
 
-export type MasterDataUpdate = { name?: string; requiredEquipment?: readonly string[] };
+const SERIES_SCOPE: MasterDataScope = { kind: "series" };
+
+/**
+ * One entry of a maintained list, in the shape the handlers answer with. Five of the six lists
+ * store a bare name; a program carries a list of its own (US-5) and a class carries the teachers
+ * who look after it (US-38), so each field is absent rather than empty wherever it would mean
+ * nothing.
+ */
+export type MasterDataItem = {
+  name: string;
+  requiredEquipment?: EquipmentItem[];
+  teacherUids?: ClassOption["teacherUids"];
+  isOpenToStudents?: boolean;
+};
+
+export type MasterDataUpdate = { name?: string; requiredEquipment?: readonly EquipmentItem[] };
 
 function parseName(value: string): string {
   const parsed = listItemNameSchema.safeParse(value);
@@ -51,7 +74,10 @@ function parseName(value: string): string {
  * Uniqueness within the program needs no reservation: the whole list lives in one document, so
  * the write that changes it already sees every sibling (US-5).
  */
-function parseEquipment(category: MasterDataCategory, value: readonly string[]): string[] {
+function parseEquipment(
+  category: MasterDataCategory,
+  value: readonly EquipmentItem[],
+): EquipmentItem[] {
   if (category.equipmentField === undefined) {
     throw new ServiceError(
       ErrorCode.ValidationError,
@@ -69,11 +95,72 @@ function parseEquipment(category: MasterDataCategory, value: readonly string[]):
   return parsed.data;
 }
 
-/** The lists differ in what they store; every operation here works on one uniform shape. */
-function itemsOf(series: EventSeries, category: MasterDataCategory): MasterDataItem[] {
-  return series[category.field].map((entry) =>
-    typeof entry === "string" ? { name: entry } : { ...entry },
-  );
+/**
+ * The event a scope names (US-33). Looked up by the same comparison every name in this service
+ * is, so a scope naming "woche 1" still finds "Woche 1".
+ */
+function eventNamed(series: EventSeries, name: string): EventSeries["events"][number] {
+  const wanted = normalizeName(name);
+  const found = series.events.find((candidate) => normalizeName(candidate.name) === wanted);
+  if (found === undefined) {
+    throw new ServiceError(ErrorCode.NotFound, "Dieses Event gibt es in dieser Eventreihe nicht.");
+  }
+  return found;
+}
+
+/**
+ * A scope is only as good as the category it is paired with: an event has no classes and no
+ * events of its own (US-33), so asking for either at event scope is refused rather than quietly
+ * answered from the series instead.
+ */
+function assertScopeAllowsCategory(scope: MasterDataScope, category: MasterDataCategory): void {
+  if (scope.kind === "event" && !category.perEvent) {
+    throw new ServiceError(ErrorCode.ValidationError, "Diese Kategorie kennt kein Event.");
+  }
+}
+
+/**
+ * The lists differ in what they store; every operation here works on one uniform shape. Which
+ * document supplies it is the scope's decision alone — the category and everything after this
+ * point neither knows nor needs to.
+ */
+function itemsOf(
+  series: EventSeries,
+  scope: MasterDataScope,
+  category: MasterDataCategory,
+): MasterDataItem[] {
+  const source: Record<string, unknown> =
+    scope.kind === "series" ? series : eventNamed(series, scope.name);
+  const list = source[category.field] as readonly (string | MasterDataItem)[];
+  return list.map((entry) => (typeof entry === "string" ? { name: entry } : { ...entry }));
+}
+
+/**
+ * The four shapes a list is stored in, matched to the schema that validates it. A program's
+ * equipment goes with it; a class's teachers go with it (US-38); an event carries whatever its
+ * own five lists already hold (US-33), since renaming or reordering the events themselves must
+ * not disturb them; every other list is bare names.
+ */
+function shapedList(category: MasterDataCategory, items: readonly MasterDataItem[]) {
+  if (category.equipmentField !== undefined) {
+    const value: Program[] = items.map((item) => ({
+      name: item.name,
+      requiredEquipment: item.requiredEquipment ?? [],
+    }));
+    return { schema: programListSchema, value };
+  }
+  if (category.hasTeacherAssignments === true) {
+    const value: ClassOption[] = items.map((item) => ({
+      name: item.name,
+      teacherUids: item.teacherUids ?? [],
+      isOpenToStudents: item.isOpenToStudents ?? false,
+    }));
+    return { schema: classOptionListSchema, value };
+  }
+  if (category.entriesAreRecords === true) {
+    return { schema: eventListSchema, value: items };
+  }
+  return { schema: namedListSchema, value: items.map((item) => item.name) };
 }
 
 /**
@@ -81,14 +168,7 @@ function itemsOf(series: EventSeries, category: MasterDataCategory): MasterDataI
  * length cap are decided, so no caller can write a list the schema would refuse (US-21).
  */
 function storedList(category: MasterDataCategory, items: readonly MasterDataItem[]) {
-  const schema = category.equipmentField === undefined ? namedListSchema : programListSchema;
-  const value =
-    category.equipmentField === undefined
-      ? items.map((item) => item.name)
-      : items.map((item): Program => ({
-          name: item.name,
-          requiredEquipment: item.requiredEquipment ?? [],
-        }));
+  const { schema, value } = shapedList(category, items);
 
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
@@ -122,6 +202,39 @@ function duplicate(name: string): ServiceError {
   return new ServiceError(ErrorCode.Conflict, `Den Namen „${name.trim()}" gibt es hier bereits.`);
 }
 
+/**
+ * The link a class hands out (US-23) names the class by its stored spelling — read here so a
+ * rename can be refused while one is live, and so a delete can take it along.
+ */
+async function invitationsOfClass(
+  transaction: Transaction,
+  eventSeriesId: string,
+  className: string,
+) {
+  return transaction.get(
+    adminDb
+      .collection(COLLECTIONS.invitations)
+      .where("eventSeriesId", "==", eventSeriesId)
+      .where("class", "==", className),
+  );
+}
+
+/**
+ * A class carrying a live link is treated the same as one a registration still selects: renamed
+ * out from under it, the link would go on minting enrolments into a name nothing answers to any
+ * more (Q12). Closing the class, or regenerating the link, is what clears this again.
+ */
+async function assertNoActiveInvitation(
+  transaction: Transaction,
+  eventSeriesId: string,
+  className: string,
+): Promise<void> {
+  const invitations = await invitationsOfClass(transaction, eventSeriesId, className);
+  if (!invitations.empty) {
+    throw new ServiceError(ErrorCode.Conflict, INVITATION_ACTIVE_HINT);
+  }
+}
+
 /** What a list edit is handed so its guard can run inside the write's own transaction. */
 type EditContext = { transaction: Transaction; eventSeriesId: string };
 
@@ -131,6 +244,32 @@ function eventSeriesDoc(eventSeriesId: string) {
 
 function missing(): ServiceError {
   return new ServiceError(ErrorCode.NotFound, NO_SUCH_EVENT_SERIES);
+}
+
+/**
+ * What a list edit writes: the whole field, for the series; for an event, the whole `events`
+ * array with only its own entry changed — Firestore has no way to address one array element by
+ * path, and the event's other four lists ride along untouched since `next` replaces only the one
+ * field on that one entry (US-33).
+ */
+function scopedPatch(
+  series: EventSeries,
+  scope: MasterDataScope,
+  category: MasterDataCategory,
+  next: unknown,
+): Partial<EventSeries> {
+  if (scope.kind === "series") {
+    return { [category.field]: next } as Partial<EventSeries>;
+  }
+
+  const wanted = normalizeName(scope.name);
+  return {
+    events: series.events.map((candidate) =>
+      normalizeName(candidate.name) === wanted
+        ? { ...candidate, [category.field]: next }
+        : candidate,
+    ),
+  };
 }
 
 /**
@@ -148,9 +287,12 @@ function missing(): ServiceError {
  */
 async function editList(
   eventSeriesId: string,
+  scope: MasterDataScope,
   category: MasterDataCategory,
   change: (items: MasterDataItem[], context: EditContext) => Promise<MasterDataItem[]>,
 ): Promise<void> {
+  assertScopeAllowsCategory(scope, category);
+
   await adminDb.runTransaction(async (transaction) => {
     const reference = eventSeriesDoc(eventSeriesId);
     const stored = await transaction.get(reference);
@@ -158,9 +300,9 @@ async function editList(
 
     const series = eventSeriesSchema.parse({ id: stored.id, ...stored.data() });
     const context = { transaction, eventSeriesId: series.id };
-    const next = storedList(category, await change(itemsOf(series, category), context));
+    const next = storedList(category, await change(itemsOf(series, scope, category), context));
 
-    transaction.update(reference, { [category.field]: next });
+    transaction.update(reference, scopedPatch(series, scope, category, next));
   });
 }
 
@@ -171,20 +313,23 @@ async function editList(
 export async function readMasterDataItems(
   eventSeriesId: string,
   key: MasterDataCategoryKey,
+  scope: MasterDataScope = SERIES_SCOPE,
 ): Promise<{ eventSeriesId: string; items: MasterDataItem[] }> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
+  assertScopeAllowsCategory(scope, category);
   const stored = await eventSeriesDoc(eventSeriesId).get();
   if (!stored.exists) throw missing();
 
   const series = eventSeriesSchema.parse({ id: stored.id, ...stored.data() });
 
-  return { eventSeriesId: series.id, items: itemsOf(series, category) };
+  return { eventSeriesId: series.id, items: itemsOf(series, scope, category) };
 }
 
 export async function createMasterDataItem(
   eventSeriesId: string,
   key: MasterDataCategoryKey,
-  input: { name: string; requiredEquipment?: readonly string[] },
+  input: { name: string; requiredEquipment?: readonly EquipmentItem[] },
+  scope: MasterDataScope = SERIES_SCOPE,
 ): Promise<MasterDataItem> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
   const name = parseName(input.name);
@@ -193,12 +338,18 @@ export async function createMasterDataItem(
       ? undefined
       : parseEquipment(category, input.requiredEquipment ?? []);
 
-  const item: MasterDataItem =
-    equipment === undefined ? { name } : { name, requiredEquipment: equipment };
+  const item: MasterDataItem = {
+    name,
+    ...(equipment === undefined ? {} : { requiredEquipment: equipment }),
+    // A class that has never been offered has no link and no reason to be open (Q12, US-43).
+    ...(category.hasTeacherAssignments === true
+      ? { teacherUids: [], isOpenToStudents: false }
+      : {}),
+  };
 
   // Adding strands nothing, so it needs no guard: a value nobody could have chosen yet cannot
   // be one a registration holds. A new item goes to the end of the order (see Ordering).
-  await editList(eventSeriesId, category, async (items) => {
+  await editList(eventSeriesId, scope, category, async (items) => {
     if (indexOf(items, name) !== -1) throw duplicate(name);
     return [...items, item];
   });
@@ -211,10 +362,11 @@ export async function reorderMasterDataItems(
   eventSeriesId: string,
   key: MasterDataCategoryKey,
   orderedNames: readonly string[],
+  scope: MasterDataScope = SERIES_SCOPE,
 ): Promise<void> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
 
-  await editList(eventSeriesId, category, async (items) => {
+  await editList(eventSeriesId, scope, category, async (items) => {
     // A permutation and nothing else: an order naming an item that has since gone, or leaving one
     // out, would silently drop it — so it is refused and the list is left as it stands.
     if (orderedNames.length !== items.length) {
@@ -229,6 +381,10 @@ export async function reorderMasterDataItems(
  * selected (US-11), so a rename would silently orphan every registration still pointing at the
  * old text. Archiving the event series is what releases the item again (US-5 to US-10).
  *
+ * A class is held to a second guard on top: a live invitation link names it by its stored
+ * spelling too (US-23), so renaming it away is refused the same way, until the link is closed
+ * or regenerated (Q12).
+ *
  * The equipment list is held to the same rule, one entry at a time: adding is always fine, but
  * an entry that disappears — removed outright or renamed away — must not be one a student still
  * rents. The list is rewritten whole, so the check is a set difference.
@@ -238,6 +394,7 @@ export async function updateMasterDataItem(
   key: MasterDataCategoryKey,
   item: string,
   update: MasterDataUpdate,
+  scope: MasterDataScope = SERIES_SCOPE,
 ): Promise<MasterDataItem> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
   const name = update.name === undefined ? undefined : parseName(update.name);
@@ -248,34 +405,40 @@ export async function updateMasterDataItem(
 
   let next!: MasterDataItem;
 
-  await editList(eventSeriesId, category, async (items, { transaction, eventSeriesId }) => {
+  await editList(eventSeriesId, scope, category, async (items, { transaction, eventSeriesId }) => {
     const index = indexOf(items, item);
     if (index === -1) throw new ServiceError(ErrorCode.NotFound, "Diesen Eintrag gibt es nicht.");
     const current = items[index]!;
 
     if (name !== undefined) {
       await assertNotInUse(transaction, eventSeriesId, category, current.name);
+      if (category.hasTeacherAssignments === true) {
+        await assertNoActiveInvitation(transaction, eventSeriesId, current.name);
+      }
     }
 
     if (equipment !== undefined) {
-      const kept = new Set(equipment.map(normalizeName));
-      const dropped = (current.requiredEquipment ?? []).filter(
-        (entry) => !kept.has(normalizeName(entry)),
+      // An item stops being borrowable by going, by being renamed away, or by having the flag
+      // taken off it — three ways of invalidating the same answer, refused on the same terms.
+      const stillLent = new Set(
+        equipment.filter((entry) => entry.isRentable).map((entry) => normalizeName(entry.name)),
       );
-      await assertEquipmentNotInUse(transaction, eventSeriesId, dropped);
+      const withdrawn = (current.requiredEquipment ?? [])
+        .filter((entry) => entry.isRentable && !stillLent.has(normalizeName(entry.name)))
+        .map((entry) => entry.name);
+      await assertEquipmentNotInUse(transaction, eventSeriesId, withdrawn);
     }
 
-    const carried =
-      current.requiredEquipment === undefined
-        ? {}
-        : { requiredEquipment: current.requiredEquipment };
-    next = {
-      name: name ?? current.name,
-      ...(equipment === undefined ? carried : { requiredEquipment: equipment }),
-    };
+    const clash = indexOf(items, name ?? current.name);
+    if (clash !== -1 && clash !== index) throw duplicate(name ?? current.name);
 
-    const clash = indexOf(items, next.name);
-    if (clash !== -1 && clash !== index) throw duplicate(next.name);
+    // Carries forward whatever else the entry holds — an event's own four other lists (US-33) —
+    // rather than rebuilding it from only the fields this operation knows about.
+    next = {
+      ...current,
+      name: name ?? current.name,
+      ...(equipment === undefined ? {} : { requiredEquipment: equipment }),
+    };
 
     return items.map((stored, at) => (at === index ? next : stored));
   });
@@ -287,22 +450,66 @@ export async function updateMasterDataItem(
  * A program's required equipment goes with it, since the list lives on the program itself — so
  * the same restriction applies: an entry a student still rents cannot be removed on its own, and
  * deleting the program must not be a way around that (US-5).
+ *
+ * A class is held to the invitation guard too, the same as a rename: archiving the event series
+ * is the only way a live link goes away (Q12).
  */
 export async function deleteMasterDataItem(
   eventSeriesId: string,
   key: MasterDataCategoryKey,
   item: string,
+  scope: MasterDataScope = SERIES_SCOPE,
 ): Promise<void> {
   const category = categoryOf(masterDataCategorySchema.parse(key));
 
-  await editList(eventSeriesId, category, async (items, { transaction, eventSeriesId }) => {
+  await editList(eventSeriesId, scope, category, async (items, { transaction, eventSeriesId }) => {
     const index = indexOf(items, item);
     if (index === -1) throw new ServiceError(ErrorCode.NotFound, "Diesen Eintrag gibt es nicht.");
     const current = items[index]!;
 
     await assertNotInUse(transaction, eventSeriesId, category, current.name);
-    await assertEquipmentNotInUse(transaction, eventSeriesId, current.requiredEquipment ?? []);
+    await assertEquipmentNotInUse(
+      transaction,
+      eventSeriesId,
+      (current.requiredEquipment ?? []).map((entry) => entry.name),
+    );
+    if (category.hasTeacherAssignments === true) {
+      await assertNoActiveInvitation(transaction, eventSeriesId, current.name);
+    }
 
     return items.filter((_, at) => at !== index);
   });
+}
+
+/**
+ * The class-teachers editor's one write (US-38): it replaces the assignment whole, the same way
+ * the candidate row it comes from always shows the whole set. Nothing else about the class
+ * changes, so no in-use guard applies — unlike a rename, no registration's stored text depends
+ * on who teaches it.
+ */
+export async function setClassTeachers(
+  eventSeriesId: string,
+  className: string,
+  teacherUids: readonly string[],
+): Promise<MasterDataItem> {
+  const category = categoryOf(masterDataCategorySchema.parse("classes"));
+  const parsed = z.array(uidSchema).safeParse(teacherUids);
+  if (!parsed.success) {
+    throw new ServiceError(
+      ErrorCode.ValidationError,
+      parsed.error.issues[0]?.message ?? "Ungültige Liste von Lehrpersonen.",
+    );
+  }
+
+  let next!: MasterDataItem;
+
+  await editList(eventSeriesId, SERIES_SCOPE, category, async (items) => {
+    const index = indexOf(items, className);
+    if (index === -1) throw new ServiceError(ErrorCode.NotFound, "Diese Klasse gibt es nicht.");
+
+    next = { ...items[index]!, teacherUids: parsed.data };
+    return items.map((stored, at) => (at === index ? next : stored));
+  });
+
+  return next;
 }

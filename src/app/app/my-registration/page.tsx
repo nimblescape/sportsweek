@@ -7,7 +7,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireStudent } from "@/lib/auth/guards";
 import { Card, CardContent } from "@/components/ui/card";
-import { REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
+import { INVALID_LINK_HINT, REGISTRATION_NOT_OPEN_HINT } from "@/lib/registration/registration";
 import { openSeriesOfStudent } from "@/lib/registration/student-series";
 import { ROUTES } from "@/lib/routes";
 
@@ -21,9 +21,18 @@ export const CHOOSE_EVENT_SERIES_LABEL = "Welche Registrierung möchtest du bear
  * ordinary case, because the years before it are closed and so are history rather than in the
  * way. Where a Wintersportwoche and a Kulturwoche are taking registrations at once there is a
  * real question, and it is asked: a form is reached only after saying which of them was meant.
+ *
+ * `invalid` is the one fact the join route knows that this page otherwise could not: the link
+ * that sent a student here did not lead anywhere, which reads differently from a student with
+ * nothing joined arriving on their own.
  */
-export default async function MyRegistrationPage() {
+export default async function MyRegistrationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invalid?: string }>;
+}) {
   const user = await requireStudent();
+  const { invalid } = await searchParams;
 
   const joined = await openSeriesOfStudent(user.uid);
   // One is not a choice, so it is not put as one.
@@ -33,7 +42,7 @@ export default async function MyRegistrationPage() {
     <Card>
       <CardContent className="flex flex-col gap-3">
         {joined.length === 0 ? (
-          <p role="status">{REGISTRATION_NOT_OPEN_HINT}</p>
+          <p role="status">{invalid === "1" ? INVALID_LINK_HINT : REGISTRATION_NOT_OPEN_HINT}</p>
         ) : (
           <>
             <p>{CHOOSE_EVENT_SERIES_LABEL}</p>

@@ -61,6 +61,18 @@ type TagProps = {
   variant?: TagVariant;
   /** Held while a write of the row's is out, so a second press cannot follow the first. */
   disabled?: boolean;
+  /**
+   * Makes the tag itself the control, for a tag that carries none of its own — a button may not
+   * contain a button. The whole pill then answers the pointer, the keyboard and a tooltip.
+   */
+  onClick?: () => void;
+  /** The accessible name, where the tag is the control and its text alone does not say enough. */
+  label?: string;
+  /**
+   * Radio semantics, for a row that is one choice rather than several toggles (US-36). Two
+   * pressed tags would be heard as two unrelated questions, either or neither answered.
+   */
+  role?: "radio";
   children: ReactNode;
   className?: string;
   /** A tag in a sortable list is positioned by its box rather than by the name inside it. */
@@ -73,27 +85,51 @@ export function Tag({
   pressed = false,
   variant = "default",
   disabled = false,
+  onClick,
+  label,
+  role,
   children,
   className,
   ref,
   style,
   onPointerDown,
 }: TagProps) {
+  const inert = useInert(disabled);
+  const shape = cn(
+    buttonVariants({ variant: pressed ? variant : "outline" }),
+    "gap-1 px-1.5",
+    className,
+  );
+
   return (
     <TagContext value={{ pressed, disabled }}>
-      <div
-        ref={ref}
-        data-slot="tag"
-        style={style}
-        onPointerDown={onPointerDown}
-        className={cn(
-          buttonVariants({ variant: pressed ? variant : "outline" }),
-          "gap-1 px-1.5",
-          className,
-        )}
-      >
-        {children}
-      </div>
+      {onClick ? (
+        <button
+          type="button"
+          data-slot="tag"
+          role={role}
+          aria-label={label}
+          aria-pressed={role === undefined ? pressed : undefined}
+          aria-checked={role === undefined ? undefined : pressed}
+          disabled={inert}
+          style={style}
+          onPointerDown={onPointerDown}
+          onClick={onClick}
+          className={shape}
+        >
+          {children}
+        </button>
+      ) : (
+        <div
+          ref={ref}
+          data-slot="tag"
+          style={style}
+          onPointerDown={onPointerDown}
+          className={shape}
+        >
+          {children}
+        </div>
+      )}
     </TagContext>
   );
 }

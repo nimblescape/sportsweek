@@ -10,6 +10,7 @@ import { firstReachableHref } from "@/lib/auth/reachable-pages";
 import { resolveSelectedEventSeriesId } from "@/lib/event-series/event-series-service";
 import { EVENT_SERIES_COOKIE_NAME } from "@/lib/event-series/event-series-selection";
 import { ROUTES } from "@/lib/routes";
+import { asUid } from "@/lib/schemas/common";
 
 export const NO_PERMISSIONS_HINT =
   "Für dich ist noch nichts freigeschaltet. Bitte wende dich an eine Person mit Administrationsrechten.";
@@ -28,7 +29,7 @@ export default async function AppLandingPage() {
   if (user.accountType !== "teacher") redirect(ROUTES.myRegistration);
 
   const remembered = (await cookies()).get(EVENT_SERIES_COOKIE_NAME)?.value;
-  const eventSeriesId = await resolveSelectedEventSeriesId(remembered);
+  const eventSeriesId = await resolveSelectedEventSeriesId(remembered, asUid(user.uid));
   const destination = firstReachableHref(user.permissions, eventSeriesId);
 
   if (destination !== null) redirect(destination);

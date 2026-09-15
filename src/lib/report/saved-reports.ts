@@ -4,6 +4,7 @@
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
 import { prunedToLists, sameFilter } from "@/lib/filters/student-filter";
+import { seriesWideLists } from "@/lib/master-data/resolution";
 import { fieldTagsFor } from "@/lib/report/report-fields";
 import type { AnswerField, EventSeriesListField } from "@/lib/master-data/categories";
 import { COLLECTIONS } from "@/lib/schemas/collections";
@@ -33,16 +34,21 @@ function sameFields(left: readonly string[], right: readonly string[]): boolean 
  * A saved report holding only what its series still asks for (US-21). A list a teacher has since
  * emptied takes its tags and its field with it: the report would otherwise filter on an answer
  * nobody can give any more, and print a line reading "keine Angabe" for every student.
+ *
+ * Widened across the series' own lists and every event's own before it is checked (US-33, US-35):
+ * a report spans every student regardless of which event they are in, so a value only one event
+ * offers is still one a report may filter and print on.
  */
 export function prunedSelection<T extends ReportSelection>(
   selection: T,
   eventSeries: Pick<EventSeries, EventSeriesListField>,
 ): T {
-  const offered = new Set(fieldTagsFor(eventSeries).map((tag) => tag.key));
+  const lists = seriesWideLists(eventSeries);
+  const offered = new Set(fieldTagsFor(lists).map((tag) => tag.key));
 
   return {
     ...selection,
-    filter: prunedToLists(selection.filter, eventSeries),
+    filter: prunedToLists(selection.filter, lists),
     fields: selection.fields.filter((key) => offered.has(key)),
   };
 }

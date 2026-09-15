@@ -3,6 +3,7 @@
  * Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
  * Licensed under the MIT License. See LICENSE in the repository root for details.
  */
+import { asUid } from "@/lib/schemas/common";
 import type { Registration } from "@/lib/schemas/registration";
 import type { RosterStudent } from "@/lib/students/roster";
 
@@ -10,7 +11,7 @@ import type { RosterStudent } from "@/lib/students/roster";
  * Shaped like what Firebase mints rather than like an address: opaque, and mixed case, so a
  * caller that folds a uid names nobody and the test says so.
  */
-const ANNA = "uidAnnaMuster";
+const ANNA = asUid("uidAnnaMuster");
 
 /**
  * A registration with every answer given, so a test states only the answers it is about.
@@ -25,7 +26,6 @@ export function studentRecord(overrides: Partial<Registration> = {}): Registrati
     lastName: "Muster",
     email: "anna@student.htldornbirn.at",
     event: null,
-    isIncomplete: false,
     isAttendingSportsWeek: true,
     class: "5AHIF",
     program: "Ski",
@@ -74,7 +74,7 @@ export function rosterStudent(
     program: "Ski",
     skillLevel: "Profi",
     isAttending: true,
-    isIncomplete: answers.isIncomplete ?? false,
+    isIncomplete: false,
     event: null,
     equipmentRentalNeeded: answers.equipmentRentalNeeded ?? false,
     healthNotes: answers.healthNotes ?? null,
@@ -95,7 +95,6 @@ export function rosterStudent(
       email: row.email,
       event: row.event,
       isAttendingSportsWeek: row.isAttending,
-      isIncomplete: row.isIncomplete,
       class: row.class,
       gender: row.gender,
       program: row.program,

@@ -6,13 +6,14 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asUid } from "@/lib/schemas/common";
 import { classOverview, skillColumns } from "@/lib/assignment/statistics";
 import { filterGroups } from "@/lib/filters/student-filter";
 import { INVITATION_LINK_LABEL, INVITATION_QR_LABEL } from "@/lib/invitations/invitation-link";
 import type { RosterStudent } from "@/lib/students/roster";
 import { rosterStudent } from "@/test/roster-student";
-import { ATTENDANCE_LABELS } from "@/lib/registration/answer-labels";
-import { ClassCards, NO_ANSWER_LABEL } from "./class-cards";
+import { ATTENDANCE_LABELS, INCOMPLETE_REGISTRATION_HINT } from "@/lib/registration/answer-labels";
+import { ClassCards, NO_ANSWER_LABEL, REGENERATE_LABEL } from "./class-cards";
 
 const PROGRAMS = ["Ski", "Snowboard"];
 const SKILL_LEVELS = ["Anfänger", "Profi"];
@@ -32,15 +33,15 @@ let seed = 0;
 function student(overrides: Partial<Omit<RosterStudent, "record">> = {}): RosterStudent {
   seed += 1;
   return rosterStudent({
-    id: `record${seed}`,
-    studentUid: `uidStudent${seed}`,
+    id: asUid(`record${seed}`),
+    studentUid: asUid(`uidStudent${seed}`),
     firstName: `Vorname${seed}`,
     lastName: `Nachname${seed}`,
     ...overrides,
   });
 }
 
-const nameOf = (person: RosterStudent) => `${person.lastName} ${person.firstName}`;
+const nameOf = (person: RosterStudent) => `${person.firstName} ${person.lastName}`;
 
 function setup(students: RosterStudent[] = [], removableEventSeriesId: string | null = null) {
   render(
@@ -151,6 +152,51 @@ describe("ClassCards — the students", () => {
     expect(listIn("5AHIF", "Teilnahme").getByText(nameOf(skier))).toBeInTheDocument();
     expect(listIn("5AHIF", "Teilnahme").queryByText(nameOf(boarder))).not.toBeInTheDocument();
   });
+
+  /**
+   * Labelled rather than hidden, so a teacher who cannot see the icon is still told which
+   * registrations are still owed answers (US-13).
+   */
+  it("marks a student whose registration is still missing answers", () => {
+    const unfinished = student({ isIncomplete: true });
+    const finished = student({ isIncomplete: false });
+    setup([unfinished, finished]);
+
+    const marks = listIn("5AHIF", "Teilnahme").getAllByLabelText(INCOMPLETE_REGISTRATION_HINT);
+
+    expect(marks).toHaveLength(1);
+    expect(marks[0].closest("li")).toHaveTextContent(nameOf(unfinished));
+  });
+
+  /** Before the name, so a column of tags can be read down for the ones still to chase. */
+  it("puts the mark ahead of the name", () => {
+    const unfinished = student({ isIncomplete: true });
+    setup([unfinished]);
+
+    const mark = listIn("5AHIF", "Teilnahme").getByLabelText(INCOMPLETE_REGISTRATION_HINT);
+    const name = listIn("5AHIF", "Teilnahme").getByText(nameOf(unfinished));
+
+    expect(mark.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("leaves a finished registration unmarked", () => {
+    setup([student({ isIncomplete: false })]);
+
+    expect(
+      listIn("5AHIF", "Teilnahme").queryByLabelText(INCOMPLETE_REGISTRATION_HINT),
+    ).not.toBeInTheDocument();
+  });
+
+  /** The icon says it to a screen reader; this says the same to everyone else. */
+  it("says on hover what the mark means", async () => {
+    setup([student({ isIncomplete: true })]);
+
+    await userEvent.hover(
+      listIn("5AHIF", "Teilnahme").getByLabelText(INCOMPLETE_REGISTRATION_HINT),
+    );
+
+    expect(await screen.findByText(INCOMPLETE_REGISTRATION_HINT)).toBeInTheDocument();
+  });
 });
 
 describe("ClassCards — the figures", () => {
@@ -161,14 +207,14 @@ describe("ClassCards — the figures", () => {
       within(figures("5AHIF"))
         .getAllByRole("columnheader")
         .map((header) => header.textContent),
-    ).toEqual(["Männlich", "Weiblich", "Gesamt", "Teilnahme"]);
-    expect(cellsOf(figures("5AHIF"))).toEqual(["1", "0", "1", "50 %"]);
+    ).toEqual(["Männlich", "Weiblich", "Divers", "Gesamt", "Teilnahme"]);
+    expect(cellsOf(figures("5AHIF"))).toEqual(["1", "0", "0", "1", "50 %"]);
   });
 
   it("answers a class nobody registered for with zero, not with a division by zero", () => {
     setup([student({ class: "5AHIF" })]);
 
-    expect(cellsOf(figures("5BHIF"))).toEqual(["0", "0", "0", "0 %"]);
+    expect(cellsOf(figures("5BHIF"))).toEqual(["0", "0", "0", "0", "0 %"]);
   });
 
   it("describes the whole class while the toggle is off, however the filter narrows the list", async () => {
@@ -176,7 +222,7 @@ describe("ClassCards — the figures", () => {
 
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Programm: Ski" }));
 
-    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "2", "2", "100 %"]);
+    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "2", "0", "2", "100 %"]);
   });
 
   it("counts only what the filter leaves once the toggle is on", async () => {
@@ -185,7 +231,7 @@ describe("ClassCards — the figures", () => {
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Programm: Ski" }));
     await userEvent.click(card("5AHIF").getByRole("button", { name: "5AHIF: Gefiltert" }));
 
-    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "1", "1", "100 %"]);
+    expect(cellsOf(figures("5AHIF"))).toEqual(["0", "1", "0", "1", "100 %"]);
   });
 
   it("lays the matrix out with the programs across and the skill levels down", () => {
@@ -232,7 +278,7 @@ describe("ClassCards — folding", () => {
 
     await userEvent.click(card("5AHIF").getByRole("button", { name: "Details zu 5AHIF" }));
 
-    expect(card("5AHIF").getByText("5AHIF: 0")).toBeInTheDocument();
+    expect(card("5AHIF").getByText("5AHIF")).toBeInTheDocument();
     expect(card("5AHIF").queryByRole("table")).not.toBeInTheDocument();
     expect(card("5BHIF").getAllByRole("table").length).toBeGreaterThan(0);
   });
@@ -314,6 +360,8 @@ describe("ClassCards — the invitation controls", () => {
     tokenFor: vi.fn(() => "tok" as string | null),
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
   };
 
   beforeEach(() => {
@@ -321,6 +369,7 @@ describe("ClassCards — the invitation controls", () => {
     invitations.tokenFor.mockReturnValue("tok");
     invitations.linkFor.mockResolvedValue("tok");
     invitations.regenerate.mockResolvedValue("fresh");
+    invitations.isOpenFor.mockReturnValue(false);
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
       configurable: true,
@@ -353,6 +402,28 @@ describe("ClassCards — the invitation controls", () => {
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/join/tok`);
   });
 
+  /** Copying is a teacher about to hand the link out, so a closed class opens to receive it. */
+  it("opens a closed class when its link is copied", async () => {
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren` }),
+    );
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", true);
+  });
+
+  it("leaves an already open class alone when its link is copied", async () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: `${INVITATION_LINK_LABEL} für 5AHIF kopieren` }),
+    );
+
+    expect(invitations.setOpen).not.toHaveBeenCalled();
+  });
+
   /** Generating the first link opens the series, so the control is offered before one exists. */
   it("offers the copy control to a class that has no link yet", () => {
     invitations.tokenFor.mockReturnValue(null);
@@ -368,7 +439,7 @@ describe("ClassCards — the invitation controls", () => {
 
     await userEvent.click(
       card("5AHIF").getByRole("button", {
-        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+        name: `${REGENERATE_LABEL} für 5AHIF`,
       }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
@@ -384,7 +455,7 @@ describe("ClassCards — the invitation controls", () => {
 
     expect(
       card("5AHIF").queryByRole("button", {
-        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+        name: `${REGENERATE_LABEL} für 5AHIF`,
       }),
     ).not.toBeInTheDocument();
   });
@@ -410,18 +481,183 @@ describe("ClassCards — the invitation controls", () => {
   });
 });
 
+/**
+ * A class's own toggle is the only thing that closes its window (US-43): copying and showing
+ * above may open a closed class, but neither ever closes one.
+ */
+describe("ClassCards — the open/close toggle", () => {
+  const invitations = {
+    tokenFor: vi.fn(() => "tok" as string | null),
+    linkFor: vi.fn(async () => "tok"),
+    regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    invitations.tokenFor.mockReturnValue("tok");
+    invitations.isOpenFor.mockReturnValue(false);
+    invitations.setOpen.mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn() },
+      configurable: true,
+    });
+  });
+
+  function setupWith(controls: unknown = invitations) {
+    render(
+      <ClassCards
+        rows={classOverview([], CLASSES, COLUMNS)}
+        programs={PROGRAMS}
+        skillLevels={SKILL_LEVELS}
+        columns={COLUMNS}
+        filterGroups={FILTERS}
+        invitations={controls as never}
+        removableEventSeriesId={null}
+        eventSeriesName="Wintersportwoche 2026"
+      />,
+    );
+  }
+
+  it("offers 'Registrierung öffnen' on a closed class", () => {
+    setupWith();
+
+    expect(
+      card("5AHIF").getByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers 'Registrierung schließen' on an open class, and not the opening control", () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    expect(
+      card("5AHIF").getByRole("button", { name: "Registrierung schließen für 5AHIF" }),
+    ).toBeInTheDocument();
+    expect(
+      card("5AHIF").queryByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens only the class it was pressed on", async () => {
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    );
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", true);
+    expect(invitations.setOpen).not.toHaveBeenCalledWith("5BHIF", expect.anything());
+  });
+
+  it("closes an open class", async () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: "Registrierung schließen für 5AHIF" }),
+    );
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", false);
+  });
+
+  it("says what the server said when the toggle is refused", async () => {
+    invitations.setOpen.mockRejectedValue(new Error("nope"));
+    setupWith();
+
+    await userEvent.click(
+      card("5AHIF").getByRole("button", { name: "Registrierung öffnen für 5AHIF" }),
+    );
+
+    expect(await card("5AHIF").findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("offers no toggle where the series cannot be opened", () => {
+    setupWith(null);
+
+    expect(card("5AHIF").queryByRole("button", { name: /Registrierung/ })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The door in front of the class name says the same thing the header's own door says for a
+ * series (US-44), but for this one class only — it is not moved by any other class in the row.
+ */
+describe("ClassCards — the door in front of the class name", () => {
+  const invitations = {
+    tokenFor: vi.fn(() => "tok" as string | null),
+    linkFor: vi.fn(async () => "tok"),
+    regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn((_className: string) => false),
+    setOpen: vi.fn(async () => {}),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    invitations.tokenFor.mockReturnValue("tok");
+    invitations.isOpenFor.mockReturnValue(false);
+  });
+
+  function setupWith(controls: unknown = invitations) {
+    render(
+      <ClassCards
+        rows={classOverview([], CLASSES, COLUMNS)}
+        programs={PROGRAMS}
+        skillLevels={SKILL_LEVELS}
+        columns={COLUMNS}
+        filterGroups={FILTERS}
+        invitations={controls as never}
+        removableEventSeriesId={null}
+        eventSeriesName="Wintersportwoche 2026"
+      />,
+    );
+  }
+
+  it("reads closed for a class whose window is shut", () => {
+    setupWith();
+
+    expect(
+      card("5AHIF").getByLabelText("Registrierung für Schüler:innen geschlossen"),
+    ).toBeInTheDocument();
+  });
+
+  it("reads open for a class whose window is open, and not another class's", () => {
+    invitations.isOpenFor.mockImplementation((className: string) => className === "5AHIF");
+    setupWith();
+
+    expect(
+      card("5AHIF").getByLabelText("Registrierung für Schüler:innen offen"),
+    ).toBeInTheDocument();
+    expect(
+      card("5BHIF").getByLabelText("Registrierung für Schüler:innen geschlossen"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no door where the series cannot be opened", () => {
+    setupWith(null);
+
+    expect(
+      card("5AHIF").queryByLabelText(/Registrierung für Schüler:innen/),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("ClassCards — showing a link as a QR code", () => {
   const writeText = vi.fn();
   const invitations = {
     tokenFor: vi.fn(() => "tok" as string | null),
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     invitations.tokenFor.mockReturnValue("tok");
     invitations.linkFor.mockResolvedValue("tok");
+    invitations.isOpenFor.mockReturnValue(false);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
   });
 
@@ -471,6 +707,24 @@ describe("ClassCards — showing a link as a QR code", () => {
     expect(writeText).not.toHaveBeenCalled();
   });
 
+  /** Showing the code puts the link in front of a room right away, so a closed class opens. */
+  it("opens a closed class when its code is shown", async () => {
+    setupWith();
+
+    await userEvent.click(showCode());
+
+    expect(invitations.setOpen).toHaveBeenCalledWith("5AHIF", true);
+  });
+
+  it("leaves an already open class alone when its code is shown", async () => {
+    invitations.isOpenFor.mockReturnValue(true);
+    setupWith();
+
+    await userEvent.click(showCode());
+
+    expect(invitations.setOpen).not.toHaveBeenCalled();
+  });
+
   it("takes the surface away again", async () => {
     setupWith();
     await userEvent.click(showCode());
@@ -499,6 +753,8 @@ describe("ClassCards — regenerating asks first", () => {
     tokenFor: vi.fn(() => "tok" as string | null),
     linkFor: vi.fn(async () => "tok"),
     regenerate: vi.fn(async () => "fresh"),
+    isOpenFor: vi.fn(() => false),
+    setOpen: vi.fn(async () => {}),
   };
 
   beforeEach(() => {
@@ -529,7 +785,7 @@ describe("ClassCards — regenerating asks first", () => {
   const press = () =>
     userEvent.click(
       card("5AHIF").getByRole("button", {
-        name: `${INVITATION_LINK_LABEL} für 5AHIF neu erstellen`,
+        name: `${REGENERATE_LABEL} für 5AHIF`,
       }),
     );
 
@@ -558,6 +814,16 @@ describe("ClassCards — regenerating asks first", () => {
     await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
 
     expect(invitations.regenerate).toHaveBeenCalledWith("5AHIF");
+  });
+
+  /** Regenerating replaces the address only; it leaves the window as it found it (US-43, Q11). */
+  it("leaves the class's open state alone when regenerating", async () => {
+    setupWith();
+    await press();
+
+    await userEvent.click(screen.getByRole("button", { name: "Neu erstellen" }));
+
+    expect(invitations.setOpen).not.toHaveBeenCalled();
   });
 
   it("leaves the link alone when the teacher backs out", async () => {
@@ -652,6 +918,6 @@ describe("ClassCards — a student who has not answered", () => {
 
     const group = screen.getByRole("group", { name: "5AHIF" });
     expect(within(group).getByText(NO_ANSWER_LABEL)).toBeInTheDocument();
-    expect(within(group).getByRole("button", { name: "Muster Anna" })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Anna Muster" })).toBeInTheDocument();
   });
 });

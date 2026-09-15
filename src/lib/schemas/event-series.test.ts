@@ -11,12 +11,20 @@ const validEventSeries = {
   name: "Wintersportwoche 2026",
   nameKey: "wintersportwoche 2026",
   isArchived: false,
-  isOpenToStudents: false,
   hasRegistrations: false,
   position: 0,
-  events: ["Woche 1"],
-  classOptions: ["3AHIT"],
-  programs: [{ name: "Ski", requiredEquipment: ["Helm"] }],
+  events: [
+    {
+      name: "Woche 1",
+      programs: [],
+      skillLevels: [],
+      seasonPassOptions: [],
+      busPickupPoints: [],
+      foodOptions: [],
+    },
+  ],
+  classOptions: [{ name: "3AHIT", teacherUids: [], isOpenToStudents: false }],
+  programs: [{ name: "Ski", requiredEquipment: [{ name: "Helm", isRentable: true }] }],
   skillLevels: ["Keine Vorkenntnisse"],
   seasonPassOptions: ["Saisonkarte"],
   busPickupPoints: ["Dornbirn"],
@@ -32,23 +40,10 @@ describe("eventSeriesSchema", () => {
     expect(eventSeriesSchema.safeParse({ ...validEventSeries, name: "" }).success).toBe(false);
   });
 
-  it.each(["isArchived", "isOpenToStudents", "hasRegistrations"])(
-    "requires %s to be a boolean",
-    (field) => {
-      expect(eventSeriesSchema.safeParse({ ...validEventSeries, [field]: "yes" }).success).toBe(
-        false,
-      );
-    },
-  );
-
-  // A series stored before the flag existed is not open, which is what a teacher would expect of
-  // one they have not touched since (US-19).
-  it("defaults isOpenToStudents to false", () => {
-    const without = Object.fromEntries(
-      Object.entries(validEventSeries).filter(([key]) => key !== "isOpenToStudents"),
+  it.each(["isArchived", "hasRegistrations"])("requires %s to be a boolean", (field) => {
+    expect(eventSeriesSchema.safeParse({ ...validEventSeries, [field]: "yes" }).success).toBe(
+      false,
     );
-
-    expect(eventSeriesSchema.parse(without)).toMatchObject({ isOpenToStudents: false });
   });
 
   it("carries no state field of its own, since what the list shows is derived", () => {
@@ -56,7 +51,6 @@ describe("eventSeriesSchema", () => {
       [
         "id",
         "isArchived",
-        "isOpenToStudents",
         "hasRegistrations",
         "name",
         "nameKey",
@@ -95,7 +89,10 @@ describe("eventSeriesSchema", () => {
 
   it("refuses two events of the same name, since a name is what a registration holds", () => {
     expect(
-      eventSeriesSchema.safeParse({ ...validEventSeries, events: ["Woche 1", "woche 1"] }).success,
+      eventSeriesSchema.safeParse({
+        ...validEventSeries,
+        events: [{ name: "Woche 1" }, { name: "woche 1" }],
+      }).success,
     ).toBe(false);
   });
 });

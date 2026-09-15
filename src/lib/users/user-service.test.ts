@@ -10,7 +10,7 @@ import { ErrorCode } from "@/lib/errors";
 const firestore = new FakeFirestore();
 vi.mock("@/lib/firebase/admin", () => ({ adminDb: firestore }));
 
-const { grantPermissions, SELF_DEMOTION_HINT, NOT_A_TEACHER_HINT } =
+const { grantPermissions, listTeacherCandidates, SELF_DEMOTION_HINT, NOT_A_TEACHER_HINT } =
   await import("@/lib/users/user-service");
 
 const USERS = "users";
@@ -114,5 +114,40 @@ describe("grantPermissions", () => {
     ).rejects.toMatchObject({ code: ErrorCode.ValidationError });
 
     expect(firestore.get(USERS, OTHER)?.permissions).toEqual([]);
+  });
+});
+
+/**
+ * US-38: the class-teachers editor's one read. Never the permissions or the photo — the
+ * editor has no use for either, and a teacher's own record is not this route's to hand out.
+ */
+describe("listTeacherCandidates", () => {
+  it("answers with every teacher, named and addressed, but nothing more", async () => {
+    await expect(listTeacherCandidates()).resolves.toEqual(
+      expect.arrayContaining([
+        { uid: ADMIN, firstName: "T", lastName: ADMIN, email: `${ADMIN}@htldornbirn.at` },
+        { uid: OTHER, firstName: "T", lastName: OTHER, email: `${OTHER}@htldornbirn.at` },
+      ]),
+    );
+    const admin = (await listTeacherCandidates()).find((candidate) => candidate.uid === ADMIN);
+    expect(admin).not.toHaveProperty("permissions");
+    expect(admin).not.toHaveProperty("photo");
+  });
+
+  it("leaves a student off the list", async () => {
+    firestore.seed(USERS, STUDENT, { email: STUDENT, accountType: "student", permissions: [] });
+
+    const uids = (await listTeacherCandidates()).map((candidate) => candidate.uid);
+
+    expect(uids).not.toContain(STUDENT);
+  });
+
+  it("skips a record that fails to parse rather than failing the whole list", async () => {
+    firestore.seed(USERS, "uidGhost", { accountType: "teacher", permissions: [] });
+
+    const uids = (await listTeacherCandidates()).map((candidate) => candidate.uid);
+
+    expect(uids).toEqual(expect.arrayContaining([ADMIN, OTHER]));
+    expect(uids).not.toContain("uidGhost");
   });
 });

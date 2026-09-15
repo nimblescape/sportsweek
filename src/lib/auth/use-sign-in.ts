@@ -16,7 +16,7 @@ import {
 } from "firebase/auth";
 import { auth, createMicrosoftAuthProvider } from "@/lib/firebase/client";
 import { ROUTES, homeFor, safeDestination } from "@/lib/routes";
-import { accountTypeSchema } from "@/lib/schemas/user";
+import { accountTypeSchema, type AccountType } from "@/lib/schemas/user";
 
 const ACCOUNT_NOT_ENABLED = "Dieses Konto ist für Sportsweek nicht freigeschaltet.";
 const SIGN_IN_FAILED = "Anmelden fehlgeschlagen. Bitte versuchen Sie es erneut.";
@@ -46,6 +46,8 @@ export type SignInSession = {
   destination: string;
   /** `microsoft.com` for a real sign-in, `custom` for an impersonated one. */
   signInProvider: string | null;
+  /** Null where provisioning answered with something this build does not recognise. */
+  accountType: AccountType | null;
 };
 
 /**
@@ -120,6 +122,7 @@ export function useSignIn() {
             role.success ? homeFor(role.data) : ROUTES.appRoot,
           ),
           signInProvider,
+          accountType: role.success ? role.data : null,
         });
       } catch {
         setChecking(false);

@@ -8,15 +8,17 @@ import type { DocumentReference } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { commitInChunks, type BatchOperation } from "@/lib/firebase/batch";
 import { COLLECTIONS } from "@/lib/schemas/collections";
+import { classAssignmentsSchema, type ClassAssignment } from "@/lib/schemas/invited-teacher";
 import type { Registration } from "@/lib/schemas/registration";
 import { accountTypeSchema, userSchema, type User } from "@/lib/schemas/user";
 // By the aliased specifier, not "./sign-in-policy": next.config.ts swaps this module for a
 // build with a fake login, and the swap matches how it is named rather than where it lives.
 import { refuseSignIn } from "@/lib/auth/sign-in-policy";
+import { applyClassAssignments } from "./class-assignments";
 import { permissionsSchema, type Permission } from "./permissions";
 import { fetchEntraName, fetchEntraPhoto } from "./graph";
 import { localTimestamp, LOGIN_TIME_FIELD } from "./login-time";
-import { accountTypeFromEmail } from "./school-email";
+import { accountTypeFromEmail, invitationKey } from "./school-email";
 
 export type EntraClaims = {
   uid: string;
@@ -126,10 +128,7 @@ export async function provisionUser(
   if (!derivedAccountType) return { ok: false, reason: "unsupported-domain" };
 
   // Whatever else this deployment refuses. Production refuses nothing here.
-  const refusal = refuseSignIn({
-    accountType: derivedAccountType,
-    signInProvider: claims.firebase?.sign_in_provider,
-  });
+  const refusal = refuseSignIn({ signInProvider: claims.firebase?.sign_in_provider });
   if (refusal) return { ok: false, ...refusal };
 
   const localPart = email.slice(0, email.indexOf("@"));
@@ -179,15 +178,20 @@ export async function provisionUser(
     // Nobody is granted anything by signing in — except where the school left an invitation at
     // this address, which is how a purged school gets its first administrators (US-2). Their
     // accounts are the directory's to create, so a record cannot be keyed by a uid until now.
-    const invitationRef = adminDb.collection(COLLECTIONS.invitedTeachers).doc(email);
+    const invitationRef = adminDb.collection(COLLECTIONS.invitedTeachers).doc(invitationKey(email));
     const invitation = await invitationRef.get();
+    let classAssignments: ClassAssignment[] = [];
     if (invitation.exists) {
       const invited = permissionsSchema.safeParse(invitation.data()?.permissions);
       permissions = invited.success ? invited.data : [];
+      const assigned = classAssignmentsSchema.safeParse(invitation.data()?.classAssignments);
+      classAssignments = assigned.success ? assigned.data : [];
     }
     await ref.set({ firstName, lastName, email, accountType, photo, permissions });
     // Claimed once: a second sign-in finds nothing waiting.
     if (invitation.exists) await invitationRef.delete();
+    // The other half of what was waiting, beside the permissions (US-40).
+    if (classAssignments.length > 0) await applyClassAssignments(claims.uid, classAssignments);
   }
 
   // Recorded only now, once the sign-in is one: a refusal above returns without writing.

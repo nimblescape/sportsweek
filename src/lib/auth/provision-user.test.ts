@@ -32,6 +32,7 @@ const collection = vi.fn((name: string) =>
 );
 const fetchEntraName = vi.fn();
 const fetchEntraPhoto = vi.fn();
+const applyClassAssignments = vi.fn();
 
 // Nobody is expected, unless a test says otherwise.
 invitationGet.mockResolvedValue({ exists: false, data: () => undefined });
@@ -56,6 +57,7 @@ vi.mock("@/lib/firebase/admin", () => ({
 }));
 
 vi.mock("@/lib/auth/graph", () => ({ fetchEntraName, fetchEntraPhoto }));
+vi.mock("@/lib/auth/class-assignments", () => ({ applyClassAssignments }));
 
 // Whatever else a deployment refuses. Production refuses nothing, so the tests below say so
 // explicitly rather than leaning on which module the build happens to resolve.
@@ -100,41 +102,39 @@ describe("the deployment's own sign-in policy", () => {
   });
 
   it("refuses the sign-in the policy refuses, and writes nothing", async () => {
-    refuseSignIn.mockReturnValue({ reason: "students-excluded", message: "Nur Lehrpersonen." });
+    refuseSignIn.mockReturnValue({ reason: "untrusted-provider", message: "Nur über Office 365." });
 
     const result = await provisionUser({ ...studentClaims, ...ENTRA });
 
     expect(result).toEqual({
       ok: false,
-      reason: "students-excluded",
-      message: "Nur Lehrpersonen.",
+      reason: "untrusted-provider",
+      message: "Nur über Office 365.",
     });
     expect(docSet).not.toHaveBeenCalled();
   });
 
   // A sign-in that was turned away is not a sign-in, so the record of one would be untrue.
   it("records no sign-in for somebody the policy turned away", async () => {
-    refuseSignIn.mockReturnValue({ reason: "students-excluded", message: "Nur Lehrpersonen." });
+    refuseSignIn.mockReturnValue({ reason: "untrusted-provider", message: "Nur über Office 365." });
 
     await provisionUser({ ...studentClaims, ...ENTRA });
 
     expect(loginAdd).not.toHaveBeenCalled();
   });
 
-  // The role has been derived by then, so the policy never has to parse an address itself.
-  it("asks with the derived role and the provider Firebase reported", async () => {
+  // Firebase sets it during the token exchange, so the policy decides on something no caller
+  // could have asserted for itself.
+  it("asks with the provider Firebase reported", async () => {
     await provisionUser({ ...studentClaims, ...ENTRA });
 
-    expect(refuseSignIn).toHaveBeenCalledWith({
-      accountType: "student",
-      signInProvider: "microsoft.com",
-    });
+    expect(refuseSignIn).toHaveBeenCalledWith({ signInProvider: "microsoft.com" });
   });
 
   it("passes on an impersonated provider unchanged, so the policy can tell them apart", async () => {
     await provisionUser({ ...studentClaims, ...IMPERSONATED });
 
-    expect(refuseSignIn).toHaveBeenCalledWith({ accountType: "student", signInProvider: "custom" });
+    expect(refuseSignIn).toHaveBeenCalledWith({ signInProvider: "custom" });
   });
 
   it("provisions as usual when nothing is refused", async () => {
@@ -264,6 +264,40 @@ describe("provisionUser", () => {
 
     expect(result).toMatchObject({ ok: true, user: { permissions: [] } });
     expect(invitationDelete).not.toHaveBeenCalled();
+    expect(applyClassAssignments).not.toHaveBeenCalled();
+  });
+
+  /** The other half of what an invitation may leave waiting, beside the permissions (US-40). */
+  it("claims the class assignments an invitation was left holding", async () => {
+    invitationGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        permissions: [],
+        classAssignments: [{ eventSeriesId: "s1", class: "2aWI" }],
+      }),
+    });
+
+    await provisionUser(teacherClaims);
+
+    expect(applyClassAssignments).toHaveBeenCalledWith("firebase-uid-1", [
+      { eventSeriesId: "s1", class: "2aWI" },
+    ]);
+  });
+
+  it("claims nothing when the invitation carries no class assignment", async () => {
+    invitationGet.mockResolvedValue({ exists: true, data: () => ({ permissions: [] }) });
+
+    await provisionUser(teacherClaims);
+
+    expect(applyClassAssignments).not.toHaveBeenCalled();
+  });
+
+  it("claims nothing for somebody signing in again", async () => {
+    existingRecord({ accountType: "teacher", permissions: [] });
+
+    await provisionUser(teacherClaims);
+
+    expect(applyClassAssignments).not.toHaveBeenCalled();
   });
 
   /** An invitation is for a first sign-in; somebody who already has a record is past that. */

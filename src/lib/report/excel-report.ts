@@ -17,11 +17,10 @@ import type { RosterStudent } from "@/lib/students/roster";
 export const OVERVIEW_SHEET = "Overview";
 export const REPORT_SHEET = "Report";
 
-/** The three the report's master line always shows, each a column of its own here. */
+/** The two the report's master line always shows, each a column of its own here. */
 const IDENTITY_COLUMNS: readonly { label: string; valueOf: (of: RosterStudent) => string }[] = [
   { label: "Vorname", valueOf: (student) => student.firstName },
   { label: "Nachname", valueOf: (student) => student.lastName },
-  { label: "E-Mail", valueOf: (student) => student.email },
 ];
 
 const TITLE_ROW = 6;
@@ -43,8 +42,13 @@ export function reportTable(
   fields: readonly ReportField[],
 ): ReportTable {
   return {
-    header: [...IDENTITY_COLUMNS.map((column) => column.label), ...fields.map((it) => it.label)],
-    rows: students.map((student) => [
+    header: [
+      "Nr.",
+      ...IDENTITY_COLUMNS.map((column) => column.label),
+      ...fields.map((it) => it.label),
+    ],
+    rows: students.map((student, index) => [
+      String(index + 1),
       ...IDENTITY_COLUMNS.map((column) => column.valueOf(student)),
       ...fields.map((field) => field.valueOf(student.record)),
     ]),
