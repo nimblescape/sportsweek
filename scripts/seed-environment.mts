@@ -525,17 +525,25 @@ async function importAccounts(auth: Auth, accounts: readonly SeededAccount[]): P
  * `classTeacherOf` names classes (US-40), matched against every series seeded so far rather than
  * one named in advance — the same class name in two series is two different classes, and a name
  * held by both leaves the teacher assigned to both.
+ *
+ * Matched against `configSeries` — the classes `scripts/seed.yml` names — rather than
+ * `eventSeries[…].classOptions` as actually written: production bare-seeds its first series with
+ * no classes at all (US-33), so the written list is empty there and would leave every invitation
+ * with nothing. The assignment still belongs with the invitation regardless (US-40); the class
+ * merely does not exist until a teacher adds it, and `applyClassAssignments` already skips an
+ * entry naming one that never turns up.
  */
 async function inviteTeachers(
   db: Firestore,
   teachers: readonly SeedUser[],
   eventSeries: readonly EventSeries[],
+  configSeries: readonly SeedEventSeries[],
 ): Promise<void> {
   await Promise.all(
     teachers.map((person) => {
       const classNames = new Set(person.classTeacherOf ?? []);
-      const classAssignments = eventSeries.flatMap((series) =>
-        series.classOptions
+      const classAssignments = eventSeries.flatMap((series, index) =>
+        configSeries[index].classOptions
           .filter((option) => classNames.has(option.name))
           .map((option) => ({ eventSeriesId: series.id, class: option.name })),
       );
@@ -727,6 +735,7 @@ async function main(): Promise<void> {
   // is matched into every one of them (US-40) — an invitation left for only the first would
   // otherwise never see that the rest exist.
   const created: EventSeries[] = [];
+  const createdFrom: SeedEventSeries[] = [];
   for (const [index, series] of config.eventSeries.entries()) {
     if (index > 0 && !seedsStudents) continue;
 
@@ -734,9 +743,10 @@ async function main(): Promise<void> {
     const one = await createEventSeries(db, data, index, seedsStudents);
     console.log(`Created the event series "${one.name}".`);
     created.push(one);
+    createdFrom.push(series);
   }
 
-  await inviteTeachers(db, config.users, created);
+  await inviteTeachers(db, config.users, created, createdFrom);
   console.log(`Invited ${config.users.map((one) => one.email).join(", ")}.`);
 
   // Production is done here, and so is a test environment asked for the same bare state.
