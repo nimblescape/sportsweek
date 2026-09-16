@@ -23,11 +23,10 @@ jobs:
         # attacker-controlled text and would otherwise be pasted straight into the shell.
         #
         # `main` is the only accepted source, and code scanning now depends on that. CodeQL
-        # runs as GitHub's default setup, which analyses `main` and pull requests into it and
-        # nothing else. That covers production only for as long as production is a snapshot of
-        # main -- so a branch admitted here that has not been through main would reach users
-        # unscanned. Re-opening this to another pattern means moving CodeQL back to a workflow
-        # that watches production too.
+        # (see codeql.yml) analyses `main` and pull requests into it and nothing else. That
+        # covers production only for as long as production is a snapshot of main -- so a
+        # branch admitted here that has not been through main would reach users unscanned.
+        # Re-opening this to another pattern means having CodeQL watch production too.
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: |
