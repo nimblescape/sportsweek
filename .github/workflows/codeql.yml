@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+#
+
+name: CodeQL
+
+# An explicit workflow rather than code scanning's default setup: default setup does not
+# analyse pull requests opened by Dependabot, so its "Analyze" checks -- required by the
+# branch ruleset -- never reported and those pull requests stayed pending forever. Dependabot's
+# branches live in this repository rather than a fork, so a workflow with its own `pull_request`
+# trigger runs for them like any other pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 4 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Matches the two configurations the ruleset requires by name: "Analyze (actions)" and
+        # "Analyze (javascript-typescript)".
+        language: [actions, javascript-typescript]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
