@@ -14,8 +14,8 @@ import { refuseSignIn } from "@/lib/auth/sign-in-policy";
  * which is why it is the safe one.
  */
 describe("the production sign-in policy", () => {
-  it("admits the school's own directory", () => {
-    expect(refuseSignIn({ signInProvider: "microsoft.com" })).toBeNull();
+  it("admits the school's own directory", async () => {
+    await expect(refuseSignIn({ signInProvider: "microsoft.com" })).resolves.toBeNull();
   });
 
   /**
@@ -26,23 +26,23 @@ describe("the production sign-in policy", () => {
    */
   it.each(["password", "google.com", "anonymous", "phone"])(
     "refuses a sign-in through %s, whatever address it asserts",
-    (signInProvider) => {
-      expect(refuseSignIn({ signInProvider })).toMatchObject({
+    async (signInProvider) => {
+      await expect(refuseSignIn({ signInProvider })).resolves.toMatchObject({
         reason: "untrusted-provider",
       });
     },
   );
 
   /** Firebase sets it on every token it issues, so its absence is not a case to make room for. */
-  it("refuses a sign-in that names no provider at all", () => {
-    expect(refuseSignIn({})).toMatchObject({
+  it("refuses a sign-in that names no provider at all", async () => {
+    await expect(refuseSignIn({})).resolves.toMatchObject({
       reason: "untrusted-provider",
     });
   });
 
   /** Only a fake login mints one, and production has none — see next.config.ts. */
-  it("refuses a token this project's own server signed", () => {
-    expect(refuseSignIn({ signInProvider: "custom" })).toMatchObject({
+  it("refuses a token this project's own server signed", async () => {
+    await expect(refuseSignIn({ signInProvider: "custom" })).resolves.toMatchObject({
       reason: "untrusted-provider",
     });
   });

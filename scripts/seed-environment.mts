@@ -523,6 +523,19 @@ async function inviteTeachers(
 }
 
 /**
+ * The addresses staging's own sign-in policy admits (US-2). Called for development and staging
+ * only — never for production, where the collection is left holding nothing at all, which is
+ * the same as refusing everybody.
+ */
+async function provisionStagingLogins(db: Firestore, emails: readonly string[]): Promise<void> {
+  await Promise.all(
+    emails.map((email) =>
+      db.collection(COLLECTIONS.stagingLogins).doc(invitationKey(email)).set({}),
+    ),
+  );
+}
+
+/**
  * Registers a class list of students into one event series, split evenly across whatever
  * programs it has (US-21) — a name-matched split would stop the run over a rename this script
  * has no reason to care about. `taken` is shared across every series seeded in the same run, so
@@ -707,6 +720,11 @@ async function main(): Promise<void> {
 
   await inviteTeachers(db, config.users, created);
   console.log(`Invited ${config.users.map((one) => one.email).join(", ")}.`);
+
+  if (isTest) {
+    await provisionStagingLogins(db, config.stagingLogins);
+    console.log(`Admitted to staging: ${config.stagingLogins.join(", ") || "nobody"}.`);
+  }
 
   // Production is done here, and so is a test environment asked for the same bare state.
   if (!seedsStudents) return;

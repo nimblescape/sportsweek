@@ -263,6 +263,54 @@ describe("/invitedTeachers/{email}", () => {
   });
 });
 
+/**
+ * Which staff addresses a non-production deployment's own sign-in policy admits. Nothing in
+ * this codebase writes it — an administrator maintains it by hand in Firestore — so these
+ * tests only need to show that no client reaches it either way.
+ */
+describe("/stagingLogins/{email}", () => {
+  const STAGING_LOGINS = "stagingLogins";
+  const ADDRESS = "hannes.stauss@htldornbirn.at";
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection(STAGING_LOGINS).doc(ADDRESS).set({});
+    });
+  });
+
+  it("denies a teacher reading one, even the one holding editUsers", async () => {
+    await seedUser(CAROL, admin());
+
+    await assertFails(signInAs(CAROL).collection(STAGING_LOGINS).doc(ADDRESS).get());
+  });
+
+  it("denies a student reading one", async () => {
+    await seedUser(ALICE, student());
+
+    await assertFails(signInAs(ALICE).collection(STAGING_LOGINS).doc(ADDRESS).get());
+  });
+
+  it("denies querying them, so who is allowed cannot be enumerated", async () => {
+    await seedUser(CAROL, admin());
+
+    await assertFails(signInAs(CAROL).collection(STAGING_LOGINS).get());
+  });
+
+  it("denies writing one, even for an admin", async () => {
+    await seedUser(CAROL, admin());
+
+    await assertFails(
+      signInAs(CAROL).collection(STAGING_LOGINS).doc("someone@htldornbirn.at").set({}),
+    );
+  });
+
+  it("denies deleting one", async () => {
+    await seedUser(CAROL, admin());
+
+    await assertFails(signInAs(CAROL).collection(STAGING_LOGINS).doc(ADDRESS).delete());
+  });
+});
+
 describe("/users/{uid} create and delete", () => {
   it("denies a student creating a user document", async () => {
     await seedUser(ALICE, student());
