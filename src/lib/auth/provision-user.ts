@@ -128,7 +128,7 @@ export async function provisionUser(
   if (!derivedAccountType) return { ok: false, reason: "unsupported-domain" };
 
   // Whatever else this deployment refuses. Production refuses nothing here.
-  const refusal = refuseSignIn({ signInProvider: claims.firebase?.sign_in_provider });
+  const refusal = await refuseSignIn({ signInProvider: claims.firebase?.sign_in_provider, email });
   if (refusal) return { ok: false, ...refusal };
 
   const localPart = email.slice(0, email.indexOf("@"));

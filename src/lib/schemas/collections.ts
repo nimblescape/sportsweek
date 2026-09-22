@@ -47,6 +47,16 @@ export const COLLECTIONS = {
    * (US-2, US-31). Closed to every client; drained by provisionUser.
    */
   invitedTeachers: "invitedTeachers",
+  /**
+   * Which addresses staging's own sign-in policy admits — a test environment carries real
+   * people's data, so it is narrowed to a named few rather than the whole directory. Keyed by
+   * the address itself; there is no uid before a first sign-in, and unlike `invitedTeachers` a
+   * document here is never claimed or deleted. Closed to every client and to every Route Handler
+   * alike: only scripts/seed-environment.mts writes it, into development and staging and never
+   * into production, where it stays empty and unread — the fake sign-in policy that reads it is
+   * built out of a production bundle.
+   */
+  stagingLogins: "stagingLogins",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

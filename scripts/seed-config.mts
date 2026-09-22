@@ -46,6 +46,9 @@ export type SeedEventSeries = z.infer<typeof seedEventSeriesSchema>;
 const seedConfigSchema = z.object({
   users: z.array(seedUserSchema),
   eventSeries: z.array(seedEventSeriesSchema),
+  // Development and staging only (US-2); an empty list leaves that environment's staging
+  // sign-in refusing everybody, which is the safe default rather than an error.
+  stagingLogins: z.array(z.email()).default([]),
 });
 export type SeedConfig = z.infer<typeof seedConfigSchema>;
 
