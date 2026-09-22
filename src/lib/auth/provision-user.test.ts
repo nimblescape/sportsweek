@@ -128,13 +128,19 @@ describe("the deployment's own sign-in policy", () => {
   it("asks with the provider Firebase reported", async () => {
     await provisionUser({ ...studentClaims, ...ENTRA });
 
-    expect(refuseSignIn).toHaveBeenCalledWith({ signInProvider: "microsoft.com" });
+    expect(refuseSignIn).toHaveBeenCalledWith({
+      signInProvider: "microsoft.com",
+      email: studentClaims.email,
+    });
   });
 
   it("passes on an impersonated provider unchanged, so the policy can tell them apart", async () => {
     await provisionUser({ ...studentClaims, ...IMPERSONATED });
 
-    expect(refuseSignIn).toHaveBeenCalledWith({ signInProvider: "custom" });
+    expect(refuseSignIn).toHaveBeenCalledWith({
+      signInProvider: "custom",
+      email: studentClaims.email,
+    });
   });
 
   it("provisions as usual when nothing is refused", async () => {

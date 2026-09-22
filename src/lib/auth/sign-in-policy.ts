@@ -10,6 +10,8 @@ export type SignInRefusal = { reason: string; message: string };
 export type SignInAttempt = {
   /** Set by Firebase during the token exchange, so a caller cannot claim it. */
   signInProvider?: string;
+  /** Unused here; a test environment's own policy narrows staff further by it. */
+  email?: string;
 };
 
 /** Entra ID, the school's own directory, and in production the only identity that counts. */
@@ -32,7 +34,12 @@ const UNTRUSTED_PROVIDER: SignInRefusal = {
  *
  * `next.config.ts` swaps the module for the test-environment rules where they apply — which
  * keeps `provisionUser` free of conditions that can only ever be false in production.
+ *
+ * Async because the test-environment policy this is swapped for reads a database; production
+ * needs none of it, but the two must answer the same shape.
  */
-export function refuseSignIn({ signInProvider }: SignInAttempt): SignInRefusal | null {
+export async function refuseSignIn({
+  signInProvider,
+}: SignInAttempt): Promise<SignInRefusal | null> {
   return signInProvider === ENTRA_ID ? null : UNTRUSTED_PROVIDER;
 }

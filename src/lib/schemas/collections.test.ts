@@ -27,6 +27,9 @@ describe("COLLECTIONS", () => {
         // their accounts are the directory's to create, so there is no uid to key a record by
         // until the first sign-in claims one (US-2, US-31).
         "invitedTeachers",
+        // Which staff addresses a non-production deployment admits, kept apart from the
+        // directory itself since a test environment sees only a named few.
+        "stagingLogins",
       ].sort(),
     );
   });

@@ -5,11 +5,43 @@
  */
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import Image from "next/image";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+
+/** A blank line starts a new paragraph; a single one is a line break within it. */
+const PARAGRAPH_BREAK = "\n\n";
+const LINE_BREAK = "\n";
+const IS_URL = /^https?:\/\/\S+$/;
+
+/** A URL an error names is something to follow, not something wrong — so it reads as a link. */
+function renderMessage(text: string): ReactNode {
+  return text.split(PARAGRAPH_BREAK).map((paragraph, paragraphIndex) => {
+    const lines = paragraph.split(LINE_BREAK);
+    return (
+      <p key={paragraphIndex}>
+        {lines.map((line, lineIndex) => (
+          <Fragment key={lineIndex}>
+            {IS_URL.test(line) ? (
+              <a href={line} className="block text-blue-600 underline">
+                {line}
+              </a>
+            ) : (
+              line
+            )}
+            {lineIndex < lines.length - 1 &&
+            !IS_URL.test(line) &&
+            !IS_URL.test(lines[lineIndex + 1]) ? (
+              <br />
+            ) : null}
+          </Fragment>
+        ))}
+      </p>
+    );
+  });
+}
 
 /** The frame every sign-in screen shares — what stands inside it is what tells them apart. */
 export function SignInLayout({
@@ -56,9 +88,9 @@ export function SignInLayout({
           ) : null}
         </div>
         {error ? (
-          <p role="alert" className="text-destructive mt-4 text-sm">
-            {error}
-          </p>
+          <div role="alert" className="text-foreground mt-4 space-y-2 text-center text-sm">
+            {renderMessage(error)}
+          </div>
         ) : null}
       </CardContent>
     </Card>

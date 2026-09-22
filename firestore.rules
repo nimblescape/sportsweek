@@ -215,6 +215,21 @@ service cloud.firestore {
     }
 
     /**
+     * Which staff addresses a non-production deployment's own sign-in policy admits (see
+     * fake/sign-in-policy.ts). A test environment carries real people's data, so it narrows the
+     * school's whole directory down to a named few instead of trusting it outright.
+     *
+     * Closed to every client, and unlike `invitedTeachers` above, closed to every Route Handler
+     * too: nothing in this codebase ever writes it. An administrator maintains it by hand,
+     * directly in Firestore, which is what keeps the few names in it from becoming one more
+     * thing application code could be tricked into granting.
+     */
+    match /stagingLogins/{email} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    /**
      * The event series, and with it every list a teacher maintains — its events among them
      * (US-21). Anyone the school issued an account to may read, because a registration selects
      * from those lists (US-11) and the teacher views subscribe to them live. Not anyone signed

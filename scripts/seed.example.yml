@@ -2,6 +2,11 @@
 # Copyright (c) 2026 Hannes Stauss <scalarion@nimblescape.com>
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 
+# Development and staging only — production is never seeded from this list (US-2).
+stagingLogins:
+  - alex.example@example.edu
+  - bailey.example@example.edu
+
 users:
   - firstName: Alex
     lastName: Example
